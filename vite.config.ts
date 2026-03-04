@@ -11,6 +11,10 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       resolve: {
         extensions: ['.tsx', '.ts', '.jsx', '.js']
+      },
+      esbuild: {
+        include: /\.(ts|tsx|js|jsx)$/,
+        exclude: []
       }
     };
 });
