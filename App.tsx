@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
+import SparksTray from './components/sparks/SparksTray';
 import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/geminiService';
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -541,9 +542,12 @@ const handleCreateCircle = async (name: string, description: string) => {
 
     let content: React.ReactNode;
     switch (currentView) {
-      case View.Feed:
-        content = <HomePage data={data} currentUser={currentUser} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} addPost={addPost} onAppreciatePost={handleAppreciatePost} onViewProfile={handleViewProfile} />;
-        break;
+      case View.Feed:content = (<div className="space-y-4"><SparksTray />
+    {content = <HomePage data={data} currentUser={currentUser} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} addPost={addPost} onAppreciatePost={handleAppreciatePost} onViewProfile={handleViewProfile} />;
+        break;}
+  </div>
+);
+        
      case View.People:
   content = <People 
     users={data.users.filter(u => u.id !== currentUser.id)} 
