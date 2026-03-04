@@ -24,7 +24,7 @@ import {
   fetchCircles,
   createCircle,
   fetchUsers,
-} from './firestoreService';
+} from './lib/firestoreService';
 
 // ── Firebase services ─────────────────────────────────────────────────────────
 import {
