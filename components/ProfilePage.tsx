@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { User, ConnectionRequest, Circle, View } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon } from '../constants';
+import SkillDNA from './profile/SkillDNA';
 import { useTranslation } from '../hooks/useTranslation';
 
 interface ProfilePageProps {
@@ -176,6 +177,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                   </div>
               )}
           </div>
+        // Inside the profile render, after the skills section:
+<SkillDNA
+  user={profileUser}
+  profileUid={profileUser._firestoreUid ?? String(profileUser.id)}
+  isOwn={profileUser.id === currentUser.id}
+  currentUserUid={fbUser?.uid}
+  onEndorsed={() => {/* optionally re-fetch user data */}}
+/>
         
         {/* Circles Tile */}
         {userCircles.length > 0 && (
