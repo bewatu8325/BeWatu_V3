@@ -5,7 +5,8 @@ import { LogoIcon, SearchIcon, LoadingIcon, LogoutIcon } from '../../constants';
 import SubscriptionModal from './SubscriptionModal';
 import CandidateDetailView from './CandidateDetailView';
 import DEIDashboard from '../DEIDashboard';
-import TalentPipelines from '../TalentPipelines';
+import { TalentPipeline, DEFAULT_PIPELINE_STAGES } from './recruiter/TalentPipeline';
+import { getPipelineCandidates, movePipelineCandidate,addPipelineNote, schedulePipelineInterview, rejectPipelineCandidate} from '../firestoreService';
 import Footer from '../Footer';
 import ManageJobsView from '../ManageJobsView';
 import ExpandedCandidateView from '../ExpandedCandidateView';
@@ -41,6 +42,8 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateSearchResult | null>(null);
   const [isBlindMode, setIsBlindMode] = useState(false);
   const [expandedCandidateId, setExpandedCandidateId] = useState<number | null>(null);
+  const [candidates, setCandidates] = useState([]);
+  const [isBlindMode, setIsBlindMode] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoadingUsers(true);
@@ -64,6 +67,9 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  useEffect(() => {
+  if (fbUser) getPipelineCandidates(fbUser.uid).then(setCandidates);
+}, [fbUser]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,6 +204,29 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
       default: return null;
     }
   }
+  <TalentPipeline
+  stages={DEFAULT_PIPELINE_STAGES}
+  candidates={candidates}
+  onMoveCandidate={async (id, from, to) => {
+    await movePipelineCandidate(id, to);
+    setCandidates(c => c.map(x => x.id === id ? { ...x, stage: to } : x));
+  }}
+  onAddNote={async (id, note) => {
+    await addPipelineNote(id, note);
+    setCandidates(await getPipelineCandidates(fbUser.uid));
+  }}
+  onScheduleInterview={async (id, date) => {
+    await schedulePipelineInterview(id, date);
+    setCandidates(c => c.map(x => x.id === id ? { ...x, interviewDate: date } : x));
+  }}
+  onRejectCandidate={async (id, reason) => {
+    await rejectPipelineCandidate(id, reason);
+    setCandidates(c => c.map(x => x.id === id ? { ...x, status: 'rejected' } : x));
+  }}
+  onViewProfile={(userId) => handleViewProfile(Number(userId))}
+  isBlindMode={isBlindMode}
+  onToggleBlindMode={() => setIsBlindMode(b => !b)}
+/>
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 flex flex-col">
