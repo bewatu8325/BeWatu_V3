@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogoIcon } from '../../constants';
+import { LogoIcon } from '../constants';
 import Footer from '../Footer';
 
 interface AuthLayoutProps {
