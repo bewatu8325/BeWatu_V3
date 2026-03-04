@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Job, Company } from '../../types';
+import { Job, Company } from '../types';
 import JobEditorModal from './JobEditorModal';
-import { useTranslation } from '../../hooks/useTranslation';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface ManageJobsViewProps {
     jobs: Job[];
