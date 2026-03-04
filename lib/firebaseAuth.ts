@@ -1,5 +1,5 @@
 /**
- * lib/authService.ts
+ * lib/firebaseAuth.ts
  * Firebase auth wired to BeWatu's User type.
  * Replaces the fake handleLoginSuccess / handleRegisterSuccess logic in App.tsx.
  */
