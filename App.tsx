@@ -5,8 +5,26 @@ import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
 import MobileNav from './components/MobileNav';
-import {...fetchUsers,} from './firestoreService';
-import { ..., createCircle, fetchUsers } from './firestoreService';
+import {
+  createPost as fbCreatePost,
+  fetchPosts,
+  appreciatePost as fbAppreciatePost,
+  fetchAllMessagesForUser,
+  subscribeToMessages,
+  sendConnectionRequest as fbSendConnectionRequest,
+  respondToConnectionRequest as fbRespondToConnection,
+  fetchConnectionRequests,
+  subscribeToNotifications,
+  markNotificationsRead as fbMarkNotificationsRead,
+  createJob as fbCreateJob,
+  fetchJobs,
+  updateJob as fbUpdateJob,
+  deleteJob as fbDeleteJob,
+  applyToJob as fbApplyToJob,
+  fetchCircles,
+  createCircle,
+  fetchUsers,
+} from './firestoreService';
 
 // ── Firebase services ─────────────────────────────────────────────────────────
 import {
