@@ -14,9 +14,10 @@ export default async function handler(req: Request): Promise<Response> {
     const body = await req.json();
     const ai = new GoogleGenAI({ apiKey });
     const result = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: body.contents ?? [{ parts: [{ text: body.prompt }] }],
-    });
+  model: 'gemini-2.0-flash',
+  contents: body.contents ?? [{ parts: [{ text: body.prompt }] }],
+  });
+  
     return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json' },
     });
