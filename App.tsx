@@ -118,29 +118,38 @@ const MainApp: React.FC = () => {
 
   // ── Load app data (Firestore-first, Gemini fallback for AI content) ───────
   const loadAppData = useCallback(async (user: User) => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Try to fetch real data from Firestore in parallel
-      const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections] =
-        await Promise.all([
-          fetchPosts(50),
-          fetchJobs(),
-          fetchCircles(),
-          fetchAllMessagesForUser(fbUser?.uid ?? '', user.id),
-          fetchConnectionRequests(fbUser?.uid ?? ''),
-        ]);
+  setLoading(true);
+  setError(null);
+  try {
+    const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections] =
+      await Promise.all([
+        fetchPosts(50),
+        fetchJobs(),
+        fetchCircles(),
+        fetchAllMessagesForUser(fbUser?.uid ?? '', user.id),
+        fetchConnectionRequests(fbUser?.uid ?? ''),
+      ]);
 
-      // Use Gemini to seed the users list and AI-generated content (your existing feature)
-      const cachedData = sessionStorage.getItem('beWatuData');
-      let baseData: AppData;
+    const emptyData: AppData = {
+      users: [user],
+      posts: firestorePosts.posts,
+      jobs: firestoreJobs,
+      companies: [],
+      messages: firestoreMessages,
+      notifications: [],
+      connectionRequests: firestoreConnections,
+      circles: firestoreCircles,
+      articles: [],
+    };
 
-      if (cachedData) {
-        baseData = JSON.parse(cachedData);
-      } else {
-        baseData = await generateProfessionalNetworkData();
-        sessionStorage.setItem('beWatuData', JSON.stringify(baseData));
-      }
+    setData(emptyData);
+  } catch (err) {
+    console.error(err);
+    setError('Could not load application data.');
+  } finally {
+    setLoading(false);
+  }
+}, [fbUser]);
 
       // Merge Firestore real data over the AI-generated scaffold
       const mergedData: AppData = {
