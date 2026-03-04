@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
@@ -12,11 +12,12 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     const body = await req.json();
-    const ai = new GoogleGenerativeAI(apiKey);
-    const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContent(body.prompt ?? body.contents);
-    const text = result.response.text();
-    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), {
+    const ai = new GoogleGenAI({ apiKey });
+    const result = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: body.contents ?? [{ parts: [{ text: body.prompt }] }],
+    });
+    return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err: any) {
