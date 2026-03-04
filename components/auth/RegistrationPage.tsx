@@ -4,7 +4,7 @@ import PaymentForm from '../PaymentForm';
 import BillingPolicyModal from '../BillingPolicyModal';
 import { LoadingIcon } from '../../constants';
 import { useTranslation } from '../../hooks/useTranslation';
-import { registerWithEmail } from '../../lib/authService';
+import { registerWithEmail } from '../../lib/firebaseAuth';
 
 // Define Stripe types locally as we can't import them
 declare global {
