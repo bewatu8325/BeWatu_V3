@@ -176,15 +176,16 @@ export interface CandidateSearchResult {
         interviewQuestions: string[];
     };
 }
-
 export enum View {
-  Feed = 'FEED',
-  People = 'PEOPLE',
-  Jobs = 'JOBS',
-  Messaging = 'MESSAGING',
-  Circles = 'CIRCLES',
-  AIChat = 'AICHAT',
-  Profile = 'PROFILE',
+ Feed = 'FEED',
+ People = 'PEOPLE',
+ Circles = 'CIRCLES',
+ Jobs = 'JOBS',
+ Messaging = 'MESSAGING',
+ Prove = 'PROVE',          // <-- add this
+ AIChat = 'AICHAT',
+ Profile = 'PROFILE',
+ RecruiterConsole = 'RECRUITER_CONSOLE',
 }
 
 export type Language = 'en' | 'es';
