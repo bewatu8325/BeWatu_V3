@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Job, Company } from '../../types';
-import { generateJobDescription } from '../../services/geminiService';
-import { LoadingIcon, SparklesIcon } from '../../constants';
-import { useTranslation } from '../../hooks/useTranslation';
+import { Job, Company } from '../types';
+import { generateJobDescription } from '../services/geminiService';
+import { LoadingIcon, SparklesIcon } from '../constants';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface JobEditorModalProps {
     job: Job | null;
