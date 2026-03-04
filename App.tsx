@@ -151,35 +151,6 @@ const MainApp: React.FC = () => {
   }
 }, [fbUser]);
 
-      // Merge Firestore real data over the AI-generated scaffold
-      const mergedData: AppData = {
-        ...baseData,
-        users: [user, ...baseData.users.filter(u => u.id !== user.id)],
-        posts: firestorePosts.posts.length > 0 ? firestorePosts.posts : baseData.posts,
-        jobs: firestoreJobs.length > 0 ? firestoreJobs : baseData.jobs,
-        circles: firestoreCircles.length > 0 ? firestoreCircles : baseData.circles,
-        messages: firestoreMessages.length > 0 ? firestoreMessages : baseData.messages,
-        connectionRequests: firestoreConnections.length > 0 ? firestoreConnections : baseData.connectionRequests,
-      };
-
-      setData(mergedData);
-
-      // Bootstrap talent pipeline for recruiters
-      if (user.isRecruiter && mergedData.users.length > 5) {
-        setTalentPipeline(prev =>
-          prev['Sourced'].length === 0
-            ? { ...prev, 'Sourced': mergedData.users.slice(1, 3), 'Screening': mergedData.users.slice(3, 5), 'Interview': mergedData.users.slice(5, 6) }
-            : prev
-        );
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load app data. Please check your connection and API key.');
-    } finally {
-      setLoading(false);
-    }
-  }, [fbUser]);
-
   // ── Subscribe to real-time notifications ──────────────────────────────────
   // useEffect(() => {
   //  if (!fbUser || !currentUser) return;
