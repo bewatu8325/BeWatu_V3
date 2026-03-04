@@ -47,7 +47,7 @@ import {
 function toPost(d: QueryDocumentSnapshot): Post {
   const data = d.data();
   return {
-    id: data.numericId ?? parseInt(d.id, 10) || Date.now(),
+    id: data.numericId ?? (parseInt(d.id, 10) || Date.now()),
     authorId: data.authorNumericId,
     content: data.content,
     appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
@@ -76,7 +76,7 @@ function toMessage(d: QueryDocumentSnapshot): Message {
 function toNotification(d: QueryDocumentSnapshot): Notification {
   const data = d.data();
   return {
-    id: parseInt(d.id, 10) || Date.now(),
+    id: (parseInt(d.id, 10) || Date.now()),
     userId: data.recipientNumericId,
     type: data.type as NotificationType,
     text: data.message,
