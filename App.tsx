@@ -117,7 +117,7 @@ const MainApp: React.FC = () => {
   }, [authLoading, currentUser]);
 
   // ── Load app data (Firestore-first, Gemini fallback for AI content) ───────
-  const loadAppData = useCallback(async (user: User) => {
+ const loadAppData = useCallback(async (user: User) => {
   setLoading(true);
   setError(null);
   try {
