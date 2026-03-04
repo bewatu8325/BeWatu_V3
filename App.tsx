@@ -533,9 +533,18 @@ const handleCreateCircle = async (name: string, description: string) => {
       case View.Feed:
         content = <HomePage data={data} currentUser={currentUser} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} addPost={addPost} onAppreciatePost={handleAppreciatePost} onViewProfile={handleViewProfile} />;
         break;
-      case View.People:
-        content = <People users={data.users.filter(u => u.id !== currentUser.id)} onEndorseSkill={endorseSkill} onStartMessage={startMessage} onAnalyzeSynergy={handleAnalyzeSynergy} onViewProfile={handleViewProfile} />;
-        break;
+     case View.People:
+  content = <People 
+    users={data.users.filter(u => u.id !== currentUser.id)} 
+    onEndorseSkill={endorseSkill} 
+    onStartMessage={startMessage} 
+    onAnalyzeSynergy={handleAnalyzeSynergy} 
+    onViewProfile={handleViewProfile}
+    onConnect={handleSendConnection}
+    connectionRequests={data.connectionRequests}
+    currentUserId={currentUser.id}
+  />;
+  break;
       case View.Jobs:
         content = <Jobs jobs={data.jobs} companies={data.companies} onViewCompany={handleViewCompany} onAnalyzeMatch={handleAnalyzeJobMatch} onApplyForJob={handleApplyForJob} appliedJobIds={appliedJobIds} />;
         break;
