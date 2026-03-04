@@ -1,6 +1,6 @@
 import React from 'react';
-import { CandidateSearchResult } from '../../types';
-import { useTranslation } from '../../hooks/useTranslation';
+import { CandidateSearchResult } from '../types';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface ExpandedCandidateViewProps {
   candidateResult: CandidateSearchResult;
