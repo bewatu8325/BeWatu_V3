@@ -6,7 +6,7 @@
  */
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
-import { onAuthChange } from '../lib/authService';
+import { onAuthChange } from '../lib/firebaseAuth';
 import { User } from '../types';
 
 interface FirebaseContextValue {
