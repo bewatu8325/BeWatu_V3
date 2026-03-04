@@ -443,7 +443,15 @@ const loadAppData = useCallback(async (user: User) => {
     if (firestoreJob?._firestoreId) fbUpdateJob(firestoreJob._firestoreId, { status: newStatus });
     setData(d => d ? { ...d, jobs: d.jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j) } : null);
   };
-
+const handleCreateCircle = async (name: string, description: string) => {
+  if (!currentUser || !fbUser) return;
+  const newCircle = await createCircle(
+    { name, description, members: [currentUser.id], adminId: currentUser.id },
+    fbUser.uid
+  );
+  setData(d => d ? { ...d, circles: [newCircle, ...d.circles] } : null);
+};
+  
   const handleAddMemberToCircle = (circleId: number, userId: number) => {
     if (!data) return;
     setData({ ...data, circles: data.circles.map(c => c.id === circleId && !c.members.includes(userId) ? { ...c, members: [...c.members, userId] } : c) });
