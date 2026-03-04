@@ -9,11 +9,8 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
-      define: {
-        // API_KEY is no longer exposed to the client
-      },
       resolve: {
-        // Alias removed to prevent resolution conflicts
+        extensions: ['.tsx', '.ts', '.jsx', '.js']
       }
     };
 });
