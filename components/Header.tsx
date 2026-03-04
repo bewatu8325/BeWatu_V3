@@ -1,132 +1,153 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, User, Notification, ConnectionRequest } from '../types';
-import { HomeIcon, UsersIcon, BriefcaseIcon, SearchIcon, LogoIcon, MessageSquareIcon, BellIcon, CirclesIcon, BotIcon, LogoutIcon, MenuIcon } from '../constants';
-import NotificationsDropdown from './NotificationsDropdown';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Home, Users, Hexagon, Briefcase, MessageSquare,
+  Bell, LogOut, User, ChevronDown, Settings, Sword, Search,
+} from 'lucide-react';
+import { useFirebase } from '../contexts/FirebaseContext';
+import { View } from '../types'; // adjust path if needed
+
+// ─── Nav items matching your View enum ───────────────────────────────────────
+
+const NAV_ITEMS = [
+  { view: View.Feed,      label: 'Home',         icon: Home          },
+  { view: View.People,    label: 'Circles',      icon: Users         }, // People renamed to Circles
+  { view: View.Circles,   label: 'Pods',         icon: Hexagon       }, // Circles renamed to Pods
+  { view: View.Prove,     label: 'Prove',        icon: Sword         }, // New
+  { view: View.Jobs,      label: 'Opportunities',icon: Briefcase     },
+  { view: View.Messaging, label: 'Messages',     icon: MessageSquare },
+];
 
 interface HeaderProps {
   currentView: View;
-  setCurrentView: (view: View) => void;
-  currentUser: User;
-  notifications: Notification[];
-  connectionRequests: ConnectionRequest[];
-  users: User[];
-  onMarkAsRead: () => void;
-  onAcceptConnection: (requestId: number) => void;
-  onDeclineConnection: (requestId: number) => void;
+  onNavigate: (view: View) => void;
   onLogout: () => void;
-  onSwitchProfile: () => void;
-  activeProfile: 'user' | 'recruiter';
-  onToggleMobileNav: () => void;
+  notificationCount?: number;
 }
 
-interface NavItemProps {
-  label: string;
-  icon: React.ReactNode;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-const NavItem: React.FC<NavItemProps> = ({ label, icon, isActive, onClick }) => (
-  <button onClick={onClick} className={`flex flex-col items-center px-2 sm:px-3 py-2 text-xs sm:text-sm transition-colors duration-200 group ${isActive ? 'text-cyan-400' : 'text-slate-400 hover:text-cyan-400'}`}>
-    {icon}
-    <span className="hidden sm:block font-medium">{label}</span>
-  </button>
-);
-
-
-const Header: React.FC<HeaderProps> = (props) => {
-  const { currentView, setCurrentView, currentUser, notifications, onLogout, onSwitchProfile, activeProfile, onToggleMobileNav } = props;
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const notificationsRef = useRef<HTMLDivElement>(null);
-
-  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
-  
-  const handleNotificationsToggle = () => {
-    setIsNotificationsOpen(prev => !prev);
-    if (!isNotificationsOpen && unreadCount > 0) {
-        props.onMarkAsRead();
-    }
-  };
+export function Header({ currentView, onNavigate, onLogout, notificationCount = 0 }: HeaderProps) {
+  const { currentUser } = useFirebase();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
-        setIsNotificationsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const handleProfileClick = () => {
-     setCurrentView(View.Profile);
-  };
+  const initials = currentUser?.name
+    ? currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'BW';
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    // TODO: wire to search view when ready
+  }
 
   return (
-    <header className="bg-slate-900/70 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-50">
-      <div className="container mx-auto px-4 sm:px-6">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-4">
-            <button onClick={handleProfileClick} className="flex items-center text-cyan-400" title="Go to Profile">
-               <LogoIcon className="h-8 w-auto" />
-            </button>
-            <div className="relative hidden sm:block">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                <SearchIcon className="h-5 w-5 text-gray-500" />
-              </span>
-              <input type="text" placeholder="Search" className="bg-slate-800 text-slate-200 rounded-full py-2 pl-10 pr-4 w-64 focus:outline-none focus:ring-2 focus:ring-cyan-500 placeholder-slate-500"/>
-            </div>
-          </div>
+    <header className="fixed top-0 right-0 left-0 z-50 border-b border-slate-700/50 bg-slate-900/95 backdrop-blur-sm">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
+        {/* Logo */}
+        <button onClick={() => onNavigate(View.Feed)} className="flex items-center shrink-0">
+          <img src="/images/bewatu-logo.png" alt="BeWatu" className="h-8 w-auto" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <span className="ml-2 text-lg font-bold text-cyan-400 hidden sm:block">BeWatu</span>
+        </button>
 
-          <nav className="flex items-center space-x-1 sm:space-x-2">
-             <div className="hidden sm:flex items-center space-x-1 sm:space-x-2">
-                <NavItem label="Home" icon={<HomeIcon className="w-6 h-6" />} isActive={currentView === View.Feed} onClick={() => setCurrentView(View.Feed)} />
-                <NavItem label="People" icon={<UsersIcon className="w-6 h-6" />} isActive={currentView === View.People} onClick={() => setCurrentView(View.People)} />
-                <NavItem label="Circles" icon={<CirclesIcon className="w-6 h-6" />} isActive={currentView === View.Circles} onClick={() => setCurrentView(View.Circles)} />
-                <NavItem label="Jobs" icon={<BriefcaseIcon className="w-6 h-6" />} isActive={currentView === View.Jobs} onClick={() => setCurrentView(View.Jobs)} />
-                <NavItem label="AI Chat" icon={<BotIcon className="w-6 h-6" />} isActive={currentView === View.AIChat} onClick={() => setCurrentView(View.AIChat)} />
-                <NavItem label="Messaging" icon={<MessageSquareIcon className="w-6 h-6" />} isActive={currentView === View.Messaging} onClick={() => setCurrentView(View.Messaging)} />
-             </div>
-             
-             <div className="relative" ref={notificationsRef}>
-                <button onClick={handleNotificationsToggle} className="text-slate-400 hover:text-cyan-400 p-2 rounded-full focus:outline-none transition-colors">
-                    <BellIcon className="w-6 h-6"/>
-                    {unreadCount > 0 && (
-                        <span className="absolute top-0 right-0 block h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center ring-2 ring-slate-900">
-                            {unreadCount}
-                        </span>
-                    )}
+        {/* Search */}
+        <form onSubmit={handleSearch} className="relative hidden flex-1 max-w-md md:block">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            placeholder="Search people, posts, jobs..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="h-9 w-full rounded-full border border-slate-700 bg-slate-800 pl-9 pr-4 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+          />
+        </form>
+
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-1">
+          {NAV_ITEMS.map(({ view, label, icon: Icon }) => {
+            const active = currentView === view;
+            return (
+              <button
+                key={view}
+                onClick={() => onNavigate(view)}
+                className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs transition-colors ${active ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="flex-1 md:hidden" />
+
+        {/* Notifications */}
+        <button
+          onClick={() => onNavigate(View.Notifications ?? View.Feed)}
+          className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+        >
+          <Bell className="h-5 w-5" />
+          {notificationCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+              {notificationCount > 9 ? '9+' : notificationCount}
+            </span>
+          )}
+        </button>
+
+        {/* Profile menu */}
+        <div ref={menuRef} className="relative">
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="flex items-center gap-2 rounded-full hover:bg-slate-800 p-1 pr-2 transition-colors"
+          >
+            {currentUser?.avatarUrl ? (
+              <img src={currentUser.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 text-xs font-medium text-white">
+                {initials}
+              </div>
+            )}
+            <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 sm:block" />
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl shadow-black/20">
+              <div className="px-3 py-2">
+                <p className="text-sm font-medium text-slate-100">{currentUser?.name ?? 'User'}</p>
+                <p className="text-xs text-slate-400 truncate">{currentUser?.headline ?? 'BeWatu member'}</p>
+              </div>
+              <div className="my-1 h-px bg-slate-700" />
+              <button onClick={() => { onNavigate(View.Profile); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors">
+                <User className="h-4 w-4" />View profile
+              </button>
+              {currentUser?.isRecruiter && (
+                <button onClick={() => { onNavigate(View.RecruiterConsole); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors">
+                  <Briefcase className="h-4 w-4" />Recruiter Console
                 </button>
-                {isNotificationsOpen && <NotificationsDropdown {...props} />}
-             </div>
-
-            <div className="border-l border-slate-700 pl-2 sm:pl-4 flex items-center space-x-2">
-                {currentUser.isRecruiter && (
-                    <button 
-                        onClick={onSwitchProfile} 
-                        title={activeProfile === 'user' ? "Switch to Recruiter Profile" : "Switch to Personal Profile"}
-                        className="text-xs font-semibold bg-slate-700 text-cyan-300 px-3 py-1.5 rounded-full hover:bg-slate-600 transition-colors"
-                    >
-                        {activeProfile === 'user' ? 'Recruiter' : 'Personal'}
-                    </button>
-                )}
-               <button onClick={handleProfileClick} className="rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500">
-                  <img src={currentUser.avatarUrl} alt={currentUser.name} className={`w-9 h-9 rounded-full object-cover transition-all ${currentView === View.Profile ? 'ring-2 ring-cyan-400' : ''}`} />
-               </button>
-               <button onClick={onLogout} title="Logout" className="text-slate-400 hover:text-cyan-400 p-2 rounded-full focus:outline-none transition-colors hidden sm:flex">
-                  <LogoutIcon className="w-6 h-6" />
-               </button>
-               <button onClick={onToggleMobileNav} title="Open menu" className="sm:hidden text-slate-400 hover:text-cyan-400 p-2 rounded-full focus:outline-none transition-colors">
-                  <MenuIcon className="w-6 h-6" />
-               </button>
+              )}
+              <button onClick={() => { onNavigate(View.Settings ?? View.Profile); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors">
+                <Settings className="h-4 w-4" />Settings
+              </button>
+              <div className="my-1 h-px bg-slate-700" />
+              <button onClick={() => { setMenuOpen(false); onLogout(); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 transition-colors">
+                <LogOut className="h-4 w-4" />Sign out
+              </button>
             </div>
-          </nav>
+          )}
         </div>
       </div>
     </header>
   );
-};
+}
 
 export default Header;
