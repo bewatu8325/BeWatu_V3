@@ -37,7 +37,7 @@ import {
   fetchCircles,
 } from './lib/firestoreService';
 
-// ── Lazy-loaded components (unchanged) ───────────────────────────────────────
+// ── Lazy-loaded components (remain unchanged) ───────────────────────────────────────
 const Header = lazy(() => import('./components/Header'));
 const ProfilePage = lazy(() => import('./components/ProfilePage'));
 const HomePage = lazy(() => import('./components/HomePage'));
