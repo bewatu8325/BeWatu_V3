@@ -444,6 +444,32 @@ export async function fetchUsers(): Promise<User[]> {
   );
   return snap.docs.map((d) => {
     const data = d.data();
-    return { ...docToUser(data), _firestoreUid: d.id } as User & { _firestoreUid: string };
+    return {
+      id: data.numericId ?? Date.now(),
+      name: data.displayName ?? '',
+      headline: data.headline ?? '',
+      bio: data.bio ?? '',
+      avatarUrl: data.photoURL ?? `https://picsum.photos/seed/${d.id}/100`,
+      industry: data.industry ?? '',
+      professionalGoals: data.professionalGoals ?? [],
+      reputation: data.reputation ?? 0,
+      credits: data.credits ?? 100,
+      isRecruiter: data.isRecruiter ?? false,
+      isVerified: data.isVerified ?? false,
+      portfolio: data.portfolio ?? [],
+      verifiedAchievements: data.verifiedAchievements ?? [],
+      thirdPartyIntegrations: data.thirdPartyIntegrations ?? [],
+      workStyle: data.workStyle ?? {
+        collaboration: 'Thrives in pairs',
+        communication: 'Prefers asynchronous',
+        workPace: 'Fast-paced and iterative',
+      },
+      values: data.values ?? [],
+      availability: data.availability ?? 'Exploring opportunities',
+      skills: data.skills ?? [],
+      verifiedSkills: data.verifiedSkills ?? null,
+      microIntroductionUrl: data.microIntroductionUrl ?? null,
+      _firestoreUid: d.id,
+    } as User & { _firestoreUid: string };
   });
 }
