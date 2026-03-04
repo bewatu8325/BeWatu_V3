@@ -63,7 +63,7 @@ function toPost(d: QueryDocumentSnapshot): Post {
 function toMessage(d: QueryDocumentSnapshot): Message {
   const data = d.data();
   return {
-    id: data.numericId ?? parseInt(d.id, 10) || Date.now(),
+   id: data.numericId ?? (parseInt(d.id, 10) || Date.now()),
     senderId: data.senderNumericId,
     receiverId: data.receiverNumericId,
     text: data.text,
