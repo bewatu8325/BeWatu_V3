@@ -204,6 +204,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
       default: return null;
     }
   }
+    // This is the new code
   <TalentPipeline
   stages={DEFAULT_PIPELINE_STAGES}
   candidates={candidates}
