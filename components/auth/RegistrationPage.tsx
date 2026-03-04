@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import AuthLayout from './AuthLayout';
-import PaymentForm from './PaymentForm';
-import BillingPolicyModal from './BillingPolicyModal';
+import AuthLayout from '../AuthLayout';
+import PaymentForm from '../PaymentForm';
+import BillingPolicyModal from '../BillingPolicyModal';
 import { LoadingIcon } from '../../constants';
 import { useTranslation } from '../../hooks/useTranslation';
+import { registerWithEmail } from '../../lib/authService';
 
 // Define Stripe types locally as we can't import them
 declare global {
@@ -40,75 +41,76 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({ onRegisterSuccess, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!name || !email || !password) {
       setError('Please fill in all primary fields.');
       return;
     }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        setError('Please enter a valid email address.');
-        return;
+      setError('Please enter a valid email address.');
+      return;
     }
 
-    if (isRecruiter) {
-      if (!agreedToPolicy) {
-        setError('You must agree to the Billing and Payment Policy.');
-        return;
-      }
-      if (!stripeElementsRef.current) {
-        setError('Payment form is not ready. Please wait a moment.');
-        return;
-      }
-      
-      setIsProcessing(true);
-      const { stripe, card } = stripeElementsRef.current;
-      
-      const { error: paymentMethodError, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: card,
-        billing_details: { name, email },
-      });
+    setIsProcessing(true);
 
-      if (paymentMethodError) {
-        setError(paymentMethodError.message || 'An error occurred with your payment details.');
-        setIsProcessing(false);
-        return;
-      }
+    try {
+      if (isRecruiter) {
+        // ── Recruiter: Stripe first, then Firebase ──────────────────────────
+        if (!agreedToPolicy) {
+          setError('You must agree to the Billing and Payment Policy.');
+          setIsProcessing(false);
+          return;
+        }
+        if (!stripeElementsRef.current) {
+          setError('Payment form is not ready. Please wait a moment.');
+          setIsProcessing(false);
+          return;
+        }
 
-      try {
+        const { stripe, card } = stripeElementsRef.current;
+        const { error: paymentMethodError, paymentMethod } = await stripe.createPaymentMethod({
+          type: 'card',
+          card,
+          billing_details: { name, email },
+        });
+
+        if (paymentMethodError) {
+          setError(paymentMethodError.message || 'An error occurred with your payment details.');
+          setIsProcessing(false);
+          return;
+        }
+
         const response = await fetch('/api/create-subscription', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name,
-            email,
-            paymentMethodId: paymentMethod.id,
-          }),
+          body: JSON.stringify({ name, email, paymentMethodId: paymentMethod.id }),
         });
-
         const subscriptionData = await response.json();
+        if (!response.ok) throw new Error(subscriptionData.error || 'Failed to create subscription.');
 
-        if (!response.ok) {
-          throw new Error(subscriptionData.error || 'Failed to create subscription.');
-        }
-        
-        onRegisterSuccess(name, email, isRecruiter, subscriptionData.customerId);
+        // Create Firebase account + Firestore user doc
+        await registerWithEmail(name, email, password, true);
+        onRegisterSuccess(name, email, true, subscriptionData.customerId);
 
-      } catch (err: any) {
-        setError(err.message);
-        setIsProcessing(false);
-      }
-
-    } else {
-      // Non-recruiter registration
-      setIsProcessing(true);
-      // Simulate a small delay for non-recruiter registration
-      setTimeout(() => {
+      } else {
+        // ── Regular user: Firebase only ────────────────────────────────────
+        await registerWithEmail(name, email, password, false);
         onRegisterSuccess(name, email, false);
-        setIsProcessing(false);
-      }, 300);
+      }
+    } catch (err: any) {
+      const code = err?.code ?? '';
+      if (code === 'auth/email-already-in-use') {
+        setError('An account with this email already exists. Try signing in instead.');
+      } else if (code === 'auth/weak-password') {
+        setError('Password must be at least 6 characters.');
+      } else if (code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else {
+        setError(err.message ?? 'Registration failed. Please try again.');
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
