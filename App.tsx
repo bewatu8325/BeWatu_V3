@@ -5,6 +5,7 @@ import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
 import MobileNav from './components/MobileNav';
+import {...fetchUsers,} from './firestoreService';
 
 // ── Firebase services ─────────────────────────────────────────────────────────
 import {
