@@ -172,13 +172,13 @@ const MainApp: React.FC = () => {
   }, [fbUser]);
 
   // ── Subscribe to real-time notifications ──────────────────────────────────
-  useEffect(() => {
-    if (!fbUser || !currentUser) return;
-    const unsub = subscribeToNotifications(fbUser.uid, currentUser.id, (notifications) => {
-      setData(prev => prev ? { ...prev, notifications } : prev);
-    });
-    return unsub;
-  }, [fbUser, currentUser]);
+  // useEffect(() => {
+  //  if (!fbUser || !currentUser) return;
+  //  const unsub = subscribeToNotifications(fbUser.uid, currentUser.id, (notifications) => {
+  //    setData(prev => prev ? { ...prev, notifications } : prev);
+  //  });
+ //   return unsub;
+//  }, [fbUser, currentUser]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // AUTH HANDLERS — wired to real Firebase
