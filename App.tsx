@@ -6,6 +6,7 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
 import MobileNav from './components/MobileNav';
 import {...fetchUsers,} from './firestoreService';
+import { ..., createCircle, fetchUsers } from './firestoreService';
 
 // ── Firebase services ─────────────────────────────────────────────────────────
 import {
@@ -533,17 +534,22 @@ const handleCreateCircle = async (name: string, description: string) => {
           : <div>User not found.</div>;
         break;
       }
-      case View.Circles: {
-        if (activeCircleId) {
-          const circle = data.circles.find(c => c.id === activeCircleId);
-          content = circle
-            ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onViewProfile={handleViewProfile} />
-            : <div>Circle not found</div>;
-        } else {
-          content = <Circles circles={data.circles} onSelectCircle={handleSelectCircle} />;
-        }
-        break;
-      }
+     case View.Circles: {
+  if (activeCircleId) {
+    const circle = data.circles.find(c => c.id === activeCircleId);
+    content = circle
+      ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onViewProfile={handleViewProfile} />
+      : <div>Circle not found</div>;
+  } else {
+    content = <Circles 
+      circles={data.circles} 
+      onSelectCircle={handleSelectCircle}
+      onCreateCircle={handleCreateCircle}
+      currentUserId={currentUser.id}
+    />;
+  }
+  break;
+}
       default:
         content = null;
     }
