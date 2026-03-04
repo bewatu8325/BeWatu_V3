@@ -462,6 +462,16 @@ const loadAppData = useCallback(async (user: User) => {
     if (firestoreJob?._firestoreId) fbUpdateJob(firestoreJob._firestoreId, { status: newStatus });
     setData(d => d ? { ...d, jobs: d.jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j) } : null);
   };
+  const handleSendConnection = async (receiverId: number) => {
+  if (!currentUser || !fbUser) return;
+  const receiver = data?.users.find(u => u.id === receiverId) as any;
+  const newRequest = await fbSendConnectionRequest(
+    fbUser.uid, currentUser.id,
+    receiver?._firestoreUid ?? String(receiverId),
+    receiverId
+  );
+  setData(d => d ? { ...d, connectionRequests: [...d.connectionRequests, newRequest] } : null);
+};
 const handleCreateCircle = async (name: string, description: string) => {
   if (!currentUser || !fbUser) return;
   const newCircle = await createCircle(
@@ -488,6 +498,7 @@ const handleCreateCircle = async (name: string, description: string) => {
     if (view !== View.Circles) setActiveCircleId(null);
     setIsMobileNavOpen(false);
   };
+  
   const handleSelectCircle = (circleId: number) => { setCurrentView(View.Circles); setActiveCircleId(circleId); };
   const handleNavigateToConnect = () => setAuthState('connect');
   const handleNavigateToLanding = () => setAuthState('landing');
