@@ -4,11 +4,11 @@ import { generateProfessionalNetworkData, searchCandidates } from '../../service
 import { LogoIcon, SearchIcon, LoadingIcon, LogoutIcon } from '../../constants';
 import SubscriptionModal from './SubscriptionModal';
 import CandidateDetailView from './CandidateDetailView';
-import DEIDashboard from './DEIDashboard';
-import TalentPipelines from './TalentPipelines';
+import DEIDashboard from '../DEIDashboard';
+import TalentPipelines from '../TalentPipelines';
 import Footer from '../Footer';
-import ManageJobsView from './ManageJobsView';
-import ExpandedCandidateView from './ExpandedCandidateView';
+import ManageJobsView from '../ManageJobsView';
+import ExpandedCandidateView from '../ExpandedCandidateView';
 
 interface RecruiterConsoleProps {
   onLogout: () => void;
