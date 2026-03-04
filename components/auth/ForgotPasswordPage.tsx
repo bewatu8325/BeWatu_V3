@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import AuthLayout from './AuthLayout';
+import AuthLayout from '../AuthLayout';
 
 interface ForgotPasswordPageProps {
   onResetRequest: () => void;
