@@ -66,7 +66,7 @@ const Jobs = lazy(() => import('./components/Jobs'));
 const Messaging = lazy(() => import('./components/Messaging'));
 const CompanyProfileModal = lazy(() => import('./components/CompanyProfileModal'));
 const CoPilotModal = lazy(() => import('./components/CoPilotModal'));
-const SkillsGraphModal = lazy(() => import('./components/SkillsGraphModal').then(m => ({ default: m.SkillsGraphModal })));
+const SkillsGraphModal = lazy(() => import('./components/SkillsGraphModal'));
 const VideoRecorderModal = lazy(() => import('./components/VideoRecorderModal'));
 const VideoPlayerModal = lazy(() => import('./components/VideoPlayerModal'));
 const Circles = lazy(() => import('./components/Circles'));
