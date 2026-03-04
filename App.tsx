@@ -5,7 +5,9 @@ import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
-import MobileNav from './components/MobileNav';
+import ProveView from './components/ProveView'; 
+import { Header } from './components/Header';
+import { MobileNav } from './components/MobileNav';
 import {
   createPost as fbCreatePost,
   fetchPosts,
@@ -576,6 +578,12 @@ const handleCreateCircle = async (name: string, description: string) => {
           : <div>User not found.</div>;
         break;
       }
+      case View.Prove:{
+       content = (
+        <ProveView onViewProfile={handleViewProfile} />
+    );
+      break;}
+        
      case View.Circles: {
   if (activeCircleId) {
     const circle = data.circles.find(c => c.id === activeCircleId);
@@ -598,7 +606,8 @@ const handleCreateCircle = async (name: string, description: string) => {
 
     return (
       <div className="min-h-screen flex flex-col pb-16 sm:pb-0">
-        <Header currentUser={currentUser} currentView={currentView} setCurrentView={handleSetView} notifications={data.notifications.filter(n => n.userId === currentUser.id)} connectionRequests={data.connectionRequests} users={data.users} onMarkAsRead={handleMarkNotificationsRead} onAcceptConnection={id => handleConnectionRequest(id, 'accepted')} onDeclineConnection={id => handleConnectionRequest(id, 'declined')} onLogout={handleLogout} onSwitchProfile={handleSwitchProfile} activeProfile={activeProfile} onToggleMobileNav={() => setIsMobileNavOpen(p => !p)} />
+        <Header currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} notificationCount={data?.notifications?.filter(n => !n.isRead).length ?? 0} />
+       // <Header currentUser={currentUser} currentView={currentView} setCurrentView={handleSetView} notifications={data.notifications.filter(n => n.userId === currentUser.id)} connectionRequests={data.connectionRequests} users={data.users} onMarkAsRead={handleMarkNotificationsRead} onAcceptConnection={id => handleConnectionRequest(id, 'accepted')} onDeclineConnection={id => handleConnectionRequest(id, 'declined')} onLogout={handleLogout} onSwitchProfile={handleSwitchProfile} activeProfile={activeProfile} onToggleMobileNav={() => setIsMobileNavOpen(p => !p)} />
         <main className="flex-grow container mx-auto px-4 sm:px-6 py-4 sm:py-8">{content}</main>
         {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
         <Footer onNavigateToConnect={handleNavigateToConnect} />
@@ -607,7 +616,8 @@ const handleCreateCircle = async (name: string, description: string) => {
         {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
         {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
         {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
-        <MobileNav currentView={currentView} setCurrentView={handleSetView} currentUser={currentUser} onLogout={handleLogout} onSwitchProfile={handleSwitchProfile} isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
+       // <MobileNav currentView={currentView} setCurrentView={handleSetView} currentUser={currentUser} onLogout={handleLogout} onSwitchProfile={handleSwitchProfile} isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
+        <MobileNav currentView={currentView} onNavigate={setCurrentView}/>
       </div>
     );
   };
