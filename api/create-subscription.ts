@@ -33,7 +33,7 @@ export default async function handler(req: Request): Promise<Response> {
         
         // Initialize Stripe with the secret key
         const stripe = new Stripe(STRIPE_SECRET_KEY, {
-            apiVersion: '2025-10-29.acacia',
+            apiVersion: '2025-10-29.clover',
             typescript: true,
         });
 
