@@ -473,3 +473,247 @@ export async function fetchUsers(): Promise<User[]> {
     } as User & { _firestoreUid: string };
   });
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// ADD THESE FUNCTIONS TO YOUR EXISTING firestoreService.ts
+// Also add these imports at the top if not already present:
+// import { arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SparkFormat = 'win' | 'insight' | 'goal' | 'looking-for' | 'status';
+export type ChallengeDifficulty = 'entry' | 'mid' | 'senior';
+export type ChallengeType = 'code' | 'design' | 'strategy' | 'writing' | 'data';
+
+// ─── Sparks ──────────────────────────────────────────────────────────────────
+
+export async function createSpark(data: {
+  authorId: string;
+  authorName: string;
+  authorAvatar: string;
+  format: SparkFormat;
+  content: string;
+  stat?: string;
+}) {
+  const ref = await addDoc(collection(db, 'sparks'), {
+    ...data,
+    reactions: { relate: [], inspire: [], collab: [] },
+    createdAt: serverTimestamp(),
+    expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+  });
+  return ref.id;
+}
+
+export async function getActiveSparks(maxResults = 30) {
+  const now = new Date();
+  try {
+    const q = query(
+      collection(db, 'sparks'),
+      where('expiresAt', '>', now),
+      orderBy('expiresAt', 'asc'),
+      limit(maxResults)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    // Fallback if index not built yet
+    const snap = await getDocs(collection(db, 'sparks'));
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((s: any) => {
+        const exp = s.expiresAt?.toDate?.() ?? new Date(s.expiresAt);
+        return exp > now;
+      })
+      .slice(0, maxResults);
+  }
+}
+
+export async function toggleSparkReaction(
+  sparkId: string,
+  userId: string,
+  type: 'relate' | 'inspire' | 'collab'
+) {
+  const sparkRef = doc(db, 'sparks', sparkId);
+  const snap = await getDoc(sparkRef);
+  if (!snap.exists()) return;
+  const arr: string[] = snap.data().reactions?.[type] ?? [];
+  if (arr.includes(userId)) {
+    await updateDoc(sparkRef, { [`reactions.${type}`]: arrayRemove(userId) });
+  } else {
+    await updateDoc(sparkRef, { [`reactions.${type}`]: arrayUnion(userId) });
+  }
+}
+
+// ─── Challenges (Prove) ───────────────────────────────────────────────────────
+
+export async function createChallenge(data: {
+  title: string;
+  description: string;
+  recruiterId: string;
+  companyName: string;
+  skills: string[];
+  difficulty: ChallengeDifficulty;
+  type: ChallengeType;
+  timeLimit: number;
+  reward: { credits: number; badge: string; visibility: boolean };
+  expiresAt: string;
+}) {
+  const ref = await addDoc(collection(db, 'challenges'), {
+    ...data,
+    submissionCount: 0,
+    isActive: true,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getChallenges(maxResults = 20) {
+  const q = query(
+    collection(db, 'challenges'),
+    where('isActive', '==', true),
+    orderBy('createdAt', 'desc'),
+    limit(maxResults)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function submitChallenge(
+  challengeId: string,
+  data: {
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    content: string;
+  }
+) {
+  const ref = await addDoc(
+    collection(db, 'challenges', challengeId, 'submissions'),
+    {
+      ...data,
+      score: null,
+      feedback: null,
+      isShortlisted: false,
+      submittedAt: serverTimestamp(),
+    }
+  );
+  await updateDoc(doc(db, 'challenges', challengeId), {
+    submissionCount: increment(1),
+  });
+  return ref.id;
+}
+
+export async function getChallengeSubmissions(challengeId: string) {
+  const snap = await getDocs(
+    collection(db, 'challenges', challengeId, 'submissions')
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function scoreSubmission(
+  challengeId: string,
+  submissionId: string,
+  score: number,
+  feedback: string
+) {
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    { score, feedback }
+  );
+}
+
+export async function shortlistSubmission(
+  challengeId: string,
+  submissionId: string,
+  recruiterId: string,
+  jobId?: string
+) {
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    { isShortlisted: true }
+  );
+  const subSnap = await getDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId)
+  );
+  if (!subSnap.exists()) return;
+  const sub = subSnap.data();
+  if (jobId) {
+    await addDoc(collection(db, 'applications'), {
+      jobId,
+      userId: sub.userId,
+      message: 'Shortlisted from Prove challenge',
+      status: 'applied',
+      stage: 'challenge',
+      source: 'prove',
+      challengeId,
+      submissionId,
+      createdAt: serverTimestamp(),
+    });
+  }
+}
+
+// ─── Endorsements (Skill DNA) ─────────────────────────────────────────────────
+
+export async function endorseSkill(
+  userId: string,
+  skillName: string,
+  endorserId: string
+) {
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) return;
+  const endorsements = userSnap.data().endorsements ?? [];
+  const idx = endorsements.findIndex(
+    (e: { skillName: string }) => e.skillName === skillName
+  );
+  if (idx >= 0) {
+    if (!endorsements[idx].endorsedBy.includes(endorserId)) {
+      endorsements[idx].endorsedBy.push(endorserId);
+    }
+  } else {
+    endorsements.push({ skillName, endorsedBy: [endorserId] });
+  }
+  await updateDoc(userRef, { endorsements, updatedAt: serverTimestamp() });
+}
+
+// ─── Talent Pipeline ──────────────────────────────────────────────────────────
+
+export async function getPipelineCandidates(recruiterId: string) {
+  const q = query(
+    collection(db, 'applications'),
+    where('recruiterId', '==', recruiterId),
+    orderBy('createdAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function movePipelineCandidate(
+  applicationId: string,
+  toStage: string
+) {
+  await updateDoc(doc(db, 'applications', applicationId), { stage: toStage });
+}
+
+export async function addPipelineNote(applicationId: string, note: string) {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    notes: arrayUnion({ text: note, createdAt: new Date().toISOString() }),
+  });
+}
+
+export async function schedulePipelineInterview(
+  applicationId: string,
+  date: string
+) {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    interviewDate: date,
+  });
+}
+
+export async function rejectPipelineCandidate(
+  applicationId: string,
+  reason: string
+) {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    status: 'rejected',
+    rejectionReason: reason,
+  });
+}
