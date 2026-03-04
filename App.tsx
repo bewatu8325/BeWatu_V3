@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
-import { generateProfessionalNetworkData, analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/geminiService';
+import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/geminiService';
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
