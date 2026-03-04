@@ -430,3 +430,20 @@ export async function fetchCircles(): Promise<Circle[]> {
     return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
   });
 }
+// ----------------
+//  Fetch Users
+// ----------------
+export async function fetchUsers(): Promise<User[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'users'),
+      where('isPublic', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    )
+  );
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return { ...docToUser(data), _firestoreUid: d.id } as User & { _firestoreUid: string };
+  });
+}
