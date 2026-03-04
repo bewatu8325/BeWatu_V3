@@ -117,21 +117,25 @@ const MainApp: React.FC = () => {
   }, [authLoading, currentUser]);
 
   // ── Load app data (Firestore-first, Gemini fallback for AI content) ───────
- const loadAppData = useCallback(async (user: User) => {
+const loadAppData = useCallback(async (user: User) => {
   setLoading(true);
   setError(null);
   try {
-    const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections] =
+    const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections, firestoreUsers] =
       await Promise.all([
         fetchPosts(50),
         fetchJobs(),
         fetchCircles(),
         fetchAllMessagesForUser(fbUser?.uid ?? '', user.id),
         fetchConnectionRequests(fbUser?.uid ?? ''),
+        fetchUsers(),
       ]);
 
-    const emptyData: AppData = {
-      users: [user],
+    // Make sure current user is first and not duplicated
+    const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
+
+    setData({
+      users: [user, ...otherUsers],
       posts: firestorePosts.posts,
       jobs: firestoreJobs,
       companies: [],
@@ -140,9 +144,7 @@ const MainApp: React.FC = () => {
       connectionRequests: firestoreConnections,
       circles: firestoreCircles,
       articles: [],
-    };
-
-    setData(emptyData);
+    });
   } catch (err) {
     console.error(err);
     setError('Could not load application data.');
