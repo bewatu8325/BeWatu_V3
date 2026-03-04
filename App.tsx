@@ -16,7 +16,7 @@ import {
   changePassword,
   updateUserInFirestore,
   setStripeCustomerId,
-} from './lib/authService';
+} from './lib/firebaseAuth';
 import {
   createPost as fbCreatePost,
   fetchPosts,
