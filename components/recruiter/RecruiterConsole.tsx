@@ -30,7 +30,6 @@ type RecruiterView = 'dashboard' | 'pipelines' | 'analytics' | 'manage_jobs';
 
 const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const { onLogout, isTrialActive, setTrialActive, onSwitchProfile, talentPipeline, allJobs, allCompanies, currentUser, onAddJob, onUpdateJob, onDeleteJob, onToggleJobStatus } = props;
-  
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
