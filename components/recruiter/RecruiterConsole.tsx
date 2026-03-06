@@ -5,7 +5,7 @@ import { LogoIcon, SearchIcon, LoadingIcon, LogoutIcon } from '../../constants';
 import { useFirebase } from '../../contexts/FirebaseContext';
 import SubscriptionModal from './SubscriptionModal';
 import CandidateDetailView from './CandidateDetailView';
-import DEIDashboard from './DEIDashboard';
+import DEIDashboard from '../DEIDashboard';
 import { TalentPipeline, DEFAULT_PIPELINE_STAGES, PipelineCandidate } from './TalentPipeline';
 import {
   getPipelineCandidates,
