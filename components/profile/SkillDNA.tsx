@@ -7,7 +7,7 @@ import {
   Hexagon, Shield, ShieldCheck, Star, Award,
   Lock, ExternalLink, Share2, Eye, X, Check, Plus, Loader2,
 } from 'lucide-react';
-import { endorseSkill } from '../../firestoreService';
+import { endorseSkill } from '../../lib/firestoreService';
 import type { User } from '../../types';
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
