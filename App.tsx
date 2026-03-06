@@ -503,16 +503,17 @@ const MainApp: React.FC = () => {
     }
 
     return (
-      <div className="min-h-screen flex flex-col pb-16 sm:pb-0">
+      <div className="min-h-screen flex flex-col">
         <Header
           currentView={currentView}
           onNavigate={handleSetView}
           onLogout={handleLogout}
+          onSwitchToRecruiter={handleSwitchProfile}
           notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
         />
-        <main className="flex-grow container mx-auto px-4 sm:px-6 pt-20 pb-4 sm:py-8">{content}</main>
+        <main className="flex-grow container mx-auto px-4 sm:px-6 pt-20 pb-24 sm:pb-8 sm:pt-24">{content}</main>
         {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
-        <Footer onNavigateToConnect={handleNavigateToConnect} />
+        <div className="hidden sm:block"><Footer onNavigateToConnect={handleNavigateToConnect} /></div>
         {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
         {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
         {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
