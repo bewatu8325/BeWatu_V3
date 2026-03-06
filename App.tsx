@@ -510,7 +510,7 @@ const MainApp: React.FC = () => {
           onLogout={handleLogout}
           notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
         />
-        <main className="flex-grow container mx-auto px-4 sm:px-6 py-4 sm:py-8">{content}</main>
+        <main className="flex-grow container mx-auto px-4 sm:px-6 pt-20 pb-4 sm:py-8">{content}</main>
         {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
         <Footer onNavigateToConnect={handleNavigateToConnect} />
         {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
