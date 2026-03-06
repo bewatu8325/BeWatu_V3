@@ -9,13 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-  "react": "^19.2.0",
-  "react-dom": "^19.2.0",
-  "@google/genai": "^1.28.0",
-  "stripe": "^19.2.0",
-  "firebase": "^11.0.0"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@google/genai": "^1.28.0",
+    "stripe": "^19.2.0",
+    "firebase": "^11.0.0",
     "lucide-react": "^0.263.1",
-"recharts": "^2.10.0"
+    "recharts": "^2.10.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
