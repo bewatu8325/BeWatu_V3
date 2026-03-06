@@ -16,6 +16,7 @@ import {
 } from '../../lib/firestoreService';
 import Footer from '../Footer';
 import ManageJobsView from '../ManageJobsView';
+import ApplicantInbox from './ApplicantInbox';
 import ExpandedCandidateView from '../ExpandedCandidateView';
 
 interface RecruiterConsoleProps {
@@ -34,7 +35,7 @@ interface RecruiterConsoleProps {
   onViewProfile?: (userId: number) => void;
 }
 
-type RecruiterView = 'dashboard' | 'pipelines' | 'analytics' | 'manage_jobs';
+type RecruiterView = 'dashboard' | 'inbox' | 'pipelines' | 'analytics' | 'manage_jobs';
 
 const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const {
@@ -269,6 +270,9 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
           />
         );
 
+      case 'inbox':
+        return <ApplicantInbox onViewProfile={onViewProfile} />;
+
       case 'analytics':
         return <DEIDashboard />;
 
@@ -330,6 +334,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
         <div className="flex items-center justify-between mb-6">
           <nav className="flex items-center space-x-2 p-1 bg-slate-800/50 border border-slate-700 rounded-lg">
             <NavItem label="Dashboard" view="dashboard" />
+            <NavItem label="Applicant Inbox" view="inbox" />
             <NavItem label="Talent Pipelines" view="pipelines" />
             <NavItem label="Manage Jobs" view="manage_jobs" />
             <NavItem label="Equity Analytics" view="analytics" />
