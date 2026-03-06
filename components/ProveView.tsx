@@ -13,8 +13,7 @@ import {
   createChallenge,
   type ChallengeDifficulty,
   type ChallengeType,
-  type SparkFormat,
-} from '../firestoreService';
+} from '../lib/firestoreService';
 import { useFirebase } from '../contexts/FirebaseContext';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -62,6 +61,15 @@ const CHALLENGE_DIFFS: { value: ChallengeDifficulty; label: string }[] = [
   { value: 'mid',   label: 'Level 2 (Mid)'   },
   { value: 'senior',label: 'Level 3 (Senior)'},
 ];
+
+// ─── Inline ArrowRight (not in lucide@0.263.1) ───────────────────────────────
+function ArrowRight({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  );
+}
 
 // ─── Submissions Panel ────────────────────────────────────────────────────────
 
@@ -241,14 +249,7 @@ function SubmissionsPanel({
   );
 }
 
-// Need ArrowRight import
-function ArrowRight({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M5 12h14M12 5l7 7-7 7" />
-    </svg>
-  );
-}
+
 
 // ─── Challenge Detail ─────────────────────────────────────────────────────────
 
