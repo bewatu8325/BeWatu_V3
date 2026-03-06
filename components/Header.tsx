@@ -54,8 +54,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
         {/* Logo */}
         <button onClick={() => onNavigate(View.Feed)} className="flex items-center shrink-0">
-          <LogoIcon className="h-8 w-auto text-cyan-400" />
-          <span className="ml-2 text-lg font-bold text-cyan-400 hidden sm:block">BeWatu</span>
+          <LogoIcon className="h-10 w-auto text-cyan-400" />
         </button>
 
         {/* Search */}
