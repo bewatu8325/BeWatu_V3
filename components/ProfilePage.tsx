@@ -3,6 +3,7 @@ import { User, ConnectionRequest, Circle, View } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import { useTranslation } from '../hooks/useTranslation';
+import { useFirebase } from '../contexts/FirebaseContext';
 
 interface ProfilePageProps {
   user: User;
@@ -43,6 +44,7 @@ const getCircleColor = (circleName: string) => {
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword }) => {
   const { t } = useTranslation();
+  const { fbUser } = useFirebase();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -177,14 +179,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                   </div>
               )}
           </div>
-        // Inside the profile render, after the skills section:
-<SkillDNA
-  user={profileUser}
-  profileUid={profileUser._firestoreUid ?? String(profileUser.id)}
-  isOwn={profileUser.id === currentUser.id}
-  currentUserUid={fbUser?.uid}
-  onEndorsed={() => {/* optionally re-fetch user data */}}
-/>
+        <SkillDNA
+          user={user}
+          profileUid={(user as any)._firestoreUid ?? String(user.id)}
+          isOwn={isCurrentUser}
+          currentUserUid={fbUser?.uid}
+          onEndorsed={() => {}}
+        />
         
         {/* Circles Tile */}
         {userCircles.length > 0 && (
