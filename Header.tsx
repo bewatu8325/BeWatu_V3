@@ -22,10 +22,11 @@ interface HeaderProps {
   currentView: View;
   onNavigate: (view: View) => void;
   onLogout: () => void;
+  onSwitchToRecruiter?: () => void;
   notificationCount?: number;
 }
 
-export function Header({ currentView, onNavigate, onLogout, notificationCount = 0 }: HeaderProps) {
+export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, notificationCount = 0 }: HeaderProps) {
   const { currentUser } = useFirebase();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -128,10 +129,10 @@ export function Header({ currentView, onNavigate, onLogout, notificationCount = 
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors">
                 <User className="h-4 w-4" />View profile
               </button>
-              {currentUser?.isRecruiter && (
-                <button onClick={() => { onNavigate(View.RecruiterConsole); setMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors">
-                  <Briefcase className="h-4 w-4" />Recruiter Console
+              {onSwitchToRecruiter && (
+                <button onClick={() => { onSwitchToRecruiter(); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-cyan-300 hover:bg-cyan-900/20 transition-colors">
+                  <Briefcase className="h-4 w-4" />Switch to Recruiter
                 </button>
               )}
               <button onClick={() => { onNavigate(View.Settings ?? View.Profile); setMenuOpen(false); }}
