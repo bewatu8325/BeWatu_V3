@@ -3,6 +3,7 @@ import {
   Home, Users, Hexagon, Briefcase, MessageSquare,
   Bell, LogOut, User, ChevronDown, Settings, Sword, Search,
 } from 'lucide-react';
+import { LogoIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { View } from '../types'; // adjust path if needed
 
@@ -52,7 +53,7 @@ export function Header({ currentView, onNavigate, onLogout, notificationCount = 
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
         {/* Logo */}
         <button onClick={() => onNavigate(View.Feed)} className="flex items-center shrink-0">
-          <img src="/images/bewatu-logo.png" alt="BeWatu" className="h-8 w-auto" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <LogoIcon className="h-8 w-auto text-cyan-400" />
           <span className="ml-2 text-lg font-bold text-cyan-400 hidden sm:block">BeWatu</span>
         </button>
 
