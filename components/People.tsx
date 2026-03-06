@@ -41,3 +41,5 @@ const People: React.FC<PeopleProps> = ({ users, onEndorseSkill, onStartMessage, 
     </div>
   );
 };
+
+export default People;
