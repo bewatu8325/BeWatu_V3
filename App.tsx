@@ -42,6 +42,8 @@ import {
   fetchCircles,
   createCircle,
   fetchUsers,
+  getOrCreateCompanyForRecruiter,
+  applyToJobWithProfile,
 } from './lib/firestoreService';
 
 // ── Lazy-loaded components ────────────────────────────────────────────────────
@@ -139,7 +141,13 @@ const MainApp: React.FC = () => {
         users: [user, ...otherUsers],
         posts: firestorePosts.posts,
         jobs: firestoreJobs,
-        companies: [],
+        companies: currentUser
+            ? [await getOrCreateCompanyForRecruiter(
+                fbUser?.uid ?? '',
+                currentUser.name,
+                currentUser.headline
+              ).catch(() => ({ id: 1, _firestoreId: '', name: currentUser.headline || currentUser.name, description: '', industry: '', logoUrl: '', website: '' }))]
+            : [],
         messages: firestoreMessages,
         notifications: [],
         connectionRequests: firestoreConnections,
@@ -334,7 +342,7 @@ const MainApp: React.FC = () => {
     });
     setSuccessBanner(`Successfully applied for ${job.title}!`);
     const firestoreJob = (data?.jobs as any[])?.find(j => j.id === job.id);
-    if (firestoreJob?._firestoreId) await fbApplyToJob(firestoreJob._firestoreId, fbUser.uid);
+    if (firestoreJob?._firestoreId) await applyToJobWithProfile(firestoreJob._firestoreId, job.id, fbUser.uid);
   };
 
   const handleAddJob = async (newJobData: Omit<Job, 'id'>) => {
@@ -503,17 +511,16 @@ const MainApp: React.FC = () => {
     }
 
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col pb-16 sm:pb-0">
         <Header
           currentView={currentView}
           onNavigate={handleSetView}
           onLogout={handleLogout}
-          onSwitchToRecruiter={handleSwitchProfile}
           notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
         />
-        <main className="flex-grow container mx-auto px-4 sm:px-6 pt-20 pb-24 sm:pb-8 sm:pt-24">{content}</main>
+        <main className="flex-grow container mx-auto px-4 sm:px-6 py-4 sm:py-8">{content}</main>
         {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
-        <div className="hidden sm:block"><Footer onNavigateToConnect={handleNavigateToConnect} /></div>
+        <Footer onNavigateToConnect={handleNavigateToConnect} />
         {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
         {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
         {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
