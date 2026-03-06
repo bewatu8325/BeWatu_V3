@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getActiveSparks, toggleSparkReaction, createSpark, type SparkFormat } from '../firestoreService';
+import { getActiveSparks, toggleSparkReaction, createSpark, type SparkFormat } from '../lib/firestoreService';
 import { useFirebase } from '../contexts/FirebaseContext';
 import {
   Plus, X, ChevronLeft, ChevronRight,
