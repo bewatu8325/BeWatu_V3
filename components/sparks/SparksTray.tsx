@@ -3,7 +3,7 @@ import { getActiveSparks, toggleSparkReaction, createSpark, type SparkFormat } f
 import { useFirebase } from '../../contexts/FirebaseContext';
 import {
   Plus, X, ChevronLeft, ChevronRight,
-  Flame, Lightbulb, Target, Handshake, MapPin,
+  Flame, Lightbulb, Flag, Link, MapPin,
   Heart, Zap, Users,
 } from 'lucide-react';
 
@@ -23,8 +23,8 @@ type ReactionType = 'relate' | 'inspire' | 'collab';
 const FORMAT_CONFIG = {
   win:          { icon: Flame,     label: 'Win',          hint: 'Share a recent accomplishment with a stat',      gradient: 'from-amber-500/20 to-amber-500/5',   accent: 'text-amber-400',  border: 'border-amber-500/30' },
   insight:      { icon: Lightbulb, label: 'Insight',      hint: 'One sentence that changed how you think',        gradient: 'from-teal-500/20 to-teal-500/5',     accent: 'text-teal-400',   border: 'border-teal-500/30' },
-  goal:         { icon: Target,    label: 'Goal',         hint: 'What you are working toward this week',          gradient: 'from-purple-500/20 to-purple-500/5', accent: 'text-purple-400', border: 'border-purple-500/30' },
-  'looking-for':{ icon: Handshake, label: 'Looking for',  hint: 'Collaborators, feedback, or opportunities',      gradient: 'from-cyan-500/20 to-cyan-500/5',     accent: 'text-cyan-400',   border: 'border-cyan-500/30' },
+  goal:         { icon: Flag,    label: 'Goal',         hint: 'What you are working toward this week',          gradient: 'from-purple-500/20 to-purple-500/5', accent: 'text-purple-400', border: 'border-purple-500/30' },
+  'looking-for':{ icon: Link, label: 'Looking for',  hint: 'Collaborators, feedback, or opportunities',      gradient: 'from-cyan-500/20 to-cyan-500/5',     accent: 'text-cyan-400',   border: 'border-cyan-500/30' },
   status:       { icon: MapPin,    label: 'Status',       hint: 'Available / Busy / Open to work',               gradient: 'from-rose-500/20 to-rose-500/5',     accent: 'text-rose-400',   border: 'border-rose-500/30' },
 };
 
