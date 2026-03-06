@@ -1,35 +1,15 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import SparksTray from './components/sparks/SparksTray';
+import ProveView from './components/ProveView';
+import { Header } from './components/Header';
+import { MobileNav } from './components/MobileNav';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
 import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/geminiService';
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
-import ProveView from './components/ProveView'; 
-import { Header } from './components/Header';
-import { MobileNav } from './components/MobileNav';
-import {
-  createPost as fbCreatePost,
-  fetchPosts,
-  appreciatePost as fbAppreciatePost,
-  fetchAllMessagesForUser,
-  subscribeToMessages,
-  sendConnectionRequest as fbSendConnectionRequest,
-  respondToConnectionRequest as fbRespondToConnection,
-  fetchConnectionRequests,
-  subscribeToNotifications,
-  markNotificationsRead as fbMarkNotificationsRead,
-  createJob as fbCreateJob,
-  fetchJobs,
-  updateJob as fbUpdateJob,
-  deleteJob as fbDeleteJob,
-  applyToJob as fbApplyToJob,
-  fetchCircles,
-  createCircle,
-  fetchUsers,
-} from './lib/firestoreService';
 
-// ── Firebase services ─────────────────────────────────────────────────────────
+// ── Firebase auth ─────────────────────────────────────────────────────────────
 import {
   loginWithEmail,
   loginWithGoogle,
@@ -40,6 +20,8 @@ import {
   updateUserInFirestore,
   setStripeCustomerId,
 } from './lib/firebaseAuth';
+
+// ── Firestore services (single import block) ──────────────────────────────────
 import {
   createPost as fbCreatePost,
   fetchPosts,
@@ -58,10 +40,11 @@ import {
   deleteJob as fbDeleteJob,
   applyToJob as fbApplyToJob,
   fetchCircles,
+  createCircle,
+  fetchUsers,
 } from './lib/firestoreService';
 
-// ── Lazy-loaded components (remain unchanged) ───────────────────────────────────────
-const Header = lazy(() => import('./components/Header'));
+// ── Lazy-loaded components ────────────────────────────────────────────────────
 const ProfilePage = lazy(() => import('./components/ProfilePage'));
 const HomePage = lazy(() => import('./components/HomePage'));
 const People = lazy(() => import('./components/People'));
@@ -89,7 +72,7 @@ type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authent
 type ActiveProfile = 'user' | 'recruiter';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN APP (inner — has access to FirebaseContext)
+// MAIN APP
 // ─────────────────────────────────────────────────────────────────────────────
 const MainApp: React.FC = () => {
   const { currentUser, fbUser, authLoading, refreshUser } = useFirebase();
@@ -103,22 +86,18 @@ const MainApp: React.FC = () => {
   const [activeChatUserId, setActiveChatUserId] = useState<number | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 
-  // Co-pilot modal
   const [coPilotModalOpen, setCoPilotModalOpen] = useState(false);
   const [coPilotModalTitle, setCoPilotModalTitle] = useState('');
   const [coPilotModalContent, setCoPilotModalContent] = useState<string | null>(null);
   const [isCoPilotLoading, setIsCoPilotLoading] = useState(false);
 
-  // Feature modals
   const [isSkillsGraphModalOpen, setIsSkillsGraphModalOpen] = useState(false);
   const [isVideoRecorderModalOpen, setIsVideoRecorderModalOpen] = useState(false);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
 
-  // Navigation state
   const [activeCircleId, setActiveCircleId] = useState<number | null>(null);
   const [profileUserId, setProfileUserId] = useState<number | null>(null);
 
-  // Job / recruiter
   const [appliedJobIds, setAppliedJobIds] = useState<number[]>([]);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [talentPipeline, setTalentPipeline] = useState<{ [key: string]: User[] }>({
@@ -130,7 +109,7 @@ const MainApp: React.FC = () => {
   });
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
-  // ── Auto-restore session when Firebase auth resolves ─────────────────────
+  // ── Auto-restore session ──────────────────────────────────────────────────
   useEffect(() => {
     if (authLoading) return;
     if (currentUser && authState !== 'authenticated') {
@@ -139,78 +118,49 @@ const MainApp: React.FC = () => {
     }
   }, [authLoading, currentUser]);
 
-  // ── Load app data (Firestore-first, Gemini fallback for AI content) ───────
-const loadAppData = useCallback(async (user: User) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections, firestoreUsers] =
-      await Promise.all([
-        fetchPosts(50),
-        fetchJobs(),
-        fetchCircles(),
-        fetchAllMessagesForUser(fbUser?.uid ?? '', user.id),
-        fetchConnectionRequests(fbUser?.uid ?? ''),
-        fetchUsers(),
-      ]);
-
-    // Make sure current user is first and not duplicated
-    const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
-
-    setData({
-      users: [user, ...otherUsers],
-      posts: firestorePosts.posts,
-      jobs: firestoreJobs,
-      companies: [],
-      messages: firestoreMessages,
-      notifications: [],
-      connectionRequests: firestoreConnections,
-      circles: firestoreCircles,
-      articles: [],
-    });
-  } catch (err) {
-    console.error(err);
-    setError('Could not load application data.');
-  } finally {
-    setLoading(false);
-  }
-}, [fbUser]);
-
-  // ── Subscribe to real-time notifications ──────────────────────────────────
-  // useEffect(() => {
-  //  if (!fbUser || !currentUser) return;
-  //  const unsub = subscribeToNotifications(fbUser.uid, currentUser.id, (notifications) => {
-  //    setData(prev => prev ? { ...prev, notifications } : prev);
-  //  });
- //   return unsub;
-//  }, [fbUser, currentUser]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // AUTH HANDLERS — wired to real Firebase
-  // ─────────────────────────────────────────────────────────────────────────
-
-  const handleLoginSuccess = async (email: string, isRecruiterLogin: boolean) => {
+  // ── Load app data ─────────────────────────────────────────────────────────
+  const loadAppData = useCallback(async (user: User) => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      // Note: LoginPage calls this after form submit.
-      // We need the password — see LoginPage integration note below.
-      // For now this path is kept for compatibility; real auth happens via
-      // handleFirebaseLogin which LoginPage should call directly.
-      setActiveProfile(isRecruiterLogin ? 'recruiter' : 'user');
+      const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections, firestoreUsers] =
+        await Promise.all([
+          fetchPosts(50),
+          fetchJobs(),
+          fetchCircles(),
+          fetchAllMessagesForUser(fbUser?.uid ?? '', user.id),
+          fetchConnectionRequests(fbUser?.uid ?? ''),
+          fetchUsers(),
+        ]);
+
+      const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
+
+      setData({
+        users: [user, ...otherUsers],
+        posts: firestorePosts.posts,
+        jobs: firestoreJobs,
+        companies: [],
+        messages: firestoreMessages,
+        notifications: [],
+        connectionRequests: firestoreConnections,
+        circles: firestoreCircles,
+        articles: [],
+      });
+    } catch (err) {
+      console.error(err);
+      setError('Could not load application data.');
     } finally {
       setLoading(false);
     }
+  }, [fbUser]);
+
+  // ── Auth handlers ─────────────────────────────────────────────────────────
+
+  const handleLoginSuccess = async (email: string, isRecruiterLogin: boolean) => {
+    setActiveProfile(isRecruiterLogin ? 'recruiter' : 'user');
   };
 
-  /**
-   * Called directly by LoginPage with real credentials.
-   * Replace LoginPage's onLoginSuccess call with onFirebaseLogin.
-   */
-  const handleFirebaseLogin = async (
-    email: string,
-    password: string,
-    isRecruiterLogin: boolean
-  ) => {
+  const handleFirebaseLogin = async (email: string, password: string, isRecruiterLogin: boolean) => {
     try {
       setLoading(true);
       setError(null);
@@ -246,18 +196,10 @@ const loadAppData = useCallback(async (user: User) => {
     }
   };
 
-  const handleRegisterSuccess = async (
-    name: string,
-    email: string,
-    isRecruiter: boolean,
-    stripeCustomerId?: string
-  ) => {
+  const handleRegisterSuccess = async (name: string, email: string, isRecruiter: boolean, stripeCustomerId?: string) => {
     try {
       setLoading(true);
-      // RegistrationPage already called registerWithEmail — this just handles post-registration setup
-      if (stripeCustomerId && fbUser) {
-        await setStripeCustomerId(fbUser.uid, stripeCustomerId);
-      }
+      if (stripeCustomerId && fbUser) await setStripeCustomerId(fbUser.uid, stripeCustomerId);
       setActiveProfile(isRecruiter ? 'recruiter' : 'user');
       setAuthState('authenticated');
       if (currentUser) await loadAppData(currentUser);
@@ -274,22 +216,11 @@ const loadAppData = useCallback(async (user: User) => {
     sessionStorage.removeItem('beWatuData');
   };
 
-  const handleSwitchProfile = () => {
-    setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
-  };
+  const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
+  const handleChangePassword = async (currentPassword: string, newPassword: string) => changePassword(currentPassword, newPassword);
+  const handleForgotPassword = async (email: string) => { await forgotPassword(email); setAuthState('login'); };
 
-  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
-    await changePassword(currentPassword, newPassword);
-  };
-
-  const handleForgotPassword = async (email: string) => {
-    await forgotPassword(email);
-    setAuthState('login');
-  };
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // DATA MUTATION HANDLERS — now write to Firestore
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Data mutation handlers ────────────────────────────────────────────────
 
   const addPost = async (content: string, circleId?: number) => {
     if (!data || !currentUser || !fbUser) return;
@@ -301,88 +232,56 @@ const loadAppData = useCallback(async (user: User) => {
     if (!data || !fbUser) return;
     const post = data.posts.find(p => p.id === postId) as (Post & { _firestoreId?: string }) | undefined;
     if (!post) return;
-
-    // Optimistic update
-    const updatedPosts = data.posts.map(p =>
-      p.id === postId
-        ? { ...p, appreciations: { ...p.appreciations, [appreciationType]: p.appreciations[appreciationType] + 1 } }
-        : p
-    );
-    const author = data.users.find(u => u.id === post.authorId);
     const reputationMap: Record<AppreciationType, number> = { helpful: 1, thoughtProvoking: 3, collaborationReady: 2 };
     const creditMap: Record<AppreciationType, number> = { helpful: 5, thoughtProvoking: 10, collaborationReady: 7 };
-    const updatedUsers = data.users.map(u =>
-      u.id === post.authorId
-        ? { ...u, reputation: u.reputation + reputationMap[appreciationType], credits: u.credits + creditMap[appreciationType] }
-        : u
-    );
-    setData({ ...data, posts: updatedPosts, users: updatedUsers });
-
-    // Persist to Firestore
-    if (post._firestoreId && author) {
-      const authorDoc = data.users.find(u => u.id === author.id);
-      // We need the author's Firebase UID — stored via a lookup or passed with user data
-      // For now, use the firestoreId path
-      await fbAppreciatePost(post._firestoreId, appreciationType, fbUser.uid);
-    }
+    setData({
+      ...data,
+      posts: data.posts.map(p =>
+        p.id === postId ? { ...p, appreciations: { ...p.appreciations, [appreciationType]: p.appreciations[appreciationType] + 1 } } : p
+      ),
+      users: data.users.map(u =>
+        u.id === post.authorId ? { ...u, reputation: u.reputation + reputationMap[appreciationType], credits: u.credits + creditMap[appreciationType] } : u
+      ),
+    });
+    if (post._firestoreId) await fbAppreciatePost(post._firestoreId, appreciationType, fbUser.uid);
   };
 
   const endorseSkill = (userId: number, skillName: string) => {
     if (!data) return;
-    setData({
-      ...data,
-      users: data.users.map(u =>
-        u.id === userId
-          ? { ...u, skills: u.skills.map(s => s.name === skillName ? { ...s, endorsements: s.endorsements + 1 } : s) }
-          : u
-      ),
-    });
+    setData({ ...data, users: data.users.map(u => u.id === userId ? { ...u, skills: u.skills.map(s => s.name === skillName ? { ...s, endorsements: s.endorsements + 1 } : s) } : u) });
   };
 
   const sendMessage = async (receiverId: number, text: string) => {
     if (!data || !currentUser || !fbUser) return;
-
-    // We need the receiver's Firebase UID. For now create a new message optimistically.
-    const newMsg: Message = {
-      id: Date.now(),
-      senderId: currentUser.id,
-      receiverId,
-      text,
-      timestamp: 'Just now',
-      isRead: false,
-    };
+    const newMsg: Message = { id: Date.now(), senderId: currentUser.id, receiverId, text, timestamp: 'Just now', isRead: false };
     setData({ ...data, messages: [...data.messages, newMsg] });
-
-    // Persist — receiver UID lookup from data.users (add `uid` field to User in Firestore)
-    // This is wired when the receiver logs in and their uid is stored in Firestore.
-    // Full real-time messaging is available via subscribeToMessages() in the Messaging component.
   };
 
-  const startMessage = (userId: number) => {
-    setActiveChatUserId(userId);
-    setCurrentView(View.Messaging);
-  };
+  const startMessage = (userId: number) => { setActiveChatUserId(userId); setCurrentView(View.Messaging); };
 
   const handleMarkNotificationsRead = async () => {
     if (!data || !fbUser) return;
-    const firestoreIds = (data.notifications as any[])
-      .filter(n => !n.read && n._firestoreId)
-      .map(n => n._firestoreId);
-    if (firestoreIds.length) await fbMarkNotificationsRead(fbUser.uid, firestoreIds);
+    const ids = (data.notifications as any[]).filter(n => !n.read && n._firestoreId).map(n => n._firestoreId);
+    if (ids.length) await fbMarkNotificationsRead(fbUser.uid, ids);
     setData({ ...data, notifications: data.notifications.map(n => ({ ...n, read: true })) });
   };
 
   const handleConnectionRequest = async (requestId: number, status: 'accepted' | 'declined') => {
     if (!data) return;
     const req = (data.connectionRequests as any[]).find(cr => cr.id === requestId);
-    if (req?._firestoreId && fbUser) {
-      await fbRespondToConnection(req._firestoreId, status, req.senderUid ?? fbUser.uid, fbUser.uid);
-    }
+    if (req?._firestoreId && fbUser) await fbRespondToConnection(req._firestoreId, status, req.senderUid ?? fbUser.uid, fbUser.uid);
     setData({
       ...data,
       connectionRequests: data.connectionRequests.map(cr => cr.id === requestId ? { ...cr, status } : cr),
       notifications: data.notifications.filter(n => n.relatedId !== requestId),
     });
+  };
+
+  const handleSendConnection = async (receiverId: number) => {
+    if (!currentUser || !fbUser) return;
+    const receiver = data?.users.find(u => u.id === receiverId) as any;
+    const newRequest = await fbSendConnectionRequest(fbUser.uid, currentUser.id, receiver?._firestoreUid ?? String(receiverId), receiverId);
+    setData(d => d ? { ...d, connectionRequests: [...d.connectionRequests, newRequest] } : null);
   };
 
   const handleViewCompany = (companyId: number) => {
@@ -446,48 +345,37 @@ const loadAppData = useCallback(async (user: User) => {
 
   const handleUpdateJob = async (updatedJob: Job) => {
     if (!data) return;
-    const firestoreJob = (data.jobs as any[]).find(j => j.id === updatedJob.id);
-    if (firestoreJob?._firestoreId) await fbUpdateJob(firestoreJob._firestoreId, updatedJob);
+    const fj = (data.jobs as any[]).find(j => j.id === updatedJob.id);
+    if (fj?._firestoreId) await fbUpdateJob(fj._firestoreId, updatedJob);
     setData(d => d ? { ...d, jobs: d.jobs.map(j => j.id === updatedJob.id ? updatedJob : j) } : null);
   };
 
   const handleDeleteJob = async (jobId: number) => {
     if (!data) return;
-    const firestoreJob = (data.jobs as any[]).find(j => j.id === jobId);
-    if (firestoreJob?._firestoreId) await fbDeleteJob(firestoreJob._firestoreId);
+    const fj = (data.jobs as any[]).find(j => j.id === jobId);
+    if (fj?._firestoreId) await fbDeleteJob(fj._firestoreId);
     setData(d => d ? { ...d, jobs: d.jobs.filter(j => j.id !== jobId) } : null);
   };
 
   const handleToggleJobStatus = (jobId: number, currentStatus: 'Active' | 'Suspended') => {
     if (!data) return;
     const newStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
-    const firestoreJob = (data.jobs as any[]).find(j => j.id === jobId);
-    if (firestoreJob?._firestoreId) fbUpdateJob(firestoreJob._firestoreId, { status: newStatus });
+    const fj = (data.jobs as any[]).find(j => j.id === jobId);
+    if (fj?._firestoreId) fbUpdateJob(fj._firestoreId, { status: newStatus });
     setData(d => d ? { ...d, jobs: d.jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j) } : null);
   };
-  const handleSendConnection = async (receiverId: number) => {
-  if (!currentUser || !fbUser) return;
-  const receiver = data?.users.find(u => u.id === receiverId) as any;
-  const newRequest = await fbSendConnectionRequest(
-    fbUser.uid, currentUser.id,
-    receiver?._firestoreUid ?? String(receiverId),
-    receiverId
-  );
-  setData(d => d ? { ...d, connectionRequests: [...d.connectionRequests, newRequest] } : null);
-};
-const handleCreateCircle = async (name: string, description: string) => {
-  if (!currentUser || !fbUser) return;
-  const newCircle = await createCircle(
-    { name, description, members: [currentUser.id], adminId: currentUser.id },
-    fbUser.uid
-  );
-  setData(d => d ? { ...d, circles: [newCircle, ...d.circles] } : null);
-};
-  
+
+  const handleCreateCircle = async (name: string, description: string) => {
+    if (!currentUser || !fbUser) return;
+    const newCircle = await createCircle({ name, description, members: [currentUser.id], adminId: currentUser.id }, fbUser.uid);
+    setData(d => d ? { ...d, circles: [newCircle, ...d.circles] } : null);
+  };
+
   const handleAddMemberToCircle = (circleId: number, userId: number) => {
     if (!data) return;
     setData({ ...data, circles: data.circles.map(c => c.id === circleId && !c.members.includes(userId) ? { ...c, members: [...c.members, userId] } : c) });
   };
+
   const handleRemoveMemberFromCircle = (circleId: number, userId: number) => {
     if (!data) return;
     setData({ ...data, circles: data.circles.map(c => c.id === circleId && c.adminId !== userId ? { ...c, members: c.members.filter(id => id !== userId) } : c) });
@@ -501,14 +389,11 @@ const handleCreateCircle = async (name: string, description: string) => {
     if (view !== View.Circles) setActiveCircleId(null);
     setIsMobileNavOpen(false);
   };
-  
   const handleSelectCircle = (circleId: number) => { setCurrentView(View.Circles); setActiveCircleId(circleId); };
   const handleNavigateToConnect = () => setAuthState('connect');
   const handleNavigateToLanding = () => setAuthState('landing');
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   const FullPageLoader = () => (
     <div className="flex items-center justify-center h-screen bg-slate-950">
@@ -516,7 +401,6 @@ const handleCreateCircle = async (name: string, description: string) => {
     </div>
   );
 
-  // Show full-page loader while Firebase resolves the session
   if (authLoading) return <FullPageLoader />;
 
   const renderContent = () => {
@@ -526,14 +410,13 @@ const handleCreateCircle = async (name: string, description: string) => {
         <p className="mt-4 text-lg text-slate-300">Loading BeWatu...</p>
       </div>
     );
+
     if (error || !data || !currentUser) return (
       <div className="flex items-center justify-center h-screen bg-red-900/20 text-red-300">
         <div className="text-center p-8 border border-red-500/30 rounded-lg bg-slate-900 shadow-lg">
           <h2 className="text-2xl font-bold mb-2">An Error Occurred</h2>
           <p>{error || 'Could not load application data.'}</p>
-          <button onClick={() => loadAppData(currentUser!)} className="mt-4 px-4 py-2 bg-cyan-600 rounded-lg text-white">
-            Retry
-          </button>
+          <button onClick={() => loadAppData(currentUser!)} className="mt-4 px-4 py-2 bg-cyan-600 rounded-lg text-white">Retry</button>
         </div>
       </div>
     );
@@ -543,7 +426,8 @@ const handleCreateCircle = async (name: string, description: string) => {
     }
 
     let content: React.ReactNode;
-   case View.Feed:
+    switch (currentView) {
+      case View.Feed:
         content = (
           <div className="space-y-4">
             <SparksTray />
@@ -562,29 +446,34 @@ const handleCreateCircle = async (name: string, description: string) => {
           </div>
         );
         break;
-);
-        
-     case View.People:
-  content = <People 
-    users={data.users.filter(u => u.id !== currentUser.id)} 
-    onEndorseSkill={endorseSkill} 
-    onStartMessage={startMessage} 
-    onAnalyzeSynergy={handleAnalyzeSynergy} 
-    onViewProfile={handleViewProfile}
-    onConnect={handleSendConnection}
-    connectionRequests={data.connectionRequests}
-    currentUserId={currentUser.id}
-  />;
-  break;
+
+      case View.People:
+        content = (
+          <People
+            users={data.users.filter(u => u.id !== currentUser.id)}
+            onEndorseSkill={endorseSkill}
+            onStartMessage={startMessage}
+            onAnalyzeSynergy={handleAnalyzeSynergy}
+            onViewProfile={handleViewProfile}
+            onConnect={handleSendConnection}
+            connectionRequests={data.connectionRequests}
+            currentUserId={currentUser.id}
+          />
+        );
+        break;
+
       case View.Jobs:
         content = <Jobs jobs={data.jobs} companies={data.companies} onViewCompany={handleViewCompany} onAnalyzeMatch={handleAnalyzeJobMatch} onApplyForJob={handleApplyForJob} appliedJobIds={appliedJobIds} />;
         break;
+
       case View.Messaging:
         content = <Messaging users={data.users} messages={data.messages} currentUser={currentUser} onSendMessage={sendMessage} initialActiveUserId={activeChatUserId} />;
         break;
+
       case View.AIChat:
         content = <AIChat currentUser={currentUser} />;
         break;
+
       case View.Profile: {
         const userToShow = profileUserId ? data.users.find(u => u.id === profileUserId) : currentUser;
         content = userToShow
@@ -592,36 +481,35 @@ const handleCreateCircle = async (name: string, description: string) => {
           : <div>User not found.</div>;
         break;
       }
-      case View.Prove:{
-       content = (
-        <ProveView onViewProfile={handleViewProfile} />
-    );
-      break;}
-        
-     case View.Circles: {
-  if (activeCircleId) {
-    const circle = data.circles.find(c => c.id === activeCircleId);
-    content = circle
-      ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onViewProfile={handleViewProfile} />
-      : <div>Circle not found</div>;
-  } else {
-    content = <Circles 
-      circles={data.circles} 
-      onSelectCircle={handleSelectCircle}
-      onCreateCircle={handleCreateCircle}
-      currentUserId={currentUser.id}
-    />;
-  }
-  break;
-}
+
+      case View.Prove:
+        content = <ProveView onViewProfile={handleViewProfile} />;
+        break;
+
+      case View.Circles: {
+        if (activeCircleId) {
+          const circle = data.circles.find(c => c.id === activeCircleId);
+          content = circle
+            ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onViewProfile={handleViewProfile} />
+            : <div>Circle not found</div>;
+        } else {
+          content = <Circles circles={data.circles} onSelectCircle={handleSelectCircle} onCreateCircle={handleCreateCircle} currentUserId={currentUser.id} />;
+        }
+        break;
+      }
+
       default:
         content = null;
     }
 
     return (
       <div className="min-h-screen flex flex-col pb-16 sm:pb-0">
-        <Header currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} notificationCount={data?.notifications?.filter(n => !n.isRead).length ?? 0} />
-       // <Header currentUser={currentUser} currentView={currentView} setCurrentView={handleSetView} notifications={data.notifications.filter(n => n.userId === currentUser.id)} connectionRequests={data.connectionRequests} users={data.users} onMarkAsRead={handleMarkNotificationsRead} onAcceptConnection={id => handleConnectionRequest(id, 'accepted')} onDeclineConnection={id => handleConnectionRequest(id, 'declined')} onLogout={handleLogout} onSwitchProfile={handleSwitchProfile} activeProfile={activeProfile} onToggleMobileNav={() => setIsMobileNavOpen(p => !p)} />
+        <Header
+          currentView={currentView}
+          onNavigate={handleSetView}
+          onLogout={handleLogout}
+          notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
+        />
         <main className="flex-grow container mx-auto px-4 sm:px-6 py-4 sm:py-8">{content}</main>
         {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
         <Footer onNavigateToConnect={handleNavigateToConnect} />
@@ -630,8 +518,7 @@ const handleCreateCircle = async (name: string, description: string) => {
         {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
         {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
         {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
-       // <MobileNav currentView={currentView} setCurrentView={handleSetView} currentUser={currentUser} onLogout={handleLogout} onSwitchProfile={handleSwitchProfile} isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
-        <MobileNav currentView={currentView} onNavigate={setCurrentView}/>
+        <MobileNav currentView={currentView} onNavigate={handleSetView} />
       </div>
     );
   };
@@ -684,7 +571,7 @@ const handleCreateCircle = async (name: string, description: string) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROOT — wraps with Firebase + Language providers
+// ROOT
 // ─────────────────────────────────────────────────────────────────────────────
 const App: React.FC = () => (
   <FirebaseProvider>
