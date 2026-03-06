@@ -15,8 +15,8 @@ import {
   rejectPipelineCandidate,
 } from '../../lib/firestoreService';
 import Footer from '../Footer';
-import ManageJobsView from './ManageJobsView';
-import ExpandedCandidateView from './ExpandedCandidateView';
+import ManageJobsView from '../ManageJobsView';
+import ExpandedCandidateView from '../ExpandedCandidateView';
 
 interface RecruiterConsoleProps {
   onLogout: () => void;
