@@ -168,7 +168,7 @@ function SubmissionsPanel({
           ) : (
             <div className="mt-4 flex flex-col gap-3">
               {[...unscored, ...ranked].map((sub, idx) => (
-                <div key={sub.id} className="rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 p-4">
+                <div key={sub.id} className="rounded-xl border bg-white p-4 shadow-sm" style={{ borderColor:"#e7e5e4" }}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       {!blindMode ? (
@@ -225,11 +225,11 @@ function SubmissionsPanel({
                       <div className="flex items-center gap-3">
                         <label className="text-xs font-medium text-stone-800">Score (0-100)</label>
                         <input type="number" min={0} max={100} value={scoreValue} onChange={e => setScoreValue(Number(e.target.value))}
-                          className="w-20 rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-2 py-1 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+                          className="w-20 rounded-lg border bg-stone-50 px-2 py-1 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
                       </div>
                       <textarea value={feedbackValue} onChange={e => setFeedbackValue(e.target.value)} rows={2}
                         placeholder="Add feedback (visible to candidate)..."
-                        className="w-full resize-none rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-xs text-stone-800 outline-none focus:border-cyan-500" />
+                        className="w-full resize-none rounded-lg border bg-stone-50 px-3 py-2 text-xs text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleScore(sub.id)} disabled={saving}
                           className="flex items-center gap-1 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 disabled:opacity-50 transition-colors">
@@ -321,7 +321,7 @@ function ChallengeDetail({
           <p className="mt-1 text-xs text-stone-500">Top performers earn credits and may be shortlisted. Submissions are anonymous to recruiters by default.</p>
           <textarea value={content} onChange={e => setContent(e.target.value)} rows={6}
             placeholder="Write your solution, paste code, or describe your approach..."
-            className="mt-3 w-full resize-none rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-4 py-3 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+            className="mt-3 w-full resize-none rounded-lg border bg-stone-50 px-4 py-3 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
           <div className="mt-3 flex items-center justify-end">
             <button onClick={handleSubmit} disabled={submitting || !content.trim()}
               className="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50 transition-colors">
@@ -419,7 +419,7 @@ function CreateChallengeDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 p-6" onClick={e => e.stopPropagation()}>
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border bg-white p-6" style={{ borderColor:"#e7e5e4" }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute right-4 top-4 text-stone-500 hover:text-stone-800 transition-colors"><X className="h-5 w-5" /></button>
         <h2 className="text-lg font-bold text-stone-900">Create a Prove Challenge</h2>
         <p className="mt-1 text-xs text-stone-500">Design a quest-style challenge to discover top talent.</p>
@@ -429,26 +429,26 @@ function CreateChallengeDialog({
           <div>
             <label className="text-xs font-medium text-stone-800 mb-1 block">Title</label>
             <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Build a responsive dashboard"
-              className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+              className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
           </div>
           <div>
             <label className="text-xs font-medium text-stone-800 mb-1 block">Description</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
               placeholder="Describe what participants need to build, solve, or design..."
-              className="w-full resize-none rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+              className="w-full resize-none rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Type</label>
               <select value={type} onChange={e => setType(e.target.value as ChallengeType)}
-                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500">
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }}>
                 {CHALLENGE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Difficulty</label>
               <select value={difficulty} onChange={e => setDifficulty(e.target.value as ChallengeDifficulty)}
-                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500">
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }}>
                 {CHALLENGE_DIFFS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
@@ -457,24 +457,24 @@ function CreateChallengeDialog({
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Time Limit (min)</label>
               <input type="number" min={15} max={480} value={timeLimit} onChange={e => setTimeLimit(Number(e.target.value))}
-                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
             </div>
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Expires in (days)</label>
               <input type="number" min={1} max={90} value={daysUntilExpiry} onChange={e => setDaysUntilExpiry(Number(e.target.value))}
-                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block flex items-center gap-1"><Zap className="h-3 w-3 text-amber-400" />Credits Reward</label>
               <input type="number" min={0} value={credits} onChange={e => setCredits(Number(e.target.value))}
-                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
             </div>
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Badge Name</label>
               <input value={badge} onChange={e => setBadge(e.target.value)} placeholder="Auto-generated if empty"
-                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
             </div>
           </div>
           <div>
@@ -483,7 +483,7 @@ function CreateChallengeDialog({
               <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSkill())}
                 placeholder="Add a skill"
-                className="flex-1 rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+                className="flex-1 rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
               <button onClick={addSkill} className="flex items-center gap-1 rounded-lg bg-stone-100 px-3 py-2 text-xs font-medium text-stone-800 hover:bg-slate-600 transition-colors">
                 <Plus className="h-3 w-3" />Add
               </button>
@@ -521,7 +521,7 @@ function ChallengeCard({ challenge, onClick }: { challenge: any; onClick: () => 
     : null;
 
   return (
-    <button onClick={onClick} className="group relative flex flex-col overflow-hidden rounded-xl border" style={{ borderColor:"#e7e5e4" }}  bg-white text-left transition-all hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/5">
+    <button onClick={onClick} className="group relative flex flex-col overflow-hidden rounded-xl border bg-white text-left transition-all hover:shadow-md" style={{ borderColor:"#e7e5e4" }}>
       <div className={`relative bg-gradient-to-r ${typeConf.gradient} px-5 py-4`}>
         <div className="flex items-start justify-between">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-stone-50/80">
