@@ -134,13 +134,14 @@ const MainApp: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections, firestoreUsers] =
+      const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections, firestoreFollowRequests, firestoreUsers] =
         await Promise.all([
           fetchPosts(50).catch(() => ({ posts: [], lastDoc: null })),
           fetchJobs().catch(() => []),
           fetchCircles().catch(() => []),
           fetchAllMessagesForUser(fbUser?.uid ?? '', user.id).catch(() => []),
           fetchConnectionRequests(fbUser?.uid ?? '').catch(() => []),
+          fetchFollowRequests(fbUser?.uid ?? '').catch(() => []),
           fetchUsers().catch(() => []),
         ]);
 
@@ -164,6 +165,7 @@ const MainApp: React.FC = () => {
         messages: firestoreMessages,
         notifications: [],
         connectionRequests: firestoreConnections,
+        followRequests: firestoreFollowRequests,
         circles: firestoreCircles,
         articles: [],
       });
@@ -429,9 +431,30 @@ const MainApp: React.FC = () => {
   };
   const handleSelectCircle = (circleId: number) => { setCurrentView(View.Circles); setActiveCircleId(circleId); };
 
-  const handleFollowUser = (userId: number) => {
+  const handleFollowUser = async (userId: number) => {
+    if (!currentUser || !fbUser || !data) return;
     setFollowedUserIds(prev => new Set(prev).add(userId));
-    // TODO: persist follow to Firestore
+    const receiver = data.users.find(u => u.id === userId) as any;
+    const receiverUid = receiver?._firestoreUid ?? String(userId);
+    const privacy = receiver?.privacySettings;
+    // If receiver allows follow without approval, mark accepted immediately
+    if (!privacy || privacy.allowFollow !== false) {
+      const req = await fbSendFollowRequest(fbUser.uid, currentUser.id, receiverUid, userId);
+      setData(d => d ? { ...d, followRequests: [...(d.followRequests ?? []), req] } : null);
+    }
+  };
+
+  const handleFollowRequest = async (requestId: number, status: 'accepted' | 'declined') => {
+    if (!data || !fbUser) return;
+    const req = (data.followRequests ?? []).find(r => r.id === requestId) as any;
+    if (req?._firestoreId) {
+      const sender = data.users.find(u => u.id === req.fromUserId) as any;
+      await fbRespondToFollowRequest(req._firestoreId, status, fbUser.uid, sender?._firestoreUid ?? String(req.fromUserId), req.fromUserId);
+    }
+    setData(d => d ? {
+      ...d,
+      followRequests: (d.followRequests ?? []).map(r => r.id === requestId ? { ...r, status } : r),
+    } : null);
   };
   const handleNavigateToConnect = () => setAuthState('connect');
   const handleNavigateToLanding = () => setAuthState('landing');
@@ -511,8 +534,11 @@ const MainApp: React.FC = () => {
             currentUser={currentUser}
             allUsers={data.users}
             connectionRequests={data.connectionRequests}
+            followRequests={data.followRequests ?? []}
             onAccept={(id) => handleConnectionRequest(id, 'accepted')}
             onDecline={(id) => handleConnectionRequest(id, 'declined')}
+            onAcceptFollow={(id) => handleFollowRequest(id, 'accepted')}
+            onDeclineFollow={(id) => handleFollowRequest(id, 'declined')}
             onViewProfile={handleViewProfile}
             onConnect={handleSendConnection}
           />
