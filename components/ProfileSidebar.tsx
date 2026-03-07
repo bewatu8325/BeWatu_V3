@@ -103,6 +103,11 @@ const VibeClipTile: React.FC<{
             onEnded={() => setPlaying(false)}
             onPause={() => setPlaying(false)}
             onPlay={() => setPlaying(true)}
+            onError={() => {
+              // Inline video failed (CORS or bad URL) — open modal as fallback
+              console.error('[VibeClipTile] Video load error, src:', user.microIntroductionUrl);
+              onPlayVideo(user.microIntroductionUrl!);
+            }}
           />
 
           {/* Play/pause overlay — only visible when paused */}
