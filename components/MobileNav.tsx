@@ -21,7 +21,7 @@ export function MobileNav({ currentView, onNavigate }: MobileNavProps) {
   const { currentUser } = useFirebase();
 
   return (
-    <nav className="fixed right-0 bottom-0 left-0 z-50 border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-sm md:hidden">
+    <nav className="fixed right-0 bottom-0 left-0 z-50 border-t bg-white/95 backdrop-blur-sm md:hidden pb-safe" style={{ borderColor: "#e7e5e4" }}>
       <div className="flex items-center justify-around py-2">
         {MOBILE_ITEMS.map(({ view, label, icon: Icon }) => {
           const active = currentView === view;
@@ -29,7 +29,7 @@ export function MobileNav({ currentView, onNavigate }: MobileNavProps) {
             <button
               key={view}
               onClick={() => onNavigate(view)}
-              className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${active ? 'text-cyan-400' : 'text-slate-400'}`}
+              className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${active ? "" : "text-stone-400"}`} style={active ? { color: "#1a4a3a" } : {}}
             >
               <Icon className="h-5 w-5" />
               <span className="sr-only sm:not-sr-only">{label}</span>
@@ -40,7 +40,7 @@ export function MobileNav({ currentView, onNavigate }: MobileNavProps) {
         {/* Profile tab */}
         <button
           onClick={() => onNavigate(View.Profile)}
-          className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${currentView === View.Profile ? 'text-cyan-400' : 'text-slate-400'}`}
+          className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${currentView === View.Profile ? "" : "text-stone-400"}`} style={currentView === View.Profile ? { color: "#1a4a3a" } : {}}
         >
           {currentUser?.avatarUrl ? (
             <img src={currentUser.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
