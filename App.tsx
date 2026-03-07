@@ -608,7 +608,7 @@ const MainApp: React.FC = () => {
       {publicProfileUserId && data && (
         <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
           <div className="min-h-screen">
-            <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} notificationCount={0} pendingConnectionCount={0} />
+            <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} />
             <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
               <Suspense fallback={<div />}>
                 {(() => {
@@ -625,6 +625,7 @@ const MainApp: React.FC = () => {
                       onBack={() => setPublicProfileUserId(null)}
                       onConnect={(uid) => { fbSendConnectionRequest(currentUser!.id, uid); }}
                       onFollow={handleFollowUser}
+                      onViewCompany={handleViewCompany}
                       onMessage={(uid) => { setPublicProfileUserId(null); startMessage(uid); }}
                       onPlayVideo={url => setPlayingVideoUrl(url)}
                     />
