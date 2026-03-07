@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Sword, PlusCircle, Filter, Loader2, Clock, Users, Zap,
+  Sword, PlusCircle, Filter, Loader2, Clock, Users, Zap, Film,
   Code, Palette, BarChart3, PenTool, Database, ArrowLeft,
   Star, EyeOff, Eye, CheckCircle, Send, Trophy, X, Plus,
 } from 'lucide-react';
@@ -21,6 +21,7 @@ import {
   type ChallengeType,
 } from '../lib/firestoreService';
 import { useFirebase } from '../contexts/FirebaseContext';
+import { ReelVibeFeed } from './ReelVibe';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -277,6 +278,7 @@ function ChallengeDetail({
   const [blindMode, setBlindMode] = useState(true);
 
   const isRecruiter = (currentUser as any)?.isRecruiter ?? false;
+  const [proveTab, setProveTab] = useState<'challenges' | 'reels'>('challenges');
 
   async function load() {
     setLoading(true);
@@ -600,6 +602,7 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
   const [showCreate, setShowCreate] = useState(false);
 
   const isRecruiter = (currentUser as any)?.isRecruiter ?? false;
+  const [proveTab, setProveTab] = useState<'challenges' | 'reels'>('challenges');
 
   async function loadChallenges() {
     setLoading(true);
@@ -640,22 +643,54 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
             <Sword className="h-5 w-5 text-emerald-600" />Prove
           </h1>
-          <p className="mt-1 text-sm text-stone-500">Skill-based challenges from real companies. Prove your talent, earn credits.</p>
+          <p className="mt-1 text-sm text-stone-500">Showcase your skills — take challenges or post a reel.</p>
         </div>
-        {isRecruiter && (
+        {isRecruiter && proveTab === 'challenges' && (
           <button onClick={() => setShowCreate(true)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 transition-colors">
             <PlusCircle className="h-4 w-4" />Create Challenge
           </button>
         )}
       </div>
+
+      {/* Tab bar */}
+      <div className="flex gap-1 rounded-2xl border bg-white p-1" style={{ borderColor: '#e7e5e4' }}>
+        <button
+          onClick={() => setProveTab('challenges')}
+          className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-bold transition-all"
+          style={proveTab === 'challenges'
+            ? { background: '#1a4a3a', color: 'white' }
+            : { color: '#78716c' }}
+        >
+          <Sword className="h-4 w-4" />
+          Challenges
+        </button>
+        <button
+          onClick={() => setProveTab('reels')}
+          className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-bold transition-all"
+          style={proveTab === 'reels'
+            ? { background: '#1a4a3a', color: 'white' }
+            : { color: '#78716c' }}
+        >
+          <Film className="h-4 w-4" />
+          Reel Vibes
+        </button>
+      </div>
+
+      {/* Reel Vibes tab */}
+      {proveTab === 'reels' && (
+        <ReelVibeFeed onViewProfile={onViewProfile} />
+      )}
+
+      {/* Challenges tab — only render when active */}
+      {proveTab === 'challenges' && <>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
@@ -728,6 +763,7 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
         onCreated={loadChallenges}
         companyName={(currentUser as any)?.company ?? (currentUser as any)?.headline ?? 'Company'}
       />
+      </> /* end challenges tab */}
     </div>
   );
 }
