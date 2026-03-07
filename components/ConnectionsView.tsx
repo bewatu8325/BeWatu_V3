@@ -741,7 +741,7 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-stone-900">Circles</h1>
@@ -749,12 +749,12 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-2xl bg-stone-100 w-fit">
+      <div className="flex gap-1 p-1 rounded-2xl bg-stone-100 overflow-x-auto max-w-full">
         {tabs.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-5 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
               tab === t.id
                 ? 'bg-white shadow-sm text-stone-900'
                 : 'text-stone-500 hover:text-stone-700'
