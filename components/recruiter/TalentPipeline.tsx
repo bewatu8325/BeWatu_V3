@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../../types';
-import { useTranslation } from '../hooks/useTranslation';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface CandidateCardProps {
   candidate: User;
