@@ -83,18 +83,18 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
     };
 
     return (
-        <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden h-[calc(100vh-8rem)] flex">
+        <div className="bg-white rounded-2xl border overflow-hidden h-[calc(100vh-8rem)] flex shadow-sm" style={{ borderColor:"#e7e5e4" }}>
             {/* Conversation List */}
-            <div className="w-1/3 border-r border-slate-700 overflow-y-auto">
-                <h2 className="text-lg font-bold p-4 border-b border-slate-700 text-slate-200">Conversations</h2>
+            <div className="w-1/3 border-r overflow-y-auto" style={{ borderColor:"#e7e5e4" }}>
+                <h2 className="text-lg font-bold p-4 border-b text-stone-900" style={{ borderColor:"#e7e5e4" }}>Conversations</h2>
                 {conversationPartners.map(user => (
                     <div key={user.id}
                         onClick={() => setActiveChatUserId(user.id)}
-                        className={`p-4 flex items-center space-x-3 cursor-pointer hover:bg-slate-700/50 ${activeChatUserId === user.id ? 'bg-cyan-900/30' : ''}`}>
+                        className={`p-4 flex items-center space-x-3 cursor-pointer transition-colors ${activeChatUserId === user.id ? 'bg-stone-100' : 'hover:bg-stone-50'}`}>
                         <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-full object-cover"/>
                         <div>
-                            <p className="font-semibold text-slate-200">{user.name}</p>
-                            <p className="text-sm text-slate-400 truncate">{user.headline}</p>
+                            <p className="font-semibold text-stone-900">{user.name}</p>
+                            <p className="text-sm text-stone-500 truncate">{user.headline}</p>
                         </div>
                     </div>
                 ))}
@@ -104,16 +104,16 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
             <div className="w-2/3 flex flex-col">
                 {activeChatPartner ? (
                     <>
-                        <div className="p-4 border-b border-slate-700 flex items-center space-x-3">
+                        <div className="p-4 border-b flex items-center space-x-3" style={{ borderColor:"#e7e5e4" }}>
                              <img src={activeChatPartner.avatarUrl} alt={activeChatPartner.name} className="w-10 h-10 rounded-full object-cover"/>
-                             <h2 className="text-lg font-bold text-slate-200">{activeChatPartner.name}</h2>
+                             <h2 className="text-lg font-bold text-stone-900">{activeChatPartner.name}</h2>
                         </div>
-                        <div className="flex-grow p-4 overflow-y-auto bg-slate-900/50 space-y-4">
+                        <div className="flex-grow p-4 overflow-y-auto bg-stone-50 space-y-4">
                            {messagesForActiveChat.map(msg => (
                                <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
-                                   <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-2xl ${msg.senderId === currentUser.id ? 'bg-cyan-500 text-slate-900' : 'bg-slate-700 text-slate-200'}`}>
+                                   <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-2xl ${msg.senderId === currentUser.id ? 'text-white' : 'bg-white text-stone-800 border'}`} style={msg.senderId === currentUser.id ? { backgroundColor:'#1a4a3a' } : { borderColor:'#e7e5e4' }}>
                                       <p>{msg.text}</p>
-                                      <p className={`text-xs mt-1 ${msg.senderId === currentUser.id ? 'text-cyan-900/70' : 'text-slate-400'}`}>{msg.timestamp}</p>
+                                      <p className={`text-xs mt-1 ${msg.senderId === currentUser.id ? 'text-white/60' : 'text-stone-400'}`}>{msg.timestamp}</p>
                                    </div>
                                </div>
                            ))}
@@ -121,45 +121,45 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
                         </div>
 
                         {sharedGoals.length > 0 && (
-                            <div className="p-3 border-y border-slate-700 bg-cyan-900/20 text-center">
-                                <p className="text-sm text-cyan-300">
+                            <div className="p-3 border-y text-center" style={{ backgroundColor:"#e8f4f0", borderColor:"#1a6b52" }}>
+                                <p className="text-sm" style={{ color:"#1a4a3a" }}>
                                     <span className="font-semibold">Conversation Starter:</span> You both share an interest in <span className="font-bold">"{sharedGoals[0]}"</span>.
                                 </p>
                             </div>
                         )}
 
-                        <div className="p-4 border-t border-slate-700">
+                        <div className="p-4 border-t" style={{ borderColor:"#e7e5e4" }}>
                             <form onSubmit={handleSendMessage} className="flex space-x-2">
                                 <input type="text"
                                     value={messageText}
                                     onChange={e => setMessageText(e.target.value)}
                                     placeholder="Type a message..."
-                                    className="w-full p-2 bg-slate-700 text-slate-200 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 placeholder-slate-400"
+                                    className="w-full p-2 bg-stone-50 text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-400" style={{ borderColor:"#e7e5e4" }}
                                 />
                                 <button 
                                     type="button" 
                                     onClick={handleAnalyzeTone}
-                                    className="bg-slate-700 text-cyan-400 font-semibold px-4 py-2 rounded-lg border border-cyan-500/50 hover:bg-cyan-900/50 transition-colors disabled:opacity-50 flex items-center justify-center"
+                                    className="border font-semibold px-4 py-2 rounded-xl hover:bg-stone-50 transition-colors disabled:opacity-50 flex items-center justify-center" style={{ borderColor:"#1a4a3a", color:"#1a4a3a" }}
                                     disabled={!messageText.trim() || isAnalyzing}
                                     title="Analyze message tone"
                                 >
                                     {isAnalyzing ? <LoadingIcon className="w-5 h-5 animate-spin" /> : <SparklesIcon className="w-5 h-5" />}
                                 </button>
-                                <button type="submit" className="bg-cyan-500 text-slate-900 font-semibold px-6 py-2 rounded-lg hover:bg-cyan-400 transition-colors disabled:bg-cyan-800 disabled:text-slate-500" disabled={!messageText.trim()}>
+                                <button type="submit" className="text-white font-semibold px-6 py-2 rounded-xl hover:opacity-90 transition disabled:opacity-50" style={{ backgroundColor:"#1a4a3a" }} disabled={!messageText.trim()}>
                                     Send
                                 </button>
                             </form>
                              {toneAnalysisResult && (
-                                <div className="mt-3 p-3 bg-slate-700 rounded-lg text-sm text-slate-300 border border-slate-600 relative">
-                                    <button onClick={() => setToneAnalysisResult(null)} className="absolute top-1 right-2 text-slate-400 hover:text-slate-200 text-lg">&times;</button>
-                                    <p className="font-semibold mb-1 text-slate-100">Tone Analysis:</p>
+                                <div className="mt-3 p-3 bg-stone-50 rounded-xl text-sm text-stone-700 border relative" style={{ borderColor:"#e7e5e4" }}>
+                                    <button onClick={() => setToneAnalysisResult(null)} className="absolute top-1 right-2 text-stone-400 hover:text-stone-700 text-lg">&times;</button>
+                                    <p className="font-semibold mb-1 text-stone-900">Tone Analysis:</p>
                                     <div className="whitespace-pre-wrap">{toneAnalysisResult}</div>
                                 </div>
                             )}
                         </div>
                     </>
                 ) : (
-                    <div className="flex items-center justify-center h-full text-slate-500">
+                    <div className="flex items-center justify-center h-full text-stone-400">
                         <p>Select a conversation to start messaging</p>
                     </div>
                 )}
