@@ -147,7 +147,7 @@ export interface Message {
   isRead: boolean;
 }
 
-export type NotificationType = 'MESSAGE' | 'ENDORSEMENT' | 'CONNECTION_REQUEST' | 'CONNECTION_ACCEPTED' | 'SECURITY_ALERT';
+export type NotificationType = 'MESSAGE' | 'ENDORSEMENT' | 'CONNECTION_REQUEST' | 'CONNECTION_ACCEPTED' | 'FOLLOW_REQUEST' | 'FOLLOW_ACCEPTED' | 'SECURITY_ALERT';
 
 export interface Notification {
   id: number;
@@ -191,6 +191,7 @@ export interface AppData {
   messages: Message[];
   notifications: Notification[];
   connectionRequests: ConnectionRequest[];
+  followRequests: FollowRequest[];
   circles: Circle[];
   articles: Article[];
 }
@@ -241,6 +242,14 @@ export interface UserProfile {
   summary: string;
   experience: { id: number; title: string; company: string; startDate: string; endDate: string; description: string; }[];
   education: { id: number; school: string; degree: string; fieldOfStudy: string; startDate: string; endDate: string; }[];
+}
+
+export interface FollowRequest {
+  id: number;
+  fromUserId: number;
+  toUserId: number;
+  status: 'pending' | 'accepted' | 'declined';
+  _firestoreId?: string;
 }
 
 export interface Connection {
