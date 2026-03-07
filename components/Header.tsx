@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Home, Users, Hexagon, Briefcase, MessageSquare,
+  Home, Users, Users2, Hexagon, Briefcase, MessageSquare,
   Bell, LogOut, User, ChevronDown, Settings, Sword, Search,
 } from 'lucide-react';
 import { LogoIcon } from '../constants';
@@ -12,6 +12,7 @@ import { View } from '../types'; // adjust path if needed
 const NAV_ITEMS = [
   { view: View.Feed,      label: 'Home',         icon: Home          },
   { view: View.People,    label: 'Circles',      icon: Users         }, // People renamed to Circles
+  { view: View.Connections, label: 'Connections',  icon: Users2        },
   { view: View.Circles,   label: 'Pods',         icon: Hexagon       }, // Circles renamed to Pods
   { view: View.Prove,     label: 'Prove',        icon: Sword         }, // New
   { view: View.Jobs,      label: 'Opportunities',icon: Briefcase     },
@@ -24,9 +25,10 @@ interface HeaderProps {
   onLogout: () => void;
   onSwitchToRecruiter?: () => void;
   notificationCount?: number;
+  pendingConnectionCount?: number;
 }
 
-export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, notificationCount = 0 }: HeaderProps) {
+export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, notificationCount = 0, pendingConnectionCount = 0 }: HeaderProps) {
   const { currentUser } = useFirebase();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,13 +75,21 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
         <nav className="hidden md:flex items-center gap-1">
           {NAV_ITEMS.map(({ view, label, icon: Icon }) => {
             const active = currentView === view;
+            const badge = view === View.Connections && pendingConnectionCount > 0 ? pendingConnectionCount : 0;
             return (
               <button
                 key={view}
                 onClick={() => onNavigate(view)}
-                className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${active ? "font-semibold" : "text-stone-500 hover:text-stone-800"}`} style={active ? { color: "#1a4a3a" } : {}}
+                className={`relative flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${active ? "font-semibold" : "text-stone-500 hover:text-stone-800"}`} style={active ? { color: "#1a4a3a" } : {}}
               >
-                <Icon className="h-5 w-5" />
+                <span className="relative">
+                  <Icon className="h-5 w-5" />
+                  {badge > 0 && (
+                    <span className="absolute -top-1 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </span>
                 <span>{label}</span>
               </button>
             );
