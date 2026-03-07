@@ -196,6 +196,49 @@ export interface AppData {
   articles: Article[];
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PEER LEARNING
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type LessonFormat = 'text' | 'video' | 'link' | 'checklist';
+
+export interface LearnRequest {
+  id: string;
+  circleId: number;
+  authorId: number;
+  skill: string;           // "How do I negotiate salary?"
+  context?: string;        // optional why/goals
+  status: 'open' | 'complete';
+  completedAt?: string;
+  lessonCount: number;
+  sparkedByIds: number[];  // users who sparked the whole request
+  createdAt: string;
+}
+
+export interface MicroLesson {
+  id: string;
+  requestId: string;
+  circleId: number;
+  authorId: number;
+  format: LessonFormat;
+  // text tip
+  body?: string;
+  // video clip
+  videoUrl?: string;
+  videoDurationSec?: number;
+  // resource link
+  linkUrl?: string;
+  linkTitle?: string;
+  linkDescription?: string;
+  // checklist
+  steps?: string[];
+  completedSteps?: number[]; // indices the viewer has checked
+  // universal
+  sparkedByIds: number[];
+  createdAt: string;
+}
+
 export interface CandidateSearchResult {
     user: User;
     aiAnalysis: {
