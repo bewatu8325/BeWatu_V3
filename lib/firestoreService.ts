@@ -382,25 +382,30 @@ export async function createJob(job: Omit<Job, 'id'>, recruiterUid: string): Pro
 }
 
 export async function fetchJobs(): Promise<Job[]> {
+  // Only returns Active + verified (live) jobs for the public feed
   const mapJob = (d: any) => {
     const data = d.data();
     return { ...data, id: data.numericId, _firestoreId: d.id } as Job & { _firestoreId: string };
   };
   try {
     const snap = await getDocs(
-      query(collection(db, 'jobs'), where('status', '==', 'Active'), orderBy('createdAt', 'desc'))
+      query(collection(db, 'jobs'), where('status', '==', 'Active'), where('verificationStatus', '==', 'live'), orderBy('createdAt', 'desc'))
     );
     return snap.docs.map(mapJob);
   } catch {
-    // Fallback: no orderBy (avoids composite index requirement)
     try {
       const snap = await getDocs(
         query(collection(db, 'jobs'), where('status', '==', 'Active'))
       );
-      return snap.docs.map(mapJob);
+      // Filter client-side: show jobs that are live OR have no verificationStatus (legacy)
+      return snap.docs.map(mapJob).filter((j: any) =>
+        !j.verificationStatus || j.verificationStatus === 'live'
+      );
     } catch {
       const snap = await getDocs(collection(db, 'jobs'));
-      return snap.docs.map(mapJob);
+      return snap.docs.map(mapJob).filter((j: any) =>
+        j.status === 'Active' && (!j.verificationStatus || j.verificationStatus === 'live')
+      );
     }
   }
 }
@@ -1098,3 +1103,217 @@ export async function fetchApplicantsWithProfiles(jobFirestoreId: string) {
     return { id: d.id, userId: data.userId, ...profile };
   }));
 }
+
+// ─── COMPANY VERIFICATION ─────────────────────────────────────────────────────
+
+/** Get a company doc by its Firestore ID */
+export async function getCompanyById(firestoreId: string) {
+  const snap = await getDoc(doc(db, 'companies', firestoreId));
+  if (!snap.exists()) return null;
+  return { _firestoreId: snap.id, ...snap.data() } as any;
+}
+
+/** Get company where this uid is admin or verified recruiter */
+export async function getCompanyForRecruiter(uid: string): Promise<any | null> {
+  // Check if admin
+  try {
+    const adminSnap = await getDocs(
+      query(collection(db, 'companies'), where('adminUid', '==', uid))
+    );
+    if (!adminSnap.empty) {
+      const d = adminSnap.docs[0];
+      return { _firestoreId: d.id, ...d.data() };
+    }
+    // Check if in verifiedRecruiters array
+    const memberSnap = await getDocs(
+      query(collection(db, 'companies'), where('verifiedRecruiters', 'array-contains', uid))
+    );
+    if (!memberSnap.empty) {
+      const d = memberSnap.docs[0];
+      return { _firestoreId: d.id, ...d.data() };
+    }
+  } catch {}
+  return null;
+}
+
+/** Create a company and set this uid as admin */
+export async function createCompanyWithAdmin(
+  adminUid: string,
+  adminName: string,
+  companyData: { name: string; description?: string; industry?: string; website?: string }
+) {
+  const numericId = Date.now();
+  const ref = await addDoc(collection(db, 'companies'), {
+    numericId,
+    adminUid,
+    verifiedRecruiters: [adminUid],
+    verificationStatus: 'verified',
+    name: companyData.name,
+    description: companyData.description ?? '',
+    industry: companyData.industry ?? '',
+    logoUrl: '',
+    website: companyData.website ?? '',
+    createdAt: serverTimestamp(),
+  });
+  // Mark user as verified for this company
+  await updateDoc(doc(db, 'users', adminUid), {
+    verifiedCompanyIds: arrayUnion(ref.id),
+    updatedAt: serverTimestamp(),
+  });
+  return { _firestoreId: ref.id, id: numericId, adminUid, name: companyData.name };
+}
+
+/** Generate a one-time invite code for a company (admin only) */
+export async function generateInviteCode(
+  companyFirestoreId: string,
+  adminUid: string,
+  forEmail?: string
+): Promise<string> {
+  const companyRef = doc(db, 'companies', companyFirestoreId);
+  const snap = await getDoc(companyRef);
+  if (!snap.exists() || snap.data().adminUid !== adminUid) {
+    throw new Error('Only the company admin can generate invite codes.');
+  }
+  // Generate a short readable code
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+  await updateDoc(companyRef, {
+    pendingInvites: arrayUnion({
+      code,
+      forEmail: forEmail ?? null,
+      expiresAt: expiresAt.toISOString(),
+      createdAt: new Date().toISOString(),
+      usedBy: null,
+    }),
+  });
+  return code;
+}
+
+/** Redeem an invite code — adds uid to verifiedRecruiters */
+export async function redeemInviteCode(
+  uid: string,
+  code: string
+): Promise<{ success: boolean; companyName?: string; error?: string }> {
+  // Search all companies for this code
+  const snap = await getDocs(collection(db, 'companies'));
+  for (const d of snap.docs) {
+    const data = d.data();
+    const invites: any[] = data.pendingInvites ?? [];
+    const invite = invites.find(
+      i => i.code === code.toUpperCase() && !i.usedBy && new Date(i.expiresAt) > new Date()
+    );
+    if (invite) {
+      // Mark code as used and add recruiter
+      const updatedInvites = invites.map(i =>
+        i.code === invite.code ? { ...i, usedBy: uid, usedAt: new Date().toISOString() } : i
+      );
+      await updateDoc(doc(db, 'companies', d.id), {
+        pendingInvites: updatedInvites,
+        verifiedRecruiters: arrayUnion(uid),
+      });
+      // Mark on user profile
+      await updateDoc(doc(db, 'users', uid), {
+        verifiedCompanyIds: arrayUnion(d.id),
+        updatedAt: serverTimestamp(),
+      });
+      return { success: true, companyName: data.name };
+    }
+  }
+  return { success: false, error: 'Code not found, already used, or expired.' };
+}
+
+/** Create a job — sets verificationStatus based on whether recruiter is verified */
+export async function createVerifiedJob(
+  job: Omit<Job, 'id'>,
+  recruiterUid: string,
+  companyFirestoreId: string
+): Promise<Job & { verificationStatus: string }> {
+  const numericId = Date.now();
+  // Check if recruiter is verified for this company
+  const companySnap = await getDoc(doc(db, 'companies', companyFirestoreId));
+  const isVerified = companySnap.exists() &&
+    (companySnap.data().verifiedRecruiters ?? []).includes(recruiterUid);
+
+  const verificationStatus = isVerified ? 'live' : 'pending_verification';
+
+  await addDoc(collection(db, 'jobs'), {
+    ...job,
+    numericId,
+    recruiterUid,
+    companyFirestoreId,
+    verificationStatus,
+    applicants: [],
+    createdAt: serverTimestamp(),
+  });
+  return { ...job, id: numericId, verificationStatus };
+}
+
+/** Fetch only live (verified) jobs for the public feed */
+export async function fetchVerifiedJobs(): Promise<Job[]> {
+  const mapJob = (d: any) => {
+    const data = d.data();
+    return { ...data, id: data.numericId, _firestoreId: d.id } as Job & { _firestoreId: string };
+  };
+  try {
+    // Only jobs that are Active AND live (verified)
+    const snap = await getDocs(
+      query(collection(db, 'jobs'),
+        where('status', '==', 'Active'),
+        where('verificationStatus', '==', 'live'),
+        orderBy('createdAt', 'desc'))
+    );
+    return snap.docs.map(mapJob);
+  } catch {
+    // Fallback without compound index — filter client-side
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'jobs'), where('status', '==', 'Active'))
+      );
+      return snap.docs.map(mapJob).filter((j: any) =>
+        !j.verificationStatus || j.verificationStatus === 'live'
+      );
+    } catch {
+      const snap = await getDocs(collection(db, 'jobs'));
+      return snap.docs.map(mapJob).filter((j: any) =>
+        j.status === 'Active' && (!j.verificationStatus || j.verificationStatus === 'live')
+      );
+    }
+  }
+}
+
+/** Update company profile (admin only) */
+export async function updateCompanyProfile(
+  companyFirestoreId: string,
+  adminUid: string,
+  updates: Partial<{ name: string; description: string; industry: string; website: string; logoUrl: string }>
+) {
+  const companyRef = doc(db, 'companies', companyFirestoreId);
+  const snap = await getDoc(companyRef);
+  if (!snap.exists() || snap.data().adminUid !== adminUid) {
+    throw new Error('Only the company admin can update this company.');
+  }
+  await updateDoc(companyRef, { ...updates, updatedAt: serverTimestamp() });
+}
+
+/** Remove a recruiter from a company (admin only) */
+export async function removeRecruiterFromCompany(
+  companyFirestoreId: string,
+  adminUid: string,
+  recruiterUid: string
+) {
+  const companyRef = doc(db, 'companies', companyFirestoreId);
+  const snap = await getDoc(companyRef);
+  if (!snap.exists() || snap.data().adminUid !== adminUid) {
+    throw new Error('Only the company admin can remove recruiters.');
+  }
+  await updateDoc(companyRef, {
+    verifiedRecruiters: arrayRemove(recruiterUid),
+    updatedAt: serverTimestamp(),
+  });
+  await updateDoc(doc(db, 'users', recruiterUid), {
+    verifiedCompanyIds: arrayRemove(companyFirestoreId),
+    updatedAt: serverTimestamp(),
+  });
+}
+
