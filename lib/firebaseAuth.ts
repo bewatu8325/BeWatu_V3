@@ -165,9 +165,21 @@ export async function logout(): Promise<void> {
   await signOut(auth);
 }
 
-/** Send password reset email. */
+/** Send password reset email with actionCodeSettings.
+ *
+ * Root causes when reset emails don't arrive:
+ *  1. bewatu.com must be added to Firebase Console → Authentication →
+ *     Settings → Authorized domains  (one-time manual step)
+ *  2. continueUrl tells Firebase where to redirect after the reset is complete
+ *  3. Check spam folder — Firebase sends from noreply@PROJECT.firebaseapp.com
+ */
 export async function forgotPassword(email: string): Promise<void> {
-  await sendPasswordResetEmail(auth, email);
+  const actionCodeSettings = {
+    // After password reset the user is sent back to the app
+    url: `${window.location.origin}/`,
+    handleCodeInApp: false,
+  };
+  await sendPasswordResetEmail(auth, email, actionCodeSettings);
 }
 
 /** Change password — requires the current password for re-auth. */
