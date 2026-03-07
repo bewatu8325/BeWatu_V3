@@ -51,14 +51,20 @@ interface CompanyData {
   _firestoreId: string;
   id?: string;
   name: string;
+  legalName?: string;
   description: string;
   industry: string;
   website: string;
+  domain?: string;
+  companySize?: string;
+  headquartersLocation?: string;
   adminUid: string;
   verifiedRecruiters: string[];
   pendingInvites: any[];
   verificationStatus: CompanyVerificationStatus;
   rejectionReason?: string;
+  trustScore?: number;
+  status?: 'active' | 'suspended';
 }
 
 type ScreenState = 'loading' | 'no_company' | 'create_company' | 'redeem_code' | 'verify_email' | 'dashboard';
@@ -189,7 +195,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [memberNames, setMemberNames]     = useState<Record<string, string>>({});
   const [editing, setEditing]             = useState(false);
-  const [editForm, setEditForm]           = useState({ name: '', description: '', industry: '', website: '' });
+  const [editForm, setEditForm]           = useState({ name: '', legalName: '', description: '', industry: '', website: '', companySize: '', headquartersLocation: '' });
   const [editLoading, setEditLoading]     = useState(false);
   const [showDelete, setShowDelete]       = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -222,7 +228,15 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (company) setEditForm({ name: company.name ?? '', description: company.description ?? '', industry: company.industry ?? '', website: company.website ?? '' });
+    if (company) setEditForm({
+      name:                  company.name                  ?? '',
+      legalName:             company.legalName             ?? '',
+      description:           company.description           ?? '',
+      industry:              company.industry              ?? '',
+      website:               company.website               ?? '',
+      companySize:           company.companySize           ?? '',
+      headquartersLocation:  company.headquartersLocation  ?? '',
+    });
   }, [company]);
 
   const handleCreate = async () => {
@@ -269,7 +283,15 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
   };
 
   const handleCancelEdit = () => {
-    if (company) setEditForm({ name: company.name ?? '', description: company.description ?? '', industry: company.industry ?? '', website: company.website ?? '' });
+    if (company) setEditForm({
+      name:                  company.name                  ?? '',
+      legalName:             company.legalName             ?? '',
+      description:           company.description           ?? '',
+      industry:              company.industry              ?? '',
+      website:               company.website               ?? '',
+      companySize:           company.companySize           ?? '',
+      headquartersLocation:  company.headquartersLocation  ?? '',
+    });
     setEditing(false); setError(null);
   };
 
@@ -493,6 +515,8 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                 </div>
                 <p className="text-sm text-stone-500 mt-0.5 truncate">
                   {company.industry}
+                  {company.companySize && <span className="text-stone-300 mx-1">·</span>}
+                  {company.companySize && <span>{company.companySize} employees</span>}
                   {company.website && (
                     <a href={company.website} target="_blank" rel="noopener noreferrer"
                       className="ml-2 inline-flex items-center gap-0.5 hover:underline" style={{ color: GREEN }}
@@ -502,6 +526,17 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                     </a>
                   )}
                 </p>
+                {(company.headquartersLocation || company.trustScore !== undefined) && (
+                  <p className="text-xs text-stone-400 mt-0.5 flex items-center gap-2">
+                    {company.headquartersLocation && <span>📍 {company.headquartersLocation}</span>}
+                    {company.trustScore !== undefined && company.trustScore > 0 && (
+                      <span className="flex items-center gap-0.5">
+                        <span style={{ color: '#059669' }}>●</span>
+                        Trust score: {company.trustScore}/100
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
               {isAdmin && (
                 <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold border flex-shrink-0"
@@ -553,8 +588,14 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
 
               <FieldRow label="Company name" value={editing ? editForm.name : company.name}
                 editing={editing} onChange={v => setEditForm(p => ({ ...p, name: v }))} placeholder="Acme Corp" />
+              <FieldRow label="Legal name" value={editing ? editForm.legalName : (company.legalName ?? '')}
+                editing={editing} onChange={v => setEditForm(p => ({ ...p, legalName: v }))} placeholder="Acme Corporation Ltd." />
               <FieldRow label="Industry" value={editing ? editForm.industry : (company.industry ?? '')}
                 editing={editing} onChange={v => setEditForm(p => ({ ...p, industry: v }))} placeholder="Technology" />
+              <FieldRow label="Company size" value={editing ? editForm.companySize : (company.companySize ?? '')}
+                editing={editing} onChange={v => setEditForm(p => ({ ...p, companySize: v }))} placeholder="e.g. 1-10, 11-50, 51-200, 201-500, 500+" />
+              <FieldRow label="Headquarters" value={editing ? editForm.headquartersLocation : (company.headquartersLocation ?? '')}
+                editing={editing} onChange={v => setEditForm(p => ({ ...p, headquartersLocation: v }))} placeholder="City, Country" />
               <FieldRow label="Website" value={editing ? editForm.website : (company.website ?? '')}
                 editing={editing} inputType="url" onChange={v => setEditForm(p => ({ ...p, website: v }))} placeholder="https://acme.com"
                 hint={editing ? 'Changing the website may affect your verification status.' : undefined} />
@@ -681,3 +722,4 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
 };
 
 export default CompanyVerification;
+
