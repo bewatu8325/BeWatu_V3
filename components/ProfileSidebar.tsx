@@ -82,6 +82,7 @@ const VibeClipTile: React.FC<{
             className="absolute inset-0 w-full h-full object-cover"
             loop
             playsInline
+            webkit-playsinline="true"
             onEnded={() => setPlaying(false)}
           />
 
