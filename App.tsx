@@ -535,7 +535,7 @@ const MainApp: React.FC = () => {
           currentView={currentView}
           onNavigate={handleSetView}
           onLogout={handleLogout}
-          onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined}
+          onSwitchToRecruiter={handleSwitchProfile}
           notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
           pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length}
         />
