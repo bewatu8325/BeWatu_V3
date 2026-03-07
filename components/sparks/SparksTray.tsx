@@ -109,28 +109,28 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <div className="relative w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
         {/* Close */}
-        <button onClick={onClose} className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800/80 text-white hover:bg-slate-700 transition-colors">
+        <button onClick={onClose} className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors">
           <X className="h-5 w-5" />
         </button>
 
         {/* Prev */}
         {(sparkIdx > 0 || groupIdx > 0) && (
-          <button onClick={goPrev} className="absolute left-0 top-1/2 -translate-x-12 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800/80 text-white hover:bg-slate-700 transition-colors">
+          <button onClick={goPrev} className="absolute left-0 top-1/2 -translate-x-12 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors">
             <ChevronLeft className="h-5 w-5" />
           </button>
         )}
 
         {/* Next */}
-        <button onClick={goNext} className="absolute right-0 top-1/2 translate-x-12 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800/80 text-white hover:bg-slate-700 transition-colors">
+        <button onClick={goNext} className="absolute right-0 top-1/2 translate-x-12 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors">
           <ChevronRight className="h-5 w-5" />
         </button>
 
         {/* Card */}
-        <div className={`rounded-2xl border ${format.border} bg-slate-900 overflow-hidden shadow-2xl`}>
+        <div className={`rounded-2xl border ${format.border} bg-stone-900 overflow-hidden shadow-2xl`}>
           {/* Progress bars */}
           <div className="flex gap-1 p-3 pb-0">
             {group.sparks.map((_, i) => (
-              <div key={i} className="h-0.5 flex-1 rounded-full bg-slate-700 overflow-hidden">
+              <div key={i} className="h-0.5 flex-1 rounded-full bg-stone-700 overflow-hidden">
                 <div className={`h-full rounded-full bg-cyan-500 transition-all duration-300 ${i < sparkIdx ? 'w-full' : i === sparkIdx ? 'w-full animate-pulse' : 'w-0'}`} />
               </div>
             ))}
@@ -146,8 +146,8 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-100 truncate">{group.authorName}</p>
-              <p className="text-[11px] text-slate-400">{timeAgo}</p>
+              <p className="text-sm font-semibold text-white truncate">{group.authorName}</p>
+              <p className="text-[11px] text-stone-400">{timeAgo}</p>
             </div>
             <div className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-gradient-to-r ${format.gradient} ${format.accent}`}>
               <FormatIcon className="h-3.5 w-3.5" />
@@ -158,11 +158,11 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
           {/* Content */}
           <div className={`min-h-[200px] flex flex-col items-center justify-center p-6 bg-gradient-to-b ${format.gradient}`}>
             {spark.stat && <p className={`text-3xl font-bold ${format.accent} mb-2`}>{spark.stat}</p>}
-            <p className="text-lg font-medium text-slate-100 text-center leading-relaxed">{spark.content}</p>
+            <p className="text-lg font-medium text-white text-center leading-relaxed">{spark.content}</p>
           </div>
 
           {/* Reactions */}
-          <div className="flex items-center justify-center gap-2 p-4 border-t border-slate-700/50">
+          <div className="flex items-center justify-center gap-2 p-4 border-t border-stone-700/50">
             {[
               { type: 'relate' as ReactionType, icon: Heart, label: 'Relate', active: relateActive, count: reactions.relate?.length, color: 'text-rose-400 bg-rose-400/15' },
               { type: 'inspire' as ReactionType, icon: Zap,   label: 'Inspire', active: inspireActive, count: reactions.inspire?.length, color: 'text-amber-400 bg-amber-400/15' },
@@ -171,7 +171,7 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
               <button
                 key={type}
                 onClick={() => handleReaction(type)}
-                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium transition-all ${active ? color : 'text-slate-400 hover:bg-slate-800'}`}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium transition-all ${active ? color : 'text-stone-300 hover:bg-stone-800'}`}
               >
                 <Icon className="h-4 w-4" />
                 <span>{label}</span>
@@ -226,56 +226,56 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-700 p-4">
+      <div className="w-full max-w-md rounded-2xl border bg-white shadow-2xl" style={{ borderColor: "#e7e5e4" }}>
+        <div className="flex items-center justify-between border-b p-4" style={{ borderColor: "#e7e5e4" }}>
           <div>
-            <h2 className="text-base font-semibold text-slate-100">Create a Spark</h2>
-            <p className="text-xs text-slate-400">Disappears in 48 hours</p>
+            <h2 className="text-base font-semibold text-stone-900">Create a Spark</h2>
+            <p className="text-xs text-stone-400">Disappears in 48 hours</p>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-800 transition-colors">
-            <X className="h-4 w-4 text-slate-400" />
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-stone-100 transition-colors">
+            <X className="h-4 w-4 text-stone-400" />
           </button>
         </div>
 
         <div className="p-4 flex flex-col gap-4">
-          {error && <div className="rounded-lg bg-red-900/20 border border-red-500/30 px-3 py-2 text-sm text-red-400">{error}</div>}
+          {error && <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>}
 
           {/* Format picker */}
           <div>
-            <label className="text-xs font-medium text-slate-400 mb-2 block">Format</label>
+            <label className="text-xs font-medium text-stone-500 mb-2 block">Format</label>
             <div className="flex flex-wrap gap-2">
               {FORMATS.map(({ value, label, icon: Icon }) => (
                 <button
                   key={value}
                   onClick={() => setFormat(value)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all border ${format === value ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-slate-600 text-slate-400 hover:bg-slate-800'}`}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all border ${format === value ? 'border-stone-800 text-white' : 'border-stone-200 text-stone-500 hover:bg-stone-50'}`} style={format === value ? { backgroundColor: '#1a4a3a' } : {}}
                 >
                   <Icon className="h-3.5 w-3.5" />
                   {label}
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[11px] text-slate-500">{selectedFormat.hint}</p>
+            <p className="mt-2 text-[11px] text-stone-400">{selectedFormat.hint}</p>
           </div>
 
           {/* Stat (win only) */}
           {format === 'win' && (
             <div>
-              <label className="text-xs font-medium text-slate-400 mb-1 block">Key stat (optional)</label>
+              <label className="text-xs font-medium text-stone-500 mb-1 block">Key stat (optional)</label>
               <input
                 type="text"
                 value={stat}
                 onChange={e => setStat(e.target.value)}
                 placeholder='e.g. "10k users" or "3x faster"'
                 maxLength={50}
-                className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                className="w-full rounded-xl border bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2" style={{ borderColor: "#e7e5e4" }}
               />
             </div>
           )}
 
           {/* Content */}
           <div>
-            <label className="text-xs font-medium text-slate-400 mb-1 block">Your Spark</label>
+            <label className="text-xs font-medium text-stone-500 mb-1 block">Your Spark</label>
             <textarea
               value={content}
               onChange={e => setContent(e.target.value.slice(0, maxLength))}
@@ -287,15 +287,15 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
                 'What is your current availability?'
               }
               rows={3}
-              className="w-full resize-none rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+              className="w-full resize-none rounded-xl border bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2" style={{ borderColor: "#e7e5e4" }}
             />
-            <p className="mt-1 text-right text-[10px] text-slate-500">{content.length}/{maxLength}</p>
+            <p className="mt-1 text-right text-[10px] text-stone-400">{content.length}/{maxLength}</p>
           </div>
 
           <button
             onClick={handleCreate}
             disabled={creating || !content.trim()}
-            className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full rounded-xl px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition" style={{ backgroundColor: "#1a4a3a" }}
           >
             {creating ? 'Sharing...' : 'Share Spark'}
           </button>
@@ -340,19 +340,19 @@ export function SparksTray() {
 
   return (
     <>
-      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-3">
+      <div className="rounded-2xl border bg-white p-3 shadow-sm" style={{ borderColor: "#e7e5e4" }}>
         <div className="flex items-center justify-between mb-2 px-1">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Sparks</h2>
-          <span className="text-[10px] text-slate-500">48h micro-moments</span>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-500">Sparks</h2>
+          <span className="text-[10px] text-stone-400">48h micro-moments</span>
         </div>
         <div className="flex items-center gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
           {/* Create button */}
           <button onClick={() => setCreateOpen(true)} className="flex flex-col items-center gap-1 shrink-0">
             <div className="relative">
               {currentUser.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt="" className="h-14 w-14 rounded-full object-cover border-2 border-slate-600" />
+                <img src={currentUser.avatarUrl} alt="" className="h-14 w-14 rounded-full object-cover border-2" style={{ borderColor: "#e7e5e4" }} />
               ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-700 text-sm font-medium text-slate-300 border-2 border-slate-600">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full text-sm font-medium text-white border-2" style={{ backgroundColor: "#1a4a3a", borderColor: "#e7e5e4" }}>
                   {initials(currentUser.name)}
                 </div>
               )}
@@ -360,7 +360,7 @@ export function SparksTray() {
                 <Plus className="h-3 w-3" />
               </div>
             </div>
-            <span className="max-w-[60px] truncate text-[10px] text-slate-400">Your Spark</span>
+            <span className="max-w-[60px] truncate text-[10px] text-stone-500">Your Spark</span>
           </button>
 
           {/* Spark groups */}
@@ -372,16 +372,16 @@ export function SparksTray() {
             );
             return (
               <button key={group.authorId} onClick={() => openGroup(i)} className="flex flex-col items-center gap-1 shrink-0">
-                <div className={`rounded-full p-[2.5px] ${hasUnviewed ? 'bg-gradient-to-br from-cyan-500 to-amber-500' : 'bg-slate-600'}`}>
+                <div className={`rounded-full p-[2.5px] ${hasUnviewed ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : 'bg-stone-200'}`}>
                   {group.authorAvatar ? (
-                    <img src={group.authorAvatar} alt="" className="h-12 w-12 rounded-full object-cover border-2 border-slate-900" />
+                    <img src={group.authorAvatar} alt="" className="h-12 w-12 rounded-full object-cover border-2 border-white" />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-700 text-xs font-medium text-slate-300 border-2 border-slate-900">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full text-xs font-medium text-white border-2 border-white" style={{ backgroundColor: "#1a4a3a" }}>
                       {initials(group.authorName)}
                     </div>
                   )}
                 </div>
-                <span className="max-w-[60px] truncate text-[10px] text-slate-400">
+                <span className="max-w-[60px] truncate text-[10px] text-stone-500">
                   {group.authorId === fbUser.uid ? 'You' : group.authorName.split(' ')[0]}
                 </span>
               </button>
@@ -389,7 +389,7 @@ export function SparksTray() {
           })}
 
           {groups.length === 0 && (
-            <p className="text-xs text-slate-500 py-2 px-1">No active Sparks yet. Be the first!</p>
+            <p className="text-xs text-stone-400 py-2 px-1">No active Sparks yet. Be the first!</p>
           )}
         </div>
       </div>
