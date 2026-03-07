@@ -61,15 +61,18 @@ const VibeClipTile: React.FC<{
       videoRef.current.pause();
       setPlaying(false);
     } else {
-      // play() returns a Promise — must catch browser autoplay policy rejections
-      const playPromise = videoRef.current.play();
+      const v = videoRef.current;
+      // Mute for inline play — required on iOS Safari and avoids autoplay blocks.
+      // The user tapped so this is a direct gesture; muted inline play is
+      // universally allowed. Unmute is a separate user action if desired.
+      v.muted = true;
+      const playPromise = v.play();
       if (playPromise !== undefined) {
         playPromise
           .then(() => { setPlaying(true); })
-          .catch((err) => {
-            // NotAllowedError = autoplay blocked; NotSupportedError = bad src
-            console.warn('Video play prevented:', err);
-            setPlaying(false);
+          .catch(() => {
+            // Inline play fully blocked (e.g. restricted browser) — open modal fallback
+            onPlayVideo(user.microIntroductionUrl!);
           });
       } else {
         setPlaying(true);
@@ -90,7 +93,10 @@ const VibeClipTile: React.FC<{
           <video
             ref={videoRef}
             src={user.microIntroductionUrl!}
+            poster={user.microIntroductionThumbnail ?? undefined}
             className="absolute inset-0 w-full h-full object-cover"
+            preload="metadata"
+            muted
             loop
             playsInline
             webkit-playsinline="true"
