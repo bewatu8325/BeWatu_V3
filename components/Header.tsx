@@ -52,10 +52,10 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
 
   return (
     <header className="fixed top-0 right-0 left-0 z-50 border-b bg-white/95 backdrop-blur-sm" style={{ borderColor: "#e7e5e4" }}>
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
+      <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center gap-2 sm:gap-4 px-3 sm:px-4">
         {/* Logo */}
         <button onClick={() => onNavigate(View.Feed)} className="flex items-center shrink-0">
-          <LogoIcon className="h-10 w-auto" style={{ color: "#1a4a3a" }} />
+          <LogoIcon className="h-8 sm:h-10 w-auto" style={{ color: "#1a4a3a" }} />
         </button>
 
         {/* Search */}
