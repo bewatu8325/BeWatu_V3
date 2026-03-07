@@ -20,7 +20,18 @@ interface HomePageProps {
 
 const HomePage: React.FC<HomePageProps> = (props) => {
     const { data, currentUser, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, addPost, onAppreciatePost, onViewProfile } = props;
-    
+
+    // IDs of accepted connections
+    const networkIds = new Set<number>(
+        data.connectionRequests
+            .filter(r => r.status === 'accepted' &&
+                (r.fromUserId === currentUser.id || r.toUserId === currentUser.id))
+            .map(r => r.fromUserId === currentUser.id ? r.toUserId : r.fromUserId)
+    );
+    networkIds.add(currentUser.id); // always include own posts
+
+    const feedPosts = data.posts.filter(p => networkIds.has(p.authorId));
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
             {/* Left Sidebar: Profile Info */}
@@ -41,7 +52,7 @@ const HomePage: React.FC<HomePageProps> = (props) => {
             <main className="col-span-12 md:col-span-8 lg:col-span-6 space-y-6">
                 <CreatePost addPost={addPost} currentUser={currentUser} />
                 <Feed
-                    posts={data.posts}
+                    posts={feedPosts}
                     onAppreciatePost={onAppreciatePost}
                     onViewProfile={onViewProfile}
                     findAuthor={(id) => data.users.find(u => u.id === id)}
