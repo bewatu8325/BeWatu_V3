@@ -55,6 +55,7 @@ const Messaging = lazy(() => import('./components/Messaging'));
 const CompanyProfileModal = lazy(() => import('./components/CompanyProfileModal'));
 const CoPilotModal = lazy(() => import('./components/CoPilotModal'));
 const SkillsGraphModal = lazy(() => import('./components/SkillsGraphModal'));
+const ConnectionsView = lazy(() => import('./components/ConnectionsView'));
 const VideoRecorderModal = lazy(() => import('./components/VideoRecorderModal'));
 const VideoPlayerModal = lazy(() => import('./components/VideoPlayerModal'));
 const Circles = lazy(() => import('./components/Circles'));
@@ -474,6 +475,20 @@ const MainApp: React.FC = () => {
         );
         break;
 
+      case View.Connections:
+        content = (
+          <ConnectionsView
+            currentUser={currentUser}
+            allUsers={data.users}
+            connectionRequests={data.connectionRequests}
+            onAccept={(id) => handleConnectionRequest(id, 'accepted')}
+            onDecline={(id) => handleConnectionRequest(id, 'declined')}
+            onViewProfile={handleViewProfile}
+            onConnect={handleSendConnection}
+          />
+        );
+        break;
+
       case View.Jobs:
         content = <Jobs jobs={data.jobs} companies={data.companies} onViewCompany={handleViewCompany} onAnalyzeMatch={handleAnalyzeJobMatch} onApplyForJob={handleApplyForJob} appliedJobIds={appliedJobIds} />;
         break;
@@ -522,6 +537,7 @@ const MainApp: React.FC = () => {
           onLogout={handleLogout}
           onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined}
           notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
+          pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length}
         />
         <main className="flex-grow container mx-auto px-4 sm:px-6 pt-20 pb-24 sm:pb-10 sm:pt-24">{content}</main>
         {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
@@ -531,7 +547,7 @@ const MainApp: React.FC = () => {
         {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
         {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
         {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
-        <MobileNav currentView={currentView} onNavigate={handleSetView} />
+        <MobileNav currentView={currentView} onNavigate={handleSetView} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />
       </div>
     );
   };
