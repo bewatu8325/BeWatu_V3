@@ -94,7 +94,7 @@ function SubmissionsPanel({
   const ranked = [...submissions].filter(s => s.score != null).sort((a, b) => (b.score || 0) - (a.score || 0));
   const unscored = submissions.filter(s => s.score == null);
 
-  const medalColor = (i: number) => i === 0 ? 'text-yellow-400' : i === 1 ? 'text-slate-400' : i === 2 ? 'text-amber-600' : 'text-slate-500';
+  const medalColor = (i: number) => i === 0 ? 'text-yellow-400' : i === 1 ? 'text-stone-500' : i === 2 ? 'text-amber-600' : 'text-stone-400';
 
   async function handleScore(subId: string) {
     if (scoreValue < 0 || scoreValue > 100) return;
@@ -115,33 +115,33 @@ function SubmissionsPanel({
     <div className="flex flex-col gap-6">
       {/* Leaderboard */}
       {ranked.length > 0 && (
-        <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
-          <h3 className="flex items-center gap-2 text-sm font-bold text-slate-100">
+        <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor:"#e7e5e4" }}>
+          <h3 className="flex items-center gap-2 text-sm font-bold text-stone-900">
             <Trophy className="h-4 w-4 text-yellow-400" />Leaderboard
           </h3>
           <div className="mt-4 flex flex-col gap-2">
             {ranked.slice(0, 10).map((sub, i) => (
-              <div key={sub.id} className={`flex items-center gap-3 rounded-lg p-3 ${i < 3 ? 'bg-slate-700/50' : ''}`}>
-                <div className={`flex h-8 w-8 items-center justify-center rounded-full font-bold text-sm ${i < 3 ? 'bg-slate-800 border border-slate-700' : ''} ${medalColor(i)}`}>
+              <div key={sub.id} className={`flex items-center gap-3 rounded-lg p-3 ${i < 3 ? 'bg-stone-100' : ''}`}>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-full font-bold text-sm ${i < 3 ? 'bg-stone-50 border" style={{ borderColor:"#e7e5e4" }} ' : ''} ${medalColor(i)}`}>
                   {i < 3 ? <Trophy className="h-4 w-4" /> : <span>{i + 1}</span>}
                 </div>
                 {!blindMode ? (
-                  <div className="h-8 w-8 rounded-full bg-slate-700 overflow-hidden shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-stone-100 overflow-hidden shrink-0">
                     {sub.userAvatar ? <img src={sub.userAvatar} alt="" className="h-full w-full object-cover" /> :
-                      <div className="h-full w-full flex items-center justify-center text-xs font-bold text-slate-400">{(sub.userName || '?')[0]}</div>}
+                      <div className="h-full w-full flex items-center justify-center text-xs font-bold text-stone-500">{(sub.userName || '?')[0]}</div>}
                   </div>
                 ) : (
-                  <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
-                    <EyeOff className="h-3.5 w-3.5 text-slate-400" />
+                  <div className="h-8 w-8 rounded-full bg-stone-100 flex items-center justify-center shrink-0">
+                    <EyeOff className="h-3.5 w-3.5 text-stone-500" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-200 truncate">{displayName(sub, i)}</p>
+                  <p className="text-sm font-medium text-stone-800 truncate">{displayName(sub, i)}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <Star className="h-3.5 w-3.5 text-amber-400" />
-                  <span className="text-sm font-bold text-slate-100">{sub.score}</span>
-                  <span className="text-xs text-slate-400">/100</span>
+                  <span className="text-sm font-bold text-stone-900">{sub.score}</span>
+                  <span className="text-xs text-stone-500">/100</span>
                 </div>
                 {sub.isShortlisted && <span className="rounded-full bg-green-500/10 border border-green-500/20 px-2 py-0.5 text-[10px] font-bold text-green-400">SHORTLISTED</span>}
               </div>
@@ -152,60 +152,60 @@ function SubmissionsPanel({
 
       {/* Recruiter view */}
       {isRecruiter && (
-        <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
+        <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor:"#e7e5e4" }}>
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-100">
-              <Eye className="h-4 w-4 text-cyan-400" />Submissions ({submissions.length})
+            <h3 className="flex items-center gap-2 text-sm font-bold text-stone-900">
+              <Eye className="h-4 w-4 text-emerald-600" />Submissions ({submissions.length})
             </h3>
             {blindMode && (
-              <span className="flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+              <span className="flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-500">
                 <EyeOff className="h-3 w-3" />Blind Mode
               </span>
             )}
           </div>
           {submissions.length === 0 ? (
-            <p className="mt-4 text-center text-sm text-slate-400">No submissions yet.</p>
+            <p className="mt-4 text-center text-sm text-stone-500">No submissions yet.</p>
           ) : (
             <div className="mt-4 flex flex-col gap-3">
               {[...unscored, ...ranked].map((sub, idx) => (
-                <div key={sub.id} className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+                <div key={sub.id} className="rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       {!blindMode ? (
-                        <div className="h-7 w-7 rounded-full bg-slate-700 overflow-hidden shrink-0">
+                        <div className="h-7 w-7 rounded-full bg-stone-100 overflow-hidden shrink-0">
                           {sub.userAvatar ? <img src={sub.userAvatar} alt="" className="h-full w-full object-cover" /> :
-                            <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-slate-400">{(sub.userName || '?')[0]}</div>}
+                            <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-stone-500">{(sub.userName || '?')[0]}</div>}
                         </div>
                       ) : (
-                        <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0"><EyeOff className="h-3 w-3 text-slate-400" /></div>
+                        <div className="h-7 w-7 rounded-full bg-stone-100 flex items-center justify-center shrink-0"><EyeOff className="h-3 w-3 text-stone-500" /></div>
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-200 truncate">{displayName(sub, idx)}</p>
-                        <p className="text-[10px] text-slate-500">{sub.submittedAt?.toDate?.()?.toLocaleDateString() ?? ''}</p>
+                        <p className="text-sm font-medium text-stone-800 truncate">{displayName(sub, idx)}</p>
+                        <p className="text-[10px] text-stone-400">{sub.submittedAt?.toDate?.()?.toLocaleDateString() ?? ''}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {sub.score != null && (
-                        <span className="flex items-center gap-1 rounded-full bg-cyan-500/10 px-2 py-0.5 text-xs font-bold text-cyan-400">
+                        <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-600">
                           <Star className="h-3 w-3" />{sub.score}/100
                         </span>
                       )}
                       {sub.isShortlisted && <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-400">PIPELINE</span>}
                     </div>
                   </div>
-                  <div className="mt-3 rounded-lg bg-slate-800 p-3">
-                    <p className="whitespace-pre-wrap text-xs text-slate-200">{sub.content}</p>
+                  <div className="mt-3 rounded-lg bg-stone-50 p-3">
+                    <p className="whitespace-pre-wrap text-xs text-stone-800">{sub.content}</p>
                   </div>
                   {sub.feedback && (
-                    <div className="mt-2 rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+                    <div className="mt-2 rounded-xl bg-amber-50 border border-amber-500/20 p-3">
                       <p className="text-[10px] font-medium text-amber-400 mb-1">Feedback</p>
-                      <p className="text-xs text-slate-200">{sub.feedback}</p>
+                      <p className="text-xs text-stone-800">{sub.feedback}</p>
                     </div>
                   )}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     {sub.score == null && scoringId !== sub.id && (
                       <button onClick={() => { setScoringId(sub.id); setScoreValue(0); setFeedbackValue(''); }}
-                        className="flex items-center gap-1 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors">
+                        className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-cyan-500/20 transition-colors">
                         <Star className="h-3 w-3" />Score
                       </button>
                     )}
@@ -217,25 +217,25 @@ function SubmissionsPanel({
                       </button>
                     )}
                     {!blindMode && onViewProfile && (
-                      <button onClick={() => onViewProfile(sub.userId)} className="text-xs text-slate-400 hover:text-cyan-400 transition-colors">View Profile</button>
+                      <button onClick={() => onViewProfile(sub.userId)} className="text-xs text-stone-500 hover:text-emerald-600 transition-colors">View Profile</button>
                     )}
                   </div>
                   {scoringId === sub.id && (
                     <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2">
                       <div className="flex items-center gap-3">
-                        <label className="text-xs font-medium text-slate-200">Score (0-100)</label>
+                        <label className="text-xs font-medium text-stone-800">Score (0-100)</label>
                         <input type="number" min={0} max={100} value={scoreValue} onChange={e => setScoreValue(Number(e.target.value))}
-                          className="w-20 rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-200 outline-none focus:border-cyan-500" />
+                          className="w-20 rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-2 py-1 text-sm text-stone-800 outline-none focus:border-cyan-500" />
                       </div>
                       <textarea value={feedbackValue} onChange={e => setFeedbackValue(e.target.value)} rows={2}
                         placeholder="Add feedback (visible to candidate)..."
-                        className="w-full resize-none rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500" />
+                        className="w-full resize-none rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-xs text-stone-800 outline-none focus:border-cyan-500" />
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleScore(sub.id)} disabled={saving}
                           className="flex items-center gap-1 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 disabled:opacity-50 transition-colors">
                           {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}Submit Score
                         </button>
-                        <button onClick={() => setScoringId(null)} className="text-xs text-slate-400 hover:text-slate-200 transition-colors">Cancel</button>
+                        <button onClick={() => setScoringId(null)} className="text-xs text-stone-500 hover:text-stone-800 transition-colors">Cancel</button>
                       </div>
                     </div>
                   )}
@@ -307,21 +307,21 @@ function ChallengeDetail({
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-stone-500" /></div>;
 
   return (
     <div className="flex flex-col gap-6">
-      <button onClick={onBack} className="inline-flex w-fit items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+      <button onClick={onBack} className="inline-flex w-fit items-center gap-1.5 text-sm text-stone-500 hover:text-stone-800 transition-colors">
         <ArrowLeft className="h-4 w-4" />Back to Challenges
       </button>
 
       {!submitted && !isRecruiter && (
-        <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
-          <h2 className="text-sm font-bold text-slate-100">Submit Your Solution</h2>
-          <p className="mt-1 text-xs text-slate-400">Top performers earn credits and may be shortlisted. Submissions are anonymous to recruiters by default.</p>
+        <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor:"#e7e5e4" }}>
+          <h2 className="text-sm font-bold text-stone-900">Submit Your Solution</h2>
+          <p className="mt-1 text-xs text-stone-500">Top performers earn credits and may be shortlisted. Submissions are anonymous to recruiters by default.</p>
           <textarea value={content} onChange={e => setContent(e.target.value)} rows={6}
             placeholder="Write your solution, paste code, or describe your approach..."
-            className="mt-3 w-full resize-none rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-sm text-slate-200 outline-none focus:border-cyan-500" />
+            className="mt-3 w-full resize-none rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-4 py-3 text-sm text-stone-800 outline-none focus:border-cyan-500" />
           <div className="mt-3 flex items-center justify-end">
             <button onClick={handleSubmit} disabled={submitting || !content.trim()}
               className="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50 transition-colors">
@@ -335,8 +335,8 @@ function ChallengeDetail({
         <div className="flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 p-5">
           <CheckCircle className="h-5 w-5 text-green-400 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-slate-100">Submission received</p>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm font-medium text-stone-900">Submission received</p>
+            <p className="text-xs text-stone-500">
               {mySubmission?.score != null
                 ? `Score: ${mySubmission.score}/100${mySubmission.feedback ? ` — ${mySubmission.feedback}` : ''}`
                 : 'Waiting for review from the challenge creator.'}
@@ -348,7 +348,7 @@ function ChallengeDetail({
       {isRecruiter && (
         <div className="flex items-center justify-end">
           <button onClick={() => setBlindMode(b => !b)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${blindMode ? 'bg-cyan-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${blindMode ? 'bg-cyan-600 text-white' : 'bg-stone-100 text-stone-700'}`}>
             <EyeOff className="h-3.5 w-3.5" />Blind Mode {blindMode ? 'ON' : 'OFF'}
           </button>
         </div>
@@ -419,79 +419,79 @@ function CreateChallengeDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-6" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute right-4 top-4 text-slate-400 hover:text-slate-200 transition-colors"><X className="h-5 w-5" /></button>
-        <h2 className="text-lg font-bold text-slate-100">Create a Prove Challenge</h2>
-        <p className="mt-1 text-xs text-slate-400">Design a quest-style challenge to discover top talent.</p>
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 p-6" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute right-4 top-4 text-stone-500 hover:text-stone-800 transition-colors"><X className="h-5 w-5" /></button>
+        <h2 className="text-lg font-bold text-stone-900">Create a Prove Challenge</h2>
+        <p className="mt-1 text-xs text-stone-500">Design a quest-style challenge to discover top talent.</p>
         {error && <div className="mt-3 rounded-lg bg-red-900/20 border border-red-500/30 px-3 py-2 text-xs text-red-400">{error}</div>}
 
         <div className="mt-5 flex flex-col gap-4">
           <div>
-            <label className="text-xs font-medium text-slate-200 mb-1 block">Title</label>
+            <label className="text-xs font-medium text-stone-800 mb-1 block">Title</label>
             <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Build a responsive dashboard"
-              className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500" />
+              className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-200 mb-1 block">Description</label>
+            <label className="text-xs font-medium text-stone-800 mb-1 block">Description</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
               placeholder="Describe what participants need to build, solve, or design..."
-              className="w-full resize-none rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500" />
+              className="w-full resize-none rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-200 mb-1 block">Type</label>
+              <label className="text-xs font-medium text-stone-800 mb-1 block">Type</label>
               <select value={type} onChange={e => setType(e.target.value as ChallengeType)}
-                className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500">
+                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500">
                 {CHALLENGE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-200 mb-1 block">Difficulty</label>
+              <label className="text-xs font-medium text-stone-800 mb-1 block">Difficulty</label>
               <select value={difficulty} onChange={e => setDifficulty(e.target.value as ChallengeDifficulty)}
-                className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500">
+                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500">
                 {CHALLENGE_DIFFS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-200 mb-1 block">Time Limit (min)</label>
+              <label className="text-xs font-medium text-stone-800 mb-1 block">Time Limit (min)</label>
               <input type="number" min={15} max={480} value={timeLimit} onChange={e => setTimeLimit(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500" />
+                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-200 mb-1 block">Expires in (days)</label>
+              <label className="text-xs font-medium text-stone-800 mb-1 block">Expires in (days)</label>
               <input type="number" min={1} max={90} value={daysUntilExpiry} onChange={e => setDaysUntilExpiry(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500" />
+                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-200 mb-1 block flex items-center gap-1"><Zap className="h-3 w-3 text-amber-400" />Credits Reward</label>
+              <label className="text-xs font-medium text-stone-800 mb-1 block flex items-center gap-1"><Zap className="h-3 w-3 text-amber-400" />Credits Reward</label>
               <input type="number" min={0} value={credits} onChange={e => setCredits(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500" />
+                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-200 mb-1 block">Badge Name</label>
+              <label className="text-xs font-medium text-stone-800 mb-1 block">Badge Name</label>
               <input value={badge} onChange={e => setBadge(e.target.value)} placeholder="Auto-generated if empty"
-                className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500" />
+                className="w-full rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-200 mb-1 block">Required Skills</label>
+            <label className="text-xs font-medium text-stone-800 mb-1 block">Required Skills</label>
             <div className="flex gap-2">
               <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSkill())}
                 placeholder="Add a skill"
-                className="flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500" />
-              <button onClick={addSkill} className="flex items-center gap-1 rounded-lg bg-slate-700 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-600 transition-colors">
+                className="flex-1 rounded-lg border" style={{ borderColor:"#e7e5e4" }}  bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" />
+              <button onClick={addSkill} className="flex items-center gap-1 rounded-lg bg-stone-100 px-3 py-2 text-xs font-medium text-stone-800 hover:bg-slate-600 transition-colors">
                 <Plus className="h-3 w-3" />Add
               </button>
             </div>
             {skills.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {skills.map(s => (
-                  <span key={s} className="flex items-center gap-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 text-xs font-medium text-cyan-400">
+                  <span key={s} className="flex items-center gap-1 rounded-full bg-emerald-50 border border-cyan-500/20 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
                     {s}
                     <button onClick={() => setSkills(skills.filter(x => x !== s))}><X className="h-2.5 w-2.5" /></button>
                   </span>
@@ -521,11 +521,11 @@ function ChallengeCard({ challenge, onClick }: { challenge: any; onClick: () => 
     : null;
 
   return (
-    <button onClick={onClick} className="group relative flex flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-800/50 text-left transition-all hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/5">
+    <button onClick={onClick} className="group relative flex flex-col overflow-hidden rounded-xl border" style={{ borderColor:"#e7e5e4" }}  bg-white text-left transition-all hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/5">
       <div className={`relative bg-gradient-to-r ${typeConf.gradient} px-5 py-4`}>
         <div className="flex items-start justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900/80">
-            <TypeIcon className="h-5 w-5 text-slate-200" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-stone-50/80">
+            <TypeIcon className="h-5 w-5 text-stone-800" />
           </div>
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1">
@@ -537,27 +537,27 @@ function ChallengeCard({ challenge, onClick }: { challenge: any; onClick: () => 
           </div>
         </div>
         {expired && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
+          <div className="absolute inset-0 flex items-center justify-center bg-stone-50/80">
             <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white">EXPIRED</span>
           </div>
         )}
       </div>
       <div className="flex flex-1 flex-col gap-3 px-5 py-4">
         <div>
-          <p className="text-xs font-medium text-slate-400">{challenge.companyName}</p>
-          <h3 className="mt-0.5 text-sm font-bold text-slate-100 line-clamp-2 group-hover:text-cyan-400 transition-colors">{challenge.title}</h3>
+          <p className="text-xs font-medium text-stone-500">{challenge.companyName}</p>
+          <h3 className="mt-0.5 text-sm font-bold text-stone-900 line-clamp-2 group-hover:text-emerald-600 transition-colors">{challenge.title}</h3>
         </div>
-        <p className="text-xs text-slate-400 line-clamp-2">{challenge.description}</p>
+        <p className="text-xs text-stone-500 line-clamp-2">{challenge.description}</p>
         {challenge.skills?.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {challenge.skills.slice(0, 3).map((skill: string) => (
-              <span key={skill} className="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-300">{skill}</span>
+              <span key={skill} className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-700">{skill}</span>
             ))}
-            {challenge.skills.length > 3 && <span className="text-[10px] text-slate-500">+{challenge.skills.length - 3}</span>}
+            {challenge.skills.length > 3 && <span className="text-[10px] text-stone-400">+{challenge.skills.length - 3}</span>}
           </div>
         )}
-        <div className="mt-auto flex items-center justify-between border-t border-slate-700 pt-3">
-          <div className="flex items-center gap-3 text-xs text-slate-400">
+        <div className="mt-auto flex items-center justify-between border-t border-stone-200 pt-3">
+          <div className="flex items-center gap-3 text-xs text-stone-500">
             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{challenge.timeLimit}m</span>
             <span className="flex items-center gap-1"><Users className="h-3 w-3" />{challenge.submissionCount || 0}</span>
           </div>
@@ -568,7 +568,7 @@ function ChallengeCard({ challenge, onClick }: { challenge: any; onClick: () => 
               </span>
             )}
             {daysLeft !== null && !expired && (
-              <span className={`text-[10px] font-medium ${daysLeft <= 3 ? 'text-red-400' : 'text-slate-500'}`}>{daysLeft}d left</span>
+              <span className={`text-[10px] font-medium ${daysLeft <= 3 ? 'text-red-400' : 'text-stone-400'}`}>{daysLeft}d left</span>
             )}
           </div>
         </div>
@@ -618,10 +618,10 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-slate-100">
-            <Sword className="h-5 w-5 text-cyan-400" />Prove
+          <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
+            <Sword className="h-5 w-5 text-emerald-600" />Prove
           </h1>
-          <p className="mt-1 text-sm text-slate-400">Skill-based challenges from real companies. Prove your talent, earn credits.</p>
+          <p className="mt-1 text-sm text-stone-500">Skill-based challenges from real companies. Prove your talent, earn credits.</p>
         </div>
         {isRecruiter && (
           <button onClick={() => setShowCreate(true)}
@@ -633,20 +633,20 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <Filter className="h-4 w-4 text-slate-400" />
+        <Filter className="h-4 w-4 text-stone-500" />
         <div className="flex flex-wrap gap-1.5">
           {TYPE_FILTERS.map(f => (
             <button key={f.value} onClick={() => setTypeFilter(f.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${typeFilter === f.value ? 'bg-cyan-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${typeFilter === f.value ? 'bg-cyan-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-slate-600'}`}>
               {f.label}
             </button>
           ))}
         </div>
-        <div className="h-4 w-px bg-slate-700" />
+        <div className="h-4 w-px bg-stone-100" />
         <div className="flex flex-wrap gap-1.5">
           {DIFFICULTY_FILTERS.map(f => (
             <button key={f.value} onClick={() => setDiffFilter(f.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${diffFilter === f.value ? 'bg-slate-200 text-slate-900' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${diffFilter === f.value ? 'bg-slate-200 text-slate-900' : 'bg-stone-100 text-stone-700 hover:bg-slate-600'}`}>
               {f.label}
             </button>
           ))}
@@ -656,14 +656,14 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
       {/* Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-stone-500" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 py-16">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-16">
           <Sword className="h-10 w-10 text-slate-600" />
-          <p className="mt-3 text-sm font-medium text-slate-400">No challenges match your filters.</p>
+          <p className="mt-3 text-sm font-medium text-stone-500">No challenges match your filters.</p>
           {isRecruiter && (
-            <button onClick={() => setShowCreate(true)} className="mt-3 text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors">
+            <button onClick={() => setShowCreate(true)} className="mt-3 text-sm font-medium text-emerald-600 hover:text-emerald-600 transition-colors">
               Create the first challenge
             </button>
           )}
