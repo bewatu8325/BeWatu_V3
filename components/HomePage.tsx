@@ -54,6 +54,7 @@ const HomePage: React.FC<HomePageProps> = (props) => {
                     jobs={data.jobs.slice(0, 5)}
                     users={data.users.filter(u => u.id !== currentUser.id).slice(0, 5)}
                     companies={data.companies}
+                    onViewProfile={onViewProfile}
                 />
             </aside>
         </div>
