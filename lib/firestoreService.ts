@@ -781,3 +781,74 @@ export async function rejectPipelineCandidate(
     rejectionReason: reason,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getOrCreateCompanyForRecruiter(
+  recruiterUid: string,
+  recruiterName: string,
+  recruiterHeadline: string
+): Promise<import('../types').Company> {
+  if (!recruiterUid) {
+    return { id: 1, _firestoreId: '', name: recruiterName, description: '', industry: '', logoUrl: '', website: '' };
+  }
+  const q = query(collection(db, 'companies'), where('adminUid', '==', recruiterUid));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    const d = snap.docs[0];
+    const data = d.data();
+    return {
+      id: data.numericId ?? 1,
+      _firestoreId: d.id,
+      name: data.name ?? recruiterName,
+      description: data.description ?? '',
+      industry: data.industry ?? '',
+      logoUrl: data.logoUrl ?? '',
+      website: data.website ?? '',
+      adminUid: data.adminUid,
+      verifiedRecruiters: data.verifiedRecruiters ?? [],
+      verificationStatus: data.verificationStatus ?? 'unverified',
+    };
+  }
+  // Create a new company record
+  const ref = await addDoc(collection(db, 'companies'), {
+    adminUid: recruiterUid,
+    name: recruiterHeadline || recruiterName,
+    description: '',
+    industry: '',
+    logoUrl: '',
+    website: '',
+    numericId: Date.now(),
+    verifiedRecruiters: [],
+    verificationStatus: 'unverified',
+    createdAt: serverTimestamp(),
+  });
+  return {
+    id: Date.now(),
+    _firestoreId: ref.id,
+    name: recruiterHeadline || recruiterName,
+    description: '',
+    industry: '',
+    logoUrl: '',
+    website: '',
+    adminUid: recruiterUid,
+    verifiedRecruiters: [],
+    verificationStatus: 'unverified',
+  };
+}
+
+export async function applyToJobWithProfile(
+  jobFirestoreId: string,
+  jobNumericId: number,
+  applicantUid: string
+): Promise<void> {
+  await addDoc(collection(db, 'applications'), {
+    jobFirestoreId,
+    jobNumericId,
+    applicantUid,
+    status: 'applied',
+    appliedAt: serverTimestamp(),
+  });
+}
