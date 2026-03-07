@@ -1,4 +1,5 @@
 import React from 'react';
+import { LogoIcon } from '../constants';
 import Footer from './Footer';
 
 interface LandingPageProps {
@@ -114,10 +115,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
     {/* NAV */}
     <header className="sticky top-0 z-20 border-b" style={{ backgroundColor: BG, borderColor: '#e8e4dc' }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-black text-white" style={{ backgroundColor: GREEN }}>B</div>
-          <span className="text-lg font-bold text-stone-900">BeWatu</span>
-        </div>
+        <LogoIcon className="h-9 w-auto" style={{ color: '#1a4a3a' }} />
         <div className="flex items-center gap-4">
           <button onClick={onNavigateToLogin} className="text-sm font-semibold text-stone-600 hover:text-stone-900 transition-colors">Sign In</button>
           <button onClick={onNavigateToRegister} className="rounded-full px-5 py-2 text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ backgroundColor: GREEN }}>
@@ -128,12 +126,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
     </header>
 
     {/* HERO */}
-    <section className="mx-auto flex max-w-3xl flex-col items-center px-6 pt-20 pb-16 text-center">
-      <div className="mb-6 flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium"
-        style={{ borderColor: `${GREEN}40`, backgroundColor: `${GREEN}10`, color: GREEN }}>
-        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: GREEN }} />
-        Now with AI-powered matching
-      </div>
+    <section className="mx-auto flex max-w-3xl flex-col items-center px-6 pt-10 pb-12 text-center">
+
       <h1 className="text-5xl font-extrabold leading-tight tracking-tight text-stone-900 sm:text-6xl md:text-7xl">
         Own your story.{' '}
         <span style={{ color: GREEN }}>Shape your<br />future.</span>
