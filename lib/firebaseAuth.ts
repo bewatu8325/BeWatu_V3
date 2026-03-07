@@ -1,5 +1,5 @@
 /**
- * lib/firebaseAuth.ts
+ * lib/authService.ts
  * Firebase auth wired to BeWatu's User type.
  * Replaces the fake handleLoginSuccess / handleRegisterSuccess logic in App.tsx.
  */
@@ -238,4 +238,75 @@ export async function updateUserInFirestore(
 /** Store Stripe customer ID on the user doc. */
 export async function setStripeCustomerId(fbUid: string, stripeCustomerId: string): Promise<void> {
   await updateDoc(doc(db, 'users', fbUid), { stripeCustomerId, updatedAt: serverTimestamp() });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACCOUNT TAKEOVER PROTECTION
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { multiFactor, PhoneMultiFactorGenerator, getMultiFactorResolver } from 'firebase/auth';
+
+/** Log a security event to Firestore (login, password change, suspicious activity). */
+export async function logSecurityEvent(
+  uid: string,
+  event: {
+    type: 'login' | 'password_change' | 'email_change' | 'suspicious_login' | 'session_revoked' | 'two_factor_enrolled' | 'two_factor_removed';
+    ip?: string;
+    userAgent?: string;
+    location?: string;
+    details?: string;
+  }
+): Promise<void> {
+  await import('firebase/firestore').then(async ({ addDoc, collection, serverTimestamp }) => {
+    const { db } = await import('./firebase');
+    await addDoc(collection(db, 'users', uid, 'securityEvents'), {
+      ...event,
+      timestamp: serverTimestamp(),
+      userAgent: event.userAgent ?? navigator.userAgent,
+    });
+  });
+}
+
+/** Fetch the last N security events for the user. */
+export async function getSecurityEvents(uid: string, limit_ = 20): Promise<any[]> {
+  const { getDocs, collection, query, orderBy, limit } = await import('firebase/firestore');
+  const { db } = await import('./firebase');
+  const snap = await getDocs(
+    query(collection(db, 'users', uid, 'securityEvents'), orderBy('timestamp', 'desc'), limit(limit_))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Revoke all other sessions by rotating a session invalidation token. */
+export async function revokeOtherSessions(uid: string): Promise<void> {
+  const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
+  const { db } = await import('./firebase');
+  await updateDoc(doc(db, 'users', uid), {
+    sessionToken: `${uid}_${Date.now()}`,
+    sessionsRevokedAt: serverTimestamp(),
+  });
+  await logSecurityEvent(uid, { type: 'session_revoked', details: 'User manually revoked all other sessions' });
+}
+
+/** Send email verification to current user. */
+export async function sendVerificationEmail(): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not signed in');
+  await sendEmailVerification(user);
+}
+
+/** Check if email is verified. */
+export function isEmailVerified(): boolean {
+  return auth.currentUser?.emailVerified ?? false;
+}
+
+/** Change email — requires re-authentication first. */
+export async function changeEmail(currentPassword: string, newEmail: string): Promise<void> {
+  const user = auth.currentUser;
+  if (!user || !user.email) throw new Error('Not signed in');
+  const credential = EmailAuthProvider.credential(user.email, currentPassword);
+  await reauthenticateWithCredential(user, credential);
+  const { updateEmail } = await import('firebase/auth');
+  await updateEmail(user, newEmail);
+  await sendEmailVerification(user);
 }
