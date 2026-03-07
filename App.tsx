@@ -118,8 +118,11 @@ const MainApp: React.FC = () => {
     if (currentUser && authState !== 'authenticated') {
       setAuthState('authenticated');
       loadAppData(currentUser);
+    } else if (currentUser && authState === 'authenticated' && !data && !loading) {
+      // Data can be null right after registration if the context user arrived late
+      loadAppData(currentUser);
     }
-  }, [authLoading, currentUser]);
+  }, [authLoading, currentUser, authState, data, loading]);
 
   // ── Load app data ─────────────────────────────────────────────────────────
   const loadAppData = useCallback(async (user: User) => {
@@ -128,12 +131,12 @@ const MainApp: React.FC = () => {
     try {
       const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections, firestoreUsers] =
         await Promise.all([
-          fetchPosts(50),
-          fetchJobs(),
-          fetchCircles(),
-          fetchAllMessagesForUser(fbUser?.uid ?? '', user.id),
-          fetchConnectionRequests(fbUser?.uid ?? ''),
-          fetchUsers(),
+          fetchPosts(50).catch(() => ({ posts: [], lastDoc: null })),
+          fetchJobs().catch(() => []),
+          fetchCircles().catch(() => []),
+          fetchAllMessagesForUser(fbUser?.uid ?? '', user.id).catch(() => []),
+          fetchConnectionRequests(fbUser?.uid ?? '').catch(() => []),
+          fetchUsers().catch(() => []),
         ]);
 
       const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
@@ -215,7 +218,17 @@ const MainApp: React.FC = () => {
       if (stripeCustomerId && fbUser) await setStripeCustomerId(fbUser.uid, stripeCustomerId);
       setActiveProfile(isRecruiter ? 'recruiter' : 'user');
       setAuthState('authenticated');
-      if (currentUser) await loadAppData(currentUser);
+      // currentUser from context may not have refreshed yet after registration.
+      // Prefer the freshly-registered user from context; fall back to a minimal user obj.
+      const userToLoad = currentUser ?? {
+        id: Date.now(), name, headline: '', bio: '', avatarUrl: '',
+        industry: '', professionalGoals: [], reputation: 0, credits: 100,
+        isRecruiter, isVerified: false, portfolio: [], verifiedAchievements: [],
+        thirdPartyIntegrations: [], workStyle: { collaboration: 'Thrives in pairs', communication: 'Prefers asynchronous', workPace: 'Fast-paced and iterative' },
+        values: [], availability: 'Exploring opportunities' as const,
+        skills: [], verifiedSkills: null, microIntroductionUrl: null,
+      };
+      await loadAppData(userToLoad);
     } finally {
       setLoading(false);
     }
