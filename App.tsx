@@ -476,8 +476,8 @@ const MainApp: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   const FullPageLoader = () => (
-    <div className="flex items-center justify-center h-screen bg-slate-950">
-      <LoadingIcon className="w-12 h-12 animate-spin text-cyan-400" />
+    <div className="flex items-center justify-center h-screen" style={{ background: '#f5f5f4' }}>
+      <LoadingIcon className="w-12 h-12 animate-spin" style={{ color: '#1a4a3a' }} />
     </div>
   );
 
@@ -486,17 +486,17 @@ const MainApp: React.FC = () => {
   const renderContent = () => {
     if (loading) return (
       <div className="flex flex-col items-center justify-center h-screen">
-        <LoadingIcon className="w-16 h-16 animate-spin text-cyan-400" />
-        <p className="mt-4 text-lg text-slate-300">Loading BeWatu...</p>
+        <LoadingIcon className="w-16 h-16 animate-spin" style={{ color: '#1a4a3a' }} />
+        <p className="mt-4 text-lg text-stone-500 font-medium">Loading BeWatu...</p>
       </div>
     );
 
     if (error || !data || !currentUser) return (
-      <div className="flex items-center justify-center h-screen bg-red-900/20 text-red-300">
-        <div className="text-center p-8 border border-red-500/30 rounded-lg bg-slate-900 shadow-lg">
+      <div className="flex items-center justify-center h-screen bg-red-50 text-red-700">
+        <div className="text-center p-8 border border-red-200 rounded-2xl bg-white shadow-lg">
           <h2 className="text-2xl font-bold mb-2">An Error Occurred</h2>
           <p>{error || 'Could not load application data.'}</p>
-          <button onClick={() => loadAppData(currentUser!)} className="mt-4 px-4 py-2 bg-cyan-600 rounded-lg text-white">Retry</button>
+          <button onClick={() => loadAppData(currentUser!)} className="mt-4 px-4 py-2 rounded-xl text-white font-semibold" style={{ backgroundColor: '#1a4a3a' }}>Retry</button>
         </div>
       </div>
     );
