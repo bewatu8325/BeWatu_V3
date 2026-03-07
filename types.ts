@@ -63,7 +63,24 @@ export interface User {
   microIntroductionUrl: string | null;
   resumeUrl?: string | null;
   experiences?: Experience[];
+  privacySettings?: PrivacySettings;
+  followersCount?: number;
+  followingCount?: number;
 }
+
+export interface PrivacySettings {
+  allowConnectionRequests: boolean;   // others can send connect requests
+  allowFollow: boolean;               // others can follow without connecting
+  visibleToRecruiters: boolean;       // profile shows in recruiter searches
+  profileVisibility: 'public' | 'connections' | 'private';
+}
+
+export const DEFAULT_PRIVACY: PrivacySettings = {
+  allowConnectionRequests: true,
+  allowFollow: true,
+  visibleToRecruiters: true,
+  profileVisibility: 'public',
+};
 
 export interface Experience {
   id: string;
