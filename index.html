@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#f5f5f4" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>BeWatu - Professional Network</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+      :root {
+        --bw-green:       #1a4a3a;
+        --bw-green-mid:   #1a6b52;
+        --bw-green-light: #e8f4f0;
+        --bw-bg:          #f5f5f4;
+        --bw-surface:     #ffffff;
+        --bw-border:      #e7e5e4;
+        --bw-text:        #1c1917;
+        --bw-muted:       #78716c;
+      }
+      *, *::before, *::after { box-sizing: border-box; }
+      html { height: -webkit-fill-available; }
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--bw-bg);
+        color: var(--bw-text);
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        -webkit-font-smoothing: antialiased;
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
+      #root { min-height: 100vh; display: flex; flex-direction: column; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 3px; }
+      @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-up { animation: fade-in-up 0.4s ease-out forwards; }
+      .pb-safe { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+      .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+      .scrollbar-none::-webkit-scrollbar { display: none; }
+      * { -webkit-tap-highlight-color: transparent; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="modal-root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
