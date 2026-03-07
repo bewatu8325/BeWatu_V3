@@ -124,7 +124,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
                 {initials}
               </div>
             )}
-            <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 sm:block" />
+            <ChevronDown className="hidden h-3.5 w-3.5 text-stone-500 sm:block" />
           </button>
 
           {menuOpen && (
