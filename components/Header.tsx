@@ -65,7 +65,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
             placeholder="Search people, posts, jobs..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="h-9 w-full rounded-full border bg-stone-100 pl-9 pr-4 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2" style={{ borderColor: "#e7e5e4", "--tw-ring-color": "#1a4a3a" } as any}
+            className="h-9 w-full rounded-full border bg-stone-100 pl-9 pr-4 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:border-stone-400" style={{ borderColor: "#e7e5e4" }}
           />
         </form>
 
