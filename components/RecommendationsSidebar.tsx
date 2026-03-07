@@ -12,13 +12,13 @@ interface RecommendationsSidebarProps {
 const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
   jobs, users, companies, onViewProfile, onFollow,
 }) => {
-  const [followed, setFollowed] = useState<Set<number>>(new Set());
+  const [followState, setFollowState] = useState<Record<number, 'pending' | 'following'>>({});
 
   const getCompanyName = (companyId: number) =>
     companies.find(c => c.id === companyId)?.name || 'Unknown Company';
 
   const handleFollow = (userId: number) => {
-    setFollowed(prev => new Set(prev).add(userId));
+    setFollowState(prev => ({ ...prev, [userId]: 'pending' }));
     onFollow?.(userId);
   };
 
@@ -78,15 +78,17 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
               {/* Follow button */}
               <button
                 onClick={() => handleFollow(user.id)}
-                disabled={followed.has(user.id)}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                  followed.has(user.id)
-                    ? 'bg-stone-100 text-stone-400 cursor-default'
-                    : 'border hover:bg-[#e8f4f0]'
-                }`}
-                style={followed.has(user.id) ? {} : { borderColor: '#1a4a3a', color: '#1a4a3a' }}
+                disabled={!!followState[user.id]}
+                className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors border"
+                style={
+                  followState[user.id] === 'pending'
+                    ? { backgroundColor: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' }
+                    : followState[user.id] === 'following'
+                    ? { backgroundColor: '#e8f4f0', borderColor: '#1a4a3a', color: '#1a4a3a' }
+                    : { borderColor: '#1a4a3a', color: '#1a4a3a' }
+                }
               >
-                {followed.has(user.id) ? 'Following' : 'Follow'}
+                {followState[user.id] === 'pending' ? 'Requested' : followState[user.id] === 'following' ? 'Following' : 'Follow'}
               </button>
             </div>
           ))}
