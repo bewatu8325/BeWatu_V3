@@ -8,8 +8,7 @@ import { useFirebase } from '../contexts/FirebaseContext';
 const MOBILE_ITEMS = [
   { view: View.Feed,    label: 'Home',    icon: Home    },
   { view: View.People,  label: 'Circles', icon: Users   }, // People renamed to Circles
-  { view: View.Circles, label: 'Pods',    icon: Hexagon }, // Circles renamed to Pods
-  { view: View.Connections, label: 'Connect', icon: Users2 },
+  { view: View.Connections, label: 'Circles', icon: Users2 },
 ];
 
 interface MobileNavProps {
