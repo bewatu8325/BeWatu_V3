@@ -47,28 +47,49 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
   const [countdown, setCountdown] = useState(MAX_DURATION);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
 
+  const startStream = useCallback(async (facing: 'user' | 'environment') => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing },
+      audio: true,
+    });
+    streamRef.current = stream;
+    if (videoRef.current) videoRef.current.srcObject = stream;
+    recorderRef.current = new MediaRecorder(stream);
+    recorderRef.current.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorderRef.current.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      setRecordedUrl(URL.createObjectURL(blob));
+      setStatus('recorded');
+      chunksRef.current = [];
+    };
+  }, []);
+
   const getPermissions = useCallback(async () => {
     setPermission('pending');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      recorderRef.current = new MediaRecorder(stream);
-      recorderRef.current.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      recorderRef.current.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        setRecordedUrl(URL.createObjectURL(blob));
-        setStatus('recorded');
-        chunksRef.current = [];
-      };
+      await startStream('user');
       setPermission('granted');
     } catch {
       setPermission('denied');
     }
-  }, []);
+  }, [startStream]);
+
+  const flipCamera = useCallback(async () => {
+    const next = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(next);
+    try {
+      await startStream(next);
+    } catch {
+      setFacingMode(facingMode);
+    }
+  }, [facingMode, startStream]);
 
   const startRecording = () => {
     if (recorderRef.current?.state === 'inactive') {
@@ -99,8 +120,7 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
 
   useEffect(() => () => {
     if (timerRef.current) window.clearInterval(timerRef.current);
-    if (videoRef.current?.srcObject)
-      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+    streamRef.current?.getTracks().forEach(t => t.stop());
   }, []);
 
   const progress = ((MAX_DURATION - countdown) / MAX_DURATION) * 100;
@@ -142,6 +162,21 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
             <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
             REC &nbsp;00:{countdown.toString().padStart(2, '0')}
           </div>
+        )}
+        {/* Flip camera button — only when live preview is showing */}
+        {permission === 'granted' && status !== 'recorded' && (
+          <button
+            onClick={flipCamera}
+            title={facingMode === 'user' ? 'Switch to rear camera' : 'Switch to front camera'}
+            className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 transition-colors"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 7h-3a2 2 0 0 1-2-2V2"/>
+              <path d="M9 2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9l-5-5"/>
+              <path d="M12 12m-3 0a3 3 0 1 0 6 0 3 3 0 1 0-6 0"/>
+              <path d="m15.5 9.5 1-1"/>
+            </svg>
+          </button>
         )}
       </div>
 
