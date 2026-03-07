@@ -114,43 +114,43 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({ onRegisterSuccess, 
     }
   };
 
-  const inputStyles = "w-full p-2 bg-slate-700 text-slate-200 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500 placeholder-slate-400";
+    const inputClass = "w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:border-green-700 transition";
 
   return (
     <AuthLayout title={t('createYourAccount')} onNavigateToConnect={onNavigateToConnect} onNavigateToLanding={onNavigateToLanding}>
       {isPolicyVisible && <BillingPolicyModal onClose={() => setIsPolicyVisible(false)} />}
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <p className="text-red-400 text-sm text-center bg-red-900/20 border border-red-500/30 p-2 rounded-md">{error}</p>}
+        {error && <p className="text-red-600 text-sm text-center bg-red-50 border border-red-200 p-3 rounded-xl">{error}</p>}
         <div>
-          <label className="text-slate-400 text-sm font-semibold mb-1 block">{t('fullName')}</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputStyles} placeholder="Jane Doe" disabled={isProcessing} />
+          <label className="text-stone-700 text-sm font-medium mb-1.5 block">{t('fullName')}</label>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Jane Doe" disabled={isProcessing} />
         </div>
         <div>
-          <label className="text-slate-400 text-sm font-semibold mb-1 block">{t('email')}</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputStyles} placeholder="you@example.com" disabled={isProcessing} />
+          <label className="text-stone-700 text-sm font-medium mb-1.5 block">{t('email')}</label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" disabled={isProcessing} />
         </div>
         <div>
-          <label className="text-slate-400 text-sm font-semibold mb-1 block">{t('password')}</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputStyles} placeholder="••••••••" disabled={isProcessing} />
+          <label className="text-stone-700 text-sm font-medium mb-1.5 block">{t('password')}</label>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} placeholder="••••••••" disabled={isProcessing} />
         </div>
 
         <div className="pt-2">
             <label className="flex items-center space-x-3 cursor-pointer">
-                <input type="checkbox" checked={isRecruiter} onChange={(e) => setIsRecruiter(e.target.checked)} className="h-4 w-4 rounded bg-slate-700 border-slate-500 text-cyan-500 focus:ring-cyan-500" disabled={isProcessing} />
-                <span className="text-slate-300 text-sm">{t('wantRecruiterAccess')}</span>
+                <input type="checkbox" checked={isRecruiter} onChange={(e) => setIsRecruiter(e.target.checked)} className="h-4 w-4 rounded border-stone-300 text-green-700 focus:ring-green-700" disabled={isProcessing} />
+                <span className="text-stone-700 text-sm">{t('wantRecruiterAccess')}</span>
             </label>
         </div>
 
         {isRecruiter && (
-            <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-700 space-y-3 animate-fade-in-up">
-                <p className="text-xs text-center text-slate-400">
+            <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-3 animate-fade-in-up">
+                <p className="text-xs text-center text-stone-500">
                     {t('recruiterTrialInfo')}
                 </p>
                 <PaymentForm onReady={handleStripeReady} disabled={isProcessing} />
                  <div>
                     <label className="flex items-center space-x-2 cursor-pointer mt-2">
-                        <input type="checkbox" checked={agreedToPolicy} onChange={(e) => setAgreedToPolicy(e.target.checked)} className="h-4 w-4 rounded bg-slate-700 border-slate-500 text-cyan-500 focus:ring-cyan-500" disabled={isProcessing}/>
-                        <span className="text-slate-400 text-xs">
+                        <input type="checkbox" checked={agreedToPolicy} onChange={(e) => setAgreedToPolicy(e.target.checked)} className="h-4 w-4 rounded border-stone-300 text-green-700 focus:ring-green-700" disabled={isProcessing}/>
+                        <span className="text-stone-500 text-xs">
                             {t('agreeToPolicy')}{' '}
                             <button type="button" onClick={() => setIsPolicyVisible(true)} className="font-semibold text-cyan-400 hover:underline">
                                 {t('billingPolicy')}
@@ -161,14 +161,14 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({ onRegisterSuccess, 
             </div>
         )}
 
-        <button type="submit" className="w-full bg-cyan-500 text-slate-900 font-semibold py-2 rounded-lg hover:bg-cyan-400 transition-colors disabled:bg-cyan-800 disabled:text-slate-500 flex items-center justify-center min-h-[40px]" disabled={isProcessing}>
+        <button type="submit" className="w-full font-semibold py-3 rounded-xl text-white hover:opacity-90 active:scale-[0.99] transition disabled:opacity-60 flex items-center justify-center min-h-[44px]" style={{ backgroundColor: "#1a4a3a" }} disabled={isProcessing}>
           {isProcessing ? <LoadingIcon className="w-5 h-5 animate-spin"/> : t('createAccount')}
         </button>
       </form>
       <div className="mt-6 text-center">
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-stone-500">
           {t('alreadyHaveAccount')}{' '}
-          <button onClick={onNavigateToLogin} className="font-semibold text-cyan-400 hover:underline">
+          <button onClick={onNavigateToLogin} className="font-semibold hover:underline" style={{ color: "#1a6b52" }}>
             {t('signIn')}
           </button>
         </p>
