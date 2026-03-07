@@ -855,6 +855,7 @@ export async function createMicroLesson(data: {
   videoUrl?: string;
   videoDurationSec?: number;
   linkUrl?: string;
+
   linkTitle?: string;
   linkDescription?: string;
   steps?: string[];
@@ -1171,14 +1172,17 @@ export async function getCompanyForRecruiter(recruiterUid: string): Promise<any 
   return { id: snap.docs[0].id, ...snap.docs[0].data() };
 }
 
-export async function createCompanyWithAdmin(recruiterUid: string, data: {
-  name: string; description: string; industry: string; website: string;
-}): Promise<string> {
+export async function createCompanyWithAdmin(
+  recruiterUid: string,
+  adminName: string,
+  data: { name: string; description: string; industry: string; website: string; }
+): Promise<string> {
   const ref = await addDoc(collection(db, 'companies'), {
     ...data,
     adminUid: recruiterUid,
+    adminName,
     verifiedRecruiters: [recruiterUid],
-    verificationStatus: 'pending',
+    verificationStatus: 'unverified',  // starts unverified — verification request must be submitted
     inviteCode: Math.random().toString(36).slice(2, 8).toUpperCase(),
     createdAt: serverTimestamp(),
   });
@@ -1645,4 +1649,173 @@ export async function incrementReelView(reelId: string): Promise<void> {
 
 export async function deleteReelVibe(reelId: string): Promise<void> {
   await deleteDoc(doc(db, 'reelVibes', reelId));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY & RECRUITER VERIFICATION SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Submit a verification request for a company.
+ * If the recruiter's email domain matches the company website, the company
+ * is instantly approved. Otherwise it goes to manual review.
+ */
+export async function createVerificationRequest(data: {
+  companyId: string;
+  recruiterUid: string;
+  recruiterName: string;
+  recruiterEmail: string;
+  companyName: string;
+  companyWebsite: string;
+  notes?: string;
+}): Promise<{ requestId: string; instant: boolean; type: string }> {
+  // Inline email domain verification logic
+  const _emailDomain = data.recruiterEmail.split('@')[1]?.toLowerCase() ?? '';
+  const _websiteNorm = (() => {
+    try {
+      const u = data.companyWebsite.startsWith('http') ? data.companyWebsite : `https://${data.companyWebsite}`;
+      const parts = new URL(u).hostname.toLowerCase().split('.');
+      return parts.length >= 2 ? parts.slice(-2).join('.') : parts.join('.');
+    } catch { return data.companyWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].toLowerCase(); }
+  })();
+  const _personalDomains = new Set(['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com','protonmail.com','live.com','msn.com','me.com','mac.com']);
+  const _isWorkEmail = !_personalDomains.has(_emailDomain);
+  const _domainMatch = _isWorkEmail && _emailDomain === _websiteNorm || _emailDomain.endsWith('.' + _websiteNorm);
+  const type: string = _domainMatch ? 'email_domain' : 'manual_review';
+  const instant = _domainMatch;
+  const reason = _domainMatch
+    ? `Email domain matches ${_websiteNorm}`
+    : !_isWorkEmail
+      ? 'Personal email address — requires manual review'
+      : 'Email domain does not match company website — requires manual review';
+
+  // Create the request doc
+  const requestRef = await addDoc(collection(db, 'verificationRequests'), {
+    ...data,
+    verificationType: type,
+    status: instant ? 'approved' : 'pending',
+    reason,
+    submittedAt: serverTimestamp(),
+    ...(instant ? { reviewedAt: serverTimestamp(), reviewedBy: 'system' } : {}),
+  });
+
+  if (instant) {
+    // Auto-approve: update company to verified
+    await updateDoc(doc(db, 'companies', data.companyId), {
+      verificationStatus: 'verified',
+      verifiedAt: serverTimestamp(),
+      verifiedBy: 'email_domain',
+    });
+  } else {
+    // Set to pending
+    await updateDoc(doc(db, 'companies', data.companyId), {
+      verificationStatus: 'pending',
+      verificationRequestId: requestRef.id,
+    });
+  }
+
+  return { requestId: requestRef.id, instant, type };
+}
+
+/** Admin: approve a pending verification request. */
+export async function approveVerification(
+  requestId: string,
+  adminUid: string,
+  notes?: string
+): Promise<void> {
+  const reqSnap = await getDoc(doc(db, 'verificationRequests', requestId));
+  if (!reqSnap.exists()) throw new Error('Request not found');
+  const req = reqSnap.data();
+
+  await updateDoc(doc(db, 'verificationRequests', requestId), {
+    status: 'approved',
+    reviewedAt: serverTimestamp(),
+    reviewedBy: adminUid,
+    ...(notes ? { adminNotes: notes } : {}),
+  });
+
+  if (req.companyId) {
+    await updateDoc(doc(db, 'companies', req.companyId), {
+      verificationStatus: 'verified',
+      verifiedAt: serverTimestamp(),
+      verifiedBy: adminUid,
+    });
+  }
+}
+
+/** Admin: reject a pending verification request with a reason. */
+export async function rejectVerification(
+  requestId: string,
+  adminUid: string,
+  reason: string
+): Promise<void> {
+  const reqSnap = await getDoc(doc(db, 'verificationRequests', requestId));
+  if (!reqSnap.exists()) throw new Error('Request not found');
+  const req = reqSnap.data();
+
+  await updateDoc(doc(db, 'verificationRequests', requestId), {
+    status: 'rejected',
+    reviewedAt: serverTimestamp(),
+    reviewedBy: adminUid,
+    rejectionReason: reason,
+  });
+
+  if (req.companyId) {
+    await updateDoc(doc(db, 'companies', req.companyId), {
+      verificationStatus: 'rejected',
+      rejectionReason: reason,
+    });
+  }
+}
+
+/** Update a company's verification status directly (admin use). */
+export async function updateCompanyVerificationStatus(
+  companyId: string,
+  status: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended',
+  adminUid?: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: status,
+    ...(adminUid ? { updatedBy: adminUid } : {}),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Update a recruiter's verification status on their user doc. */
+export async function updateRecruiterVerificationStatus(
+  recruiterUid: string,
+  status: 'unverified' | 'pending' | 'email_verified' | 'company_verified' | 'rejected',
+  companyId?: string
+): Promise<void> {
+  await updateDoc(doc(db, 'users', recruiterUid), {
+    recruiterVerificationStatus: status,
+    ...(companyId ? { verifiedCompanyId: companyId } : {}),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Fetch all pending verification requests (admin use). */
+export async function getPendingVerificationRequests(): Promise<any[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'verificationRequests'),
+      where('status', '==', 'pending'),
+      orderBy('submittedAt', 'asc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Get the verification request for a specific company. */
+export async function getVerificationRequestForCompany(companyId: string): Promise<any | null> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'verificationRequests'),
+      where('companyId', '==', companyId),
+      orderBy('submittedAt', 'desc'),
+      limit(1)
+    )
+  );
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() };
 }
