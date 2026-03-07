@@ -24,6 +24,17 @@ import ManageJobsView from '../ManageJobsView';
 import CompanyVerification from './CompanyVerification';
 import ApplicantInbox from './ApplicantInbox';
 import ExpandedCandidateView from '../ExpandedCandidateView';
+import {
+  VerifiedBadge,
+  UnverifiedWarningBanner,
+  PostingRestrictionNotice,
+} from '../VerifiedBadge';
+import {
+  getRestrictions,
+  getVerificationDisplay,
+  type CompanyVerificationStatus,
+} from '../../lib/verification';
+import { getCompanyForRecruiter } from '../../lib/firestoreService';
 
 interface RecruiterConsoleProps {
   onLogout: () => void;
@@ -66,6 +77,8 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const [candidates, setCandidates] = useState<PipelineCandidate[]>([]);   // ← typed correctly
   const [isCompanyVerified, setIsCompanyVerified] = useState(false);
   const [verifiedCompanyName, setVerifiedCompanyName] = useState<string | null>(null);
+  const [companyVerifStatus, setCompanyVerifStatus] = useState<CompanyVerificationStatus>('unverified');
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   // ── Load AI candidate data ─────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -94,6 +107,20 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
     if (fbUser) {
       getPipelineCandidates(fbUser.uid).then(setCandidates).catch(console.error);
     }
+  }, [fbUser]);
+
+  // ── Load company verification status ──────────────────────────────────────
+  useEffect(() => {
+    if (!fbUser) return;
+    getCompanyForRecruiter(fbUser.uid).then(co => {
+      if (co) {
+        const status: CompanyVerificationStatus = co.verificationStatus ?? 'unverified';
+        setCompanyVerifStatus(status);
+        setIsCompanyVerified(status === 'verified');
+        setVerifiedCompanyName(co.name);
+        setCompanyId(co._firestoreId ?? co.id ?? null);
+      }
+    }).catch(() => {});
   }, [fbUser]);
 
   // ── Search ────────────────────────────────────────────────────────────────
@@ -165,6 +192,34 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
       case 'dashboard':
         return (
           <>
+            {/* Verification status card — shown when not verified */}
+            {companyVerifStatus !== 'verified' && (
+              <div className="mb-4">
+                {!verifiedCompanyName ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+                    <span className="text-xl flex-shrink-0 mt-0.5">🏢</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-amber-900">No company on file</p>
+                      <p className="text-sm text-amber-700 mt-0.5">Set up and verify your company to post jobs and reach candidates.</p>
+                    </div>
+                    <button
+                      onClick={() => setActiveView('company_verification')}
+                      className="flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-black text-white"
+                      style={{ background: '#1a4a3a' }}
+                    >
+                      Set up →
+                    </button>
+                  </div>
+                ) : (
+                  <UnverifiedWarningBanner
+                    status={companyVerifStatus}
+                    companyName={verifiedCompanyName}
+                    compact
+                    onStartVerification={() => setActiveView('company_verification')}
+                  />
+                )}
+              </div>
+            )}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-stone-200 min-w-0">
               <div className="flex flex-col gap-3 mb-4">
                 <div>
@@ -313,17 +368,12 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
         return (
           <div>
             {!isCompanyVerified && (
-              <div className="mx-4 mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <span className="mt-0.5 shrink-0 text-amber-500">⚠️</span>
-                <span>
-                  Your job posts are <strong>hidden from candidates</strong> until you verify your company.{' '}
-                  <button
-                    onClick={() => setActiveView('company_verification')}
-                    className="underline font-semibold hover:text-amber-900"
-                  >
-                    Verify now →
-                  </button>
-                </span>
+              <div className="px-4 pt-4">
+                <PostingRestrictionNotice
+                  status={companyVerifStatus}
+                  action="post_job"
+                  onGoToVerification={() => setActiveView('company_verification')}
+                />
               </div>
             )}
             <ManageJobsView
@@ -342,7 +392,21 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
         return (
           <CompanyVerification
             currentUserName={currentUser.name}
-            onCompanyVerified={(name) => { setIsCompanyVerified(true); setVerifiedCompanyName(name); }}
+            onCompanyVerified={(name) => {
+              setIsCompanyVerified(true);
+              setVerifiedCompanyName(name);
+              setCompanyVerifStatus('verified');
+              // Reload fresh status from Firestore
+              if (fbUser) {
+                getCompanyForRecruiter(fbUser.uid).then(co => {
+                  if (co) {
+                    const s: CompanyVerificationStatus = co.verificationStatus ?? 'unverified';
+                    setCompanyVerifStatus(s);
+                    setIsCompanyVerified(s === 'verified');
+                  }
+                }).catch(() => {});
+              }
+            }}
           />
         );
 
@@ -397,7 +461,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
             <NavItem label="Pipeline" view="pipelines" />
             <NavItem label="Interviews" view="interviews" />
             <NavItem label="Jobs" view="manage_jobs" />
-            <NavItem label="Company" view="company_verification" badge={!isCompanyVerified ? '!' : undefined} />
+            <NavItem label="Company" view="company_verification" badge={companyVerifStatus === 'unverified' ? '!' : companyVerifStatus === 'pending' ? '…' : companyVerifStatus === 'rejected' ? '✕' : undefined} />
             <div className="w-px bg-stone-100 self-stretch hidden sm:block" />
             <NavItem label="Culture" view="culture_fit" />
             <NavItem label="Analytics" view="pipeline_analytics" />
