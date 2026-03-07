@@ -212,7 +212,7 @@ function SubmissionsPanel({
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     {sub.score == null && scoringId !== sub.id && (
                       <button onClick={() => { setScoringId(sub.id); setScoreValue(0); setFeedbackValue(''); }}
-                        className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-cyan-500/20 transition-colors">
+                        className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-[#1a6b52]/20 transition-colors">
                         <Star className="h-3 w-3" />Score
                       </button>
                     )}
@@ -228,18 +228,18 @@ function SubmissionsPanel({
                     )}
                   </div>
                   {scoringId === sub.id && (
-                    <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2">
+                    <div className="mt-3 rounded-lg border border-[#1a4a3a]/20 bg-[#e8f4f0] p-3 space-y-2">
                       <div className="flex items-center gap-3">
                         <label className="text-xs font-medium text-stone-800">Score (0-100)</label>
                         <input type="number" min={0} max={100} value={scoreValue} onChange={e => setScoreValue(Number(e.target.value))}
-                          className="w-20 rounded-lg border bg-stone-50 px-2 py-1 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
+                          className="w-20 rounded-lg border bg-stone-50 px-2 py-1 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
                       </div>
                       <textarea value={feedbackValue} onChange={e => setFeedbackValue(e.target.value)} rows={2}
                         placeholder="Add feedback (visible to candidate)..."
-                        className="w-full resize-none rounded-lg border bg-stone-50 px-3 py-2 text-xs text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
+                        className="w-full resize-none rounded-lg border bg-stone-50 px-3 py-2 text-xs text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleScore(sub.id)} disabled={saving}
-                          className="flex items-center gap-1 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 disabled:opacity-50 transition-colors">
+                          className="flex items-center gap-1 rounded-lg bg-[#1a4a3a] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1a6b52] disabled:opacity-50 transition-colors">
                           {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}Submit Score
                         </button>
                         <button onClick={() => setScoringId(null)} className="text-xs text-stone-500 hover:text-stone-800 transition-colors">Cancel</button>
@@ -329,10 +329,10 @@ function ChallengeDetail({
           <p className="mt-1 text-xs text-stone-500">Top performers earn credits and may be shortlisted. Submissions are anonymous to recruiters by default.</p>
           <textarea value={content} onChange={e => setContent(e.target.value)} rows={6}
             placeholder="Write your solution, paste code, or describe your approach..."
-            className="mt-3 w-full resize-none rounded-lg border bg-stone-50 px-4 py-3 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
+            className="mt-3 w-full resize-none rounded-lg border bg-stone-50 px-4 py-3 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
           <div className="mt-3 flex items-center justify-end">
             <button onClick={handleSubmit} disabled={submitting || !content.trim()}
-              className="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50 transition-colors">
+              className="flex items-center gap-1.5 rounded-lg bg-[#1a4a3a] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6b52] disabled:opacity-50 transition-colors">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}Submit
             </button>
           </div>
@@ -356,7 +356,7 @@ function ChallengeDetail({
       {isRecruiter && (
         <div className="flex items-center justify-end">
           <button onClick={() => setBlindMode(b => !b)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${blindMode ? 'bg-cyan-600 text-white' : 'bg-stone-100 text-stone-700'}`}>
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${blindMode ? 'bg-[#1a4a3a] text-white' : 'bg-stone-100 text-stone-700'}`}>
             <EyeOff className="h-3.5 w-3.5" />Blind Mode {blindMode ? 'ON' : 'OFF'}
           </button>
         </div>
@@ -437,26 +437,26 @@ function CreateChallengeDialog({
           <div>
             <label className="text-xs font-medium text-stone-800 mb-1 block">Title</label>
             <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Build a responsive dashboard"
-              className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
+              className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
           </div>
           <div>
             <label className="text-xs font-medium text-stone-800 mb-1 block">Description</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
               placeholder="Describe what participants need to build, solve, or design..."
-              className="w-full resize-none rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
+              className="w-full resize-none rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Type</label>
               <select value={type} onChange={e => setType(e.target.value as ChallengeType)}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }}>
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }}>
                 {CHALLENGE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Difficulty</label>
               <select value={difficulty} onChange={e => setDifficulty(e.target.value as ChallengeDifficulty)}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }}>
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }}>
                 {CHALLENGE_DIFFS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
@@ -465,24 +465,24 @@ function CreateChallengeDialog({
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Time Limit (min)</label>
               <input type="number" min={15} max={480} value={timeLimit} onChange={e => setTimeLimit(Number(e.target.value))}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
             </div>
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Expires in (days)</label>
               <input type="number" min={1} max={90} value={daysUntilExpiry} onChange={e => setDaysUntilExpiry(Number(e.target.value))}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block flex items-center gap-1"><Zap className="h-3 w-3 text-amber-400" />Credits Reward</label>
               <input type="number" min={0} value={credits} onChange={e => setCredits(Number(e.target.value))}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
             </div>
             <div>
               <label className="text-xs font-medium text-stone-800 mb-1 block">Badge Name</label>
               <input value={badge} onChange={e => setBadge(e.target.value)} placeholder="Auto-generated if empty"
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
+                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
             </div>
           </div>
           <div>
@@ -491,15 +491,15 @@ function CreateChallengeDialog({
               <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSkill())}
                 placeholder="Add a skill"
-                className="flex-1 rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-cyan-500" style={{ borderColor:"#e7e5e4" }} />
-              <button onClick={addSkill} className="flex items-center gap-1 rounded-lg bg-stone-100 px-3 py-2 text-xs font-medium text-stone-800 hover:bg-slate-600 transition-colors">
+                className="flex-1 rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
+              <button onClick={addSkill} className="flex items-center gap-1 rounded-lg bg-stone-100 px-3 py-2 text-xs font-medium text-stone-800 hover:bg-stone-200 transition-colors">
                 <Plus className="h-3 w-3" />Add
               </button>
             </div>
             {skills.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {skills.map(s => (
-                  <span key={s} className="flex items-center gap-1 rounded-full bg-emerald-50 border border-cyan-500/20 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
+                  <span key={s} className="flex items-center gap-1 rounded-full bg-emerald-50 border border-[#1a4a3a]/20 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
                     {s}
                     <button onClick={() => setSkills(skills.filter(x => x !== s))}><X className="h-2.5 w-2.5" /></button>
                   </span>
@@ -508,7 +508,7 @@ function CreateChallengeDialog({
             )}
           </div>
           <button onClick={handleCreate} disabled={creating || !title.trim()}
-            className="mt-2 w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition-colors">
+            className="mt-2 w-full rounded-lg bg-[#1a4a3a] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1a6b52] disabled:opacity-50 transition-colors">
             {creating ? 'Creating...' : 'Launch Challenge'}
           </button>
         </div>
@@ -538,7 +538,7 @@ function ChallengeCard({ challenge, onClick }: { challenge: any; onClick: () => 
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1">
               {[1, 2, 3].map(lvl => (
-                <div key={lvl} className={`h-2 w-5 rounded-full ${lvl <= diff.level ? 'bg-slate-100' : 'bg-slate-100/20'}`} />
+                <div key={lvl} className={`h-2 w-5 rounded-full ${lvl <= diff.level ? 'bg-stone-200' : 'bg-stone-200/20'}`} />
               ))}
             </div>
             <span className={`text-xs font-bold ${diff.color}`}>{diff.label}</span>
@@ -654,7 +654,7 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
         </div>
         {isRecruiter && proveTab === 'challenges' && (
           <button onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 transition-colors">
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a4a3a] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6b52] transition-colors">
             <PlusCircle className="h-4 w-4" />Create Challenge
           </button>
         )}
@@ -698,7 +698,7 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
         <div className="flex flex-wrap gap-1.5">
           {TYPE_FILTERS.map(f => (
             <button key={f.value} onClick={() => setTypeFilter(f.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${typeFilter === f.value ? 'bg-cyan-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-slate-600'}`}>
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${typeFilter === f.value ? 'bg-[#1a4a3a] text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
               {f.label}
             </button>
           ))}
@@ -707,7 +707,7 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
         <div className="flex flex-wrap gap-1.5">
           {DIFFICULTY_FILTERS.map(f => (
             <button key={f.value} onClick={() => setDiffFilter(f.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${diffFilter === f.value ? 'bg-slate-200 text-slate-900' : 'bg-stone-100 text-stone-700 hover:bg-slate-600'}`}>
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${diffFilter === f.value ? 'bg-stone-200 text-stone-900' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
               {f.label}
             </button>
           ))}
@@ -721,7 +721,7 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-16">
-          <Sword className="h-10 w-10 text-slate-600" />
+          <Sword className="h-10 w-10 text-stone-600" />
           <p className="mt-3 text-sm font-medium text-stone-500">No challenges match your filters.</p>
           {isRecruiter && (
             <button onClick={() => setShowCreate(true)} className="mt-3 text-sm font-medium text-emerald-600 hover:text-emerald-600 transition-colors">
