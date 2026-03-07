@@ -61,6 +61,7 @@ function docToUser(data: Record<string, any>): User {
     skills: data.skills ?? [],
     verifiedSkills: data.verifiedSkills ?? null,
     microIntroductionUrl: data.microIntroductionUrl ?? null,
+    microIntroductionThumbnail: data.microIntroductionThumbnail ?? null,
   };
 }
 
@@ -236,6 +237,7 @@ export async function updateUserInFirestore(
     ...(updates.skills !== undefined && { skills: updates.skills }),
     ...(updates.verifiedSkills !== undefined && { verifiedSkills: updates.verifiedSkills }),
     ...(updates.microIntroductionUrl !== undefined && { microIntroductionUrl: updates.microIntroductionUrl }),
+    ...(updates.microIntroductionThumbnail !== undefined && { microIntroductionThumbnail: updates.microIntroductionThumbnail }),
     ...(updates.portfolio !== undefined && { portfolio: updates.portfolio }),
     ...(updates.availability !== undefined && { availability: updates.availability }),
     ...(updates.values !== undefined && { values: updates.values }),
