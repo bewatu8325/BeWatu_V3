@@ -24,7 +24,7 @@ import {
   deleteReelVibe,
   type ReelVibe,
 } from '../lib/firestoreService';
-import { uploadReelVibe } from '../lib/storageService';
+import { uploadReelVibe, uploadReelVibeThumbnail, captureVideoThumbnail } from '../lib/storageService';
 import { updateUserInFirestore } from '../lib/firebaseAuth';
 
 const GREEN    = '#1a4a3a';
@@ -81,7 +81,20 @@ function UploadSheet({ onClose, onUploaded }: { onClose: () => void; onUploaded:
     setError('');
     setUploading(true);
     try {
+      // Upload video (shows progress bar)
       const videoUrl = await uploadReelVibe(fbUser.uid, file, setProgress);
+
+      // Capture poster frame at 0.5s and upload silently (no progress needed)
+      let thumbnailUrl: string | undefined;
+      try {
+        const thumbBlob = await captureVideoThumbnail(file, 0.5);
+        if (thumbBlob) {
+          thumbnailUrl = await uploadReelVibeThumbnail(fbUser.uid, thumbBlob);
+        }
+      } catch {
+        // Thumbnail is best-effort — don't fail the whole upload
+      }
+
       await createReelVibe({
         authorUid: fbUser.uid,
         authorId: currentUser.id,
@@ -89,16 +102,29 @@ function UploadSheet({ onClose, onUploaded }: { onClose: () => void; onUploaded:
         authorAvatar: currentUser.avatarUrl,
         authorHeadline: currentUser.headline,
         videoUrl,
+        thumbnailUrl,   // stored in reelVibes doc for the feed
         caption: caption.trim(),
         skill: skill.trim(),
         tags,
       });
-      // ── Persist to user profile so VibeClipTile survives logout ──────────
-      // ProfileSidebar reads user.microIntroductionUrl; without this the video
-      // disappears on next login because state resets from Firestore.
-      await updateUserInFirestore(fbUser.uid, { microIntroductionUrl: videoUrl });
+
+      // Persist both URLs to user profile so VibeClipTile survives logout.
+      // ProfileSidebar reads user.microIntroductionUrl (video) and
+      // user.microIntroductionThumbnail (poster frame).
+      await updateUserInFirestore(fbUser.uid, {
+        microIntroductionUrl: videoUrl,
+        ...(thumbnailUrl ? { microIntroductionThumbnail: thumbnailUrl } : {}),
+      });
+
       // Update in-memory user so ProfileSidebar tile refreshes immediately
-      if (currentUser) refreshUser({ ...currentUser, microIntroductionUrl: videoUrl });
+      if (currentUser) {
+        refreshUser({
+          ...currentUser,
+          microIntroductionUrl: videoUrl,
+          ...(thumbnailUrl ? { microIntroductionThumbnail: thumbnailUrl } : {}),
+        } as any);
+      }
+
       onUploaded();
       onClose();
     } catch (e: any) {
