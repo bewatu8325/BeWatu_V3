@@ -73,11 +73,12 @@ const LoginPage = lazy(() => import('./components/auth/LoginPage'));
 const RegistrationPage = lazy(() => import('./components/auth/RegistrationPage'));
 const ForgotPasswordPage = lazy(() => import('./components/auth/ForgotPasswordPage'));
 const RecruiterConsole = lazy(() => import('./components/recruiter/RecruiterConsole'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const Footer = lazy(() => import('./components/Footer'));
 const SuccessBanner = lazy(() => import('./components/SuccessBanner'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
-type ActiveProfile = 'user' | 'recruiter';
+type ActiveProfile = 'user' | 'recruiter' | 'admin';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN APP
@@ -87,6 +88,7 @@ const MainApp: React.FC = () => {
 
   const [authState, setAuthState] = useState<AuthState>('landing');
   const [activeProfile, setActiveProfile] = useState<ActiveProfile>('user');
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [currentView, setCurrentView] = useState<View>(View.Feed);
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -180,6 +182,14 @@ const MainApp: React.FC = () => {
     }
   }, [fbUser]);
 
+  // ── Platform admin check ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!fbUser) { setIsPlatformAdmin(false); return; }
+    import('./lib/firestoreService').then(({ isPlatformAdmin: checkAdmin }) => {
+      checkAdmin(fbUser.uid).then(setIsPlatformAdmin).catch(() => {});
+    });
+  }, [fbUser?.uid]);
+
   // ── Auth handlers ─────────────────────────────────────────────────────────
 
   const handleLoginSuccess = async (email: string, isRecruiterLogin: boolean) => {
@@ -253,6 +263,7 @@ const MainApp: React.FC = () => {
   };
 
   const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
+  const handleEnterAdminPanel = () => setActiveProfile('admin');
   const handleChangePassword = async (currentPassword: string, newPassword: string) => changePassword(currentPassword, newPassword);
   const handleForgotPassword = async (email: string) => { await forgotPassword(email); }; // page handles navigation after showing success
 
@@ -490,6 +501,14 @@ const MainApp: React.FC = () => {
       </div>
     );
 
+    if (activeProfile === 'admin') {
+      return (
+        <Suspense fallback={<FullPageLoader />}>
+          <AdminPanel onExit={() => setActiveProfile('user')} />
+        </Suspense>
+      );
+    }
+
     if (activeProfile === 'recruiter') {
       return <RecruiterConsole onLogout={handleLogout} isTrialActive={isTrialActive} setTrialActive={setIsTrialActive} onSwitchProfile={handleSwitchProfile} talentPipeline={talentPipeline} allJobs={data.jobs} allCompanies={data.companies} currentUser={currentUser} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} onToggleJobStatus={handleToggleJobStatus} />;
     }
@@ -594,7 +613,7 @@ const MainApp: React.FC = () => {
       {showSecurityPage && currentUser && (
         <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
           <div className="min-h-screen">
-            <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={0} />
+            <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={0} />
             <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
               <Suspense fallback={<div />}>
                 <SecurityPrivacyPage user={currentUser} onBack={() => setShowSecurityPage(false)} onChangePassword={() => handleChangePassword('' as any, '' as any)} />
@@ -608,7 +627,7 @@ const MainApp: React.FC = () => {
       {publicProfileUserId && data && (
         <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
           <div className="min-h-screen">
-            <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} />
+            <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} />
             <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
               <Suspense fallback={<div />}>
                 {(() => {
