@@ -10,8 +10,8 @@
  */
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  ShieldCheck, ShieldAlert, Clock, ShieldX, AlertTriangle,
-  ArrowRight, Info, Lock, ExternalLink,
+  ShieldCheck, Shield, Clock, XCircle, AlertTriangle,
+  ChevronRight, Info, Lock, ExternalLink,
 } from 'lucide-react';
 import {
   getVerificationDisplay,
@@ -36,8 +36,8 @@ function StatusIcon({
 
   if (status === 'verified') return <ShieldCheck className={px} />;
   if (status === 'pending')  return <Clock className={px} />;
-  if (status === 'rejected') return <ShieldX className={px} />;
-  return <ShieldAlert className={px} />;
+  if (status === 'rejected') return <XCircle className={px} />;
+  return <Shield className={px} />;
 }
 
 // ─── VerifiedBadge ────────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ export function UnverifiedWarningBanner({
   if (status === 'verified') return null;
   if (status === 'suspended') return (
     <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 flex items-start gap-3">
-      <ShieldX className="w-5 h-5 text-stone-400 flex-shrink-0 mt-0.5" />
+      <XCircle className="w-5 h-5 text-stone-400 flex-shrink-0 mt-0.5" />
       <div>
         <p className="font-bold text-stone-700 text-sm">Account suspended</p>
         <p className="text-xs text-stone-500 mt-0.5">Contact <a href="mailto:support@bewatu.com" className="underline">support@bewatu.com</a> to resolve.</p>
@@ -211,7 +211,7 @@ export function UnverifiedWarningBanner({
   if (status === 'rejected') return (
     <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
       <div className="flex items-start gap-3">
-        <ShieldX className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+        <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
         <div className="flex-1">
           <p className="font-bold text-red-800 text-sm">Verification not approved</p>
           {rejectionReason && (
@@ -226,7 +226,7 @@ export function UnverifiedWarningBanner({
         className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white transition-opacity hover:opacity-90"
         style={{ background: '#dc2626' }}
       >
-        Resubmit verification <ArrowRight className="w-4 h-4" />
+        Resubmit verification <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   );
@@ -292,7 +292,7 @@ export function UnverifiedWarningBanner({
         className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black text-white transition-opacity hover:opacity-90"
         style={{ background: GREEN }}
       >
-        Start verification <ArrowRight className="w-4 h-4" />
+        Start verification <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   );
@@ -355,7 +355,7 @@ export function PostingRestrictionNotice({
         {isPending ? (
           <Clock className="w-7 h-7" />
         ) : isRejected ? (
-          <ShieldX className="w-7 h-7" />
+          <XCircle className="w-7 h-7" />
         ) : (
           <Lock className="w-7 h-7" />
         )}
@@ -379,7 +379,7 @@ export function PostingRestrictionNotice({
           style={{ background: isRejected ? '#dc2626' : GREEN }}
         >
           {isRejected ? 'Resubmit verification' : 'Verify company'}
-          <ArrowRight className="w-4 h-4" />
+          <ChevronRight className="w-4 h-4" />
         </button>
       )}
 
