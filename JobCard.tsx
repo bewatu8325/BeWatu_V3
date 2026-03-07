@@ -15,37 +15,34 @@ const JobCard: React.FC<JobCardProps> = ({ job, company, onViewCompany, onAnalyz
   const hasApplied = appliedJobIds.includes(job.id);
 
   return (
-    <div className="bg-slate-800/50 p-5 rounded-xl border border-slate-700 hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/10 transition-all duration-300 transform hover:-translate-y-1">
+    <div className="bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300" style={{ borderColor:"#e7e5e4" }}>
       <div className="flex justify-between items-start">
         <div>
-          <h3 className="font-bold text-lg text-cyan-400">{job.title}</h3>
-          <button onClick={() => onViewCompany(company.id)} className="text-md text-slate-200 hover:text-cyan-400 hover:underline text-left">
+          <h3 className="font-bold text-lg" style={{ color:"#1a4a3a" }}>{job.title}</h3>
+          <button onClick={() => onViewCompany(company.id)} className="text-md text-stone-700 hover:underline text-left">
             {company.name}
           </button>
-          <p className="text-sm text-slate-400">{job.location} ({job.type})</p>
+          <p className="text-sm text-stone-500">{job.location} ({job.type})</p>
         </div>
         <div className="flex items-center space-x-2">
             <button 
                 onClick={() => onAnalyzeMatch(job, company)}
                 title="Analyze Job Match"
-                className="bg-slate-700 text-cyan-400 font-semibold p-2 rounded-full border border-cyan-500/50 hover:bg-cyan-900/50 transition-colors text-sm"
+                className="font-semibold p-2 rounded-full border hover:bg-stone-50 transition-colors text-sm" style={{ borderColor:"#1a4a3a", color:"#1a4a3a" }}
             >
                 <SparklesIcon className="w-5 h-5"/>
             </button>
             <button 
               onClick={() => !hasApplied && onApplyForJob(job)}
               disabled={hasApplied}
-              className={`font-semibold px-4 py-1.5 rounded-full transition-colors text-sm whitespace-nowrap ${
-                hasApplied
-                    ? 'bg-green-600 text-white cursor-not-allowed'
-                    : 'bg-cyan-500 text-slate-900 hover:bg-cyan-400'
+              className={`font-semibold px-4 py-1.5 rounded-full transition-colors text-sm whitespace-nowrap ${hasApplied ? 'bg-green-600 text-white cursor-not-allowed' : 'text-white hover:opacity-90'}`} style={!hasApplied ? { backgroundColor:'#1a4a3a' } : {}}
               }`}
             >
               {hasApplied ? 'Applied ✓' : 'Apply Now'}
             </button>
         </div>
       </div>
-      <p className="text-sm text-slate-300 mt-3">{job.description}</p>
+      <p className="text-sm text-stone-600 mt-3">{job.description}</p>
     </div>
   );
 };
