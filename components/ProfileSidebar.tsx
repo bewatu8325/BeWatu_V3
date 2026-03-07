@@ -56,13 +56,24 @@ const VibeClipTile: React.FC<{
     .slice(0, 2);
 
   const handleTap = () => {
-    if (!hasVideo) return;
+    if (!hasVideo || !videoRef.current) return;
     if (playing) {
-      videoRef.current?.pause();
+      videoRef.current.pause();
       setPlaying(false);
     } else {
-      videoRef.current?.play();
-      setPlaying(true);
+      // play() returns a Promise — must catch browser autoplay policy rejections
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => { setPlaying(true); })
+          .catch((err) => {
+            // NotAllowedError = autoplay blocked; NotSupportedError = bad src
+            console.warn('Video play prevented:', err);
+            setPlaying(false);
+          });
+      } else {
+        setPlaying(true);
+      }
     }
   };
 
@@ -84,11 +95,13 @@ const VibeClipTile: React.FC<{
             playsInline
             webkit-playsinline="true"
             onEnded={() => setPlaying(false)}
+            onPause={() => setPlaying(false)}
+            onPlay={() => setPlaying(true)}
           />
 
           {/* Play/pause overlay — only visible when paused */}
           {!playing && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/25">
+            <div className="absolute inset-0 flex items-center justify-center bg-stone-900/25">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/40">
                 <PlayIcon className="w-7 h-7 text-white ml-1" />
               </div>
@@ -102,12 +115,12 @@ const VibeClipTile: React.FC<{
           />
 
           {/* Name / headline overlay */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
-            <p className="font-bold text-white text-lg leading-tight">{user.name}</p>
-            <p className="text-white/80 text-sm mt-0.5">{user.headline}</p>
+          <div className="absolute bottom-0 left-0 right-0 p-4 pr-5 pointer-events-none">
+            <p className="font-bold text-white text-lg leading-tight truncate">{user.name}</p>
+            <p className="text-white/80 text-sm mt-0.5 truncate">{user.headline}</p>
             {user.location && (
-              <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1">
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1 truncate">
+                <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
                 </svg>
                 {user.location}
@@ -115,11 +128,11 @@ const VibeClipTile: React.FC<{
             )}
           </div>
 
-          {/* Update clip button */}
+          {/* Update clip button — top-right so it never overlaps name */}
           <button
             onClick={e => { e.stopPropagation(); onRecordVideo(); }}
-            className="absolute bottom-4 right-4 pointer-events-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors"
-            style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
+            className="absolute top-3 right-3 pointer-events-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors"
+            style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
           >
             <CameraIcon className="w-3.5 h-3.5" />
             Update Vibe Clip
@@ -155,15 +168,15 @@ const VibeClipTile: React.FC<{
             {/* CTA button */}
             <button
               onClick={e => { e.stopPropagation(); onRecordVideo(); }}
-              className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold shadow-md hover:bg-stone-50 transition-colors"
-              style={{ color: '#1a4a3a' }}
+              className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold shadow-lg hover:bg-stone-50 transition-all animate-pulse"
+              style={{ color: '#1a4a3a', animationDuration: '2.5s' }}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="m15 10 4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.91L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
               </svg>
               Add Intro Video
             </button>
-            <p className="text-white/60 text-xs">30s max, show your vibe</p>
+            <p className="text-white/80 text-xs font-medium">Tap to record your 30s vibe</p>
           </div>
 
           {/* Name / headline always visible at bottom */}
@@ -171,8 +184,8 @@ const VibeClipTile: React.FC<{
             className="absolute bottom-0 left-0 right-0 p-4"
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }}
           >
-            <p className="font-bold text-white text-lg leading-tight">{user.name}</p>
-            <p className="text-white/75 text-sm">{user.headline}</p>
+            <p className="font-bold text-white text-lg leading-tight truncate">{user.name}</p>
+            <p className="text-white/75 text-sm truncate">{user.headline}</p>
           </div>
         </>
       )}
