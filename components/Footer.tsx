@@ -6,20 +6,17 @@ interface FooterProps {
 
 const Footer: React.FC<FooterProps> = ({ onNavigateToConnect }) => {
   return (
-    <footer className="bg-slate-900/50 border-t border-slate-700/50 mt-12">
-      <div className="container mx-auto px-4 sm:px-6 py-4">
-        <div className="flex justify-center items-center space-x-6 text-sm">
-          <a href="#" className="text-slate-400 hover:text-cyan-400 transition-colors">User Agreement</a>
-          <span className="text-slate-600">|</span>
-           {onNavigateToConnect && (
-            <>
-              <button onClick={onNavigateToConnect} className="text-slate-400 hover:text-cyan-400 transition-colors">Connect with us</button>
-              <span className="text-slate-600">|</span>
-            </>
+    <footer className="border-t mt-12" style={{ borderColor: '#e7e5e4', backgroundColor: '#ffffff' }}>
+      <div className="container mx-auto px-4 sm:px-6 py-5">
+        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm">
+          <a href="#" className="text-stone-400 hover:text-stone-700 transition-colors">User Agreement</a>
+          {onNavigateToConnect && (
+            <button onClick={onNavigateToConnect} className="text-stone-400 hover:text-stone-700 transition-colors">
+              Connect with us
+            </button>
           )}
-          <a href="#" className="text-slate-400 hover:text-cyan-400 transition-colors">Community Rules & Standards</a>
-          <span className="text-slate-600">|</span>
-           <p className="text-slate-500">&copy; {new Date().getFullYear()} BeWatu</p>
+          <a href="#" className="text-stone-400 hover:text-stone-700 transition-colors">Community Standards</a>
+          <p className="text-stone-400">&copy; {new Date().getFullYear()} BeWatu</p>
         </div>
       </div>
     </footer>
