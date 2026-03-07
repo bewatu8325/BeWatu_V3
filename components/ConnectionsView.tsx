@@ -7,14 +7,17 @@
  *   4. Connection Map — interactive force-graph
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { User, ConnectionRequest } from '../types';
+import { User, ConnectionRequest, FollowRequest } from '../types';
 
 interface ConnectionsViewProps {
   currentUser: User;
   allUsers: User[];
   connectionRequests: ConnectionRequest[];
+  followRequests?: FollowRequest[];
   onAccept: (requestId: number) => Promise<void>;
   onDecline: (requestId: number) => Promise<void>;
+  onAcceptFollow?: (requestId: number) => Promise<void>;
+  onDeclineFollow?: (requestId: number) => Promise<void>;
   onViewProfile: (userId: number) => void;
   onConnect: (userId: number) => Promise<void>;
 }
@@ -55,6 +58,10 @@ function PendingTab({
   onAccept,
   onDecline,
   onViewProfile,
+  incomingFollows,
+  outgoingFollows,
+  onAcceptFollow,
+  onDeclineFollow,
 }: {
   incoming: (ConnectionRequest & { _firestoreId?: string })[];
   outgoing: (ConnectionRequest & { _firestoreId?: string })[];
@@ -62,6 +69,10 @@ function PendingTab({
   onAccept: (id: number) => Promise<void>;
   onDecline: (id: number) => Promise<void>;
   onViewProfile: (uid: number) => void;
+  incomingFollows: FollowRequest[];
+  outgoingFollows: FollowRequest[];
+  onAcceptFollow?: (id: number) => Promise<void>;
+  onDeclineFollow?: (id: number) => Promise<void>;
 }) {
   const [busy, setBusy] = useState<Record<number, boolean>>({});
 
@@ -70,7 +81,8 @@ function PendingTab({
     try { await fn(); } finally { setBusy(b => ({ ...b, [id]: false })); }
   };
 
-  if (incoming.length === 0 && outgoing.length === 0) {
+  const hasAnything = incoming.length > 0 || outgoing.length > 0 || incomingFollows.length > 0 || outgoingFollows.length > 0;
+  if (!hasAnything) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-stone-400">
         <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -87,7 +99,7 @@ function PendingTab({
       {incoming.length > 0 && (
         <section>
           <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
-            Received · {incoming.length}
+            Connection Requests · {incoming.length}
           </h3>
           <div className="space-y-3">
             {incoming.map(req => {
@@ -138,7 +150,7 @@ function PendingTab({
       {outgoing.length > 0 && (
         <section>
           <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
-            Sent · {outgoing.length}
+            Connection Requests Sent · {outgoing.length}
           </h3>
           <div className="space-y-3">
             {outgoing.map(req => {
@@ -154,16 +166,93 @@ function PendingTab({
                     <Avatar user={receiver} size={52} />
                   </button>
                   <div className="flex-1 min-w-0">
-                    <button
-                      onClick={() => onViewProfile(receiver.id)}
-                      className="font-semibold text-stone-900 hover:underline text-left truncate block"
-                    >
+                    <button onClick={() => onViewProfile(receiver.id)} className="font-semibold text-stone-900 hover:underline text-left truncate block">
                       {receiver.name}
                     </button>
                     <p className="text-sm text-stone-500 truncate">{receiver.headline}</p>
                   </div>
-                  <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                    Awaiting response
+                  <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0 flex items-center gap-1">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Pending
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Incoming follow requests ── */}
+      {incomingFollows.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Follow Requests · {incomingFollows.length}
+          </h3>
+          <div className="space-y-3">
+            {incomingFollows.map(req => {
+              const sender = allUsers.find(u => u.id === req.fromUserId);
+              if (!sender) return null;
+              return (
+                <div key={req.id} className="flex items-center gap-4 bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
+                  <button onClick={() => onViewProfile(sender.id)} className="shrink-0">
+                    <Avatar user={sender} size={52} />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <button onClick={() => onViewProfile(sender.id)} className="font-semibold text-stone-900 hover:underline text-left truncate block">
+                      {sender.name}
+                    </button>
+                    <p className="text-sm text-stone-500 truncate">{sender.headline}</p>
+                    <p className="text-xs text-stone-400 mt-0.5">wants to follow you</p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => act(() => onAcceptFollow!(req.id), req.id)}
+                      disabled={busy[req.id] || !onAcceptFollow}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                      style={{ backgroundColor: '#1a4a3a' }}
+                    >
+                      {busy[req.id] ? '…' : 'Allow'}
+                    </button>
+                    <button
+                      onClick={() => act(() => onDeclineFollow!(req.id), req.id)}
+                      disabled={busy[req.id] || !onDeclineFollow}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold text-stone-600 border border-stone-200 bg-white hover:bg-stone-50 transition disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Outgoing follow requests ── */}
+      {outgoingFollows.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
+            Following Requests Sent · {outgoingFollows.length}
+          </h3>
+          <div className="space-y-3">
+            {outgoingFollows.map(req => {
+              const receiver = allUsers.find(u => u.id === req.toUserId);
+              if (!receiver) return null;
+              return (
+                <div key={req.id} className="flex items-center gap-4 bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
+                  <button onClick={() => onViewProfile(receiver.id)} className="shrink-0">
+                    <Avatar user={receiver} size={52} />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <button onClick={() => onViewProfile(receiver.id)} className="font-semibold text-stone-900 hover:underline text-left truncate block">
+                      {receiver.name}
+                    </button>
+                    <p className="text-sm text-stone-500 truncate">{receiver.headline}</p>
+                  </div>
+                  <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0 flex items-center gap-1">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Pending
                   </span>
                 </div>
               );
@@ -712,8 +801,11 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
   currentUser,
   allUsers,
   connectionRequests,
+  followRequests = [],
   onAccept,
   onDecline,
+  onAcceptFollow,
+  onDeclineFollow,
   onViewProfile,
   onConnect,
 }) => {
@@ -725,6 +817,12 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
   const outgoing = connectionRequests.filter(
     r => r.fromUserId === currentUser.id && r.status === 'pending'
   );
+  const incomingFollows = followRequests.filter(
+    r => r.toUserId === currentUser.id && r.status === 'pending'
+  );
+  const outgoingFollows = followRequests.filter(
+    r => r.fromUserId === currentUser.id && r.status === 'pending'
+  );
   const accepted = connectionRequests.filter(r => r.status === 'accepted');
   const connections = allUsers.filter(u =>
     accepted.some(r =>
@@ -734,7 +832,7 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
   );
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'pending', label: 'Requests', count: incoming.length },
+    { id: 'pending', label: 'Requests', count: incoming.length + incomingFollows.length },
     { id: 'network', label: 'My Circles', count: connections.length },
     { id: 'recommended', label: 'Recommended' },
     { id: 'map', label: 'Connection Map' },
@@ -789,9 +887,13 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
           <PendingTab
             incoming={incoming as any}
             outgoing={outgoing as any}
+            incomingFollows={incomingFollows}
+            outgoingFollows={outgoingFollows}
             allUsers={allUsers}
             onAccept={onAccept}
             onDecline={onDecline}
+            onAcceptFollow={onAcceptFollow}
+            onDeclineFollow={onDeclineFollow}
             onViewProfile={onViewProfile}
           />
         )}
