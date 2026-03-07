@@ -563,8 +563,13 @@ export async function createSpark(data: {
   content: string;
   stat?: string;
 }) {
+  // Strip undefined values — Firestore rejects them (causes "Unsupported field value: undefined")
+  const sanitized: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) sanitized[k] = v;
+  }
   const ref = await addDoc(collection(db, 'sparks'), {
-    ...data,
+    ...sanitized,
     reactions: { relate: [], inspire: [], collab: [] },
     createdAt: serverTimestamp(),
     expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
@@ -1558,4 +1563,86 @@ export async function sendRoleOffer(
     candidateUid, candidateNumericId,
     body
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REEL VIBES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ReelVibe {
+  id: string;
+  authorUid: string;
+  authorId: number;
+  authorName: string;
+  authorAvatar: string;
+  authorHeadline: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  caption: string;
+  skill: string;             // primary skill showcased
+  tags: string[];
+  likedByUids: string[];
+  commentCount: number;
+  viewCount: number;
+  createdAt: any;
+}
+
+export async function createReelVibe(data: {
+  authorUid: string;
+  authorId: number;
+  authorName: string;
+  authorAvatar: string;
+  authorHeadline: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  caption: string;
+  skill: string;
+  tags: string[];
+}): Promise<string> {
+  const sanitized: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) sanitized[k] = v;
+  }
+  const ref = await addDoc(collection(db, 'reelVibes'), {
+    ...sanitized,
+    likedByUids: [],
+    commentCount: 0,
+    viewCount: 0,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getReelVibes(maxResults = 20): Promise<ReelVibe[]> {
+  const snap = await getDocs(
+    query(collection(db, 'reelVibes'), orderBy('createdAt', 'desc'), limit(maxResults))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ReelVibe));
+}
+
+export async function getReelVibesByUser(authorUid: string): Promise<ReelVibe[]> {
+  const snap = await getDocs(
+    query(collection(db, 'reelVibes'), where('authorUid', '==', authorUid), orderBy('createdAt', 'desc'))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ReelVibe));
+}
+
+export async function toggleReelLike(reelId: string, userUid: string): Promise<void> {
+  const ref = doc(db, 'reelVibes', reelId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const liked: string[] = snap.data().likedByUids ?? [];
+  if (liked.includes(userUid)) {
+    await updateDoc(ref, { likedByUids: arrayRemove(userUid) });
+  } else {
+    await updateDoc(ref, { likedByUids: arrayUnion(userUid) });
+  }
+}
+
+export async function incrementReelView(reelId: string): Promise<void> {
+  await updateDoc(doc(db, 'reelVibes', reelId), { viewCount: increment(1) });
+}
+
+export async function deleteReelVibe(reelId: string): Promise<void> {
+  await deleteDoc(doc(db, 'reelVibes', reelId));
 }
