@@ -754,3 +754,100 @@ export async function rejectPipelineCandidate(
     rejectionReason: reason,
   });
 }
+
+// ─── Companies (auto-generate from recruiter profile) ─────────────────────────
+
+export async function getOrCreateCompanyForRecruiter(
+  recruiterUid: string,
+  recruiterName: string,
+  recruiterHeadline: string
+): Promise<{ id: number; _firestoreId: string; name: string; description: string; industry: string; logoUrl: string; website: string }> {
+  const q = query(collection(db, 'companies'), where('recruiterUid', '==', recruiterUid));
+  const snap = await getDocs(q);
+
+  if (!snap.empty) {
+    const d = snap.docs[0];
+    return { id: d.data().numericId, _firestoreId: d.id, ...d.data() } as any;
+  }
+
+  const numericId = Date.now();
+  const companyName = recruiterHeadline || recruiterName || 'My Company';
+  const ref = await addDoc(collection(db, 'companies'), {
+    numericId,
+    recruiterUid,
+    name: companyName,
+    description: '',
+    industry: '',
+    logoUrl: '',
+    website: '',
+    createdAt: serverTimestamp(),
+  });
+
+  return { id: numericId, _firestoreId: ref.id, name: companyName, description: '', industry: '', logoUrl: '', website: '' };
+}
+
+// ─── Jobs for Recruiter ───────────────────────────────────────────────────────
+
+export async function fetchJobsForRecruiter(recruiterUid: string) {
+  const snap = await getDocs(
+    query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterUid), orderBy('createdAt', 'desc'))
+  ).catch(() => getDocs(query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterUid))));
+  const jobs = snap.docs.map(d => ({ _firestoreId: d.id, ...d.data() })) as any[];
+  return Promise.all(jobs.map(async job => {
+    const appSnap = await getDocs(query(collection(db, 'applications'), where('jobFirestoreId', '==', job._firestoreId)));
+    const applicants = appSnap.docs.map(d => d.data());
+    return { ...job, id: job.numericId, applicantCount: applicants.length, newCount: applicants.filter((a: any) => a.status === 'new').length };
+  }));
+}
+
+// ─── Applicants for a Job ─────────────────────────────────────────────────────
+
+export async function fetchApplicantsForJob(jobFirestoreId: string) {
+  const snap = await getDocs(
+    query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId), orderBy('createdAt', 'desc'))
+  ).catch(() => getDocs(query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId))));
+
+  return Promise.all(snap.docs.map(async d => {
+    const data = d.data();
+    let userProfile: any = {};
+    try {
+      const userSnap = await getDoc(doc(db, 'users', data.userId));
+      if (userSnap.exists()) {
+        const u = userSnap.data();
+        userProfile = { userName: u.displayName ?? '', userAvatar: u.photoURL ?? '', userHeadline: u.headline ?? '', userLocation: u.location ?? '', userSkills: u.skills?.map((s: any) => s.name ?? s) ?? [] };
+      }
+    } catch {}
+    return { id: d.id, userId: data.userId, appliedAt: data.createdAt, status: data.status ?? 'new', source: data.source ?? 'applied', notes: data.notes ?? [], score: data.score ?? null, ...userProfile };
+  }));
+}
+
+// ─── Update Application Status ────────────────────────────────────────────────
+
+export async function updateApplicationStatus(
+  applicationId: string,
+  status: 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
+) {
+  await updateDoc(doc(db, 'applications', applicationId), { status, updatedAt: serverTimestamp() });
+}
+
+// ─── Apply to Job with Profile ────────────────────────────────────────────────
+
+export async function applyToJobWithProfile(
+  jobFirestoreId: string,
+  jobNumericId: number,
+  applicantUid: string,
+  message?: string
+) {
+  const existing = await getDocs(
+    query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId), where('userId', '==', applicantUid))
+  );
+  if (!existing.empty) return;
+
+  await addDoc(collection(db, 'applications'), {
+    jobFirestoreId, jobNumericId, userId: applicantUid, message: message ?? '',
+    status: 'new', source: 'applied', notes: [],
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  });
+
+  await updateDoc(doc(db, 'jobs', jobFirestoreId), { applicants: arrayUnion(applicantUid) });
+}
