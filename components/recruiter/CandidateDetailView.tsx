@@ -55,7 +55,7 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
             <p><strong className="text-stone-500">Reputation:</strong> <span className="text-green-400 font-semibold">{user.reputation}</span></p>
           </div>
           <div>
-            <h3 className="font-semibold text-slate-200 mb-2">Integrations</h3>
+            <h3 className="font-semibold text-stone-800 mb-2">Integrations</h3>
             <div className="space-y-2">
               {user.thirdPartyIntegrations.map(integration => (
                 <a href={integration.url} target="_blank" rel="noopener noreferrer" key={integration.platform} className="flex items-center p-2 bg-stone-50 rounded-md hover:bg-stone-100 transition-colors">
@@ -65,8 +65,8 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
             </div>
           </div>
           <div className="space-y-2">
-              <button className="w-full bg-cyan-500 text-slate-900 font-semibold py-2 rounded-lg hover:bg-cyan-400 transition-colors">Start AI Screening Chat</button>
-              <button className="w-full bg-slate-600 text-slate-200 font-semibold py-2 rounded-lg hover:bg-slate-500 transition-colors">Schedule Interview (Calendly)</button>
+              <button className="w-full bg-[#1a4a3a] text-white font-semibold py-2 rounded-lg hover:opacity-90 transition-opacity">Start AI Screening Chat</button>
+              <button className="w-full bg-stone-100 text-stone-800 font-semibold py-2 rounded-lg hover:bg-stone-200 transition-colors">Schedule Interview (Calendly)</button>
           </div>
         </div>
 
@@ -82,7 +82,7 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
             </div>
 
             <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
-                <h3 className="font-semibold text-slate-200 mb-2">AI Summary</h3>
+                <h3 className="font-semibold text-stone-800 mb-2">AI Summary</h3>
                 <p className="text-stone-600 mb-4">{aiAnalysis.matchReasoning}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
@@ -108,7 +108,7 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
                             <h4 className="font-bold text-stone-900">{project.title}</h4>
                             <p className="text-sm text-stone-600 mt-1">{project.description}</p>
                             <p className="text-xs text-stone-500 mt-2"><strong className="font-semibold">Outcome:</strong> {project.outcome}</p>
-                            <p className="text-xs text-cyan-300 mt-1"><strong className="font-semibold">AI Summary:</strong> {project.aiGeneratedSummary}</p>
+                            <p className="text-xs text-[#1a6b52] mt-1"><strong className="font-semibold">AI Summary:</strong> {project.aiGeneratedSummary}</p>
                         </div>
                     ))}
                 </div>
@@ -119,7 +119,7 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
                 <div className="space-y-3">
                     {user.verifiedAchievements.map(ach => (
                         <div key={ach.id} className="bg-stone-50 p-3 rounded-lg border border-stone-200">
-                            <p className="text-slate-200">"{ach.achievement}"</p>
+                            <p className="text-stone-800">"{ach.achievement}"</p>
                             <p className="text-xs text-stone-500 text-right mt-1">&mdash; {ach.verifierName}, {ach.verifierTitle} @ {ach.verifierCompany}</p>
                         </div>
                     ))}
