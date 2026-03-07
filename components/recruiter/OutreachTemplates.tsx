@@ -25,11 +25,11 @@ export interface OutreachTemplate {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { value: 'invite',     label: 'Interview Invite', color: 'text-cyan-400',   bg: 'bg-cyan-500/10 border-cyan-500/20'   },
+  { value: 'invite',     label: 'Interview Invite', color: 'text-[#1a6b52]',   bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20'   },
   { value: 'rejection',  label: 'Rejection',        color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20'     },
   { value: 'offer',      label: 'Job Offer',        color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20' },
   { value: 'follow_up',  label: 'Follow-up',        color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },
-  { value: 'custom',     label: 'Custom',           color: 'text-slate-400',  bg: 'bg-slate-500/10 border-slate-500/20' },
+  { value: 'custom',     label: 'Custom',           color: 'text-stone-500',  bg: 'bg-stone-300/10 border-stone-300/20' },
 ] as const;
 
 const STARTER_TEMPLATES: Omit<OutreachTemplate, 'id' | 'usageCount' | 'createdAt'>[] = [
@@ -131,52 +131,52 @@ function TemplateEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-6 space-y-4" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-xl border border-stone-200 bg-stone-50 p-6 space-y-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-100">{template ? 'Edit Template' : 'New Template'}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200"><X className="h-5 w-5" /></button>
+          <h3 className="text-base font-bold text-stone-900">{template ? 'Edit Template' : 'New Template'}</h3>
+          <button onClick={onClose} className="text-stone-500 hover:text-stone-800"><X className="h-5 w-5" /></button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 sm:col-span-1">
-            <label className="text-xs font-medium text-slate-400 mb-1 block">Template Name</label>
+            <label className="text-xs font-medium text-stone-500 mb-1 block">Template Name</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Senior Invite"
-              className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 focus:border-cyan-500 focus:outline-none" />
+              className="w-full rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-400 mb-1 block">Category</label>
+            <label className="text-xs font-medium text-stone-500 mb-1 block">Category</label>
             <select value={category} onChange={e => setCategory(e.target.value as OutreachTemplate['category'])}
-              className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 focus:border-cyan-500 focus:outline-none">
+              className="w-full rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
               {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
         </div>
 
         <div>
-          <label className="text-xs font-medium text-slate-400 mb-1 block">Subject Line</label>
+          <label className="text-xs font-medium text-stone-500 mb-1 block">Subject Line</label>
           <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Email subject..."
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 focus:border-cyan-500 focus:outline-none" />
+            className="w-full rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-medium text-slate-400">Message Body</label>
+            <label className="text-xs font-medium text-stone-500">Message Body</label>
             <div className="flex gap-1 flex-wrap justify-end">
               {VARIABLES.map(v => (
                 <button key={v} onClick={() => insertVariable(v)}
-                  className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-slate-600 transition-colors">
+                  className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200 transition-colors">
                   {v}
                 </button>
               ))}
             </div>
           </div>
           <textarea value={body} onChange={e => setBody(e.target.value)} rows={10}
-            className="w-full resize-none rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 font-mono focus:border-cyan-500 focus:outline-none" />
-          <p className="mt-1 text-xs text-slate-500">Use variables like {'{candidateName}'} — they'll be highlighted when you use the template.</p>
+            className="w-full resize-none rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 font-mono focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
+          <p className="mt-1 text-xs text-stone-500">Use variables like {'{candidateName}'} — they'll be highlighted when you use the template.</p>
         </div>
 
         <button onClick={handleSave} disabled={saving || !name.trim() || !body.trim()}
-          className="w-full rounded-lg bg-cyan-600 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition-colors">
+          className="w-full rounded-lg bg-[#1a4a3a] py-2.5 text-sm font-semibold text-white hover:bg-[#1a4a3a] disabled:opacity-50 transition-colors">
           {saving ? 'Saving...' : 'Save Template'}
         </button>
       </div>
@@ -215,24 +215,24 @@ function SendModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-6 space-y-4" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-xl border border-stone-200 bg-stone-50 p-6 space-y-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-100">Use Template: {template.name}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200"><X className="h-5 w-5" /></button>
+          <h3 className="text-base font-bold text-stone-900">Use Template: {template.name}</h3>
+          <button onClick={onClose} className="text-stone-500 hover:text-stone-800"><X className="h-5 w-5" /></button>
         </div>
 
         {usedVars.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-slate-400">Fill in the variables</p>
+            <p className="text-xs font-medium text-stone-500">Fill in the variables</p>
             <div className="grid grid-cols-2 gap-2">
               {usedVars.map(v => (
                 <div key={v}>
-                  <label className="text-xs text-slate-500 mb-0.5 block">{'{' + v + '}'}</label>
+                  <label className="text-xs text-stone-500 mb-0.5 block">{'{' + v + '}'}</label>
                   <input
                     value={vars[v] ?? ''}
                     onChange={e => setVars(prev => ({ ...prev, [v]: e.target.value }))}
                     placeholder={v}
-                    className="w-full rounded-lg border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+                    className="w-full rounded-lg border bg-white  px-2 py-1.5 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
                   />
                 </div>
               ))}
@@ -240,22 +240,22 @@ function SendModal({
           </div>
         )}
 
-        <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4 space-y-2">
+        <div className="rounded-xl border bg-white  p-4 space-y-2" style={{ borderColor:"#e7e5e4" }}>
           <div className="text-xs">
-            <span className="font-semibold text-slate-400">Subject: </span>
-            <span className="text-slate-200">{filledSubject}</span>
+            <span className="font-semibold text-stone-500">Subject: </span>
+            <span className="text-stone-800">{filledSubject}</span>
           </div>
-          <div className="h-px bg-slate-700" />
-          <pre className="whitespace-pre-wrap text-xs text-slate-300 font-sans leading-relaxed">{filledBody}</pre>
+          <div className="h-px bg-stone-100" />
+          <pre className="whitespace-pre-wrap text-xs text-stone-700 font-sans leading-relaxed">{filledBody}</pre>
         </div>
 
         <div className="flex gap-2">
           <button onClick={copyAll}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-cyan-600 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 transition-colors">
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#1a4a3a] py-2.5 text-sm font-semibold text-white hover:bg-[#1a4a3a] transition-colors">
             {copied ? <><Check className="h-4 w-4" />Copied!</> : <><Copy className="h-4 w-4" />Copy Message</>}
           </button>
           <a href={`mailto:?subject=${encodeURIComponent(filledSubject)}&body=${encodeURIComponent(filledBody)}`}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-800 transition-colors">
+            className="flex items-center gap-1.5 rounded-lg border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-800 hover:bg-white transition-colors">
             <Send className="h-4 w-4" />Open in Mail
           </a>
         </div>
@@ -280,23 +280,23 @@ function TemplateCard({
   const cat = CATEGORIES.find(c => c.value === template.category)!;
 
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4 flex flex-col gap-3 hover:border-slate-600 transition-colors">
+    <div className="rounded-xl border bg-white  p-4 flex flex-col gap-3 hover:border-stone-200 transition-colors" style={{ borderColor:"#e7e5e4" }}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-slate-100 truncate">{template.name}</p>
-          <p className="text-xs text-slate-400 truncate mt-0.5">{template.subject}</p>
+          <p className="text-sm font-bold text-stone-900 truncate">{template.name}</p>
+          <p className="text-xs text-stone-500 truncate mt-0.5">{template.subject}</p>
         </div>
         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${cat.bg} ${cat.color}`}>
           {cat.label}
         </span>
       </div>
-      <p className="text-xs text-slate-500 line-clamp-2 font-mono">{template.body.split('\n')[0]}</p>
-      <div className="flex items-center justify-between pt-1 border-t border-slate-700">
-        <span className="text-[10px] text-slate-500">Used {template.usageCount} times</span>
+      <p className="text-xs text-stone-500 line-clamp-2 font-mono">{template.body.split('\n')[0]}</p>
+      <div className="flex items-center justify-between pt-1 border-t border-stone-200">
+        <span className="text-[10px] text-stone-500">Used {template.usageCount} times</span>
         <div className="flex gap-1">
-          <button onClick={onEdit} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
-          <button onClick={onDelete} className="p-1.5 rounded-lg text-slate-400 hover:bg-red-900/20 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
-          <button onClick={onUse} className="flex items-center gap-1 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 transition-colors">
+          <button onClick={onEdit} className="p-1.5 rounded-lg text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
+          <button onClick={onDelete} className="p-1.5 rounded-lg text-stone-500 hover:bg-red-900/20 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+          <button onClick={onUse} className="flex items-center gap-1 rounded-lg bg-[#1a4a3a] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1a4a3a] transition-colors">
             <Send className="h-3 w-3" />Use
           </button>
         </div>
@@ -356,13 +356,13 @@ export function OutreachTemplates() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-slate-100">
-            <MessageSquare className="h-5 w-5 text-cyan-400" />Outreach Templates
+          <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
+            <MessageSquare className="h-5 w-5 text-[#1a6b52]" />Outreach Templates
           </h1>
-          <p className="mt-0.5 text-sm text-slate-400">Fill in variables and send in one click — no drafting from scratch.</p>
+          <p className="mt-0.5 text-sm text-stone-500">Fill in variables and send in one click — no drafting from scratch.</p>
         </div>
         <button onClick={() => { setEditing(undefined); setShowEditor(true); }}
-          className="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 transition-colors">
+          className="flex items-center gap-1.5 rounded-lg bg-[#1a4a3a] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a4a3a] transition-colors">
           <Plus className="h-4 w-4" />New Template
         </button>
       </div>
@@ -370,14 +370,14 @@ export function OutreachTemplates() {
       {/* Category filter */}
       <div className="flex gap-1.5 flex-wrap">
         <button onClick={() => setCategoryFilter('all')}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${categoryFilter === 'all' ? 'bg-slate-200 text-slate-900' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${categoryFilter === 'all' ? 'bg-[#1a4a3a] text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
           All ({templates.length})
         </button>
         {CATEGORIES.map(c => {
           const count = templates.filter(t => t.category === c.value).length;
           return (
             <button key={c.value} onClick={() => setCategoryFilter(c.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${categoryFilter === c.value ? `border ${c.bg} ${c.color}` : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${categoryFilter === c.value ? `border ${c.bg} ${c.color}` : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
               {c.label} ({count})
             </button>
           );
@@ -385,11 +385,11 @@ export function OutreachTemplates() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-stone-500" /></div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 py-16 text-center">
-          <MessageSquare className="h-10 w-10 text-slate-600" />
-          <p className="mt-3 text-sm text-slate-400">No templates yet. Create your first one.</p>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-16 text-center">
+          <MessageSquare className="h-10 w-10 text-stone-400" />
+          <p className="mt-3 text-sm text-stone-500">No templates yet. Create your first one.</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
