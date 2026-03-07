@@ -132,10 +132,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      <div className="lg:col-span-4 space-y-6">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 overflow-x-hidden">
+      <div className="lg:col-span-4 space-y-4 min-w-0">
         {/* Profile Info Tile */}
-        <div className="bg-white/50 rounded-xl border border-stone-200 p-6 text-center">
+        <div className="bg-white/50 rounded-xl border border-stone-200 p-5 text-center">
           {/* Avatar with upload */}
           <div className="relative w-24 h-24 mx-auto mb-4">
             {/* Hidden file input */}
@@ -215,11 +215,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
             </div>
           )}
           <div className="flex items-center justify-center space-x-2">
-            <h2 className="font-bold text-xl text-stone-900">{user.name}</h2>
+            <h2 className="font-bold text-xl text-stone-900 break-words">{user.name}</h2>
             {user.isVerified && <VerifiedIcon className="w-5 h-5 text-[#1a6b52]" title="Verified Work Email" />}
           </div>
-          <p className="text-sm text-stone-500 mt-1">{user.headline}</p>
-          <p className="text-stone-700 text-sm mt-4">{user.bio}</p>
+          <p className="text-sm text-stone-500 mt-1 break-words">{user.headline}</p>
+          <p className="text-stone-700 text-sm mt-4 break-words">{user.bio}</p>
 
         </div>
 
@@ -233,7 +233,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
          </div>
       </div>
 
-      <div className="lg:col-span-8 space-y-6">
+      <div className="lg:col-span-8 space-y-4 min-w-0">
         {/* Skills Tile */}
         <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
               {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
