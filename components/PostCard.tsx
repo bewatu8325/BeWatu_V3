@@ -20,7 +20,7 @@ const ActionButton: React.FC<{icon: React.ReactNode, label: string | number, onC
 const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onViewProfile }) => {
   return (
     <div className="bg-white p-5 rounded-2xl border shadow-sm" style={{ borderColor: "#e7e5e4" }}>
-      <button onClick={() => onViewProfile(author.id)} className="flex items-center space-x-3 mb-4 text-left hover:opacity-80 transition-opacity">
+      <button onClick={() => onViewProfile(author.id)} className="flex items-center space-x-3 mb-4 text-left hover:opacity-80 transition-opacity min-w-0">
         <img src={author.avatarUrl} alt={author.name} className="w-12 h-12 rounded-full object-cover" />
         <div>
           <p className="font-bold text-stone-900">{author.name}</p>
