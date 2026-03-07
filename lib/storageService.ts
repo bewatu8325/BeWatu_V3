@@ -76,3 +76,11 @@ export async function uploadResume(uid: string, file: File, onProgress?: Progres
 export async function deleteFile(url: string) {
   await deleteObject(ref(storage, url));
 }
+
+/** Upload a Reel Vibe — 30-second skill showcase video. */
+export async function uploadReelVibe(uid: string, file: File, onProgress?: ProgressFn): Promise<string> {
+  if (!file.type.startsWith('video/')) throw new Error('Must be a video file');
+  if (file.size > 200 * 1024 * 1024) throw new Error('Reel must be under 200 MB');
+  // Warn on very long videos (can't enforce duration client-side without loading the full video)
+  return upload(`reels/${uid}/${Date.now()}.${ext(file)}`, file, onProgress);
+}
