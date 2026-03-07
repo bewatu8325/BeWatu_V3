@@ -62,6 +62,8 @@ const Circles = lazy(() => import('./components/Circles'));
 const CircleDetail = lazy(() => import('./components/CircleDetail'));
 const AIChat = lazy(() => import('./components/AIChat'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
+const SecurityPrivacyPage = lazy(() => import('./components/SecurityPrivacyPage'));
+const PublicProfilePage = lazy(() => import('./components/PublicProfilePage'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const LoginPage = lazy(() => import('./components/auth/LoginPage'));
@@ -100,6 +102,9 @@ const MainApp: React.FC = () => {
 
   const [activeCircleId, setActiveCircleId] = useState<number | null>(null);
   const [profileUserId, setProfileUserId] = useState<number | null>(null);
+  const [showSecurityPage, setShowSecurityPage] = useState(false);
+  const [publicProfileUserId, setPublicProfileUserId] = useState<number | null>(null);
+  const [followedUserIds, setFollowedUserIds] = useState<Set<number>>(new Set());
 
   const [appliedJobIds, setAppliedJobIds] = useState<number[]>([]);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
@@ -407,7 +412,14 @@ const MainApp: React.FC = () => {
     setData({ ...data, circles: data.circles.map(c => c.id === circleId && c.adminId !== userId ? { ...c, members: c.members.filter(id => id !== userId) } : c) });
   };
 
-  const handleViewProfile = (userId: number) => { setProfileUserId(userId); setCurrentView(View.Profile); };
+  const handleViewProfile = (userId: number) => {
+    if (currentUser && userId !== currentUser.id) {
+      setPublicProfileUserId(userId);
+    } else {
+      setProfileUserId(userId);
+      setCurrentView(View.Profile);
+    }
+  };
   const handleSetView = (view: View) => {
     setCurrentView(view);
     if (view === View.Profile && currentUser) setProfileUserId(currentUser.id);
@@ -416,6 +428,11 @@ const MainApp: React.FC = () => {
     setIsMobileNavOpen(false);
   };
   const handleSelectCircle = (circleId: number) => { setCurrentView(View.Circles); setActiveCircleId(circleId); };
+
+  const handleFollowUser = (userId: number) => {
+    setFollowedUserIds(prev => new Set(prev).add(userId));
+    // TODO: persist follow to Firestore
+  };
   const handleNavigateToConnect = () => setAuthState('connect');
   const handleNavigateToLanding = () => setAuthState('landing');
 
@@ -517,7 +534,7 @@ const MainApp: React.FC = () => {
       case View.Profile: {
         const userToShow = profileUserId ? data.users.find(u => u.id === profileUserId) : currentUser;
         content = userToShow
-          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} />
+          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} />
           : <div>User not found.</div>;
         break;
       }
@@ -543,6 +560,53 @@ const MainApp: React.FC = () => {
     }
 
     return (
+      {/* Security & Privacy overlay */}
+      {showSecurityPage && currentUser && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
+          <div className="min-h-screen">
+            <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={0} />
+            <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
+              <Suspense fallback={<div />}>
+                <SecurityPrivacyPage user={currentUser} onBack={() => setShowSecurityPage(false)} onChangePassword={() => handleChangePassword('' as any, '' as any)} />
+              </Suspense>
+            </main>
+          </div>
+        </div>
+      )}
+
+      {/* Public profile overlay */}
+      {publicProfileUserId && data && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
+          <div className="min-h-screen">
+            <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} notificationCount={0} pendingConnectionCount={0} />
+            <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
+              <Suspense fallback={<div />}>
+                {(() => {
+                  const pubUser = data.users.find(u => u.id === publicProfileUserId);
+                  if (!pubUser) return <p className="text-stone-500 p-8">User not found.</p>;
+                  const isConn = data.connectionRequests.some(r =>
+                    r.status === 'accepted' && ((r.fromUserId === currentUser!.id && r.toUserId === publicProfileUserId) || (r.toUserId === currentUser!.id && r.fromUserId === publicProfileUserId))
+                  );
+                  return (
+                    <PublicProfilePage
+                      user={pubUser}
+                      isConnected={isConn}
+                      isFollowing={followedUserIds.has(publicProfileUserId)}
+                      onBack={() => setPublicProfileUserId(null)}
+                      onConnect={(uid) => { fbSendConnectionRequest(currentUser!.id, uid); }}
+                      onFollow={handleFollowUser}
+                      onMessage={(uid) => { setPublicProfileUserId(null); startMessage(uid); }}
+                      onPlayVideo={url => setPlayingVideoUrl(url)}
+                    />
+                  );
+                })()}
+              </Suspense>
+            </main>
+            <MobileNav currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} />
+          </div>
+        </div>
+      )}
+
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#f5f5f4" }}>
         <Header
           currentView={currentView}
