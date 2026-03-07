@@ -11,8 +11,8 @@ import { View } from '../types'; // adjust path if needed
 
 const NAV_ITEMS = [
   { view: View.Feed,      label: 'Home',         icon: Home          },
-  { view: View.People,    label: 'Circles',      icon: Users         }, // People renamed to Circles
   { view: View.Connections, label: 'Circles',  icon: Users2        },
+  { view: View.Circles,     label: 'Pods',     icon: Hexagon       },
   { view: View.Prove,     label: 'Prove',        icon: Sword         }, // New
   { view: View.Jobs,      label: 'Opportunities',icon: Briefcase     },
   { view: View.Messaging, label: 'Messages',     icon: MessageSquare },
