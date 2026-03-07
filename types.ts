@@ -186,6 +186,7 @@ export enum View {
  AIChat = 'AICHAT',
  Profile = 'PROFILE',
  RecruiterConsole = 'RECRUITER_CONSOLE',
+ Connections = 'CONNECTIONS',
 }
 
 export type Language = 'en' | 'es';
