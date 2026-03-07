@@ -382,13 +382,27 @@ export async function createJob(job: Omit<Job, 'id'>, recruiterUid: string): Pro
 }
 
 export async function fetchJobs(): Promise<Job[]> {
-  const snap = await getDocs(
-    query(collection(db, 'jobs'), where('status', '==', 'Active'), orderBy('createdAt', 'desc'))
-  );
-  return snap.docs.map((d) => {
+  const mapJob = (d: any) => {
     const data = d.data();
     return { ...data, id: data.numericId, _firestoreId: d.id } as Job & { _firestoreId: string };
-  });
+  };
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'jobs'), where('status', '==', 'Active'), orderBy('createdAt', 'desc'))
+    );
+    return snap.docs.map(mapJob);
+  } catch {
+    // Fallback: no orderBy (avoids composite index requirement)
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'jobs'), where('status', '==', 'Active'))
+      );
+      return snap.docs.map(mapJob);
+    } catch {
+      const snap = await getDocs(collection(db, 'jobs'));
+      return snap.docs.map(mapJob);
+    }
+  }
 }
 
 export async function updateJob(firestoreId: string, updates: Partial<Job>): Promise<void> {
@@ -424,54 +438,77 @@ export async function createCircle(
 }
 
 export async function fetchCircles(): Promise<Circle[]> {
-  const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
-  return snap.docs.map((d) => {
+  const mapCircle = (d: any) => {
     const data = d.data();
     return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
-  });
+  };
+  try {
+    const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
+    return snap.docs.map(mapCircle);
+  } catch {
+    const snap = await getDocs(collection(db, 'circles'));
+    return snap.docs.map(mapCircle);
+  }
 }
 // ----------------
 //  Fetch Users
 // ----------------
+function docToUserPublic(d: any): User & { _firestoreUid: string } {
+  const data = d.data();
+  return {
+    id: data.numericId ?? Date.now(),
+    name: data.displayName ?? '',
+    headline: data.headline ?? '',
+    bio: data.bio ?? '',
+    avatarUrl: data.photoURL ?? `https://picsum.photos/seed/${d.id}/100`,
+    industry: data.industry ?? '',
+    professionalGoals: data.professionalGoals ?? [],
+    reputation: data.reputation ?? 0,
+    credits: data.credits ?? 100,
+    isRecruiter: data.isRecruiter ?? false,
+    isVerified: data.isVerified ?? false,
+    portfolio: data.portfolio ?? [],
+    verifiedAchievements: data.verifiedAchievements ?? [],
+    thirdPartyIntegrations: data.thirdPartyIntegrations ?? [],
+    workStyle: data.workStyle ?? {
+      collaboration: 'Thrives in pairs',
+      communication: 'Prefers asynchronous',
+      workPace: 'Fast-paced and iterative',
+    },
+    values: data.values ?? [],
+    availability: data.availability ?? 'Exploring opportunities',
+    skills: data.skills ?? [],
+    verifiedSkills: data.verifiedSkills ?? null,
+    microIntroductionUrl: data.microIntroductionUrl ?? null,
+    _firestoreUid: d.id,
+  } as User & { _firestoreUid: string };
+}
+
 export async function fetchUsers(): Promise<User[]> {
-  const snap = await getDocs(
-    query(
-      collection(db, 'users'),
-      where('isPublic', '==', true),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    )
-  );
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: data.numericId ?? Date.now(),
-      name: data.displayName ?? '',
-      headline: data.headline ?? '',
-      bio: data.bio ?? '',
-      avatarUrl: data.photoURL ?? `https://picsum.photos/seed/${d.id}/100`,
-      industry: data.industry ?? '',
-      professionalGoals: data.professionalGoals ?? [],
-      reputation: data.reputation ?? 0,
-      credits: data.credits ?? 100,
-      isRecruiter: data.isRecruiter ?? false,
-      isVerified: data.isVerified ?? false,
-      portfolio: data.portfolio ?? [],
-      verifiedAchievements: data.verifiedAchievements ?? [],
-      thirdPartyIntegrations: data.thirdPartyIntegrations ?? [],
-      workStyle: data.workStyle ?? {
-        collaboration: 'Thrives in pairs',
-        communication: 'Prefers asynchronous',
-        workPace: 'Fast-paced and iterative',
-      },
-      values: data.values ?? [],
-      availability: data.availability ?? 'Exploring opportunities',
-      skills: data.skills ?? [],
-      verifiedSkills: data.verifiedSkills ?? null,
-      microIntroductionUrl: data.microIntroductionUrl ?? null,
-      _firestoreUid: d.id,
-    } as User & { _firestoreUid: string };
-  });
+  // Try composite index query first; fall back to simple query if index not built yet
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, 'users'),
+        where('isPublic', '==', true),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      )
+    );
+    return snap.docs.map(docToUserPublic);
+  } catch {
+    // Composite index may not exist yet — fall back to unordered query
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'users'), where('isPublic', '==', true), limit(50))
+      );
+      return snap.docs.map(docToUserPublic);
+    } catch {
+      // Last resort — return all users without filter
+      const snap = await getDocs(query(collection(db, 'users'), limit(50)));
+      return snap.docs.map(docToUserPublic);
+    }
+  }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // ADD THESE FUNCTIONS TO YOUR EXISTING firestoreService.ts
@@ -717,484 +754,3 @@ export async function rejectPipelineCandidate(
     rejectionReason: reason,
   });
 }
-
-// ─── Companies (auto-generate from recruiter profile) ─────────────────────────
-
-export async function getOrCreateCompanyForRecruiter(
-  recruiterUid: string,
-  recruiterName: string,
-  recruiterHeadline: string
-): Promise<{ id: number; _firestoreId: string; name: string; description: string; industry: string; logoUrl: string; website: string }> {
-  // Check if recruiter already has a company
-  const q = query(collection(db, 'companies'), where('recruiterUid', '==', recruiterUid));
-  const snap = await getDocs(q);
-
-  if (!snap.empty) {
-    const d = snap.docs[0];
-    return { id: d.data().numericId, _firestoreId: d.id, ...d.data() } as any;
-  }
-
-  // Create one from their profile
-  const numericId = Date.now();
-  const companyName = recruiterHeadline || recruiterName || 'My Company';
-  const ref = await addDoc(collection(db, 'companies'), {
-    numericId,
-    recruiterUid,
-    name: companyName,
-    description: '',
-    industry: '',
-    logoUrl: '',
-    website: '',
-    createdAt: serverTimestamp(),
-  });
-
-  return {
-    id: numericId,
-    _firestoreId: ref.id,
-    name: companyName,
-    description: '',
-    industry: '',
-    logoUrl: '',
-    website: '',
-  };
-}
-
-// ─── Jobs for Recruiter (Applicant Inbox) ─────────────────────────────────────
-
-export async function fetchJobsForRecruiter(recruiterUid: string) {
-  const snap = await getDocs(
-    query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterUid), orderBy('createdAt', 'desc'))
-  );
-  const jobs = snap.docs.map(d => ({ _firestoreId: d.id, ...d.data() })) as any[];
-
-  // Fetch applicant counts for each job
-  return Promise.all(jobs.map(async job => {
-    const appSnap = await getDocs(
-      query(collection(db, 'applications'), where('jobFirestoreId', '==', job._firestoreId))
-    );
-    const applicants = appSnap.docs.map(d => d.data());
-    return {
-      ...job,
-      id: job.numericId,
-      applicantCount: applicants.length,
-      newCount: applicants.filter(a => a.status === 'new').length,
-    };
-  }));
-}
-
-// ─── Applicants for a Job ─────────────────────────────────────────────────────
-
-export async function fetchApplicantsForJob(jobFirestoreId: string) {
-  const snap = await getDocs(
-    query(
-      collection(db, 'applications'),
-      where('jobFirestoreId', '==', jobFirestoreId),
-      orderBy('createdAt', 'desc')
-    )
-  );
-
-  return Promise.all(snap.docs.map(async d => {
-    const data = d.data();
-    // Fetch user profile for display
-    let userProfile: any = {};
-    try {
-      const userSnap = await getDoc(doc(db, 'users', data.userId));
-      if (userSnap.exists()) {
-        const u = userSnap.data();
-        userProfile = {
-          userName: u.displayName ?? '',
-          userAvatar: u.photoURL ?? '',
-          userHeadline: u.headline ?? '',
-          userLocation: u.location ?? '',
-          userSkills: u.skills?.map((s: any) => s.name ?? s) ?? [],
-        };
-      }
-    } catch {}
-
-    return {
-      id: d.id,
-      userId: data.userId,
-      appliedAt: data.createdAt,
-      status: data.status ?? 'new',
-      source: data.source ?? 'applied',
-      notes: data.notes ?? [],
-      score: data.score ?? null,
-      ...userProfile,
-    };
-  }));
-}
-
-// ─── Update Application Status ────────────────────────────────────────────────
-
-export async function updateApplicationStatus(
-  applicationId: string,
-  status: 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
-) {
-  await updateDoc(doc(db, 'applications', applicationId), {
-    status,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// ─── Apply to Job (updated to store jobFirestoreId) ───────────────────────────
-
-export async function applyToJobWithProfile(
-  jobFirestoreId: string,
-  jobNumericId: number,
-  applicantUid: string,
-  message?: string
-) {
-  // Prevent duplicate applications
-  const existing = await getDocs(
-    query(
-      collection(db, 'applications'),
-      where('jobFirestoreId', '==', jobFirestoreId),
-      where('userId', '==', applicantUid)
-    )
-  );
-  if (!existing.empty) return;
-
-  await addDoc(collection(db, 'applications'), {
-    jobFirestoreId,
-    jobNumericId,
-    userId: applicantUid,
-    message: message ?? '',
-    status: 'new',
-    source: 'applied',
-    notes: [],
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  // Also mark on job doc for quick counts
-  await updateDoc(doc(db, 'jobs', jobFirestoreId), {
-    applicants: arrayUnion(applicantUid),
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// INTERVIEW SCHEDULER
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function proposeInterviewSlots(data: {
-  applicationId: string;
-  recruiterUid: string;
-  recruiterName: string;
-  candidateUid: string;
-  candidateName: string;
-  jobTitle: string;
-  proposedSlots: { id: string; datetime: string; duration: number }[];
-  meetingLink?: string;
-  notes?: string;
-}) {
-  const ref = await addDoc(collection(db, 'interviews'), {
-    ...data,
-    status: 'pending',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  // Notify candidate
-  await addDoc(collection(db, 'notifications', data.candidateUid, 'items'), {
-    type: 'MESSAGE',
-    message: `${data.recruiterName} wants to schedule an interview with you for ${data.jobTitle}. Pick a time!`,
-    senderName: data.recruiterName,
-    recipientNumericId: null,
-    read: false,
-    relatedId: ref.id,
-    createdAt: serverTimestamp(),
-  });
-
-  return ref.id;
-}
-
-export async function fetchInterviewsForRecruiter(recruiterUid: string) {
-  const snap = await getDocs(
-    query(collection(db, 'interviews'), where('recruiterUid', '==', recruiterUid), orderBy('createdAt', 'desc'))
-  );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-export async function fetchInterviewsForCandidate(candidateUid: string) {
-  const snap = await getDocs(
-    query(collection(db, 'interviews'), where('candidateUid', '==', candidateUid), orderBy('createdAt', 'desc'))
-  );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-export async function confirmInterviewSlot(interviewId: string, slotId: string) {
-  const ref = doc(db, 'interviews', interviewId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const data = snap.data();
-  const confirmedSlot = data.proposedSlots?.find((s: any) => s.id === slotId);
-  if (!confirmedSlot) return;
-
-  await updateDoc(ref, {
-    status: 'confirmed',
-    confirmedSlot,
-    updatedAt: serverTimestamp(),
-  });
-
-  // Notify recruiter
-  await addDoc(collection(db, 'notifications', data.recruiterUid, 'items'), {
-    type: 'MESSAGE',
-    message: `${data.candidateName} confirmed their interview for ${data.jobTitle} on ${new Date(confirmedSlot.datetime).toLocaleDateString()}.`,
-    senderName: data.candidateName,
-    read: false,
-    createdAt: serverTimestamp(),
-  });
-}
-
-export async function cancelInterview(interviewId: string) {
-  await updateDoc(doc(db, 'interviews', interviewId), {
-    status: 'cancelled',
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// OUTREACH TEMPLATES
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchOutreachTemplates(recruiterUid: string) {
-  const snap = await getDocs(
-    query(collection(db, 'outreachTemplates', recruiterUid, 'templates'), orderBy('createdAt', 'desc'))
-  );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-export async function saveOutreachTemplate(
-  recruiterUid: string,
-  template: { name: string; subject: string; body: string; category: string },
-  existingId?: string
-) {
-  if (existingId) {
-    await updateDoc(doc(db, 'outreachTemplates', recruiterUid, 'templates', existingId), {
-      ...template,
-      updatedAt: serverTimestamp(),
-    });
-    return existingId;
-  }
-  const ref = await addDoc(collection(db, 'outreachTemplates', recruiterUid, 'templates'), {
-    ...template,
-    usageCount: 0,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  return ref.id;
-}
-
-export async function deleteOutreachTemplate(recruiterUid: string, templateId: string) {
-  await deleteDoc(doc(db, 'outreachTemplates', recruiterUid, 'templates', templateId));
-}
-
-export async function incrementTemplateUsage(recruiterUid: string, templateId: string) {
-  await updateDoc(doc(db, 'outreachTemplates', recruiterUid, 'templates', templateId), {
-    usageCount: increment(1),
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TALENT POOL
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchTalentPool(recruiterUid: string) {
-  const snap = await getDocs(
-    query(collection(db, 'talentPool', recruiterUid, 'candidates'), orderBy('savedAt', 'desc'))
-  );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-export async function addToTalentPool(
-  recruiterUid: string,
-  candidate: {
-    userId: string;
-    userName: string;
-    userAvatar?: string;
-    userHeadline?: string;
-    userLocation?: string;
-    userSkills?: string[];
-    notes?: string;
-    tags?: string[];
-    rating?: number;
-    forRoles?: string[];
-    availability?: string;
-  }
-) {
-  // Prevent duplicates
-  const existing = await getDocs(
-    query(collection(db, 'talentPool', recruiterUid, 'candidates'), where('userId', '==', candidate.userId))
-  );
-  if (!existing.empty) return existing.docs[0].id;
-
-  const ref = await addDoc(collection(db, 'talentPool', recruiterUid, 'candidates'), {
-    ...candidate,
-    tags: candidate.tags ?? [],
-    notes: candidate.notes ?? '',
-    rating: candidate.rating ?? 3,
-    forRoles: candidate.forRoles ?? [],
-    savedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  return ref.id;
-}
-
-export async function removeFromTalentPool(recruiterUid: string, entryId: string) {
-  await deleteDoc(doc(db, 'talentPool', recruiterUid, 'candidates', entryId));
-}
-
-export async function updateTalentPoolEntry(
-  recruiterUid: string,
-  entryId: string,
-  updates: Partial<{ notes: string; tags: string[]; rating: number; forRoles: string[]; contactedAt: string }>
-) {
-  await updateDoc(doc(db, 'talentPool', recruiterUid, 'candidates', entryId), {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PIPELINE ANALYTICS
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchPipelineAnalytics(recruiterUid: string) {
-  // Fetch all applications for this recruiter's jobs
-  const jobsSnap = await getDocs(
-    query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterUid))
-  );
-  const jobIds = jobsSnap.docs.map(d => d.id);
-
-  if (jobIds.length === 0) {
-    return {
-      totalApplications: 0,
-      activeInPipeline: 0,
-      hired: 0,
-      rejected: 0,
-      avgTimeToHire: 0,
-      stageStats: [],
-      sourceStats: [],
-      recentActivity: [],
-    };
-  }
-
-  // Fetch applications in batches (Firestore `in` supports max 10)
-  const allApps: any[] = [];
-  for (let i = 0; i < jobIds.length; i += 10) {
-    const batch = jobIds.slice(i, i + 10);
-    const snap = await getDocs(
-      query(collection(db, 'applications'), where('jobFirestoreId', 'in', batch))
-    );
-    allApps.push(...snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }
-
-  // Stage funnel
-  const STAGES = ['applied', 'screening', 'challenge', 'interview', 'offer', 'hired'];
-  const STAGE_LABELS: Record<string, string> = {
-    applied: 'Applied', screening: 'Screening', challenge: 'Challenge',
-    interview: 'Interview', offer: 'Offer', hired: 'Hired',
-  };
-
-  const stageStats = STAGES.map(stage => {
-    const inStage = allApps.filter(a => (a.stage ?? a.status ?? 'applied') === stage);
-    // Compute avg days in stage from stageHistory if available
-    const avgDays = inStage.reduce((sum, a) => {
-      const entered = a.stageEnteredAt?.[stage]?.toDate?.() ?? a.createdAt?.toDate?.() ?? new Date();
-      const days = (Date.now() - entered.getTime()) / (1000 * 60 * 60 * 24);
-      return sum + days;
-    }, 0) / Math.max(inStage.length, 1);
-    return {
-      stage,
-      label: STAGE_LABELS[stage],
-      count: inStage.length,
-      avgDaysInStage: Math.min(avgDays, 99),
-      dropOffRate: 0, // would need historical data
-    };
-  });
-
-  // Source stats
-  const sources = ['applied', 'sourced', 'prove'] as const;
-  const SOURCE_LABELS = { applied: 'Direct Apply', sourced: 'Sourced', prove: 'Prove Challenge' };
-  const SOURCE_COLORS = {
-    applied: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-    sourced: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-    prove: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
-  };
-  const sourceStats = sources.map(source => {
-    const group = allApps.filter(a => (a.source ?? 'applied') === source);
-    const advanced = group.filter(a => !['new', 'applied', 'rejected'].includes(a.status ?? ''));
-    return {
-      source,
-      label: SOURCE_LABELS[source],
-      count: group.length,
-      advancedCount: advanced.length,
-      conversionRate: group.length > 0 ? Math.round((advanced.length / group.length) * 100) : 0,
-      color: SOURCE_COLORS[source],
-    };
-  }).filter(s => s.count > 0);
-
-  // Hired / time to hire
-  const hired = allApps.filter(a => a.status === 'hired');
-  const avgTimeToHire = hired.length > 0
-    ? Math.round(hired.reduce((sum, a) => {
-        const start = a.createdAt?.toDate?.() ?? new Date();
-        const end = a.hiredAt?.toDate?.() ?? new Date();
-        return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-      }, 0) / hired.length)
-    : 0;
-
-  // Recent activity (last 20 status changes)
-  const recentActivity = allApps
-    .filter(a => a.updatedAt)
-    .sort((a, b) => (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0))
-    .slice(0, 20)
-    .map(a => ({
-      date: a.updatedAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
-      event: `Moved to ${a.status ?? 'applied'}`,
-      candidateName: a.userName ?? 'A candidate',
-    }));
-
-  return {
-    totalApplications: allApps.length,
-    activeInPipeline: allApps.filter(a => !['rejected', 'hired'].includes(a.status ?? '')).length,
-    hired: hired.length,
-    rejected: allApps.filter(a => a.status === 'rejected').length,
-    avgTimeToHire,
-    stageStats,
-    sourceStats,
-    recentActivity,
-  };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CULTURE FIT — fetch applicants with full profiles
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchApplicantsWithProfiles(jobFirestoreId: string) {
-  const snap = await getDocs(
-    query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId))
-  );
-
-  return Promise.all(snap.docs.map(async d => {
-    const data = d.data();
-    let profile: any = {};
-    try {
-      const userSnap = await getDoc(doc(db, 'users', data.userId));
-      if (userSnap.exists()) {
-        const u = userSnap.data();
-        profile = {
-          workStyle: u.workStyle,
-          values: u.values ?? [],
-          skills: u.skills?.map((s: any) => s.name ?? s) ?? [],
-          userName: u.displayName ?? '',
-          userAvatar: u.photoURL ?? '',
-          userHeadline: u.headline ?? '',
-          userLocation: u.location ?? '',
-        };
-      }
-    } catch {}
-    return { id: d.id, userId: data.userId, ...profile };
-  }));
-}
-
