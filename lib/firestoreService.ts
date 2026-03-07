@@ -855,7 +855,6 @@ export async function createMicroLesson(data: {
   videoUrl?: string;
   videoDurationSec?: number;
   linkUrl?: string;
-
   linkTitle?: string;
   linkDescription?: string;
   steps?: string[];
@@ -1818,4 +1817,318 @@ export async function getVerificationRequestForCompany(companyId: string): Promi
   );
   if (snap.empty) return null;
   return { id: snap.docs[0].id, ...snap.docs[0].data() };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLATFORM ADMIN — COMPANY MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Write a platform-level audit event to adminAuditLog/{id}. */
+export async function writeAdminAuditLog(entry: {
+  actorUid: string;
+  actorName: string;
+  action: string;
+  targetType: 'company' | 'recruiter' | 'verification';
+  targetId: string;
+  targetName: string;
+  details?: string;
+  previousValue?: any;
+  newValue?: any;
+}): Promise<void> {
+  await addDoc(collection(db, 'adminAuditLog'), {
+    ...entry,
+    timestamp: serverTimestamp(),
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'server',
+  });
+}
+
+/** Fetch the full admin audit log, most recent first. */
+export async function getAdminAuditLog(limit_ = 100): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'adminAuditLog'), orderBy('timestamp', 'desc'), limit(limit_))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Fetch audit log entries for a specific company. */
+export async function getCompanyAuditLog(companyId: string, limit_ = 50): Promise<any[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'adminAuditLog'),
+      where('targetId', '==', companyId),
+      orderBy('timestamp', 'desc'),
+      limit(limit_)
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Fetch all companies (platform admin only). */
+export async function getAllCompanies(): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'companies'), orderBy('createdAt', 'desc'))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Create a company directly from the admin panel. */
+export async function adminCreateCompany(
+  actorUid: string,
+  actorName: string,
+  data: {
+    name: string;
+    description: string;
+    industry: string;
+    website: string;
+    adminUid?: string;
+    adminName?: string;
+    adminEmail?: string;
+  }
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'companies'), {
+    ...data,
+    verifiedRecruiters: data.adminUid ? [data.adminUid] : [],
+    verificationStatus: 'unverified',
+    inviteCode: Math.random().toString(36).slice(2, 8).toUpperCase(),
+    createdByAdmin: actorUid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_created',
+    targetType: 'company',
+    targetId: ref.id,
+    targetName: data.name,
+    details: `Company created by platform admin. Website: ${data.website}`,
+  });
+  return ref.id;
+}
+
+/** Update any company fields (admin can edit anything). */
+export async function adminUpdateCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  updates: Record<string, any>
+): Promise<void> {
+  const before = await getDoc(doc(db, 'companies', companyId));
+  await updateDoc(doc(db, 'companies', companyId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+    lastUpdatedBy: actorUid,
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_updated',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    previousValue: before.data(),
+    newValue: updates,
+    details: `Fields updated: ${Object.keys(updates).join(', ')}`,
+  });
+}
+
+/** Admin verify a company directly (bypass email flow). */
+export async function adminVerifyCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  notes?: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: 'verified',
+    verifiedAt: serverTimestamp(),
+    verifiedBy: actorUid,
+    verificationNotes: notes ?? '',
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_verified',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: notes ?? 'Manually verified by platform admin.',
+  });
+}
+
+/** Admin reject a verification request. */
+export async function adminRejectCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  reason: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: 'rejected',
+    rejectionReason: reason,
+    rejectedAt: serverTimestamp(),
+    rejectedBy: actorUid,
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_rejected',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: `Rejection reason: ${reason}`,
+  });
+}
+
+/** Suspend a company (blocks all activity, jobs hidden). */
+export async function adminSuspendCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  reason: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: 'suspended',
+    suspendedAt: serverTimestamp(),
+    suspendedBy: actorUid,
+    suspensionReason: reason,
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_suspended',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: `Suspension reason: ${reason}`,
+  });
+}
+
+/** Reinstate a previously suspended company. */
+export async function adminReinstateCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: 'verified',
+    reinstatedAt: serverTimestamp(),
+    reinstatedBy: actorUid,
+    suspensionReason: null,
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_reinstated',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: 'Company reinstated by platform admin.',
+  });
+}
+
+/** Permanently delete a company and cascade-clean associated data. */
+export async function adminDeleteCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string
+): Promise<void> {
+  const batch = writeBatch(db);
+  // Delete company doc
+  batch.delete(doc(db, 'companies', companyId));
+  // Hide all jobs from this company
+  const jobsSnap = await getDocs(
+    query(collection(db, 'jobs'), where('companyFirestoreId', '==', companyId))
+  );
+  jobsSnap.docs.forEach(j => batch.update(j.ref, { status: 'Suspended', verificationStatus: 'hidden' }));
+  // Delete any verification requests
+  const vrSnap = await getDocs(
+    query(collection(db, 'verificationRequests'), where('companyId', '==', companyId))
+  );
+  vrSnap.docs.forEach(vr => batch.delete(vr.ref));
+  await batch.commit();
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_deleted',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: `Company permanently deleted. ${jobsSnap.size} job(s) hidden.`,
+  });
+}
+
+/** Assign a new admin UID to a company. */
+export async function adminAssignCompanyAdmin(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  newAdminUid: string,
+  newAdminName: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    adminUid: newAdminUid,
+    adminName: newAdminName,
+    verifiedRecruiters: arrayUnion(newAdminUid),
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'admin_assigned',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: `New admin assigned: ${newAdminName} (${newAdminUid})`,
+  });
+}
+
+/** Grant or revoke recruiter membership for a company. */
+export async function adminSetRecruiterPermission(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  recruiterUid: string,
+  recruiterName: string,
+  grant: boolean
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verifiedRecruiters: grant ? arrayUnion(recruiterUid) : arrayRemove(recruiterUid),
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: grant ? 'recruiter_granted' : 'recruiter_revoked',
+    targetType: 'recruiter',
+    targetId: recruiterUid,
+    targetName: companyName,
+    details: `${grant ? 'Granted' : 'Revoked'} recruiter access for ${recruiterName}`,
+  });
+}
+
+/** Fetch company activity: jobs posted + challenge submissions. */
+export async function getCompanyActivity(companyId: string): Promise<{
+  jobs: any[]; challenges: any[]; verificationHistory: any[];
+}> {
+  const [jobsSnap, challengesSnap, verifSnap] = await Promise.all([
+    getDocs(query(collection(db, 'jobs'), where('companyFirestoreId', '==', companyId), orderBy('liveDate', 'desc'), limit(20))),
+    getDocs(query(collection(db, 'challenges'), where('companyId', '==', companyId), orderBy('createdAt', 'desc'), limit(20))),
+    getDocs(query(collection(db, 'verificationRequests'), where('companyId', '==', companyId), orderBy('submittedAt', 'desc'))),
+  ]);
+  return {
+    jobs: jobsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    challenges: challengesSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    verificationHistory: verifSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+  };
+}
+
+/** Check if a Firebase UID belongs to a platform admin. */
+export async function isPlatformAdmin(uid: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, 'users', uid));
+  if (!snap.exists()) return false;
+  return snap.data().isPlatformAdmin === true;
 }
