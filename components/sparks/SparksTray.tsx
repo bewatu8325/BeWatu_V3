@@ -24,7 +24,7 @@ const FORMAT_CONFIG = {
   win:          { icon: Flame,     label: 'Win',          hint: 'Share a recent accomplishment with a stat',      gradient: 'from-amber-500/20 to-amber-500/5',   accent: 'text-amber-400',  border: 'border-amber-500/30' },
   insight:      { icon: Lightbulb, label: 'Insight',      hint: 'One sentence that changed how you think',        gradient: 'from-teal-500/20 to-teal-500/5',     accent: 'text-teal-400',   border: 'border-teal-500/30' },
   goal:         { icon: Flag,    label: 'Goal',         hint: 'What you are working toward this week',          gradient: 'from-purple-500/20 to-purple-500/5', accent: 'text-purple-400', border: 'border-purple-500/30' },
-  'looking-for':{ icon: Link, label: 'Looking for',  hint: 'Collaborators, feedback, or opportunities',      gradient: 'from-cyan-500/20 to-cyan-500/5',     accent: 'text-cyan-400',   border: 'border-cyan-500/30' },
+  'looking-for':{ icon: Link, label: 'Looking for',  hint: 'Collaborators, feedback, or opportunities',      gradient: 'from-cyan-500/20 to-cyan-500/5',     accent: 'text-[#1a4a3a]',   border: 'border-[#1a4a3a]/500/30' },
   status:       { icon: MapPin,    label: 'Status',       hint: 'Available / Busy / Open to work',               gradient: 'from-rose-500/20 to-rose-500/5',     accent: 'text-rose-400',   border: 'border-rose-500/30' },
 };
 
@@ -106,22 +106,22 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
   const timeAgo = spark.createdAt?.toDate ? formatTimeAgo(spark.createdAt.toDate()) : '';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/80 backdrop-blur-sm" onClick={onClose}>
       <div className="relative w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
         {/* Close */}
-        <button onClick={onClose} className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors">
+        <button onClick={onClose} className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-stone-900/60 text-white hover:bg-stone-900/80 transition-colors">
           <X className="h-5 w-5" />
         </button>
 
         {/* Prev */}
         {(sparkIdx > 0 || groupIdx > 0) && (
-          <button onClick={goPrev} className="absolute left-0 top-1/2 -translate-x-12 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors">
+          <button onClick={goPrev} className="absolute left-0 top-1/2 -translate-x-12 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-stone-900/60 text-white hover:bg-stone-900/80 transition-colors">
             <ChevronLeft className="h-5 w-5" />
           </button>
         )}
 
         {/* Next */}
-        <button onClick={goNext} className="absolute right-0 top-1/2 translate-x-12 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors">
+        <button onClick={goNext} className="absolute right-0 top-1/2 translate-x-12 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-stone-900/60 text-white hover:bg-stone-900/80 transition-colors">
           <ChevronRight className="h-5 w-5" />
         </button>
 
@@ -131,7 +131,7 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
           <div className="flex gap-1 p-3 pb-0">
             {group.sparks.map((_, i) => (
               <div key={i} className="h-0.5 flex-1 rounded-full bg-stone-700 overflow-hidden">
-                <div className={`h-full rounded-full bg-cyan-500 transition-all duration-300 ${i < sparkIdx ? 'w-full' : i === sparkIdx ? 'w-full animate-pulse' : 'w-0'}`} />
+                <div className={`h-full rounded-full bg-[#1a6b52] transition-all duration-300 ${i < sparkIdx ? 'w-full' : i === sparkIdx ? 'w-full animate-pulse' : 'w-0'}`} />
               </div>
             ))}
           </div>
@@ -141,7 +141,7 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
             {group.authorAvatar ? (
               <img src={group.authorAvatar} alt="" className="h-10 w-10 rounded-full object-cover" />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1a4a3a] text-xs font-bold text-white">
                 {initials(group.authorName)}
               </div>
             )}
@@ -166,7 +166,7 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
             {[
               { type: 'relate' as ReactionType, icon: Heart, label: 'Relate', active: relateActive, count: reactions.relate?.length, color: 'text-rose-400 bg-rose-400/15' },
               { type: 'inspire' as ReactionType, icon: Zap,   label: 'Inspire', active: inspireActive, count: reactions.inspire?.length, color: 'text-amber-400 bg-amber-400/15' },
-              { type: 'collab' as ReactionType, icon: Users,  label: 'Collab', active: collabActive, count: reactions.collab?.length, color: 'text-cyan-400 bg-cyan-400/15' },
+              { type: 'collab' as ReactionType, icon: Users,  label: 'Collab', active: collabActive, count: reactions.collab?.length, color: 'text-[#1a4a3a] bg-#1a4a3a/15' },
             ].map(({ type, icon: Icon, label, active, count, color }) => (
               <button
                 key={type}
@@ -225,7 +225,7 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/50 backdrop-blur-sm p-4">
       <div className="w-full max-w-md rounded-2xl border bg-white shadow-2xl" style={{ borderColor: "#e7e5e4" }}>
         <div className="flex items-center justify-between border-b p-4" style={{ borderColor: "#e7e5e4" }}>
           <div>
@@ -362,7 +362,7 @@ export function SparksTray() {
                   {initials(currentUser.name)}
                 </div>
               )}
-              <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-600 text-white">
+              <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#1a4a3a] text-white">
                 <Plus className="h-3 w-3" />
               </div>
             </div>
