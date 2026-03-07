@@ -211,7 +211,7 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
     setError('');
     setCreating(true);
     try {
-      await createSpark({ authorId, authorName, authorAvatar, format, content: content.trim(), stat: stat.trim() || undefined });
+      await createSpark({ authorId, authorName, authorAvatar, format, content: content.trim(), ...(stat.trim() ? { stat: stat.trim() } : {}) });
       setContent(''); setStat(''); setFormat('win');
       onCreated();
       onClose();
@@ -229,8 +229,8 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
       <div className="w-full max-w-md rounded-2xl border bg-white shadow-2xl" style={{ borderColor: "#e7e5e4" }}>
         <div className="flex items-center justify-between border-b p-4" style={{ borderColor: "#e7e5e4" }}>
           <div>
-            <h2 className="text-base font-semibold text-stone-900">Create a Spark</h2>
-            <p className="text-xs text-stone-400">Disappears in 48 hours</p>
+            <h2 className="text-base font-bold text-stone-900">Share a Spark ⚡</h2>
+            <p className="text-xs text-stone-400">Celebrate an achievement or share what you're working on — disappears in 48h</p>
           </div>
           <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-stone-100 transition-colors">
             <X className="h-4 w-4 text-stone-400" />
@@ -341,10 +341,16 @@ export function SparksTray() {
   return (
     <>
       <div className="rounded-2xl border bg-white p-3 shadow-sm" style={{ borderColor: "#e7e5e4" }}>
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-500">Sparks</h2>
-          <span className="text-[10px] text-stone-400">48h micro-moments</span>
+        <div className="flex items-center justify-between mb-1 px-1">
+          <div className="flex items-center gap-1.5">
+            <Flame className="h-3.5 w-3.5 text-amber-500" />
+            <h2 className="text-xs font-bold text-stone-700">Sparks</h2>
+          </div>
+          <span className="text-[10px] text-stone-400">Expire in 48h</span>
         </div>
+        <p className="text-[11px] text-stone-400 px-1 mb-2 leading-snug">
+          Celebrate wins, share insights, and let your network know what you've achieved. Sparks disappear after 48 hours — keep it fresh.
+        </p>
         <div className="flex items-center gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
           {/* Create button */}
           <button onClick={() => setCreateOpen(true)} className="flex flex-col items-center gap-1 shrink-0">
@@ -389,7 +395,10 @@ export function SparksTray() {
           })}
 
           {groups.length === 0 && (
-            <p className="text-xs text-stone-400 py-2 px-1">No active Sparks yet. Be the first!</p>
+            <div className="py-2 px-1">
+              <p className="text-xs font-semibold text-stone-500">No Sparks yet</p>
+              <p className="text-[10px] text-stone-400 mt-0.5">Share a win, insight, or goal — your network will love it</p>
+            </div>
           )}
         </div>
       </div>
