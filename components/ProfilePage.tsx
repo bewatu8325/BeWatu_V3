@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useRef } from 'react';
-import { User, ConnectionRequest, Circle, View } from '../types';
+import { User, ConnectionRequest, Circle, View, Experience } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
+import ExperienceSection from './ExperienceSection';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { uploadAvatar } from '../lib/storageService';
@@ -55,6 +56,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   const [avatarError, setAvatarError] = useState('');
   const [localAvatarUrl, setLocalAvatarUrl] = useState('');
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeError, setResumeError] = useState('');
+  const [localExperiences, setLocalExperiences] = useState<any[]>((user as any).experiences ?? []);
 
   const connectionCount = useMemo(() => {
     return connectionRequests.filter(
@@ -192,15 +197,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           </div>
           <p className="text-sm text-stone-500 mt-1">{user.headline}</p>
           <p className="text-stone-700 text-sm mt-4">{user.bio}</p>
-          {isCurrentUser && (
-            <button 
-                onClick={() => onNavigate(View.AIChat)}
-                className="mt-4 w-full bg-[#1a4a3a] text-stone-900 font-semibold px-4 py-2 rounded-lg hover:bg-[#1a6b52] transition-colors text-sm flex items-center justify-center"
-            >
-                <BotIcon className="w-5 h-5 mr-2" />
-                {t('aiChat')} with Be
-            </button>
-          )}
+
         </div>
 
         {/* Stats Tile */}
@@ -259,6 +256,51 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                   </div>
               )}
           </div>
+        {/* Resume Upload */}
+        {isCurrentUser && (
+          <div className="bg-white rounded-2xl border shadow-sm p-5" style={{ borderColor: '#e7e5e4' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ backgroundColor: '#1a4a3a' }}>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-stone-900 text-sm">Resume</h3>
+                  <p className="text-xs text-stone-400">PDF or Word · max 10 MB</p>
+                </div>
+              </div>
+              <button
+                onClick={() => resumeInputRef.current?.click()}
+                disabled={resumeUploading}
+                className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: '#1a4a3a' }}>
+                {resumeUploading ? (
+                  <><svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Uploading…</>
+                ) : (user as any).resumeUrl ? 'Update' : 'Upload'}
+              </button>
+              <input ref={resumeInputRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleResumeChange} />
+            </div>
+            {(user as any).resumeUrl && !resumeUploading && (
+              <a href={(user as any).resumeUrl} target="_blank" rel="noopener noreferrer"
+                className="mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-stone-50 transition-colors"
+                style={{ borderColor: '#e7e5e4', color: '#1a6b52' }}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                View uploaded resume
+              </a>
+            )}
+            {resumeError && <p className="mt-2 text-xs text-red-500">{resumeError}</p>}
+          </div>
+        )}
+
+        {/* Experience */}
+        <ExperienceSection
+          experiences={localExperiences}
+          isOwn={isCurrentUser}
+          onSave={handleSaveExperiences}
+        />
+
         <SkillDNA
           user={user}
           profileUid={(user as any)._firestoreUid ?? String(user.id)}
