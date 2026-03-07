@@ -37,29 +37,29 @@ const Circles: React.FC<CirclesProps> = ({ circles, onSelectCircle, onCreateCirc
     }
   };
 
-  const inputStyles = 'w-full p-2 bg-slate-700 text-slate-200 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400';
+  const inputStyles = 'w-full p-2 bg-white text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-400" style={{ borderColor: "#e7e5e4" }}';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <CirclesIcon className="w-8 h-8 text-purple-400" />
-          <h1 className="text-3xl font-bold text-slate-100">Discover Circles</h1>
+          <CirclesIcon className="w-8 h-8" style={{ color:"#1a4a3a" }} />
+          <h1 className="text-3xl font-bold text-stone-900">Discover Circles</h1>
         </div>
         {onCreateCircle && (
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg transition-colors"
+            className="px-4 py-2 text-white font-semibold rounded-xl transition hover:opacity-90" style={{ backgroundColor:"#1a4a3a" }}
           >
             + Create Circle
           </button>
         )}
       </div>
 
-      <p className="text-slate-400">Join micro-communities to collaborate, co-learn, and connect with professionals in your domain.</p>
+      <p className="text-stone-500">Join micro-communities to collaborate, co-learn, and connect with professionals in your domain.</p>
 
       {circles.length === 0 && (
-        <div className="text-center py-16 text-slate-500">
+        <div className="text-center py-16 text-stone-400">
           <CirclesIcon className="w-12 h-12 mx-auto mb-4 opacity-30" />
           <p className="text-lg">No circles yet.</p>
           <p className="text-sm mt-1">Be the first to create one!</p>
@@ -70,17 +70,17 @@ const Circles: React.FC<CirclesProps> = ({ circles, onSelectCircle, onCreateCirc
         {circles.map(circle => (
           <div
             key={circle.id}
-            className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer flex flex-col"
+            className="bg-white p-6 rounded-2xl border shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col" style={{ borderColor:"#e7e5e4" }}
             onClick={() => onSelectCircle(circle.id)}
           >
-            <h2 className="text-xl font-bold text-purple-400">{circle.name}</h2>
-            <p className="text-slate-300 mt-2 flex-grow">{circle.description}</p>
-            <div className="flex items-center justify-between mt-4 text-slate-400 text-sm">
+            <h2 className="text-xl font-bold" style={{ color:"#1a4a3a" }}>{circle.name}</h2>
+            <p className="text-stone-600 mt-2 flex-grow">{circle.description}</p>
+            <div className="flex items-center justify-between mt-4 text-stone-400 text-sm">
               <div className="flex items-center space-x-2">
                 <UsersIcon className="w-4 h-4" />
                 <span>{circle.members.length} members</span>
               </div>
-              <button className="font-semibold text-cyan-400 hover:text-cyan-300">
+              <button className="font-semibold hover:underline" style={{ color:"#1a4a3a" }}>
                 View Circle &rarr;
               </button>
             </div>
@@ -90,16 +90,16 @@ const Circles: React.FC<CirclesProps> = ({ circles, onSelectCircle, onCreateCirc
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-slate-100 mb-4">Create a Circle</h2>
+          <div className="bg-white rounded-2xl border p-6 w-full max-w-md shadow-xl" style={{ borderColor:"#e7e5e4" }}>
+            <h2 className="text-xl font-bold text-stone-900 mb-4">Create a Circle</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               {error && (
-                <p className="text-red-400 text-sm bg-red-900/20 border border-red-500/30 p-2 rounded-md">
+                <p className="text-red-600 text-sm bg-red-50 border border-red-200 p-2 rounded-xl">
                   {error}
                 </p>
               )}
               <div>
-                <label className="text-slate-400 text-sm font-semibold mb-1 block">Circle Name</label>
+                <label className="text-stone-500 text-sm font-semibold mb-1 block">Circle Name</label>
                 <input
                   type="text"
                   value={name}
@@ -110,7 +110,7 @@ const Circles: React.FC<CirclesProps> = ({ circles, onSelectCircle, onCreateCirc
                 />
               </div>
               <div>
-                <label className="text-slate-400 text-sm font-semibold mb-1 block">Description</label>
+                <label className="text-stone-500 text-sm font-semibold mb-1 block">Description</label>
                 <textarea
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -124,14 +124,14 @@ const Circles: React.FC<CirclesProps> = ({ circles, onSelectCircle, onCreateCirc
                 <button
                   type="button"
                   onClick={() => { setIsModalOpen(false); setError(''); setName(''); setDescription(''); }}
-                  className="flex-1 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
+                  className="flex-1 py-2 border border-stone-200 text-stone-600 rounded-xl hover:bg-stone-50 transition-colors"
                   disabled={isCreating}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+                  className="flex-1 py-2 text-white font-semibold rounded-xl transition hover:opacity-90 disabled:opacity-50" style={{ backgroundColor:"#1a4a3a" }}
                   disabled={isCreating}
                 >
                   {isCreating ? 'Creating...' : 'Create Circle'}
