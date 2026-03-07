@@ -67,6 +67,7 @@ const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ videoUrl, onClose }
             className="w-full max-h-[80vh] object-contain"
             controls
             playsInline
+            preload="metadata"
             onError={() => setError(true)}
           />
         )}
