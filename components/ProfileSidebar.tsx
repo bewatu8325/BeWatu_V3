@@ -20,11 +20,11 @@ const proficiencyWidth = {
   'Expert': 'w-4/4',
 };
 
-const StatItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number; valueClassName: string }> = ({ icon, label, value, valueClassName }) => (
-    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-center">
-        <div className="flex justify-center items-center mb-1 text-slate-400">{icon}</div>
-        <p className={`text-xl font-bold ${valueClassName}`}>{value}</p>
-        <p className="text-xs text-slate-500">{label}</p>
+const StatItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number; valueClassName: string; valueStyle?: React.CSSProperties }> = ({ icon, label, value, valueClassName, valueStyle }) => (
+    <div className="bg-stone-50 p-3 rounded-xl border text-center" style={{ borderColor: "#e7e5e4" }}>
+        <div className="flex justify-center items-center mb-1 text-stone-400">{icon}</div>
+        <p className={`text-xl font-bold ${valueClassName}`} style={valueStyle}>{value}</p>
+        <p className="text-xs text-stone-500">{label}</p>
     </div>
 );
 
@@ -51,13 +51,13 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, connectionRequest
   return (
     <div className="space-y-6">
       {/* Profile Info Tile */}
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6 text-center">
+      <div className="bg-white rounded-2xl border p-6 text-center shadow-sm" style={{ borderColor: "#e7e5e4" }}>
         <button onClick={() => onNavigate(View.Profile)} className="block text-center group w-full" title="View Full Profile">
           <div className="relative w-24 h-24 mx-auto mb-4">
               <img
                 src={user.avatarUrl}
                 alt={user.name}
-                className="rounded-full border-4 border-slate-700 object-cover h-24 w-24 shadow-lg shadow-cyan-500/10 transition-all group-hover:ring-4 group-hover:ring-cyan-500/50"
+                className="rounded-full border-4 object-cover h-24 w-24 shadow-sm transition-all group-hover:ring-4" style={{ borderColor: "#e7e5e4" }}
               />
               {user.microIntroductionUrl ? (
                   <div 
@@ -70,22 +70,22 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, connectionRequest
               ) : (
                    <button 
                       onClick={(e) => { e.stopPropagation(); onRecordVideo()}}
-                      className="absolute bottom-0 right-0 bg-cyan-500 p-1.5 rounded-full border-2 border-slate-800 hover:bg-cyan-400 transition-colors"
+                      className="absolute bottom-0 right-0 p-1.5 rounded-full border-2 border-white hover:opacity-80 transition-colors" style={{ backgroundColor: "#1a4a3a" }}
                       title="Record a micro-introduction"
                   >
-                      <CameraIcon className="w-4 h-4 text-slate-900" />
+                      <CameraIcon className="w-4 h-4 text-white" />
                   </button>
               )}
           </div>
           <div className="flex items-center justify-center space-x-2">
-             <h2 className="font-bold text-xl text-slate-100 group-hover:text-cyan-400 transition-colors">{user.name}</h2>
-             {user.isVerified && <VerifiedIcon className="w-5 h-5 text-cyan-400" title="Verified Work Email" />}
+             <h2 className="font-bold text-xl text-stone-900 group-hover:underline transition-colors">{user.name}</h2>
+             {user.isVerified && <VerifiedIcon className="w-5 h-5" style={{ color: "#1a4a3a" }} title="Verified Work Email" />}
           </div>
         </button>
-        <p className="text-sm text-slate-400 mt-1">{user.headline}</p>
+        <p className="text-sm text-stone-500 mt-1">{user.headline}</p>
         <button 
             onClick={() => onNavigate(View.AIChat)}
-            className="mt-4 w-full bg-cyan-500 text-slate-900 font-semibold px-4 py-2 rounded-lg hover:bg-cyan-400 transition-colors text-sm flex items-center justify-center"
+            className="mt-4 w-full font-semibold px-4 py-2 rounded-xl transition text-sm flex items-center justify-center text-white hover:opacity-90" style={{ backgroundColor: "#1a4a3a" }}
         >
             <BotIcon className="w-5 h-5 mr-2" />
             Chat with Be
@@ -93,33 +93,33 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, connectionRequest
       </div>
 
       {/* Stats Tile */}
-       <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+       <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e7e5e4" }}>
             <div className="grid grid-cols-3 gap-2">
-                 <StatItem icon={<ShieldCheckIcon className="w-5 h-5" />} label="Reputation" value={user.reputation} valueClassName="text-green-400" />
-                 <StatItem icon={<CoinsIcon className="w-5 h-5" />} label="Credits" value={user.credits} valueClassName="text-yellow-400" />
-                 <StatItem icon={<UsersIcon className="w-5 h-5" />} label="Connections" value={connectionCount} valueClassName="text-cyan-400" />
+                 <StatItem icon={<ShieldCheckIcon className="w-5 h-5" />} label="Reputation" value={user.reputation} valueClassName="text-emerald-600" />
+                 <StatItem icon={<CoinsIcon className="w-5 h-5" />} label="Credits" value={user.credits} valueClassName="text-amber-500" />
+                 <StatItem icon={<UsersIcon className="w-5 h-5" />} label="Connections" value={connectionCount} valueClassName="font-bold" valueStyle={{ color: "#1a4a3a" }} />
             </div>
        </div>
 
       {/* Skills Tile */}
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
+      <div className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: "#e7e5e4" }}>
             {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
                 <div>
-                    <h3 className="font-semibold text-slate-200 text-md mb-3 text-center flex items-center justify-center">
-                        <VerifiedIcon className="w-5 h-5 mr-2 text-cyan-400" />
+                    <h3 className="font-semibold text-stone-800 text-md mb-3 text-center flex items-center justify-center">
+                        <VerifiedIcon className="w-5 h-5 mr-2" style={{ color: "#1a4a3a" }} />
                         Verified Skills
                     </h3>
                     <div className="space-y-3">
                         {user.verifiedSkills.slice(0, 3).map(skill => (
                             <div key={skill.name} className="group relative">
                                 <div className="flex justify-between items-center mb-1">
-                                    <p className="text-sm font-medium text-slate-300">{skill.name}</p>
-                                    <p className="text-xs text-slate-400">{skill.proficiency}</p>
+                                    <p className="text-sm font-medium text-stone-700">{skill.name}</p>
+                                    <p className="text-xs text-stone-400">{skill.proficiency}</p>
                                 </div>
-                                <div className="w-full bg-slate-700 rounded-full h-1.5">
-                                    <div className={`bg-cyan-500 h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`}></div>
+                                <div className="w-full bg-stone-100 rounded-full h-1.5">
+                                    <div className={`h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`} style={{ backgroundColor: "#1a4a3a" }}></div>
                                 </div>
-                                <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-slate-900 border border-slate-600 rounded-md text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-white border rounded-lg text-stone-700 shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                                     <span className="font-bold">Evidence:</span> {skill.evidence}
                                 </div>
                             </div>
@@ -128,16 +128,16 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, connectionRequest
                 </div>
             ) : (
                 <div className="text-center">
-                    <h3 className="font-semibold text-slate-200 text-md mb-2">Top Skills</h3>
+                    <h3 className="font-semibold text-stone-800 text-md mb-2">Top Skills</h3>
                     <div className="flex flex-wrap gap-2 justify-center">
                         {user.skills?.slice(0, 3).map(skill => (
-                            <div key={skill.name} className="flex items-center text-sm bg-cyan-900/50 text-cyan-300 rounded-full px-3 py-1 font-medium border border-cyan-500/20">
+                            <div key={skill.name} className="flex items-center text-sm rounded-full px-3 py-1 font-medium border" style={{ backgroundColor: "#e8f4f0", color: "#1a4a3a", borderColor: "#1a6b52" }}>
                                 {skill.name}
-                                <span className="ml-1.5 text-cyan-200 font-semibold">{skill.endorsements}</span>
+                                <span className="ml-1.5 font-semibold" style={{ color: "#1a4a3a" }}>{skill.endorsements}</span>
                             </div>
                         ))}
                     </div>
-                      <button onClick={onGenerateSkills} className="mt-4 w-full bg-cyan-500/10 text-cyan-300 font-semibold px-4 py-2 rounded-lg hover:bg-cyan-500/20 transition-colors text-sm flex items-center justify-center border border-cyan-500/20">
+                      <button onClick={onGenerateSkills} className="mt-4 w-full font-semibold px-4 py-2 rounded-xl text-sm flex items-center justify-center border transition hover:opacity-80" style={{ backgroundColor: "#e8f4f0", color: "#1a4a3a", borderColor: "#1a6b52" }}>
                           <SparklesIcon className="w-4 h-4 mr-2" />
                           Generate Verified Skills
                       </button>
@@ -147,9 +147,9 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, connectionRequest
       
       {/* Circles Tile */}
       {userCircles.length > 0 && (
-        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
-            <h3 className="font-semibold text-slate-200 text-md mb-4 flex items-center justify-center">
-                <CirclesIcon className="w-5 h-5 mr-2 text-purple-400"/>
+        <div className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: "#e7e5e4" }}>
+            <h3 className="font-semibold text-stone-800 text-md mb-4 flex items-center justify-center">
+                <CirclesIcon className="w-5 h-5 mr-2 text-stone-500"/>
                 My Circles
             </h3>
             <div className="flex flex-wrap gap-3 justify-center">
