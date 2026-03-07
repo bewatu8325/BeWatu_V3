@@ -106,7 +106,13 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
     setSearchResults([]);
     setError(null);
     try {
-      const results = await searchCandidates(allUsers, query);
+      // Only search users who opted into recruiter visibility
+      const recruiterVisibleUsers = allUsers.filter(u => {
+        const p = (u as any).privacySettings;
+        if (!p) return true; // default = visible
+        return p.visibleToRecruiters !== false && p.profileVisibility !== 'private';
+      });
+      const results = await searchCandidates(recruiterVisibleUsers, query);
       setSearchResults(results.sort((a, b) =>
         b.aiAnalysis.predictiveScores.mutualSuccessPotential - a.aiAnalysis.predictiveScores.mutualSuccessPotential
       ));
@@ -150,6 +156,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
           candidateResult={selectedCandidate}
           onBack={() => setSelectedCandidate(null)}
           isBlindMode={isBlindMode}
+          onViewPublicProfile={onViewProfile}
         />
       );
     }
