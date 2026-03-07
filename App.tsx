@@ -560,6 +560,7 @@ const MainApp: React.FC = () => {
     }
 
     return (
+      <>
       {/* Security & Privacy overlay */}
       {showSecurityPage && currentUser && (
         <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
@@ -626,6 +627,7 @@ const MainApp: React.FC = () => {
         {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
         <MobileNav currentView={currentView} onNavigate={handleSetView} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />
       </div>
+      </>
     );
   };
 
