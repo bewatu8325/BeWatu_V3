@@ -6,11 +6,17 @@ import {
 } from 'lucide-react';
 import {
   getChallenges,
+  getChallengesForUser,
   submitChallenge,
+  submitSkillChallenge,
   getChallengeSubmissions,
   scoreSubmission,
   shortlistSubmission,
   createChallenge,
+  createSkillChallenge,
+  updateSubmissionStatus,
+  inviteCandidateFromChallenge,
+  getUserChallengeSubmissions,
   type ChallengeDifficulty,
   type ChallengeType,
 } from '../lib/firestoreService';
@@ -586,6 +592,7 @@ interface ProveViewProps {
 export function ProveView({ onViewProfile }: ProveViewProps) {
   const { currentUser, fbUser } = useFirebase();
   const [challenges, setChallenges] = useState<any[]>([]);
+  const [userSubmissionStatus, setUserSubmissionStatus] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<ChallengeType | 'all'>('all');
   const [diffFilter, setDiffFilter] = useState('all');
@@ -596,9 +603,28 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
 
   async function loadChallenges() {
     setLoading(true);
-    try { setChallenges(await getChallenges()); }
-    catch { setChallenges([]); }
-    finally { setLoading(false); }
+    try {
+      const chs = fbUser
+        ? await getChallengesForUser(fbUser.uid).catch(() => getChallenges())
+        : await getChallenges();
+      setChallenges(chs);
+      // Load user submission statuses
+      if (fbUser && chs.length > 0) {
+        const subMap: Record<string, string> = {};
+        await Promise.all(chs.slice(0, 20).map(async (ch: any) => {
+          try {
+            const subs = await getChallengeSubmissions(ch.id);
+            const mine = subs.find((s: any) => s.userId === fbUser.uid);
+            if (mine) subMap[ch.id] = mine.status ?? 'submitted';
+          } catch {}
+        }));
+        setUserSubmissionStatus(subMap);
+      }
+    } catch {
+      setChallenges([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadChallenges(); }, []);
@@ -670,9 +696,29 @@ export function ProveView({ onViewProfile }: ProveViewProps) {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(challenge => (
-            <ChallengeCard key={challenge.id} challenge={challenge} onClick={() => setActiveChallengeId(challenge.id)} />
-          ))}
+          {filtered.map(challenge => {
+            const subStatus = userSubmissionStatus[challenge.id];
+            const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+              submitted:    { label: 'Submitted',    color: '#0369a1', bg: '#e0f2fe' },
+              under_review: { label: 'Under Review', color: '#b45309', bg: '#fef3c7' },
+              scored:       { label: 'Scored',       color: '#7c3aed', bg: '#f3f0ff' },
+              shortlisted:  { label: 'Shortlisted',  color: '#1a4a3a', bg: '#e8f4f0' },
+              invited:      { label: 'Invited!',     color: '#059669', bg: '#d1fae5' },
+              not_selected: { label: 'Not selected', color: '#78716c', bg: '#f5f5f4' },
+            };
+            const sm = subStatus ? STATUS_META[subStatus] : null;
+            return (
+              <div key={challenge.id} className="relative">
+                <ChallengeCard challenge={challenge} onClick={() => setActiveChallengeId(challenge.id)} />
+                {sm && (
+                  <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[10px] font-bold border"
+                    style={{ background: sm.bg, color: sm.color, borderColor: sm.color + '40' }}>
+                    {sm.label}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
