@@ -125,7 +125,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const NavItem: React.FC<{ label: string; view: RecruiterView; badge?: string }> = ({ label, view, badge }) => (
     <button
       onClick={() => { setActiveView(view); setSelectedCandidate(null); }}
-      className={`relative px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+      className={`relative px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-md transition-colors whitespace-nowrap ${
         activeView === view ? 'bg-stone-100 text-[#1a4a3a]' : 'text-stone-500 hover:bg-stone-100'
       }`}
     >
@@ -158,8 +158,8 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
       case 'dashboard':
         return (
           <>
-            <div className="bg-white p-6 rounded-xl border border-stone-200">
-              <div className="flex justify-between items-center mb-4">
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-stone-200 min-w-0">
+              <div className="flex flex-col gap-3 mb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-stone-900 mb-1">AI-Powered Search</h1>
                   <p className="text-stone-500 text-sm">Find candidates by intent, not just keywords.</p>
@@ -179,7 +179,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
                 </div>
               </div>
               <form onSubmit={handleSearch}>
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={query}
@@ -358,15 +358,15 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
         <div className="container mx-auto px-4 sm:px-6 flex justify-between items-center h-16">
           <div className="flex items-center space-x-3">
             <LogoIcon className="h-8 w-auto text-white" />
-            <span className="text-xl font-bold text-white">Recruiter Console</span>
+            <span className="text-base sm:text-xl font-bold text-white hidden sm:inline">Recruiter Console</span>
           </div>
           <div className="flex items-center space-x-4">
             <button
               onClick={onSwitchProfile}
               title="Switch to Personal Profile"
-              className="text-xs font-semibold px-3 py-1.5 rounded-full transition-colors border border-white/30 text-white hover:bg-white/10"
+              className="text-xs font-semibold px-2 sm:px-3 py-1.5 rounded-full transition-colors border border-white/30 text-white hover:bg-white/10"
             >
-              Switch to Personal
+              <span className="hidden sm:inline">Switch to Personal</span><span className="sm:hidden">← Profile</span>
             </button>
             <button
               onClick={onLogout}
@@ -374,39 +374,33 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
               className="flex items-center space-x-2 text-white/70 hover:text-white p-2 rounded-lg focus:outline-none transition-colors"
             >
               <LogoutIcon className="w-5 h-5" />
-              <span className="text-sm font-semibold">Logout</span>
+              <span className="text-sm font-semibold hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 sm:px-6 py-8 flex-grow">
-        <div className="flex items-center justify-between mb-6">
-          <nav className="flex items-center space-x-2 p-1 bg-white border border-stone-200 rounded-lg">
-            <div className="flex items-center gap-1">
-              <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-stone-400 hidden sm:block">Find</span>
-              <NavItem label="AI Search" view="dashboard" />
-              <NavItem label="Inbox" view="inbox" />
-            </div>
-            <div className="h-5 w-px bg-stone-100 hidden sm:block" />
-            <div className="flex items-center gap-1">
-              <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-stone-400 hidden sm:block">Manage</span>
-              <NavItem label="Pipeline" view="pipelines" />
-              <NavItem label="Interviews" view="interviews" />
-              <NavItem label="Jobs" view="manage_jobs" />
-              <NavItem label="Company" view="company_verification" badge={!isCompanyVerified ? '!' : undefined} />
-            </div>
-            <div className="h-5 w-px bg-stone-100 hidden sm:block" />
-            <div className="flex items-center gap-1">
-              <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-stone-400 hidden sm:block">Insights</span>
-              <NavItem label="Culture Fit" view="culture_fit" />
-              <NavItem label="Analytics" view="pipeline_analytics" />
-              <NavItem label="Talent Pool" view="talent_pool" />
-              <NavItem label="Templates" view="templates" />
-            </div>
-          </nav>
+      <main className="container mx-auto px-3 sm:px-6 py-4 sm:py-8 flex-grow min-w-0">
+        {/* Nav: wraps into 2 rows on mobile */}
+        <div className="mb-4 sm:mb-6">
+          <div className="flex flex-wrap gap-1 p-1 bg-white border border-stone-200 rounded-xl">
+            <NavItem label="Search" view="dashboard" />
+            <NavItem label="Inbox" view="inbox" />
+            <div className="w-px bg-stone-100 self-stretch hidden sm:block" />
+            <NavItem label="Pipeline" view="pipelines" />
+            <NavItem label="Interviews" view="interviews" />
+            <NavItem label="Jobs" view="manage_jobs" />
+            <NavItem label="Company" view="company_verification" badge={!isCompanyVerified ? '!' : undefined} />
+            <div className="w-px bg-stone-100 self-stretch hidden sm:block" />
+            <NavItem label="Culture" view="culture_fit" />
+            <NavItem label="Analytics" view="pipeline_analytics" />
+            <NavItem label="Pool" view="talent_pool" />
+            <NavItem label="Templates" view="templates" />
+          </div>
         </div>
-        {renderContent()}
+        <div className="min-w-0 overflow-x-hidden">
+          {renderContent()}
+        </div>
       </main>
 
       <Footer />
