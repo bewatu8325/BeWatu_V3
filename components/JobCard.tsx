@@ -35,8 +35,8 @@ const JobCard: React.FC<JobCardProps> = ({ job, company, onViewCompany, onAnalyz
             <button 
               onClick={() => !hasApplied && onApplyForJob(job)}
               disabled={hasApplied}
-              className={`font-semibold px-4 py-1.5 rounded-full transition-colors text-sm whitespace-nowrap ${hasApplied ? 'bg-green-600 text-white cursor-not-allowed' : 'text-white hover:opacity-90'}`} style={!hasApplied ? { backgroundColor:'#1a4a3a' } : {}}
-              }`}
+              className={`font-semibold px-4 py-1.5 rounded-full transition-colors text-sm whitespace-nowrap ${hasApplied ? 'bg-green-600 text-white cursor-not-allowed' : 'text-white hover:opacity-90'}`}
+              style={!hasApplied ? { backgroundColor: '#1a4a3a' } : {}}
             >
               {hasApplied ? 'Applied ✓' : 'Apply Now'}
             </button>
