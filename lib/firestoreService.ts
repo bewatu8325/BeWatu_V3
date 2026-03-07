@@ -782,6 +782,107 @@ export async function rejectPipelineCandidate(
   });
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PEER LEARNING
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { LearnRequest, MicroLesson, LessonFormat } from '../types';
+
+export async function createLearnRequest(data: {
+  circleId: number;
+  authorId: number;
+  skill: string;
+  context?: string;
+}): Promise<LearnRequest> {
+  const ref = await addDoc(collection(db, 'learnRequests'), {
+    ...data,
+    status: 'open',
+    lessonCount: 0,
+    sparkedByIds: [],
+    createdAt: serverTimestamp(),
+  });
+  return {
+    id: ref.id,
+    ...data,
+    status: 'open',
+    lessonCount: 0,
+    sparkedByIds: [],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function fetchLearnRequests(circleId: number): Promise<LearnRequest[]> {
+  const snap = await getDocs(
+    query(collection(db, 'learnRequests'),
+      where('circleId', '==', circleId),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as LearnRequest));
+}
+
+export async function completeLearnRequest(requestId: string): Promise<void> {
+  await updateDoc(doc(db, 'learnRequests', requestId), {
+    status: 'complete',
+    completedAt: serverTimestamp(),
+  });
+}
+
+export async function sparkLearnRequest(requestId: string, userId: number): Promise<void> {
+  await updateDoc(doc(db, 'learnRequests', requestId), {
+    sparkedByIds: arrayUnion(userId),
+  });
+}
+
+export async function createMicroLesson(data: {
+  requestId: string;
+  circleId: number;
+  authorId: number;
+  format: LessonFormat;
+  body?: string;
+  videoUrl?: string;
+  videoDurationSec?: number;
+  linkUrl?: string;
+  linkTitle?: string;
+  linkDescription?: string;
+  steps?: string[];
+}): Promise<MicroLesson> {
+  const ref = await addDoc(collection(db, 'microLessons'), {
+    ...data,
+    sparkedByIds: [],
+    completedSteps: [],
+    createdAt: serverTimestamp(),
+  });
+  // bump lessonCount on the request
+  await updateDoc(doc(db, 'learnRequests', data.requestId), {
+    lessonCount: increment(1),
+  });
+  return {
+    id: ref.id,
+    ...data,
+    sparkedByIds: [],
+    completedSteps: [],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function fetchMicroLessons(requestId: string): Promise<MicroLesson[]> {
+  const snap = await getDocs(
+    query(collection(db, 'microLessons'),
+      where('requestId', '==', requestId),
+      orderBy('createdAt', 'asc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as MicroLesson));
+}
+
+export async function sparkMicroLesson(lessonId: string, userId: number): Promise<void> {
+  await updateDoc(doc(db, 'microLessons', lessonId), {
+    sparkedByIds: arrayUnion(userId),
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPANY
 // ─────────────────────────────────────────────────────────────────────────────
