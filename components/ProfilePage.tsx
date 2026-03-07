@@ -19,6 +19,7 @@ interface ProfilePageProps {
   onNavigate: (view: View) => void;
   onSelectCircle: (circleId: number) => void;
   onChangePassword: () => void;
+  onOpenSecurity: () => void;
 }
 
 const proficiencyWidth = {
@@ -45,7 +46,7 @@ const getCircleColor = (circleName: string) => {
     return color;
 };
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity }) => {
   const { t } = useTranslation();
   const { fbUser } = useFirebase();
   const [newPassword, setNewPassword] = useState('');
@@ -355,27 +356,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           </div>
         )}
 
-        {/* Security Settings */}
+        {/* Security & Privacy link */}
         {isCurrentUser && (
-            <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
-                <h3 className="font-semibold text-stone-800 text-md mb-4">{t('securitySettings')}</h3>
-                <form onSubmit={handlePasswordChangeSubmit} className="space-y-4 max-w-sm">
-                    <div>
-                        <label className="text-sm text-stone-500 font-medium mb-1 block">{t('newPassword')}</label>
-                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 bg-stone-100 text-stone-800 border border-stone-200 rounded-md" placeholder="••••••••"/>
-                    </div>
-                    <div>
-                        <label className="text-sm text-stone-500 font-medium mb-1 block">{t('confirmNewPassword')}</label>
-                        <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-2 bg-stone-100 text-stone-800 border border-stone-200 rounded-md" placeholder="••••••••"/>
-                    </div>
-                    {passwordError && <p className="text-red-400 text-sm">{passwordError}</p>}
-                    <div className="flex justify-end">
-                        <button type="submit" className="bg-[#1a4a3a] text-white font-semibold px-4 py-2 rounded-lg hover:bg-[#1a4a3a] transition-colors">
-                            {t('changePassword')}
-                        </button>
-                    </div>
-                </form>
+          <button
+            onClick={onOpenSecurity}
+            className="w-full flex items-center justify-between bg-white rounded-2xl border p-4 hover:bg-stone-50 transition-colors group"
+            style={{ borderColor: '#e7e5e4' }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white flex-shrink-0" style={{ backgroundColor: '#1a4a3a' }}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-stone-900 text-sm">Security & Privacy</p>
+                <p className="text-xs text-stone-400">Password, visibility, connection settings</p>
+              </div>
             </div>
+            <svg className="w-4 h-4 text-stone-400 group-hover:text-stone-600 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="m9 18 6-6-6-6"/></svg>
+          </button>
         )}
       </div>
     </div>
