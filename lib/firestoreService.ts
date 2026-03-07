@@ -170,10 +170,8 @@ export async function sendConnectionRequest(
   senderNumericId: number,
   receiverUid: string,
   receiverNumericId: number
-): Promise<ConnectionRequest> {
-  const id = [senderUid, receiverUid].sort().join('_');
-  await addDoc(collection(db, 'connections'), {
-    firestoreId: id,
+): Promise<ConnectionRequest & { _firestoreId: string }> {
+  const ref = await addDoc(collection(db, 'connections'), {
     senderUid,
     senderNumericId,
     receiverUid,
@@ -187,7 +185,8 @@ export async function sendConnectionRequest(
     fromUserId: senderNumericId,
     toUserId: receiverNumericId,
     status: 'pending',
-  };
+    _firestoreId: ref.id,
+  } as ConnectionRequest & { _firestoreId: string };
 }
 
 export async function respondToConnectionRequest(
@@ -213,16 +212,23 @@ export async function fetchConnectionRequests(uid: string): Promise<ConnectionRe
     getDocs(query(collection(db, 'connections'), where('senderUid', '==', uid))),
     getDocs(query(collection(db, 'connections'), where('receiverUid', '==', uid))),
   ]);
-  return [...sent.docs, ...received.docs].map((d) => {
+  const seen = new Set<string>();
+  const results: (ConnectionRequest & { _firestoreId: string; senderUid?: string; receiverUid?: string })[] = [];
+  for (const d of [...sent.docs, ...received.docs]) {
+    if (seen.has(d.id)) continue;
+    seen.add(d.id);
     const data = d.data();
-    return {
-      id: Date.now() + Math.random(),
+    results.push({
+      id: data.senderNumericId * 100000 + data.receiverNumericId,
       fromUserId: data.senderNumericId,
       toUserId: data.receiverNumericId,
       status: data.status,
       _firestoreId: d.id,
-    } as ConnectionRequest & { _firestoreId: string };
-  });
+      senderUid: data.senderUid,
+      receiverUid: data.receiverUid,
+    } as any);
+  }
+  return results;
 }
 
 
@@ -754,7 +760,7 @@ export async function movePipelineCandidate(
   applicationId: string,
   toStage: string
 ) {
-  await updateDoc(doc(db, 'applications', applicationId), { stage:toStage });
+  await updateDoc(doc(db, 'applications', applicationId), { stage: toStage });
 }
 
 export async function addPipelineNote(applicationId: string, note: string) {
@@ -1202,4 +1208,354 @@ export async function removeRecruiterFromCompany(companyId: string, recruiterUid
   await updateDoc(doc(db, 'companies', companyId), {
     verifiedRecruiters: arrayRemove(recruiterUid),
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY FOLLOWING
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function followCompany(userUid: string, companyFirestoreId: string): Promise<void> {
+  await updateDoc(doc(db, 'users', userUid), {
+    followingCompanies: arrayUnion(companyFirestoreId),
+  });
+  await updateDoc(doc(db, 'companies', companyFirestoreId), {
+    followerCount: increment(1),
+  });
+}
+
+export async function unfollowCompany(userUid: string, companyFirestoreId: string): Promise<void> {
+  await updateDoc(doc(db, 'users', userUid), {
+    followingCompanies: arrayRemove(companyFirestoreId),
+  });
+  await updateDoc(doc(db, 'companies', companyFirestoreId), {
+    followerCount: increment(-1),
+  });
+}
+
+export async function getSuggestedCompanies(limit_ = 5): Promise<any[]> {
+  const snap = await getDocs(query(collection(db, 'companies'), limit(limit_)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function getFollowingCompanies(userUid: string): Promise<any[]> {
+  const userSnap = await getDoc(doc(db, 'users', userUid));
+  if (!userSnap.exists()) return [];
+  const ids: string[] = userSnap.data().followingCompanies ?? [];
+  if (ids.length === 0) return [];
+  const results = await Promise.all(
+    ids.map(id => getDoc(doc(db, 'companies', id)).then(d => d.exists() ? { id: d.id, ...d.data() } : null))
+  );
+  return results.filter(Boolean);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SKILL CHALLENGES (ENHANCED)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { ScoringCriterion, SubmissionFormat, SubmissionStatus } from '../types';
+
+export async function createSkillChallenge(data: {
+  title: string;
+  description: string;
+  instructions: string;
+  companyId?: string;
+  companyName: string;
+  companyLogoUrl?: string;
+  recruiterId: string;
+  targetedSkill: string;
+  skills: string[];
+  difficulty: ChallengeDifficulty;
+  type: ChallengeType;
+  timeLimit: number;
+  dueDate?: string;
+  submissionFormat: SubmissionFormat;
+  scoringRubric: ScoringCriterion[];
+  linkedJobId?: string;
+  reward: { credits: number; badge: string; visibility: boolean };
+  expiresAt: string;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, 'challenges'), {
+    ...data,
+    submissionCount: 0,
+    isActive: true,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getChallengesForCompany(companyId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'challenges'),
+      where('companyId', '==', companyId),
+      where('isActive', '==', true),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function getChallengesForUser(userUid: string): Promise<any[]> {
+  // Get user's skills and followed companies
+  const userSnap = await getDoc(doc(db, 'users', userUid));
+  if (!userSnap.exists()) return getChallenges();
+  const userData = userSnap.data();
+  const followingCompanies: string[] = userData.followingCompanies ?? [];
+  const skills: string[] = (userData.skills ?? []).map((s: any) => (typeof s === 'string' ? s : s.name).toLowerCase());
+  const verifiedSkillNames: string[] = (userData.verifiedSkills ?? []).map((s: any) => (s.name ?? '').toLowerCase());
+  const allSkills = [...new Set([...skills, ...verifiedSkillNames])];
+
+  // Fetch active challenges
+  const allChallenges = await getChallenges(50);
+
+  // Score and filter — matching skill OR following company gets surfaced first
+  const scored = allChallenges.map((c: any) => {
+    const challengeSkills = (c.skills ?? []).map((s: string) => s.toLowerCase());
+    const skillMatch = allSkills.some(s => challengeSkills.some((cs: string) => cs.includes(s) || s.includes(cs)));
+    const companyMatch = c.companyId && followingCompanies.includes(c.companyId);
+    return { ...c, _relevance: (companyMatch ? 2 : 0) + (skillMatch ? 1 : 0) };
+  });
+
+  return scored.sort((a: any, b: any) => b._relevance - a._relevance);
+}
+
+export async function submitSkillChallenge(
+  challengeId: string,
+  data: {
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    content: string;
+    format: SubmissionFormat;
+  }
+): Promise<string> {
+  const ref = await addDoc(
+    collection(db, 'challenges', challengeId, 'submissions'),
+    {
+      ...data,
+      score: null,
+      feedback: null,
+      isShortlisted: false,
+      status: 'submitted' as SubmissionStatus,
+      submittedAt: serverTimestamp(),
+    }
+  );
+  await updateDoc(doc(db, 'challenges', challengeId), {
+    submissionCount: increment(1),
+  });
+  return ref.id;
+}
+
+export async function updateSubmissionStatus(
+  challengeId: string,
+  submissionId: string,
+  status: SubmissionStatus,
+  extras?: { score?: number; feedback?: string }
+): Promise<void> {
+  const updates: any = { status };
+  if (extras?.score !== undefined) updates.score = extras.score;
+  if (extras?.feedback !== undefined) updates.feedback = extras.feedback;
+  if (status === 'shortlisted') updates.isShortlisted = true;
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    updates
+  );
+}
+
+export async function inviteCandidateFromChallenge(
+  challengeId: string,
+  submissionId: string,
+  linkedJobId?: string
+): Promise<void> {
+  await updateSubmissionStatus(challengeId, submissionId, 'invited');
+  const subSnap = await getDoc(doc(db, 'challenges', challengeId, 'submissions', submissionId));
+  if (!subSnap.exists()) return;
+  const sub = subSnap.data();
+  if (linkedJobId) {
+    await addDoc(collection(db, 'applications'), {
+      jobFirestoreId: linkedJobId,
+      applicantUid: sub.userId,
+      message: 'Invited from skill challenge',
+      status: 'shortlisted',
+      source: 'challenge',
+      challengeId,
+      submissionId,
+      createdAt: serverTimestamp(),
+    });
+  }
+}
+
+export async function getUserChallengeSubmissions(userUid: string): Promise<any[]> {
+  // Query across all challenges for this user's submissions
+  const challengesSnap = await getDocs(
+    query(collection(db, 'challenges'), where('isActive', '==', true))
+  );
+  const results: any[] = [];
+  await Promise.all(
+    challengesSnap.docs.map(async (challengeDoc) => {
+      const subsSnap = await getDocs(
+        query(
+          collection(db, 'challenges', challengeDoc.id, 'submissions'),
+          where('userId', '==', userUid)
+        )
+      );
+      subsSnap.docs.forEach(d => {
+        results.push({
+          id: d.id,
+          challengeId: challengeDoc.id,
+          challengeTitle: challengeDoc.data().title,
+          companyName: challengeDoc.data().companyName,
+          ...d.data(),
+        });
+      });
+    })
+  );
+  return results.sort((a, b) => {
+    const ta = a.submittedAt?.toDate?.()?.getTime() ?? 0;
+    const tb = b.submittedAt?.toDate?.()?.getTime() ?? 0;
+    return tb - ta;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHALLENGE CONVERSION PIPELINE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Saves a challenge submission directly to the recruiter's talent pool */
+export async function saveSubmissionToTalentPool(
+  recruiterId: string,
+  submission: {
+    userId: string;
+    userName: string;
+    userAvatar?: string;
+    challengeId: string;
+    challengeTitle: string;
+    companyName: string;
+    score?: number | null;
+    targetedSkill?: string;
+  },
+  notes: string,
+  tags: string[]
+): Promise<string> {
+  return addToTalentPool(recruiterId, {
+    userId: submission.userId,
+    userName: submission.userName,
+    userAvatar: submission.userAvatar,
+    userHeadline: `${submission.targetedSkill ?? 'Skill'} challenge — ${submission.challengeTitle}`,
+    userSkills: submission.targetedSkill ? [submission.targetedSkill] : [],
+    tags: ['challenge-sourced', ...tags],
+    notes: notes || `Sourced via challenge: ${submission.challengeTitle}`,
+    rating: submission.score != null ? Math.round(submission.score / 20) : 3,
+  });
+}
+
+/** Links a challenge submission to an existing job application / creates one */
+export async function linkSubmissionToJob(
+  challengeId: string,
+  submissionId: string,
+  jobFirestoreId: string,
+  submission: { userId: string; userName: string }
+): Promise<string> {
+  // Update submission with the linked job
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    { linkedJobId: jobFirestoreId }
+  );
+  // Create or upsert application record
+  const ref = await addDoc(collection(db, 'applications'), {
+    jobFirestoreId,
+    applicantUid: submission.userId,
+    applicantName: submission.userName,
+    message: 'Linked from skill challenge submission',
+    status: 'applied',
+    stage: 'Sourced',
+    source: 'challenge',
+    challengeId,
+    submissionId,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/** Sends a pre-filled outreach message to the candidate via the DM system */
+export async function sendChallengeOutreach(
+  recruiterUid: string,
+  recruiterNumericId: number,
+  candidateUid: string,
+  candidateNumericId: number,
+  messageBody: string
+): Promise<void> {
+  await sendMessage(
+    recruiterUid,
+    recruiterNumericId,
+    candidateUid,
+    candidateNumericId,
+    messageBody
+  );
+}
+
+/** Proposes interview slots originating from a challenge */
+export async function proposeInterviewFromChallenge(
+  recruiterId: string,
+  challengeId: string,
+  submissionId: string,
+  candidateUid: string,
+  candidateName: string,
+  jobTitle: string,
+  slots: { datetime: string; duration: number }[]
+): Promise<string> {
+  // Mark submission as invited
+  await updateSubmissionStatus(challengeId, submissionId, 'invited');
+  // Create interview proposal (reuses existing proposeInterviewSlots)
+  const interviewId = await proposeInterviewSlots(
+    recruiterId,
+    `challenge:${challengeId}:${submissionId}`,
+    candidateUid,
+    jobTitle,
+    candidateName,
+    slots
+  );
+  // Tag submission with interviewId for reference
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    { interviewId }
+  );
+  return interviewId;
+}
+
+/** Sends a role offer (project / internship / full-time) to a candidate */
+export async function sendRoleOffer(
+  challengeId: string,
+  submissionId: string,
+  offer: {
+    type: 'project' | 'internship' | 'full-time' | 'contract' | 'part-time';
+    title: string;
+    companyName: string;
+    message: string;
+    linkedJobId?: string;
+  },
+  recruiterUid: string,
+  recruiterNumericId: number,
+  candidateUid: string,
+  candidateNumericId: number
+): Promise<void> {
+  // Store the offer on the submission
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    {
+      offer: {
+        ...offer,
+        sentAt: new Date().toISOString(),
+        recruiterUid,
+      },
+      status: 'invited',
+    }
+  );
+  // Send as a DM
+  const body =
+    `${offer.message}\n\n— Offer type: ${offer.type.charAt(0).toUpperCase() + offer.type.slice(1)}\n— Role: ${offer.title} at ${offer.companyName}`;
+  await sendMessage(
+    recruiterUid, recruiterNumericId,
+    candidateUid, candidateNumericId,
+    body
+  );
 }
