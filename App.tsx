@@ -137,17 +137,21 @@ const MainApp: React.FC = () => {
 
       const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
 
+      // Fetch company BEFORE setData — await inside setData() passes a Promise, not the resolved value
+      const company = await getOrCreateCompanyForRecruiter(
+        fbUser?.uid ?? '',
+        user.name,
+        user.headline
+      ).catch(() => ({
+        id: 1, _firestoreId: '', name: user.headline || user.name,
+        description: '', industry: '', logoUrl: '', website: ''
+      }));
+
       setData({
         users: [user, ...otherUsers],
         posts: firestorePosts.posts,
         jobs: firestoreJobs,
-        companies: currentUser
-            ? [await getOrCreateCompanyForRecruiter(
-                fbUser?.uid ?? '',
-                currentUser.name,
-                currentUser.headline
-              ).catch(() => ({ id: 1, _firestoreId: '', name: currentUser.headline || currentUser.name, description: '', industry: '', logoUrl: '', website: '' }))]
-            : [],
+        companies: [company],
         messages: firestoreMessages,
         notifications: [],
         connectionRequests: firestoreConnections,
