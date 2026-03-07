@@ -1,9 +1,10 @@
 /**
- * ConnectionsView.tsx
- * Three-tab connections page:
- *   1. Pending — incoming requests to accept/decline
- *   2. My Network — accepted connections
- *   3. Connection Map — interactive force-graph (D3 via canvas)
+ * ConnectionsView.tsx  (renamed: Connections → Circles)
+ * Four-tab circles page:
+ *   1. Requests — incoming pending requests
+ *   2. My Circles — accepted connections
+ *   3. Recommended — people you might know
+ *   4. Connection Map — interactive force-graph
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { User, ConnectionRequest } from '../types';
@@ -174,7 +175,7 @@ function PendingTab({
   );
 }
 
-// ─── My Network tab ───────────────────────────────────────────────────────────
+// ─── My Circles tab ──────────────────────────────────────────────────────────
 
 function NetworkTab({
   connections,
@@ -197,8 +198,8 @@ function NetworkTab({
         <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
-        <p className="text-lg font-medium text-stone-600">No connections yet</p>
-        <p className="text-sm mt-1">Accept pending requests or connect with people you know</p>
+        <p className="text-lg font-medium text-stone-600">No circles yet</p>
+        <p className="text-sm mt-1">Accept pending requests to grow your circles</p>
       </div>
     );
   }
@@ -219,7 +220,7 @@ function NetworkTab({
         />
       </div>
 
-      <p className="text-sm text-stone-500">{connections.length} connection{connections.length !== 1 ? 's' : ''}</p>
+      <p className="text-sm text-stone-500">{connections.length} circle{connections.length !== 1 ? 's' : ''}</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map(user => (
@@ -586,7 +587,126 @@ function ConnectionMap({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-type Tab = 'pending' | 'network' | 'map';
+
+// ─── Recommended tab ──────────────────────────────────────────────────────────
+
+function RecommendedTab({
+  currentUser,
+  allUsers,
+  connections,
+  connectionRequests,
+  onConnect,
+  onViewProfile,
+}: {
+  currentUser: User;
+  allUsers: User[];
+  connections: User[];
+  connectionRequests: ConnectionRequest[];
+  onConnect?: (userId: number) => void;
+  onViewProfile: (id: number) => void;
+}) {
+  const [sent, setSent] = useState<Set<number>>(new Set());
+
+  // People not already connected and not self
+  const connectedIds = new Set(connections.map(u => u.id));
+  const pendingIds = new Set(
+    connectionRequests
+      .filter(r => r.fromUserId === currentUser.id || r.toUserId === currentUser.id)
+      .flatMap(r => [r.fromUserId, r.toUserId])
+  );
+
+  // Score each user by shared industry / skills overlap
+  const scored = allUsers
+    .filter(u => u.id !== currentUser.id && !connectedIds.has(u.id) && !pendingIds.has(u.id))
+    .map(u => {
+      let score = 0;
+      const reasons: string[] = [];
+      if (u.industry && u.industry === currentUser.industry) { score += 3; reasons.push('Same industry'); }
+      const mySkills = new Set((currentUser.skills ?? []).map((s: any) => (typeof s === 'string' ? s : s.name).toLowerCase()));
+      const shared = (u.skills ?? []).filter((s: any) => mySkills.has((typeof s === 'string' ? s : s.name).toLowerCase()));
+      if (shared.length > 0) { score += shared.length * 2; reasons.push(`${shared.length} shared skill${shared.length > 1 ? 's' : ''}`); }
+      if (u.isVerified) { score += 1; reasons.push('Verified'); }
+      if (u.availability === currentUser.availability) { score += 1; reasons.push('Same availability'); }
+      return { user: u, score, reasons };
+    })
+    .filter(x => x.score > 0 || allUsers.length < 10) // show all if small network
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 18);
+
+  const handleConnect = (userId: number) => {
+    setSent(prev => new Set(prev).add(userId));
+    onConnect?.(userId);
+  };
+
+  if (scored.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-stone-400">
+        <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
+        </svg>
+        <p className="text-lg font-medium text-stone-600">No recommendations yet</p>
+        <p className="text-sm mt-1">Add skills and industry to your profile for better matches</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-stone-500">{scored.length} people you may know</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {scored.map(({ user, reasons }) => (
+          <div
+            key={user.id}
+            className="bg-white rounded-2xl border p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow"
+            style={{ borderColor: '#e7e5e4' }}
+          >
+            {/* Top row */}
+            <div className="flex items-center gap-3">
+              <button onClick={() => onViewProfile(user.id)} className="shrink-0">
+                <Avatar user={user} size={48} />
+              </button>
+              <div className="flex-1 min-w-0">
+                <button
+                  onClick={() => onViewProfile(user.id)}
+                  className="font-semibold text-stone-900 hover:underline text-left text-sm truncate block w-full"
+                >
+                  {user.name}
+                </button>
+                <p className="text-xs text-stone-500 truncate">{user.headline}</p>
+                {user.isVerified && <span className="text-xs font-medium" style={{ color: '#1a6b52' }}>✓ Verified</span>}
+              </div>
+            </div>
+            {/* Reasons */}
+            {reasons.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {reasons.map(r => (
+                  <span key={r} className="rounded-full px-2 py-0.5 text-[11px] font-medium text-[#1a4a3a] bg-[#e8f4f0]">
+                    {r}
+                  </span>
+                ))}
+              </div>
+            )}
+            {/* Connect button */}
+            <button
+              onClick={() => handleConnect(user.id)}
+              disabled={sent.has(user.id)}
+              className={`w-full rounded-lg py-1.5 text-sm font-medium transition-colors ${
+                sent.has(user.id)
+                  ? 'bg-stone-100 text-stone-400 cursor-default'
+                  : 'text-white hover:bg-[#163d30]'
+              }`}
+              style={sent.has(user.id) ? {} : { backgroundColor: '#1a4a3a' }}
+            >
+              {sent.has(user.id) ? '✓ Request sent' : 'Connect'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type Tab = 'pending' | 'network' | 'recommended' | 'map';
 
 const ConnectionsView: React.FC<ConnectionsViewProps> = ({
   currentUser,
@@ -615,7 +735,8 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: 'pending', label: 'Requests', count: incoming.length },
-    { id: 'network', label: 'My Network', count: connections.length },
+    { id: 'network', label: 'My Circles', count: connections.length },
+    { id: 'recommended', label: 'Recommended' },
     { id: 'map', label: 'Connection Map' },
   ];
 
@@ -623,8 +744,8 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-stone-900">Connections</h1>
-        <p className="text-sm text-stone-500 mt-1">Manage your professional network</p>
+        <h1 className="text-2xl font-bold text-stone-900">Circles</h1>
+        <p className="text-sm text-stone-500 mt-1">Your professional connections and recommendations</p>
       </div>
 
       {/* Tabs */}
@@ -677,6 +798,16 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
         {tab === 'network' && (
           <NetworkTab
             connections={connections}
+            onViewProfile={onViewProfile}
+          />
+        )}
+        {tab === 'recommended' && (
+          <RecommendedTab
+            currentUser={currentUser}
+            allUsers={allUsers}
+            connections={connections}
+            connectionRequests={connectionRequests}
+            onConnect={onConnect}
             onViewProfile={onViewProfile}
           />
         )}
