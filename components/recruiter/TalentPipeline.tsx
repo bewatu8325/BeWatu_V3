@@ -2,6 +2,22 @@ import React, { useState } from 'react';
 import { User } from '../../types';
 import { useTranslation } from '../../hooks/useTranslation';
 
+// ── Exported types & constants expected by RecruiterConsole ───────────────────
+export interface PipelineCandidate {
+  id: string;
+  userId: number;
+  stage: string;
+  name: string;
+  headline: string;
+  avatarUrl: string;
+  notes?: string;
+  addedAt?: string;
+}
+
+export const DEFAULT_PIPELINE_STAGES = [
+  'New Applicants', 'Sourced', 'Screening', 'Interview', 'Offer', 'Hired',
+];
+
 interface CandidateCardProps {
   candidate: User;
   onClick: () => void;
@@ -95,6 +111,21 @@ const TalentPipelines: React.FC<TalentPipelinesProps> = ({ pipelineData }) => {
       </div>
     </div>
   );
+};
+
+// Named export wrapping the default component so RecruiterConsole can import it
+export const TalentPipeline: React.FC<{
+  stages?: string[];
+  candidates?: PipelineCandidate[];
+  pipelineData?: { [key: string]: User[] };
+  onMoveCandidate?: (id: string, to: string) => Promise<void>;
+  onAddNote?: (id: string, note: string) => Promise<void>;
+  onScheduleInterview?: (id: string) => void;
+  onReject?: (id: string, reason: string) => Promise<void>;
+}> = ({ stages = DEFAULT_PIPELINE_STAGES, pipelineData = {} }) => {
+  const data: { [key: string]: User[] } = {};
+  stages.forEach(s => { data[s] = pipelineData[s] ?? []; });
+  return <TalentPipelines pipelineData={data} />;
 };
 
 export default TalentPipelines;
