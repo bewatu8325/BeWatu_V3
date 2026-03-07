@@ -16,7 +16,7 @@ import {
   Briefcase, ChevronRight,
 } from 'lucide-react';
 import { Job, Company } from '../types';
-import JobEditorModal from './recruiter/JobEditorModal';
+import JobEditorModal from './JobEditorModal';
 import { useTranslation } from '../hooks/useTranslation';
 import type { CompanyVerificationStatus } from '../lib/verification';
 
