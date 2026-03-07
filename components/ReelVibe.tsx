@@ -25,6 +25,7 @@ import {
   type ReelVibe,
 } from '../lib/firestoreService';
 import { uploadReelVibe } from '../lib/storageService';
+import { updateUserInFirestore } from '../lib/firebaseAuth';
 
 const GREEN    = '#1a4a3a';
 const GREEN_LT = '#e8f4f0';
@@ -42,7 +43,7 @@ function getVideoDuration(file: File): Promise<number> {
 
 // ─── Upload Sheet ─────────────────────────────────────────────────────────────
 function UploadSheet({ onClose, onUploaded }: { onClose: () => void; onUploaded: () => void }) {
-  const { currentUser, fbUser } = useFirebase();
+  const { currentUser, fbUser, refreshUser } = useFirebase();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -92,6 +93,12 @@ function UploadSheet({ onClose, onUploaded }: { onClose: () => void; onUploaded:
         skill: skill.trim(),
         tags,
       });
+      // ── Persist to user profile so VibeClipTile survives logout ──────────
+      // ProfileSidebar reads user.microIntroductionUrl; without this the video
+      // disappears on next login because state resets from Firestore.
+      await updateUserInFirestore(fbUser.uid, { microIntroductionUrl: videoUrl });
+      // Update in-memory user so ProfileSidebar tile refreshes immediately
+      if (currentUser) refreshUser({ ...currentUser, microIntroductionUrl: videoUrl });
       onUploaded();
       onClose();
     } catch (e: any) {
