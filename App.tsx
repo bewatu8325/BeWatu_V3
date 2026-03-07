@@ -254,7 +254,7 @@ const MainApp: React.FC = () => {
 
   const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
   const handleChangePassword = async (currentPassword: string, newPassword: string) => changePassword(currentPassword, newPassword);
-  const handleForgotPassword = async (email: string) => { await forgotPassword(email); setAuthState('login'); };
+  const handleForgotPassword = async (email: string) => { await forgotPassword(email); }; // page handles navigation after showing success
 
   // ── Data mutation handlers ────────────────────────────────────────────────
 
