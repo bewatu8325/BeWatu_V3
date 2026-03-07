@@ -552,7 +552,7 @@ const MainApp: React.FC = () => {
           notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
           pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length}
         />
-        <main className="flex-grow container mx-auto px-4 sm:px-6 pt-20 pb-24 sm:pb-10 sm:pt-24">{content}</main>
+        <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">{content}</main>
         {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
         <Footer onNavigateToConnect={handleNavigateToConnect} />
         {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
