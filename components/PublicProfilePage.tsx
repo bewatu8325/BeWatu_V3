@@ -108,12 +108,12 @@ const PublicProfilePage: React.FC<PublicProfilePageProps> = ({
   user, isConnected, isFollowing, onBack, onConnect, onFollow, onMessage, onPlayVideo,
 }) => {
   const [connectionSent, setConnectionSent] = useState(isConnected);
-  const [followed, setFollowed] = useState(isFollowing);
+  const [followState, setFollowState] = useState<'none' | 'pending' | 'following'>(isFollowing ? 'following' : 'none');
 
   const privacy = { allowConnectionRequests: true, allowFollow: true, ...user.privacySettings };
 
   const handleConnect = () => { setConnectionSent(true); onConnect(user.id); };
-  const handleFollow = () => { setFollowed(true); onFollow(user.id); };
+  const handleFollow = () => { setFollowState('pending'); onFollow(user.id); };
 
   const topSkills = user.verifiedSkills?.slice(0, 8) ?? user.skills?.slice(0, 8) ?? [];
 
@@ -182,14 +182,17 @@ const PublicProfilePage: React.FC<PublicProfilePageProps> = ({
             {privacy.allowFollow && (
               <button
                 onClick={handleFollow}
-                disabled={followed}
+                disabled={followState !== 'none'}
                 className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold transition-all border"
-                style={followed
-                  ? { backgroundColor: GREEN_LT, borderColor: GREEN, color: GREEN }
-                  : { backgroundColor: 'white', borderColor: '#e7e5e4', color: '#1c1917' }
+                style={followState === 'none'
+                  ? { backgroundColor: 'white', borderColor: '#e7e5e4', color: '#1c1917' }
+                  : followState === 'pending'
+                  ? { backgroundColor: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' }
+                  : { backgroundColor: GREEN_LT, borderColor: GREEN, color: GREEN }
                 }
               >
-                <IconBell /> {followed ? 'Following' : 'Follow'}
+                <IconBell />
+                {followState === 'none' ? 'Follow' : followState === 'pending' ? 'Request sent' : 'Following'}
               </button>
             )}
             <button
