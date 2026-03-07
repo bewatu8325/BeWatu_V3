@@ -15,10 +15,10 @@ import {
   Clock, CheckCircle, XCircle, AlertTriangle, CalendarDays,
   Briefcase, ChevronRight,
 } from 'lucide-react';
-import { Job, Company } from '../../types';
-import JobEditorModal from './JobEditorModal';
-import { useTranslation } from '../../hooks/useTranslation';
-import type { CompanyVerificationStatus } from '../../lib/verification';
+import { Job, Company } from '../types';
+import JobEditorModal from './recruiter/JobEditorModal';
+import { useTranslation } from '../hooks/useTranslation';
+import type { CompanyVerificationStatus } from '../lib/verification';
 
 const GREEN    = '#1a4a3a';
 const GREEN_LT = '#e8f4f0';
