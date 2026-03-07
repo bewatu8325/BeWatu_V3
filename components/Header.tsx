@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Home, Users, Users2, Hexagon, Briefcase, MessageSquare,
-  Bell, LogOut, User, ChevronDown, Settings, Sword, Search,
+  Bell, LogOut, User, ChevronDown, Settings, Sword, Search, Shield,
 } from 'lucide-react';
 import { LogoIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -23,11 +23,12 @@ interface HeaderProps {
   onNavigate: (view: View) => void;
   onLogout: () => void;
   onSwitchToRecruiter?: () => void;
+  onEnterAdminPanel?: () => void;
   notificationCount?: number;
   pendingConnectionCount?: number;
 }
 
-export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, notificationCount = 0, pendingConnectionCount = 0 }: HeaderProps) {
+export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0 }: HeaderProps) {
   const { currentUser } = useFirebase();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,6 +142,12 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
                 <button onClick={() => { onSwitchToRecruiter(); setMenuOpen(false); }}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-green-50 transition-colors" style={{ color: "#1a4a3a" }}>
                   <Briefcase className="h-4 w-4" />Switch to Recruiter
+                </button>
+              )}
+              {onEnterAdminPanel && (
+                <button onClick={() => { onEnterAdminPanel(); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-stone-100 transition-colors text-stone-700">
+                  <Shield className="h-4 w-4 text-stone-500" />Platform Admin
                 </button>
               )}
               <button onClick={() => { onNavigate(View.Settings ?? View.Profile); setMenuOpen(false); }}
