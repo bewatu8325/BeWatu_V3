@@ -18,9 +18,9 @@ const COLORS = {
   proven:      '#fbbf24',
   verified:    '#34d399',
   mastery:     '#f59e0b',
-  gridStroke:  '#e7e5e4',
-  radarStroke: '#1a4a3a',
-  radarFill:   'rgba(26,74,58,0.12)',
+  gridStroke:  '#334155',
+  radarStroke: '#0d9488',
+  radarFill:   'rgba(13,148,136,0.18)',
 };
 
 const TRUST_LEVELS = [
@@ -162,9 +162,9 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
   if (skills.length === 0 && !isOwn) return null;
   if (skills.length === 0) {
     return (
-      <div className="rounded-xl border border-stone-200 bg-white p-5">
+      <div className="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-stone-800">
-          <Hexagon className="h-4 w-4 text-[#1a6b52]" />Skill DNA
+          <Hexagon className="h-4 w-4 text-[#1a4a3a]" />Skill DNA
         </h2>
         <p className="mt-3 text-xs text-stone-500">Add skills to your profile to see your Skill DNA graph.</p>
       </div>
@@ -172,21 +172,21 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
   }
 
   return (
-    <div className="rounded-xl border border-stone-200 bg-white overflow-hidden">
+    <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-stone-200 px-5 py-3 bg-stone-50 rounded-t-xl">
+      <div className="flex items-center justify-between border-b border-stone-200 px-5 py-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-stone-800">
-          <Hexagon className="h-4 w-4 text-[#1a6b52]" />
+          <Hexagon className="h-4 w-4 text-[#1a4a3a]" />
           Skill DNA
-          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-500">Living Proof-of-Work</span>
+          <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[11px] font-medium text-stone-500">Living Proof-of-Work</span>
         </h2>
         <div className="flex items-center gap-1">
           <button onClick={() => setShowGapOverlay(!showGapOverlay)}
-            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${showGapOverlay ? 'bg-[#1a4a3a] text-white' : 'text-stone-500 hover:bg-stone-100'}`}>
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${showGapOverlay ? 'bg-[#1a4a3a] text-white' : 'text-stone-500 hover:bg-stone-200'}`}>
             <Eye className="inline h-3 w-3 mr-1" />Gap
           </button>
           <button onClick={() => setShowShareCard(true)}
-            className="rounded-lg px-2.5 py-1 text-xs font-medium text-stone-500 hover:bg-stone-100 transition-colors">
+            className="rounded-lg px-2.5 py-1 text-xs font-medium text-stone-500 hover:bg-stone-200 transition-colors">
             <Share2 className="inline h-3 w-3 mr-1" />Share
           </button>
         </div>
@@ -199,7 +199,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
                 <PolarGrid stroke={COLORS.gridStroke} strokeOpacity={0.15} />
-                <PolarAngleAxis dataKey="skill" tick={{ fill: '#78716c', fontSize: 11, fontWeight: 500 }} tickLine={false} />
+                <PolarAngleAxis dataKey="skill" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} tickLine={false} />
                 <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
                 <Radar name="Skill Score" dataKey="score" stroke={COLORS.radarStroke} fill={COLORS.radarFill} strokeWidth={2}
                   dot={{ r: 4, fill: COLORS.radarStroke, stroke: '#fff', strokeWidth: 1.5 }}
@@ -244,7 +244,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                   return (
                     <button key={node.name} onClick={() => setSelectedSkill(isActive ? null : node)} className="group relative">
                       <div className={`relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all duration-200 ${isActive ? 'ring-2 ring-[#1a4a3a] scale-105' : 'hover:scale-105'}
-                        ${node.trustLevel === 1 ? 'border-2 border-dashed border-stone-300 bg-transparent text-stone-400' : ''}
+                        ${node.trustLevel === 1 ? 'border-2 border-dashed border-stone-300/60 bg-transparent text-stone-400' : ''}
                         ${node.trustLevel === 2 ? 'bg-violet-500/15 text-stone-800 border border-violet-400/30' : ''}
                         ${node.trustLevel === 3 ? 'bg-amber-500/15 text-stone-800 border border-amber-400/30' : ''}
                         ${node.trustLevel >= 4 ? 'bg-emerald-500/15 text-stone-800 border border-emerald-400/40' : ''}
@@ -282,7 +282,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                   <p className="text-[11px] text-stone-500">Trust Level {selectedSkill.trustLevel}: {selectedSkill.trustInfo.name}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedSkill(null)} className="rounded p-1 text-stone-500 hover:bg-stone-100">
+              <button onClick={() => setSelectedSkill(null)} className="rounded p-1 text-stone-500 hover:bg-stone-200">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -292,7 +292,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
               <div className="flex justify-between text-[11px] text-stone-500 mb-1">
                 <span>Trust Progress</span><span>{selectedSkill.score}/100</span>
               </div>
-              <div className="h-2 w-full rounded-full bg-stone-100 overflow-hidden">
+              <div className="h-2 w-full rounded-full bg-stone-200 overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${selectedSkill.score}%`, backgroundColor: selectedSkill.trustInfo.color }} />
               </div>
             </div>
@@ -314,7 +314,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                   {selectedSkill.proofLinks.map((p: any) => (
                     <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-800 hover:bg-[#e8f4f0] transition-colors">
-                      <ExternalLink className="h-3 w-3 text-[#1a6b52]" />
+                      <ExternalLink className="h-3 w-3 text-[#1a4a3a]" />
                       <span className="font-medium">{p.title}</span>
                       {p.tags?.length > 0 && <span className="ml-auto text-[10px] text-stone-400">{p.tags.join(', ')}</span>}
                     </a>
@@ -326,7 +326,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
             {!isOwn && currentUserUid && (
               <button onClick={() => handleEndorse(selectedSkill.name)}
                 disabled={endorsing || selectedSkill.endorsedBy.includes(currentUserUid)}
-                className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-colors ${selectedSkill.endorsedBy.includes(currentUserUid) ? 'bg-[#e8f4f0] text-[#1a6b52]' : 'bg-[#1a4a3a] text-white hover:bg-[#163d30]'} disabled:opacity-60`}>
+                className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-colors ${selectedSkill.endorsedBy.includes(currentUserUid) ? 'bg-[#e8f4f0] text-[#1a4a3a]' : 'bg-[#1a4a3a] text-white hover:bg-[#1a6b52]'} disabled:opacity-60`}>
                 {endorsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
                   selectedSkill.endorsedBy.includes(currentUserUid) ? <><Check className="h-3.5 w-3.5" />Endorsed</> :
                     <><Plus className="h-3.5 w-3.5" />Endorse {selectedSkill.name}</>}
@@ -340,7 +340,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
           <div className="mt-5 rounded-lg border border-stone-200 bg-stone-50 p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-stone-800">Skill Gap Analysis</p>
-              <button onClick={() => setShowGapOverlay(false)} className="rounded p-1 text-stone-500 hover:bg-stone-100"><X className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setShowGapOverlay(false)} className="rounded p-1 text-stone-500 hover:bg-stone-200"><X className="h-3.5 w-3.5" /></button>
             </div>
             <select value={targetRole} onChange={e => setTargetRole(e.target.value)}
               className="mb-3 h-9 w-full rounded-lg border border-stone-300 bg-stone-50 px-3 text-sm text-stone-800 focus:border-[#1a4a3a] focus:outline-none">
@@ -364,16 +364,16 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
 
       {/* Share card modal */}
       {showShareCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm">
-            <div className="relative overflow-hidden rounded-2xl border-2 border-[#1a4a3a]/20 bg-gradient-to-br from-stone-50 via-white to-[#e8f4f0] p-6 shadow-2xl">
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-[#1a4a3a]/5 to-transparent opacity-60" />
+            <div className="relative overflow-hidden rounded-2xl border-2 border-[#1a4a3a]/20 bg-white p-6 shadow-2xl">
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-cyan-500/5 to-transparent opacity-60" />
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-4">
                   {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt="" className="h-12 w-12 rounded-full border-2 border-cyan-500/30 object-cover" />
+                    <img src={user.avatarUrl} alt="" className="h-12 w-12 rounded-full border-2 border-[#1a4a3a]/30 object-cover" />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-cyan-500/30 bg-[#1a4a3a] text-sm font-bold text-white">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#1a4a3a]/30 bg-[#1a4a3a] text-sm font-bold text-white">
                       {user.name?.slice(0, 2).toUpperCase() ?? 'BW'}
                     </div>
                   )}
@@ -382,11 +382,11 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                     <p className="text-[11px] text-stone-500">{user.headline}</p>
                   </div>
                 </div>
-                <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[#1a6b52]">Top Skills</p>
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[#1a4a3a]">Top Skills</p>
                 <div className="grid grid-cols-2 gap-2">
                   {topSkills.map(node => (
-                    <div key={node.name} className="flex items-center gap-2 rounded-lg px-3 py-2 border-l-4"
-                      style={{ backgroundColor: node.trustInfo.color + '18', borderLeftColor: node.trustInfo.color }}>
+                    <div key={node.name} className="flex items-center gap-2 rounded-lg px-3 py-2"
+                      style={{ backgroundColor: node.trustInfo.color + '18', borderLeft: `3px solid ${node.trustInfo.color}` }}>
                       <div>
                         <p className="text-xs font-semibold text-stone-900">{node.name}</p>
                         <p className="text-[10px] text-stone-500">{node.trustInfo.name} | {node.endorsementCount} endorsement{node.endorsementCount !== 1 ? 's' : ''}</p>
@@ -401,7 +401,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
               </div>
             </div>
             <button onClick={() => setShowShareCard(false)}
-              className="mt-3 w-full rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-stone-800 border border-stone-200 hover:bg-stone-100 transition-colors">
+              className="mt-3 w-full rounded-lg bg-stone-100 px-4 py-2.5 text-sm font-medium text-stone-800 border border-stone-200 hover:bg-stone-200 transition-colors">
               Close
             </button>
           </div>
