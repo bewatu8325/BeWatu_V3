@@ -61,6 +61,19 @@ export interface User {
   skills: { name: string; endorsements: number }[];
   verifiedSkills: VerifiedSkill[] | null;
   microIntroductionUrl: string | null;
+  resumeUrl?: string | null;
+  experiences?: Experience[];
+}
+
+export interface Experience {
+  id: string;
+  role: string;
+  company: string;
+  startDate: string;
+  endDate: string;   // 'Present' for current
+  outcomes: string[];     // bullet points focused on impact
+  metrics?: string;       // e.g. "↑ 40% conversion, $2M ARR"
+  skills?: string[];
 }
 
 export type AppreciationType = 'helpful' | 'thoughtProvoking' | 'collaborationReady';
