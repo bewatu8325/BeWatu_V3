@@ -61,6 +61,7 @@ export interface User {
   skills: { name: string; endorsements: number }[];
   verifiedSkills: VerifiedSkill[] | null;
   microIntroductionUrl: string | null;
+  microIntroductionThumbnail?: string | null;
   resumeUrl?: string | null;
   experiences?: Experience[];
   privacySettings?: PrivacySettings;
