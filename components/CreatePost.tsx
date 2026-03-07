@@ -43,28 +43,28 @@ const CreatePost: React.FC<CreatePostProps> = ({ addPost, currentUser, circleId 
   };
 
   return (
-    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+    <div className="bg-white p-4 rounded-2xl border shadow-sm" style={{ borderColor: "#e7e5e4" }}>
       <div className="flex items-start space-x-4">
         <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-12 h-12 rounded-full object-cover"/>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder={isAIAssistMode ? "Enter a topic, and I'll draft a post for you..." : "What's on your mind?"}
-          className="w-full p-2 bg-slate-700 text-slate-200 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none placeholder-slate-400"
+          className="w-full p-3 bg-stone-50 text-stone-800 border rounded-xl focus:outline-none focus:ring-2 resize-none placeholder:text-stone-400" style={{ borderColor: "#e7e5e4" }}
           rows={3}
         />
       </div>
       <div className="flex justify-end items-center mt-2 space-x-2">
         <button
           onClick={toggleAIAssist}
-          className={`p-2 rounded-full transition-colors ${isAIAssistMode ? 'bg-cyan-900/50 text-cyan-400' : 'text-slate-400 hover:bg-slate-700'}`}
+          className={`p-2 rounded-full transition-colors ${isAIAssistMode ? 'text-white' : 'text-stone-400 hover:bg-stone-100'}`} style={isAIAssistMode ? { backgroundColor: '#1a4a3a' } : {}}
           title={isAIAssistMode ? "Switch to manual post" : "Generate post with AI"}
         >
           <SparklesIcon className="w-5 h-5"/>
         </button>
         <button
           onClick={handleSubmit}
-          className="bg-cyan-500 text-slate-900 font-semibold px-6 py-2 rounded-full hover:bg-cyan-400 transition-colors disabled:bg-cyan-800 disabled:text-slate-500 flex items-center justify-center min-w-[90px]"
+          className="font-semibold px-6 py-2 rounded-full transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center min-w-[90px] text-white" style={{ backgroundColor: "#1a4a3a" }}
           disabled={!content.trim() || isGenerating}
         >
           {isGenerating ? <LoadingIcon className="w-5 h-5 animate-spin" /> : (isAIAssistMode ? 'Generate' : 'Post')}
