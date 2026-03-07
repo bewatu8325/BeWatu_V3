@@ -249,7 +249,7 @@ function JobRow({ job, isSelected, onClick }: { job: JobWithCount; isSelected: b
           <Users className="h-3.5 w-3.5 text-stone-500" />{job.applicantCount}
         </span>
         {job.newCount > 0 && (
-          <span className="rounded-full bg-[#1a4a3a] px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
+          <span className="rounded-full bg-[#1a4a3a] px-1.5 py-0.5 text-[10px] font-bold text-white">
             {job.newCount} new
           </span>
         )}
