@@ -27,7 +27,7 @@ import ExpandedCandidateView from '../ExpandedCandidateView';
 import {
   VerifiedBadge,
   UnverifiedWarningBanner,
-  PostingRestrictionNotice,
+
 } from '../VerifiedBadge';
 import {
   getRestrictions,
@@ -366,26 +366,17 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
 
       case 'manage_jobs':
         return (
-          <div>
-            {!isCompanyVerified && (
-              <div className="px-4 pt-4">
-                <PostingRestrictionNotice
-                  status={companyVerifStatus}
-                  action="post_job"
-                  onGoToVerification={() => setActiveView('company_verification')}
-                />
-              </div>
-            )}
-            <ManageJobsView
-              jobs={allJobs.filter(j => j.recruiterId === currentUser.id)}
-              companies={allCompanies}
-              onAddJob={onAddJob}
-              onUpdateJob={onUpdateJob}
-              onDeleteJob={onDeleteJob}
-              onToggleJobStatus={onToggleJobStatus}
-              recruiterId={currentUser.id}
-            />
-          </div>
+          <ManageJobsView
+            jobs={allJobs.filter(j => j.recruiterId === currentUser.id)}
+            companies={allCompanies}
+            onAddJob={onAddJob}
+            onUpdateJob={onUpdateJob}
+            onDeleteJob={onDeleteJob}
+            onToggleJobStatus={onToggleJobStatus}
+            recruiterId={currentUser.id}
+            verificationStatus={companyVerifStatus}
+            onGoToVerification={() => setActiveView('company_verification')}
+          />
         );
 
       case 'company_verification':
