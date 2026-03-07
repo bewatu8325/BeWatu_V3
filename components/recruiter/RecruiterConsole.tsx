@@ -21,6 +21,7 @@ import TalentPool from './TalentPool';
 import CultureFitScore from './CultureFitScore';
 import Footer from '../Footer';
 import ManageJobsView from '../ManageJobsView';
+import CompanyVerification from './CompanyVerification';
 import ApplicantInbox from './ApplicantInbox';
 import ExpandedCandidateView from '../ExpandedCandidateView';
 
@@ -40,7 +41,7 @@ interface RecruiterConsoleProps {
   onViewProfile?: (userId: number) => void;
 }
 
-type RecruiterView = 'dashboard' | 'inbox' | 'pipelines' | 'interviews' | 'templates' | 'culture_fit' | 'pipeline_analytics' | 'talent_pool' | 'analytics' | 'manage_jobs';
+type RecruiterView = 'dashboard' | 'inbox' | 'pipelines' | 'interviews' | 'templates' | 'culture_fit' | 'pipeline_analytics' | 'talent_pool' | 'analytics' | 'manage_jobs' | 'company_verification';
 
 const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const {
@@ -63,6 +64,8 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const [isBlindMode, setIsBlindMode] = useState(false);                   // ← single declaration
   const [expandedCandidateId, setExpandedCandidateId] = useState<number | null>(null);
   const [candidates, setCandidates] = useState<PipelineCandidate[]>([]);   // ← typed correctly
+  const [isCompanyVerified, setIsCompanyVerified] = useState(false);
+  const [verifiedCompanyName, setVerifiedCompanyName] = useState<string | null>(null);
 
   // ── Load AI candidate data ─────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -119,14 +122,17 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   };
 
   // ── Nav helper ────────────────────────────────────────────────────────────
-  const NavItem: React.FC<{ label: string; view: RecruiterView }> = ({ label, view }) => (
+  const NavItem: React.FC<{ label: string; view: RecruiterView; badge?: string }> = ({ label, view, badge }) => (
     <button
       onClick={() => { setActiveView(view); setSelectedCandidate(null); }}
-      className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
-        activeView === view ? 'bg-stone-100 text-emerald-600' : 'text-stone-500 hover:bg-stone-100'
+      className={`relative px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+        activeView === view ? 'bg-stone-100 text-[#1a4a3a]' : 'text-stone-500 hover:bg-stone-100'
       }`}
     >
       {label}
+      {badge && (
+        <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{badge}</span>
+      )}
     </button>
   );
 
@@ -298,14 +304,38 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
 
       case 'manage_jobs':
         return (
-          <ManageJobsView
-            jobs={allJobs.filter(j => j.recruiterId === currentUser.id)}
-            companies={allCompanies}
-            onAddJob={onAddJob}
-            onUpdateJob={onUpdateJob}
-            onDeleteJob={onDeleteJob}
-            onToggleJobStatus={onToggleJobStatus}
-            recruiterId={currentUser.id}
+          <div>
+            {!isCompanyVerified && (
+              <div className="mx-4 mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <span className="mt-0.5 shrink-0 text-amber-500">⚠️</span>
+                <span>
+                  Your job posts are <strong>hidden from candidates</strong> until you verify your company.{' '}
+                  <button
+                    onClick={() => setActiveView('company_verification')}
+                    className="underline font-semibold hover:text-amber-900"
+                  >
+                    Verify now →
+                  </button>
+                </span>
+              </div>
+            )}
+            <ManageJobsView
+              jobs={allJobs.filter(j => j.recruiterId === currentUser.id)}
+              companies={allCompanies}
+              onAddJob={onAddJob}
+              onUpdateJob={onUpdateJob}
+              onDeleteJob={onDeleteJob}
+              onToggleJobStatus={onToggleJobStatus}
+              recruiterId={currentUser.id}
+            />
+          </div>
+        );
+
+      case 'company_verification':
+        return (
+          <CompanyVerification
+            currentUserName={currentUser.name}
+            onCompanyVerified={(name) => { setIsCompanyVerified(true); setVerifiedCompanyName(name); }}
           />
         );
 
@@ -364,6 +394,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
               <NavItem label="Pipeline" view="pipelines" />
               <NavItem label="Interviews" view="interviews" />
               <NavItem label="Jobs" view="manage_jobs" />
+              <NavItem label="Company" view="company_verification" badge={!isCompanyVerified ? '!' : undefined} />
             </div>
             <div className="h-5 w-px bg-stone-100 hidden sm:block" />
             <div className="flex items-center gap-1">
