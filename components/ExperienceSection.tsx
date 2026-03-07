@@ -208,9 +208,9 @@ const ExperienceCard: React.FC<{
         {/* Header row */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-bold text-stone-900 text-base leading-tight">{exp.role}</h4>
+            <h4 className="font-bold text-stone-900 text-base leading-tight break-words">{exp.role}</h4>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-              <span className="text-sm font-semibold" style={{ color: GREEN_MID }}>{exp.company}</span>
+              <span className="text-sm font-semibold break-words" style={{ color: GREEN_MID }}>{exp.company}</span>
               <span className="text-stone-300 text-xs">·</span>
               <span className="text-xs text-stone-400">{exp.startDate} — {exp.endDate || 'Present'}</span>
             </div>
