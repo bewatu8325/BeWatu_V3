@@ -60,7 +60,10 @@ const VibeClipTile: React.FC<{ user: User; onPlay: (url: string) => void }> = ({
       style={{ aspectRatio: '9/14', width: 140, backgroundColor: GREEN }}
       onClick={() => hasVideo && onPlay(user.microIntroductionUrl!)}
     >
-      {user.avatarUrl ? (
+      {/* Background: thumbnail > avatar > initials */}
+      {user.microIntroductionThumbnail ? (
+        <img src={user.microIntroductionThumbnail} alt={user.name} className="absolute inset-0 w-full h-full object-cover" />
+      ) : user.avatarUrl ? (
         <img src={user.avatarUrl} alt={user.name} className="absolute inset-0 w-full h-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-white text-3xl font-black">
