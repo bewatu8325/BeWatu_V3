@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, PrivacySettings, DEFAULT_PRIVACY } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { updateUserInFirestore } from '../lib/firebaseAuth';
-import { getSecurityEvents, revokeOtherSessions, changePassword, sendVerificationEmail, isEmailVerified } from '../lib/authService';
+import { updateUserInFirestore, getSecurityEvents, revokeOtherSessions, changePassword, sendVerificationEmail, isEmailVerified } from '../lib/firebaseAuth';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const IconShield = () => (
