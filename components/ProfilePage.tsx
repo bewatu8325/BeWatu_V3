@@ -90,6 +90,29 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
     }
   };
 
+  const handleResumeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !fbUser) return;
+    const validTypes = ['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx)$/i)) {
+      setResumeError('Please upload a PDF or Word document.'); return;
+    }
+    if (file.size > 10 * 1024 * 1024) { setResumeError('File too large (max 10 MB).'); return; }
+    setResumeUploading(true); setResumeError('');
+    try {
+      const { uploadResume } = await import('../lib/storageService');
+      const url = await uploadResume(fbUser.uid, file);
+      await updateUserInFirestore(fbUser.uid, { resumeUrl: url } as any);
+    } catch (err: any) {
+      setResumeError(err.message ?? 'Upload failed.');
+    } finally { setResumeUploading(false); }
+  };
+
+  const handleSaveExperiences = async (experiences: Experience[]) => {
+    setLocalExperiences(experiences);
+    if (fbUser) await updateUserInFirestore(fbUser.uid, { experiences } as any);
+  };
+
   const handlePasswordChangeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
