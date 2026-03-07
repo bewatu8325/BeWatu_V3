@@ -1146,8 +1146,8 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                 className="rounded-2xl p-4 border"
                 style={{ background: '#ecfeff', borderColor: '#a5f3fc' }}
               >
-                <p className="text-xs font-bold text-cyan-700">Connect to a Job Req</p>
-                <p className="text-xs text-cyan-600 mt-0.5">
+                <p className="text-xs font-bold text-[#1a4a3a]">Connect to a Job Req</p>
+                <p className="text-xs text-[#1a6b52] mt-0.5">
                   This submission will be added as an application to the selected open role, visible in your pipeline.
                 </p>
               </div>
@@ -1183,7 +1183,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                         <p className="font-semibold text-stone-800 text-sm">{job.title}</p>
                         <p className="text-xs text-stone-400">{job.location} · {job.type}</p>
                       </div>
-                      {selectedJobId === job.id && <Check className="w-4 h-4 text-cyan-600" />}
+                      {selectedJobId === job.id && <Check className="w-4 h-4 text-[#1a4a3a]" />}
                     </button>
                   ))}
                 </div>
