@@ -16,7 +16,7 @@ interface PeopleProps {
 const People: React.FC<PeopleProps> = ({ users, onEndorseSkill, onStartMessage, onAnalyzeSynergy, onViewProfile, onConnect, connectionRequests = [], currentUserId }) => {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-100">People you may know</h1>
+      <h1 className="text-2xl font-bold text-stone-900">People you may know</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {users.map(user => {
           const request = connectionRequests.find(cr =>
