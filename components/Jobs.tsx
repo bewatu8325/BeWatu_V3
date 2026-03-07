@@ -71,7 +71,7 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
     });
   }, [jobs, companies, filters]);
   
-  const inputStyles = "w-full p-2 bg-white text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-400" style={{ borderColor: "#e7e5e4" }}";
+  const inputStyles = "w-full p-2 bg-white text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-400";
 
   return (
     <div className="space-y-6">
