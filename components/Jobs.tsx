@@ -77,7 +77,7 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-2xl border shadow-sm" style={{ borderColor:"#e7e5e4" }}>
         <h1 className="text-2xl font-bold text-stone-900 mb-4">Find Your Next Opportunity</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
           <input type="text" name="keyword" placeholder="Keyword (title, skill)" value={filters.keyword} onChange={handleFilterChange} className={inputStyles} />
           <input type="text" name="location" placeholder="Location" value={filters.location} onChange={handleFilterChange} className={inputStyles} />
           <input type="text" name="company" placeholder="Company" value={filters.company} onChange={handleFilterChange} className={inputStyles} />
