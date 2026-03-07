@@ -46,7 +46,7 @@ interface JobWithCount {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  new:         { label: 'New',         color: 'text-cyan-400',   bg: 'bg-cyan-500/10 border-cyan-500/20',   icon: AlertCircle  },
+  new:         { label: 'New',         color: 'text-[#1a6b52]',   bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20',   icon: AlertCircle  },
   reviewing:   { label: 'Reviewing',   color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock        },
   shortlisted: { label: 'Shortlisted', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20', icon: CheckCircle  },
   rejected:    { label: 'Rejected',    color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20',     icon: XCircle      },
@@ -100,15 +100,15 @@ function ApplicantCard({
   const appliedDate = applicant.appliedAt?.toDate?.()?.toLocaleDateString() ?? 'Recently';
 
   return (
-    <div className={`rounded-xl border transition-all ${expanded ? 'border-cyan-500/30 bg-slate-800/80' : 'border-slate-700 bg-slate-800/40 hover:border-slate-600'}`}>
+    <div className={`rounded-xl border transition-all ${expanded ? 'border-[#1a4a3a]/30 bg-white/80' : 'border-stone-200 bg-white/40 hover:border-stone-200'}`}>
       {/* Main row */}
       <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpanded(e => !e)}>
         {/* Avatar */}
         <div className="shrink-0">
           {displayAvatar ? (
-            <img src={displayAvatar} alt="" className="h-10 w-10 rounded-full object-cover border border-slate-700" />
+            <img src={displayAvatar} alt="" className="h-10 w-10 rounded-full object-cover border border-stone-200" />
           ) : (
-            <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-400">
+            <div className="h-10 w-10 rounded-full bg-stone-100 flex items-center justify-center text-sm font-bold text-stone-500">
               {isBlind ? `C${index + 1}` : (applicant.userName?.[0] ?? '?')}
             </div>
           )}
@@ -117,7 +117,7 @@ function ApplicantCard({
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-slate-100">{displayName}</p>
+            <p className="text-sm font-semibold text-stone-900">{displayName}</p>
             {applicant.source === 'prove' && (
               <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-400">PROVE</span>
             )}
@@ -128,7 +128,7 @@ function ApplicantCard({
             )}
           </div>
           {!isBlind && (
-            <p className="text-xs text-slate-400 truncate mt-0.5">{applicant.userHeadline}</p>
+            <p className="text-xs text-stone-500 truncate mt-0.5">{applicant.userHeadline}</p>
           )}
         </div>
 
@@ -137,27 +137,27 @@ function ApplicantCard({
           <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${cfg.bg} ${cfg.color}`}>
             <StatusIcon className="h-3 w-3" />{cfg.label}
           </span>
-          <span className="text-[10px] text-slate-500">{appliedDate}</span>
+          <span className="text-[10px] text-stone-500">{appliedDate}</span>
         </div>
 
-        <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-stone-500 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
       </div>
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="border-t border-slate-700 p-4 space-y-4">
+        <div className="border-t border-stone-200 p-4 space-y-4">
           {/* Skills */}
           {!isBlind && applicant.userSkills && applicant.userSkills.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {applicant.userSkills.slice(0, 8).map(s => (
-                <span key={s} className="rounded-full bg-slate-700 px-2.5 py-0.5 text-xs text-slate-300">{s}</span>
+                <span key={s} className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs text-stone-700">{s}</span>
               ))}
             </div>
           )}
 
           {/* Location */}
           {!isBlind && applicant.userLocation && (
-            <p className="flex items-center gap-1.5 text-xs text-slate-400">
+            <p className="flex items-center gap-1.5 text-xs text-stone-500">
               <MapPin className="h-3.5 w-3.5" />{applicant.userLocation}
             </p>
           )}
@@ -181,7 +181,7 @@ function ApplicantCard({
             {!isBlind && onViewProfile && (
               <button
                 onClick={() => onViewProfile(applicant.userId)}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 transition-colors"
               >
                 <ExternalLink className="h-3 w-3" />View Profile
               </button>
@@ -193,9 +193,9 @@ function ApplicantCard({
             {applicant.notes && applicant.notes.length > 0 && (
               <div className="space-y-1.5">
                 {applicant.notes.map((note, i) => (
-                  <div key={i} className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-300 border border-slate-700">
+                  <div key={i} className="rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-700 border border-stone-200">
                     <p>{note.text}</p>
-                    <p className="text-[10px] text-slate-500 mt-1">{new Date(note.createdAt).toLocaleDateString()}</p>
+                    <p className="text-[10px] text-stone-500 mt-1">{new Date(note.createdAt).toLocaleDateString()}</p>
                   </div>
                 ))}
               </div>
@@ -206,12 +206,12 @@ function ApplicantCard({
                 onChange={e => setNoteText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddNote()}
                 placeholder="Add a private note..."
-                className="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                className="flex-1 rounded-lg border  bg-stone-50 px-3 py-1.5 text-xs text-stone-800 placeholder:text-stone-500 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
               />
               <button
                 onClick={handleAddNote}
                 disabled={savingNote || !noteText.trim()}
-                className="flex items-center gap-1 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-600 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1 rounded-lg bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-800 hover:bg-stone-200 disabled:opacity-50 transition-colors"
               >
                 {savingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
                 Note
@@ -233,23 +233,23 @@ function JobRow({ job, isSelected, onClick }: { job: JobWithCount; isSelected: b
       onClick={onClick}
       className={`w-full flex items-center gap-3 rounded-xl border p-4 text-left transition-all ${
         isSelected
-          ? 'border-cyan-500/40 bg-cyan-500/5'
-          : 'border-slate-700 bg-slate-800/40 hover:border-slate-600'
+          ? 'border-[#1a4a3a]/40 bg-[#1a4a3a]/5'
+          : 'border-stone-200 bg-white/40 hover:border-stone-200'
       }`}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-700">
-        <Briefcase className="h-4 w-4 text-slate-300" />
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-stone-100">
+        <Briefcase className="h-4 w-4 text-stone-700" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-100 truncate">{job.title}</p>
-        <p className="text-xs text-slate-400 truncate">{job.location} · {job.type}</p>
+        <p className="text-sm font-semibold text-stone-900 truncate">{job.title}</p>
+        <p className="text-xs text-stone-500 truncate">{job.location} · {job.type}</p>
       </div>
       <div className="shrink-0 flex flex-col items-end gap-1">
-        <span className="flex items-center gap-1 text-sm font-bold text-slate-200">
-          <Users className="h-3.5 w-3.5 text-slate-400" />{job.applicantCount}
+        <span className="flex items-center gap-1 text-sm font-bold text-stone-800">
+          <Users className="h-3.5 w-3.5 text-stone-500" />{job.applicantCount}
         </span>
         {job.newCount > 0 && (
-          <span className="rounded-full bg-cyan-500 px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
+          <span className="rounded-full bg-[#1a4a3a] px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
             {job.newCount} new
           </span>
         )}
@@ -257,7 +257,7 @@ function JobRow({ job, isSelected, onClick }: { job: JobWithCount; isSelected: b
           <span className="text-[10px] text-red-400">Expired</span>
         )}
       </div>
-      <ChevronRight className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${isSelected ? 'rotate-90 text-cyan-400' : ''}`} />
+      <ChevronRight className={`h-4 w-4 text-stone-500 shrink-0 transition-transform ${isSelected ? 'rotate-90 text-[#1a6b52]' : ''}`} />
     </button>
   );
 }
@@ -337,10 +337,10 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-slate-100">
-            <Inbox className="h-5 w-5 text-cyan-400" />Applicant Inbox
+          <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
+            <Inbox className="h-5 w-5 text-[#1a6b52]" />Applicant Inbox
           </h1>
-          <p className="mt-0.5 text-sm text-slate-400">
+          <p className="mt-0.5 text-sm text-stone-500">
             {jobs.length} active {jobs.length === 1 ? 'role' : 'roles'} · {jobs.reduce((s, j) => s + j.applicantCount, 0)} total applicants
           </p>
         </div>
@@ -349,14 +349,14 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
         {/* Job list — hidden on mobile when viewing applicants */}
         <div className={`lg:col-span-1 flex flex-col gap-2 ${mobileShowApplicants ? 'hidden lg:flex' : 'flex'}`}>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 px-1">Your Roles</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-stone-500 px-1">Your Roles</p>
           {loadingJobs ? (
-            <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
+            <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-stone-500" /></div>
           ) : jobs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 py-12 text-center">
-              <Briefcase className="h-8 w-8 text-slate-600" />
-              <p className="mt-2 text-sm text-slate-400">No active job postings yet.</p>
-              <p className="text-xs text-slate-500 mt-1">Post a role in Manage Jobs to see applicants here.</p>
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-12 text-center">
+              <Briefcase className="h-8 w-8 text-stone-400" />
+              <p className="mt-2 text-sm text-stone-500">No active job postings yet.</p>
+              <p className="text-xs text-stone-500 mt-1">Post a role in Manage Jobs to see applicants here.</p>
             </div>
           ) : (
             jobs.map(job => (
@@ -373,9 +373,9 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
         {/* Applicant list */}
         <div className={`lg:col-span-2 flex flex-col gap-3 ${!mobileShowApplicants ? 'hidden lg:flex' : 'flex'}`}>
           {!selectedJobId ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 py-20 text-center">
-              <Users className="h-10 w-10 text-slate-600" />
-              <p className="mt-3 text-sm text-slate-400">Select a role to view applicants</p>
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-20 text-center">
+              <Users className="h-10 w-10 text-stone-400" />
+              <p className="mt-3 text-sm text-stone-500">Select a role to view applicants</p>
             </div>
           ) : (
             <>
@@ -383,16 +383,16 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setMobileShowApplicants(false)}
-                  className="lg:hidden flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
+                  className="lg:hidden flex items-center gap-1 text-xs text-stone-500 hover:text-stone-800"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />Back
                 </button>
-                <h2 className="text-sm font-bold text-slate-100 flex-1">{selectedJob?.title}</h2>
+                <h2 className="text-sm font-bold text-stone-900 flex-1">{selectedJob?.title}</h2>
                 {/* Blind mode toggle */}
                 <button
                   onClick={() => setIsBlind(b => !b)}
                   className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    isBlind ? 'bg-slate-600 text-slate-200' : 'bg-slate-700/50 text-slate-400 hover:text-slate-200'
+                    isBlind ? 'bg-stone-200 text-stone-800' : 'bg-stone-100/50 text-stone-500 hover:text-stone-800'
                   }`}
                 >
                   Blind Mode {isBlind ? 'ON' : 'OFF'}
@@ -410,13 +410,13 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
                       onClick={() => setStatusFilter(s)}
                       className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                         statusFilter === s
-                          ? s === 'all' ? 'bg-slate-200 text-slate-900' : `${cfg!.bg} ${cfg!.color} border`
-                          : 'bg-slate-700/50 text-slate-400 hover:text-slate-200'
+                          ? s === 'all' ? 'bg-[#1a4a3a] text-white' : `${cfg!.bg} ${cfg!.color} border`
+                          : 'bg-stone-100/50 text-stone-500 hover:text-stone-800'
                       }`}
                     >
                       {s === 'all' ? 'All' : STATUS_CONFIG[s].label}
                       <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                        statusFilter === s ? 'bg-slate-700 text-slate-200' : 'bg-slate-700 text-slate-400'
+                        statusFilter === s ? 'bg-stone-100 text-stone-800' : 'bg-stone-100 text-stone-500'
                       }`}>{count}</span>
                     </button>
                   );
@@ -425,11 +425,11 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
 
               {/* Applicant cards */}
               {loadingApplicants ? (
-                <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
+                <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-stone-500" /></div>
               ) : filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 py-12 text-center">
-                  <Filter className="h-8 w-8 text-slate-600" />
-                  <p className="mt-2 text-sm text-slate-400">
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-12 text-center">
+                  <Filter className="h-8 w-8 text-stone-400" />
+                  <p className="mt-2 text-sm text-stone-500">
                     {applicants.length === 0 ? 'No applicants yet for this role.' : 'No applicants match this filter.'}
                   </p>
                 </div>
