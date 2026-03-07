@@ -754,7 +754,452 @@ export async function movePipelineCandidate(
   applicationId: string,
   toStage: string
 ) {
-  await updateDoc(doc(db, 'applications', applicationId), { stage: toStage });
+  await updateDoc(doc(db, 'applications', applicationId), { stage:toStage });
 }
 
-export async function addPipelineNote(applicat
+export async function addPipelineNote(applicationId: string, note: string) {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    notes: arrayUnion({ text: note, createdAt: new Date().toISOString() }),
+  });
+}
+
+export async function schedulePipelineInterview(
+  applicationId: string,
+  date: string
+) {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    interviewDate: date,
+  });
+}
+
+export async function rejectPipelineCandidate(
+  applicationId: string,
+  reason: string
+) {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    status: 'rejected',
+    rejectionReason: reason,
+  });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PEER LEARNING
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { LearnRequest, MicroLesson, LessonFormat } from '../types';
+
+export async function createLearnRequest(data: {
+  circleId: number;
+  authorId: number;
+  skill: string;
+  context?: string;
+}): Promise<LearnRequest> {
+  const ref = await addDoc(collection(db, 'learnRequests'), {
+    ...data,
+    status: 'open',
+    lessonCount: 0,
+    sparkedByIds: [],
+    createdAt: serverTimestamp(),
+  });
+  return {
+    id: ref.id,
+    ...data,
+    status: 'open',
+    lessonCount: 0,
+    sparkedByIds: [],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function fetchLearnRequests(circleId: number): Promise<LearnRequest[]> {
+  const snap = await getDocs(
+    query(collection(db, 'learnRequests'),
+      where('circleId', '==', circleId),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as LearnRequest));
+}
+
+export async function completeLearnRequest(requestId: string): Promise<void> {
+  await updateDoc(doc(db, 'learnRequests', requestId), {
+    status: 'complete',
+    completedAt: serverTimestamp(),
+  });
+}
+
+export async function sparkLearnRequest(requestId: string, userId: number): Promise<void> {
+  await updateDoc(doc(db, 'learnRequests', requestId), {
+    sparkedByIds: arrayUnion(userId),
+  });
+}
+
+export async function createMicroLesson(data: {
+  requestId: string;
+  circleId: number;
+  authorId: number;
+  format: LessonFormat;
+  body?: string;
+  videoUrl?: string;
+  videoDurationSec?: number;
+  linkUrl?: string;
+  linkTitle?: string;
+  linkDescription?: string;
+  steps?: string[];
+}): Promise<MicroLesson> {
+  const ref = await addDoc(collection(db, 'microLessons'), {
+    ...data,
+    sparkedByIds: [],
+    completedSteps: [],
+    createdAt: serverTimestamp(),
+  });
+  // bump lessonCount on the request
+  await updateDoc(doc(db, 'learnRequests', data.requestId), {
+    lessonCount: increment(1),
+  });
+  return {
+    id: ref.id,
+    ...data,
+    sparkedByIds: [],
+    completedSteps: [],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function fetchMicroLessons(requestId: string): Promise<MicroLesson[]> {
+  const snap = await getDocs(
+    query(collection(db, 'microLessons'),
+      where('requestId', '==', requestId),
+      orderBy('createdAt', 'asc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as MicroLesson));
+}
+
+export async function sparkMicroLesson(lessonId: string, userId: number): Promise<void> {
+  await updateDoc(doc(db, 'microLessons', lessonId), {
+    sparkedByIds: arrayUnion(userId),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getOrCreateCompanyForRecruiter(
+  recruiterUid: string,
+  recruiterName: string,
+  recruiterHeadline: string
+): Promise<import('../types').Company> {
+  if (!recruiterUid) {
+    return { id: 1, _firestoreId: '', name: recruiterName, description: '', industry: '', logoUrl: '', website: '' };
+  }
+  const q = query(collection(db, 'companies'), where('adminUid', '==', recruiterUid));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    const d = snap.docs[0];
+    const data = d.data();
+    return {
+      id: data.numericId ?? 1,
+      _firestoreId: d.id,
+      name: data.name ?? recruiterName,
+      description: data.description ?? '',
+      industry: data.industry ?? '',
+      logoUrl: data.logoUrl ?? '',
+      website: data.website ?? '',
+      adminUid: data.adminUid,
+      verifiedRecruiters: data.verifiedRecruiters ?? [],
+      verificationStatus: data.verificationStatus ?? 'unverified',
+    };
+  }
+  // Create a new company record
+  const ref = await addDoc(collection(db, 'companies'), {
+    adminUid: recruiterUid,
+    name: recruiterHeadline || recruiterName,
+    description: '',
+    industry: '',
+    logoUrl: '',
+    website: '',
+    numericId: Date.now(),
+    verifiedRecruiters: [],
+    verificationStatus: 'unverified',
+    createdAt: serverTimestamp(),
+  });
+  return {
+    id: Date.now(),
+    _firestoreId: ref.id,
+    name: recruiterHeadline || recruiterName,
+    description: '',
+    industry: '',
+    logoUrl: '',
+    website: '',
+    adminUid: recruiterUid,
+    verifiedRecruiters: [],
+    verificationStatus: 'unverified',
+  };
+}
+
+export async function applyToJobWithProfile(
+  jobFirestoreId: string,
+  jobNumericId: number,
+  applicantUid: string
+): Promise<void> {
+  await addDoc(collection(db, 'applications'), {
+    jobFirestoreId,
+    jobNumericId,
+    applicantUid,
+    status: 'applied',
+    appliedAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERVIEW SCHEDULER
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function proposeInterviewSlots(
+  recruiterId: string,
+  applicationId: string,
+  candidateUid: string,
+  jobTitle: string,
+  candidateName: string,
+  slots: { datetime: string; duration: number }[]
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'interviews'), {
+    recruiterId,
+    applicationId,
+    candidateUid,
+    jobTitle,
+    candidateName,
+    slots: slots.map((s, i) => ({ id: `slot_${i}`, ...s })),
+    status: 'proposed',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function fetchInterviewsForRecruiter(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'interviews'), where('recruiterId', '==', recruiterId))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function confirmInterviewSlot(interviewId: string, slotId: string): Promise<void> {
+  await updateDoc(doc(db, 'interviews', interviewId), {
+    confirmedSlotId: slotId,
+    status: 'confirmed',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function cancelInterview(interviewId: string, reason?: string): Promise<void> {
+  await updateDoc(doc(db, 'interviews', interviewId), {
+    status: 'cancelled',
+    cancellationReason: reason ?? '',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APPLICANT INBOX
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchJobsForRecruiter(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterId))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function fetchApplicantsForJob(jobFirestoreId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId))
+  );
+  const applicants = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // Hydrate user info where possible
+  const withProfiles = await Promise.all(
+    applicants.map(async (app: any) => {
+      try {
+        const userSnap = await getDocs(
+          query(collection(db, 'users'), where('uid', '==', app.applicantUid))
+        );
+        if (!userSnap.empty) {
+          const u = userSnap.docs[0].data();
+          return { ...app, userName: u.name, userAvatar: u.avatarUrl, userHeadline: u.headline, userSkills: u.skills?.map((s: any) => s.name ?? s) ?? [] };
+        }
+      } catch {}
+      return { ...app, userName: 'Applicant', userAvatar: '', userHeadline: '' };
+    })
+  );
+  return withProfiles;
+}
+
+export async function updateApplicationStatus(
+  applicationId: string,
+  status: string
+): Promise<void> {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIPELINE ANALYTICS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchPipelineAnalytics(recruiterId: string): Promise<any> {
+  const [jobs, apps] = await Promise.all([
+    getDocs(query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterId))),
+    getDocs(query(collection(db, 'applications'), where('recruiterUid', '==', recruiterId))),
+  ]);
+  const stages = ['new', 'reviewing', 'shortlisted', 'interview', 'offer', 'hired', 'rejected'];
+  const stageCounts: Record<string, number> = {};
+  stages.forEach(s => { stageCounts[s] = 0; });
+  apps.docs.forEach(d => {
+    const st = d.data().status ?? 'new';
+    stageCounts[st] = (stageCounts[st] ?? 0) + 1;
+  });
+  return {
+    totalJobs: jobs.size,
+    totalApplications: apps.size,
+    stageCounts,
+    conversionRate: apps.size > 0 ? ((stageCounts['hired'] ?? 0) / apps.size * 100).toFixed(1) : '0',
+  };
+}
+
+export async function fetchApplicantsWithProfiles(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'applications'), where('recruiterUid', '==', recruiterId))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TALENT POOL
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchTalentPool(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'talentPool'), where('recruiterId', '==', recruiterId), orderBy('savedAt', 'desc'))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function addToTalentPool(recruiterId: string, entry: {
+  userId: string; userName: string; userAvatar?: string;
+  userHeadline?: string; userLocation?: string; userSkills?: string[];
+  tags: string[]; notes: string; rating: number;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, 'talentPool'), {
+    ...entry,
+    recruiterId,
+    savedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateTalentPoolEntry(entryId: string, updates: Partial<{
+  tags: string[]; notes: string; rating: number;
+}>): Promise<void> {
+  await updateDoc(doc(db, 'talentPool', entryId), { ...updates, updatedAt: serverTimestamp() });
+}
+
+export async function removeFromTalentPool(entryId: string): Promise<void> {
+  await deleteDoc(doc(db, 'talentPool', entryId));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OUTREACH TEMPLATES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchOutreachTemplates(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'outreachTemplates'), where('recruiterId', '==', recruiterId), orderBy('createdAt', 'desc'))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function saveOutreachTemplate(recruiterId: string, template: {
+  id?: string; name: string; subject: string; body: string;
+  category: string; usageCount?: number;
+}): Promise<string> {
+  if (template.id) {
+    await updateDoc(doc(db, 'outreachTemplates', template.id), {
+      name: template.name, subject: template.subject,
+      body: template.body, category: template.category,
+      updatedAt: serverTimestamp(),
+    });
+    return template.id;
+  }
+  const ref = await addDoc(collection(db, 'outreachTemplates'), {
+    ...template,
+    recruiterId,
+    usageCount: 0,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function deleteOutreachTemplate(templateId: string): Promise<void> {
+  await deleteDoc(doc(db, 'outreachTemplates', templateId));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY VERIFICATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getCompanyForRecruiter(recruiterUid: string): Promise<any | null> {
+  const snap = await getDocs(
+    query(collection(db, 'companies'), where('adminUid', '==', recruiterUid))
+  );
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() };
+}
+
+export async function createCompanyWithAdmin(recruiterUid: string, data: {
+  name: string; description: string; industry: string; website: string;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, 'companies'), {
+    ...data,
+    adminUid: recruiterUid,
+    verifiedRecruiters: [recruiterUid],
+    verificationStatus: 'pending',
+    inviteCode: Math.random().toString(36).slice(2, 8).toUpperCase(),
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateCompanyProfile(companyId: string, data: Partial<{
+  name: string; description: string; industry: string; website: string; logoUrl: string;
+}>): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), { ...data, updatedAt: serverTimestamp() });
+}
+
+export async function generateInviteCode(companyId: string): Promise<string> {
+  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  await updateDoc(doc(db, 'companies', companyId), { inviteCode: code });
+  return code;
+}
+
+export async function redeemInviteCode(recruiterUid: string, code: string): Promise<boolean> {
+  const snap = await getDocs(
+    query(collection(db, 'companies'), where('inviteCode', '==', code.toUpperCase()))
+  );
+  if (snap.empty) return false;
+  const company = snap.docs[0];
+  await updateDoc(doc(db, 'companies', company.id), {
+    verifiedRecruiters: arrayUnion(recruiterUid),
+  });
+  return true;
+}
+
+export async function removeRecruiterFromCompany(companyId: string, recruiterUid: string): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verifiedRecruiters: arrayRemove(recruiterUid),
+  });
+}
