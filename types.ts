@@ -82,11 +82,15 @@ export interface Post {
 
 export interface Company {
   id: number;
+  _firestoreId?: string;
   name: string;
   description: string;
   industry: string;
   logoUrl: string;
   website: string;
+  adminUid?: string;
+  verifiedRecruiters?: string[];  // firebase UIDs
+  verificationStatus?: 'unverified' | 'pending' | 'verified';
 }
 
 export interface Job {
@@ -98,6 +102,7 @@ export interface Job {
   type: 'Full-time' | 'Contract' | 'Internship' | 'Remote';
   experienceLevel: 'Entry-level' | 'Mid-level' | 'Senior-level';
   status: 'Active' | 'Suspended';
+  verificationStatus?: 'pending_verification' | 'live' | 'hidden';  // set by system
   recruiterId: number;
   liveDate: string; // ISO 8601 format date string e.g. "2024-08-01"
   expiryDate: string; // ISO 8601 format date string e.g. "2024-09-01"
