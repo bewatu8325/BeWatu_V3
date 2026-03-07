@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Users, Hexagon, PlusSquare, User } from 'lucide-react';
+import { Home, Users, Users2, Hexagon, User } from 'lucide-react';
 import { View } from '../types'; // adjust path if needed
 import { useFirebase } from '../contexts/FirebaseContext';
 
@@ -9,15 +9,16 @@ const MOBILE_ITEMS = [
   { view: View.Feed,    label: 'Home',    icon: Home    },
   { view: View.People,  label: 'Circles', icon: Users   }, // People renamed to Circles
   { view: View.Circles, label: 'Pods',    icon: Hexagon }, // Circles renamed to Pods
-  { view: View.AIChat,  label: 'Create',  icon: PlusSquare }, // or whatever view makes sense
+  { view: View.Connections, label: 'Connect', icon: Users2 },
 ];
 
 interface MobileNavProps {
   currentView: View;
   onNavigate: (view: View) => void;
+  pendingConnectionCount?: number;
 }
 
-export function MobileNav({ currentView, onNavigate }: MobileNavProps) {
+export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0 }: MobileNavProps) {
   const { currentUser } = useFirebase();
 
   return (
@@ -25,13 +26,21 @@ export function MobileNav({ currentView, onNavigate }: MobileNavProps) {
       <div className="flex items-center justify-around py-2">
         {MOBILE_ITEMS.map(({ view, label, icon: Icon }) => {
           const active = currentView === view;
+          const badge = view === View.Connections && pendingConnectionCount > 0 ? pendingConnectionCount : 0;
           return (
             <button
               key={view}
               onClick={() => onNavigate(view)}
               className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${active ? "" : "text-stone-400"}`} style={active ? { color: "#1a4a3a" } : {}}
             >
-              <Icon className="h-5 w-5" />
+              <span className="relative">
+                <Icon className="h-5 w-5" />
+                {badge > 0 && (
+                  <span className="absolute -top-1 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-1">
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
+              </span>
               <span className="sr-only sm:not-sr-only">{label}</span>
             </button>
           );
