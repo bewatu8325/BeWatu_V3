@@ -1,31 +1,78 @@
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 
 interface VideoPlayerModalProps {
-    videoUrl: string;
-    onClose: () => void;
+  videoUrl: string;
+  onClose: () => void;
 }
 
 const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ videoUrl, onClose }) => {
-    return (
-        <div 
-            className="fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-center backdrop-blur-sm"
-            onClick={onClose}
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [error, setError] = useState(false);
+
+  // Attempt autoplay on mount; catch browser policy rejections gracefully
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const playPromise = v.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Autoplay blocked — the browser controls will let the user start manually
+      });
+    }
+  }, [videoUrl]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: '#1c1917' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+          aria-label="Close"
         >
-            <div 
-                className="bg-slate-900 border border-slate-700 rounded-xl shadow-xl w-full max-w-2xl flex flex-col relative"
-                onClick={e => e.stopPropagation()}
-            >
-                <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-gray-300 z-10 bg-black/50 rounded-full p-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-                <video className="w-full rounded-xl" src={videoUrl} controls autoPlay>
-                    Your browser does not support the video tag.
-                </video>
-            </div>
-        </div>
-    );
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {error ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 px-8 text-center">
+            <svg className="w-10 h-10 text-stone-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+            </svg>
+            <p className="text-sm text-stone-400 font-medium">Video unavailable</p>
+            <p className="text-xs text-stone-500">This clip could not be loaded.</p>
+          </div>
+        ) : (
+          <video
+            ref={videoRef}
+            key={videoUrl}
+            src={videoUrl}
+            className="w-full max-h-[80vh] object-contain"
+            controls
+            playsInline
+            onError={() => setError(true)}
+          />
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default VideoPlayerModal;
