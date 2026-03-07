@@ -225,6 +225,70 @@ export async function fetchConnectionRequests(uid: string): Promise<ConnectionRe
   });
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FOLLOW REQUESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendFollowRequest(
+  senderUid: string,
+  senderNumericId: number,
+  receiverUid: string,
+  receiverNumericId: number
+): Promise<FollowRequest> {
+  const ref = await addDoc(collection(db, 'followRequests'), {
+    senderUid,
+    senderNumericId,
+    receiverUid,
+    receiverNumericId,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  // Notify the receiver
+  await createNotification(receiverUid, senderNumericId, 'FOLLOW_REQUEST', ref.id);
+  return {
+    id: Date.now(),
+    fromUserId: senderNumericId,
+    toUserId: receiverNumericId,
+    status: 'pending',
+    _firestoreId: ref.id,
+  };
+}
+
+export async function respondToFollowRequest(
+  firestoreDocId: string,
+  response: 'accepted' | 'declined',
+  receiverUid: string,
+  senderUid: string,
+  senderNumericId: number
+): Promise<void> {
+  await updateDoc(doc(db, 'followRequests', firestoreDocId), {
+    status: response,
+    updatedAt: serverTimestamp(),
+  });
+  if (response === 'accepted') {
+    await createNotification(senderUid, senderNumericId, 'FOLLOW_ACCEPTED', firestoreDocId);
+  }
+}
+
+export async function fetchFollowRequests(uid: string): Promise<FollowRequest[]> {
+  const [sent, received] = await Promise.all([
+    getDocs(query(collection(db, 'followRequests'), where('senderUid', '==', uid))),
+    getDocs(query(collection(db, 'followRequests'), where('receiverUid', '==', uid))),
+  ]);
+  return [...sent.docs, ...received.docs].map(d => {
+    const data = d.data();
+    return {
+      id: Date.now() + Math.random(),
+      fromUserId: data.senderNumericId,
+      toUserId: data.receiverNumericId,
+      status: data.status,
+      _firestoreId: d.id,
+    } as FollowRequest;
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MESSAGING
 // ─────────────────────────────────────────────────────────────────────────────
@@ -382,32 +446,13 @@ export async function createJob(job: Omit<Job, 'id'>, recruiterUid: string): Pro
 }
 
 export async function fetchJobs(): Promise<Job[]> {
-  // Only returns Active + verified (live) jobs for the public feed
-  const mapJob = (d: any) => {
+  const snap = await getDocs(
+    query(collection(db, 'jobs'), where('status', '==', 'Active'), orderBy('createdAt', 'desc'))
+  );
+  return snap.docs.map((d) => {
     const data = d.data();
     return { ...data, id: data.numericId, _firestoreId: d.id } as Job & { _firestoreId: string };
-  };
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'jobs'), where('status', '==', 'Active'), where('verificationStatus', '==', 'live'), orderBy('createdAt', 'desc'))
-    );
-    return snap.docs.map(mapJob);
-  } catch {
-    try {
-      const snap = await getDocs(
-        query(collection(db, 'jobs'), where('status', '==', 'Active'))
-      );
-      // Filter client-side: show jobs that are live OR have no verificationStatus (legacy)
-      return snap.docs.map(mapJob).filter((j: any) =>
-        !j.verificationStatus || j.verificationStatus === 'live'
-      );
-    } catch {
-      const snap = await getDocs(collection(db, 'jobs'));
-      return snap.docs.map(mapJob).filter((j: any) =>
-        j.status === 'Active' && (!j.verificationStatus || j.verificationStatus === 'live')
-      );
-    }
-  }
+  });
 }
 
 export async function updateJob(firestoreId: string, updates: Partial<Job>): Promise<void> {
@@ -443,77 +488,54 @@ export async function createCircle(
 }
 
 export async function fetchCircles(): Promise<Circle[]> {
-  const mapCircle = (d: any) => {
+  const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
+  return snap.docs.map((d) => {
     const data = d.data();
     return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
-  };
-  try {
-    const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
-    return snap.docs.map(mapCircle);
-  } catch {
-    const snap = await getDocs(collection(db, 'circles'));
-    return snap.docs.map(mapCircle);
-  }
+  });
 }
 // ----------------
 //  Fetch Users
 // ----------------
-function docToUserPublic(d: any): User & { _firestoreUid: string } {
-  const data = d.data();
-  return {
-    id: data.numericId ?? Date.now(),
-    name: data.displayName ?? '',
-    headline: data.headline ?? '',
-    bio: data.bio ?? '',
-    avatarUrl: data.photoURL ?? `https://picsum.photos/seed/${d.id}/100`,
-    industry: data.industry ?? '',
-    professionalGoals: data.professionalGoals ?? [],
-    reputation: data.reputation ?? 0,
-    credits: data.credits ?? 100,
-    isRecruiter: data.isRecruiter ?? false,
-    isVerified: data.isVerified ?? false,
-    portfolio: data.portfolio ?? [],
-    verifiedAchievements: data.verifiedAchievements ?? [],
-    thirdPartyIntegrations: data.thirdPartyIntegrations ?? [],
-    workStyle: data.workStyle ?? {
-      collaboration: 'Thrives in pairs',
-      communication: 'Prefers asynchronous',
-      workPace: 'Fast-paced and iterative',
-    },
-    values: data.values ?? [],
-    availability: data.availability ?? 'Exploring opportunities',
-    skills: data.skills ?? [],
-    verifiedSkills: data.verifiedSkills ?? null,
-    microIntroductionUrl: data.microIntroductionUrl ?? null,
-    _firestoreUid: d.id,
-  } as User & { _firestoreUid: string };
-}
-
 export async function fetchUsers(): Promise<User[]> {
-  // Try composite index query first; fall back to simple query if index not built yet
-  try {
-    const snap = await getDocs(
-      query(
-        collection(db, 'users'),
-        where('isPublic', '==', true),
-        orderBy('createdAt', 'desc'),
-        limit(50)
-      )
-    );
-    return snap.docs.map(docToUserPublic);
-  } catch {
-    // Composite index may not exist yet — fall back to unordered query
-    try {
-      const snap = await getDocs(
-        query(collection(db, 'users'), where('isPublic', '==', true), limit(50))
-      );
-      return snap.docs.map(docToUserPublic);
-    } catch {
-      // Last resort — return all users without filter
-      const snap = await getDocs(query(collection(db, 'users'), limit(50)));
-      return snap.docs.map(docToUserPublic);
-    }
-  }
+  const snap = await getDocs(
+    query(
+      collection(db, 'users'),
+      where('isPublic', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    )
+  );
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: data.numericId ?? Date.now(),
+      name: data.displayName ?? '',
+      headline: data.headline ?? '',
+      bio: data.bio ?? '',
+      avatarUrl: data.photoURL ?? `https://picsum.photos/seed/${d.id}/100`,
+      industry: data.industry ?? '',
+      professionalGoals: data.professionalGoals ?? [],
+      reputation: data.reputation ?? 0,
+      credits: data.credits ?? 100,
+      isRecruiter: data.isRecruiter ?? false,
+      isVerified: data.isVerified ?? false,
+      portfolio: data.portfolio ?? [],
+      verifiedAchievements: data.verifiedAchievements ?? [],
+      thirdPartyIntegrations: data.thirdPartyIntegrations ?? [],
+      workStyle: data.workStyle ?? {
+        collaboration: 'Thrives in pairs',
+        communication: 'Prefers asynchronous',
+        workPace: 'Fast-paced and iterative',
+      },
+      values: data.values ?? [],
+      availability: data.availability ?? 'Exploring opportunities',
+      skills: data.skills ?? [],
+      verifiedSkills: data.verifiedSkills ?? null,
+      microIntroductionUrl: data.microIntroductionUrl ?? null,
+      _firestoreUid: d.id,
+    } as User & { _firestoreUid: string };
+  });
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // ADD THESE FUNCTIONS TO YOUR EXISTING firestoreService.ts
@@ -759,561 +781,3 @@ export async function rejectPipelineCandidate(
     rejectionReason: reason,
   });
 }
-
-// ─── Companies (auto-generate from recruiter profile) ─────────────────────────
-
-export async function getOrCreateCompanyForRecruiter(
-  recruiterUid: string,
-  recruiterName: string,
-  recruiterHeadline: string
-): Promise<{ id: number; _firestoreId: string; name: string; description: string; industry: string; logoUrl: string; website: string }> {
-  const q = query(collection(db, 'companies'), where('recruiterUid', '==', recruiterUid));
-  const snap = await getDocs(q);
-
-  if (!snap.empty) {
-    const d = snap.docs[0];
-    return { id: d.data().numericId, _firestoreId: d.id, ...d.data() } as any;
-  }
-
-  const numericId = Date.now();
-  const companyName = recruiterHeadline || recruiterName || 'My Company';
-  const ref = await addDoc(collection(db, 'companies'), {
-    numericId,
-    recruiterUid,
-    name: companyName,
-    description: '',
-    industry: '',
-    logoUrl: '',
-    website: '',
-    createdAt: serverTimestamp(),
-  });
-
-  return { id: numericId, _firestoreId: ref.id, name: companyName, description: '', industry: '', logoUrl: '', website: '' };
-}
-
-// ─── Jobs for Recruiter ───────────────────────────────────────────────────────
-
-export async function fetchJobsForRecruiter(recruiterUid: string) {
-  const snap = await getDocs(
-    query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterUid), orderBy('createdAt', 'desc'))
-  ).catch(() => getDocs(query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterUid))));
-  const jobs = snap.docs.map(d => ({ _firestoreId: d.id, ...d.data() })) as any[];
-  return Promise.all(jobs.map(async job => {
-    const appSnap = await getDocs(query(collection(db, 'applications'), where('jobFirestoreId', '==', job._firestoreId)));
-    const applicants = appSnap.docs.map(d => d.data());
-    return { ...job, id: job.numericId, applicantCount: applicants.length, newCount: applicants.filter((a: any) => a.status === 'new').length };
-  }));
-}
-
-// ─── Applicants for a Job ─────────────────────────────────────────────────────
-
-export async function fetchApplicantsForJob(jobFirestoreId: string) {
-  const snap = await getDocs(
-    query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId), orderBy('createdAt', 'desc'))
-  ).catch(() => getDocs(query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId))));
-
-  return Promise.all(snap.docs.map(async d => {
-    const data = d.data();
-    let userProfile: any = {};
-    try {
-      const userSnap = await getDoc(doc(db, 'users', data.userId));
-      if (userSnap.exists()) {
-        const u = userSnap.data();
-        userProfile = { userName: u.displayName ?? '', userAvatar: u.photoURL ?? '', userHeadline: u.headline ?? '', userLocation: u.location ?? '', userSkills: u.skills?.map((s: any) => s.name ?? s) ?? [] };
-      }
-    } catch {}
-    return { id: d.id, userId: data.userId, appliedAt: data.createdAt, status: data.status ?? 'new', source: data.source ?? 'applied', notes: data.notes ?? [], score: data.score ?? null, ...userProfile };
-  }));
-}
-
-// ─── Update Application Status ────────────────────────────────────────────────
-
-export async function updateApplicationStatus(
-  applicationId: string,
-  status: 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
-) {
-  await updateDoc(doc(db, 'applications', applicationId), { status, updatedAt: serverTimestamp() });
-}
-
-// ─── Apply to Job with Profile ────────────────────────────────────────────────
-
-export async function applyToJobWithProfile(
-  jobFirestoreId: string,
-  jobNumericId: number,
-  applicantUid: string,
-  message?: string
-) {
-  const existing = await getDocs(
-    query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId), where('userId', '==', applicantUid))
-  );
-  if (!existing.empty) return;
-
-  await addDoc(collection(db, 'applications'), {
-    jobFirestoreId, jobNumericId, userId: applicantUid, message: message ?? '',
-    status: 'new', source: 'applied', notes: [],
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-  });
-
-  await updateDoc(doc(db, 'jobs', jobFirestoreId), { applicants: arrayUnion(applicantUid) });
-}
-
-// ─── INTERVIEW SCHEDULER ──────────────────────────────────────────────────────
-
-export async function proposeInterviewSlots(data: {
-  applicationId: string;
-  recruiterUid: string;
-  recruiterName: string;
-  candidateUid: string;
-  candidateName: string;
-  jobTitle: string;
-  proposedSlots: { id: string; datetime: string; duration: number }[];
-  meetingLink?: string;
-  notes?: string;
-}) {
-  const ref = await addDoc(collection(db, 'interviews'), {
-    ...data,
-    status: 'pending',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  await addDoc(collection(db, 'notifications', data.candidateUid, 'items'), {
-    type: 'MESSAGE',
-    message: `${data.recruiterName} wants to schedule an interview with you for ${data.jobTitle}. Pick a time!`,
-    senderName: data.recruiterName,
-    recipientNumericId: null,
-    read: false,
-    relatedId: ref.id,
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
-}
-
-export async function fetchInterviewsForRecruiter(recruiterUid: string) {
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'interviews'), where('recruiterUid', '==', recruiterUid), orderBy('createdAt', 'desc'))
-    );
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch {
-    const snap = await getDocs(
-      query(collection(db, 'interviews'), where('recruiterUid', '==', recruiterUid))
-    );
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  }
-}
-
-export async function fetchInterviewsForCandidate(candidateUid: string) {
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'interviews'), where('candidateUid', '==', candidateUid), orderBy('createdAt', 'desc'))
-    );
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch {
-    const snap = await getDocs(
-      query(collection(db, 'interviews'), where('candidateUid', '==', candidateUid))
-    );
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  }
-}
-
-export async function confirmInterviewSlot(interviewId: string, slotId: string) {
-  const ref = doc(db, 'interviews', interviewId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const data = snap.data();
-  const confirmedSlot = data.proposedSlots?.find((s: any) => s.id === slotId);
-  if (!confirmedSlot) return;
-  await updateDoc(ref, { status: 'confirmed', confirmedSlot, updatedAt: serverTimestamp() });
-  await addDoc(collection(db, 'notifications', data.recruiterUid, 'items'), {
-    type: 'MESSAGE',
-    message: `${data.candidateName} confirmed their interview for ${data.jobTitle} on ${new Date(confirmedSlot.datetime).toLocaleDateString()}.`,
-    senderName: data.candidateName,
-    read: false,
-    createdAt: serverTimestamp(),
-  });
-}
-
-export async function cancelInterview(interviewId: string) {
-  await updateDoc(doc(db, 'interviews', interviewId), { status: 'cancelled', updatedAt: serverTimestamp() });
-}
-
-// ─── OUTREACH TEMPLATES ───────────────────────────────────────────────────────
-
-export async function fetchOutreachTemplates(recruiterUid: string) {
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'outreachTemplates', recruiterUid, 'templates'), orderBy('createdAt', 'desc'))
-    );
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch {
-    const snap = await getDocs(collection(db, 'outreachTemplates', recruiterUid, 'templates'));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  }
-}
-
-export async function saveOutreachTemplate(
-  recruiterUid: string,
-  template: { name: string; subject: string; body: string; category: string },
-  existingId?: string
-) {
-  if (existingId) {
-    await updateDoc(doc(db, 'outreachTemplates', recruiterUid, 'templates', existingId), {
-      ...template, updatedAt: serverTimestamp(),
-    });
-    return existingId;
-  }
-  const ref = await addDoc(collection(db, 'outreachTemplates', recruiterUid, 'templates'), {
-    ...template, usageCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-  });
-  return ref.id;
-}
-
-export async function deleteOutreachTemplate(recruiterUid: string, templateId: string) {
-  await deleteDoc(doc(db, 'outreachTemplates', recruiterUid, 'templates', templateId));
-}
-
-export async function incrementTemplateUsage(recruiterUid: string, templateId: string) {
-  await updateDoc(doc(db, 'outreachTemplates', recruiterUid, 'templates', templateId), {
-    usageCount: increment(1),
-  });
-}
-
-// ─── TALENT POOL ──────────────────────────────────────────────────────────────
-
-export async function fetchTalentPool(recruiterUid: string) {
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'talentPool', recruiterUid, 'candidates'), orderBy('savedAt', 'desc'))
-    );
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch {
-    const snap = await getDocs(collection(db, 'talentPool', recruiterUid, 'candidates'));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  }
-}
-
-export async function addToTalentPool(
-  recruiterUid: string,
-  candidate: {
-    userId: string; userName: string; userAvatar?: string; userHeadline?: string;
-    userLocation?: string; userSkills?: string[]; notes?: string; tags?: string[];
-    rating?: number; forRoles?: string[]; availability?: string;
-  }
-) {
-  const existing = await getDocs(
-    query(collection(db, 'talentPool', recruiterUid, 'candidates'), where('userId', '==', candidate.userId))
-  );
-  if (!existing.empty) return existing.docs[0].id;
-  const ref = await addDoc(collection(db, 'talentPool', recruiterUid, 'candidates'), {
-    ...candidate,
-    tags: candidate.tags ?? [], notes: candidate.notes ?? '',
-    rating: candidate.rating ?? 3, forRoles: candidate.forRoles ?? [],
-    savedAt: serverTimestamp(), updatedAt: serverTimestamp(),
-  });
-  return ref.id;
-}
-
-export async function removeFromTalentPool(recruiterUid: string, entryId: string) {
-  await deleteDoc(doc(db, 'talentPool', recruiterUid, 'candidates', entryId));
-}
-
-export async function updateTalentPoolEntry(
-  recruiterUid: string,
-  entryId: string,
-  updates: Partial<{ notes: string; tags: string[]; rating: number; forRoles: string[]; contactedAt: string }>
-) {
-  await updateDoc(doc(db, 'talentPool', recruiterUid, 'candidates', entryId), {
-    ...updates, updatedAt: serverTimestamp(),
-  });
-}
-
-// ─── PIPELINE ANALYTICS ───────────────────────────────────────────────────────
-
-export async function fetchPipelineAnalytics(recruiterUid: string) {
-  const jobsSnap = await getDocs(
-    query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterUid))
-  );
-  const jobIds = jobsSnap.docs.map(d => d.id);
-
-  if (jobIds.length === 0) {
-    return { totalApplications: 0, activeInPipeline: 0, hired: 0, rejected: 0, avgTimeToHire: 0, stageStats: [], sourceStats: [], recentActivity: [] };
-  }
-
-  const allApps: any[] = [];
-  for (let i = 0; i < jobIds.length; i += 10) {
-    const batch = jobIds.slice(i, i + 10);
-    const snap = await getDocs(query(collection(db, 'applications'), where('jobFirestoreId', 'in', batch)));
-    allApps.push(...snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }
-
-  const STAGES = ['applied', 'screening', 'challenge', 'interview', 'offer', 'hired'];
-  const STAGE_LABELS: Record<string, string> = { applied: 'Applied', screening: 'Screening', challenge: 'Challenge', interview: 'Interview', offer: 'Offer', hired: 'Hired' };
-  const stageStats = STAGES.map(stage => {
-    const inStage = allApps.filter(a => (a.stage ?? a.status ?? 'applied') === stage);
-    const avgDays = inStage.reduce((sum, a) => {
-      const entered = a.stageEnteredAt?.[stage]?.toDate?.() ?? a.createdAt?.toDate?.() ?? new Date();
-      return sum + (Date.now() - entered.getTime()) / (1000 * 60 * 60 * 24);
-    }, 0) / Math.max(inStage.length, 1);
-    return { stage, label: STAGE_LABELS[stage], count: inStage.length, avgDaysInStage: Math.min(avgDays, 99), dropOffRate: 0 };
-  });
-
-  const sources = ['applied', 'sourced', 'prove'] as const;
-  const SOURCE_LABELS = { applied: 'Direct Apply', sourced: 'Sourced', prove: 'Prove Challenge' };
-  const SOURCE_COLORS = { applied: 'text-blue-400 bg-blue-500/10 border-blue-500/20', sourced: 'text-amber-400 bg-amber-500/10 border-amber-500/20', prove: 'text-purple-400 bg-purple-500/10 border-purple-500/20' };
-  const sourceStats = sources.map(source => {
-    const group = allApps.filter(a => (a.source ?? 'applied') === source);
-    const advanced = group.filter(a => !['new', 'applied', 'rejected'].includes(a.status ?? ''));
-    return { source, label: SOURCE_LABELS[source], count: group.length, advancedCount: advanced.length, conversionRate: group.length > 0 ? Math.round((advanced.length / group.length) * 100) : 0, color: SOURCE_COLORS[source] };
-  }).filter(s => s.count > 0);
-
-  const hired = allApps.filter(a => a.status === 'hired');
-  const avgTimeToHire = hired.length > 0
-    ? Math.round(hired.reduce((sum, a) => {
-        const start = a.createdAt?.toDate?.() ?? new Date();
-        const end = a.hiredAt?.toDate?.() ?? new Date();
-        return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-      }, 0) / hired.length)
-    : 0;
-
-  const recentActivity = allApps
-    .filter(a => a.updatedAt)
-    .sort((a, b) => (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0))
-    .slice(0, 20)
-    .map(a => ({ date: a.updatedAt?.toDate?.()?.toISOString() ?? new Date().toISOString(), event: `Moved to ${a.status ?? 'applied'}`, candidateName: a.userName ?? 'A candidate' }));
-
-  return { totalApplications: allApps.length, activeInPipeline: allApps.filter(a => !['rejected', 'hired'].includes(a.status ?? '')).length, hired: hired.length, rejected: allApps.filter(a => a.status === 'rejected').length, avgTimeToHire, stageStats, sourceStats, recentActivity };
-}
-
-// ─── CULTURE FIT — fetch applicants with full profiles ────────────────────────
-
-export async function fetchApplicantsWithProfiles(jobFirestoreId: string) {
-  const snap = await getDocs(
-    query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId))
-  );
-  return Promise.all(snap.docs.map(async d => {
-    const data = d.data();
-    let profile: any = {};
-    try {
-      const userSnap = await getDoc(doc(db, 'users', data.userId));
-      if (userSnap.exists()) {
-        const u = userSnap.data();
-        profile = { workStyle: u.workStyle, values: u.values ?? [], skills: u.skills?.map((s: any) => s.name ?? s) ?? [], userName: u.displayName ?? '', userAvatar: u.photoURL ?? '', userHeadline: u.headline ?? '', userLocation: u.location ?? '' };
-      }
-    } catch {}
-    return { id: d.id, userId: data.userId, ...profile };
-  }));
-}
-
-// ─── COMPANY VERIFICATION ─────────────────────────────────────────────────────
-
-/** Get a company doc by its Firestore ID */
-export async function getCompanyById(firestoreId: string) {
-  const snap = await getDoc(doc(db, 'companies', firestoreId));
-  if (!snap.exists()) return null;
-  return { _firestoreId: snap.id, ...snap.data() } as any;
-}
-
-/** Get company where this uid is admin or verified recruiter */
-export async function getCompanyForRecruiter(uid: string): Promise<any | null> {
-  // Check if admin
-  try {
-    const adminSnap = await getDocs(
-      query(collection(db, 'companies'), where('adminUid', '==', uid))
-    );
-    if (!adminSnap.empty) {
-      const d = adminSnap.docs[0];
-      return { _firestoreId: d.id, ...d.data() };
-    }
-    // Check if in verifiedRecruiters array
-    const memberSnap = await getDocs(
-      query(collection(db, 'companies'), where('verifiedRecruiters', 'array-contains', uid))
-    );
-    if (!memberSnap.empty) {
-      const d = memberSnap.docs[0];
-      return { _firestoreId: d.id, ...d.data() };
-    }
-  } catch {}
-  return null;
-}
-
-/** Create a company and set this uid as admin */
-export async function createCompanyWithAdmin(
-  adminUid: string,
-  adminName: string,
-  companyData: { name: string; description?: string; industry?: string; website?: string }
-) {
-  const numericId = Date.now();
-  const ref = await addDoc(collection(db, 'companies'), {
-    numericId,
-    adminUid,
-    verifiedRecruiters: [adminUid],
-    verificationStatus: 'verified',
-    name: companyData.name,
-    description: companyData.description ?? '',
-    industry: companyData.industry ?? '',
-    logoUrl: '',
-    website: companyData.website ?? '',
-    createdAt: serverTimestamp(),
-  });
-  // Mark user as verified for this company
-  await updateDoc(doc(db, 'users', adminUid), {
-    verifiedCompanyIds: arrayUnion(ref.id),
-    updatedAt: serverTimestamp(),
-  });
-  return { _firestoreId: ref.id, id: numericId, adminUid, name: companyData.name };
-}
-
-/** Generate a one-time invite code for a company (admin only) */
-export async function generateInviteCode(
-  companyFirestoreId: string,
-  adminUid: string,
-  forEmail?: string
-): Promise<string> {
-  const companyRef = doc(db, 'companies', companyFirestoreId);
-  const snap = await getDoc(companyRef);
-  if (!snap.exists() || snap.data().adminUid !== adminUid) {
-    throw new Error('Only the company admin can generate invite codes.');
-  }
-  // Generate a short readable code
-  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-  await updateDoc(companyRef, {
-    pendingInvites: arrayUnion({
-      code,
-      forEmail: forEmail ?? null,
-      expiresAt: expiresAt.toISOString(),
-      createdAt: new Date().toISOString(),
-      usedBy: null,
-    }),
-  });
-  return code;
-}
-
-/** Redeem an invite code — adds uid to verifiedRecruiters */
-export async function redeemInviteCode(
-  uid: string,
-  code: string
-): Promise<{ success: boolean; companyName?: string; error?: string }> {
-  // Search all companies for this code
-  const snap = await getDocs(collection(db, 'companies'));
-  for (const d of snap.docs) {
-    const data = d.data();
-    const invites: any[] = data.pendingInvites ?? [];
-    const invite = invites.find(
-      i => i.code === code.toUpperCase() && !i.usedBy && new Date(i.expiresAt) > new Date()
-    );
-    if (invite) {
-      // Mark code as used and add recruiter
-      const updatedInvites = invites.map(i =>
-        i.code === invite.code ? { ...i, usedBy: uid, usedAt: new Date().toISOString() } : i
-      );
-      await updateDoc(doc(db, 'companies', d.id), {
-        pendingInvites: updatedInvites,
-        verifiedRecruiters: arrayUnion(uid),
-      });
-      // Mark on user profile
-      await updateDoc(doc(db, 'users', uid), {
-        verifiedCompanyIds: arrayUnion(d.id),
-        updatedAt: serverTimestamp(),
-      });
-      return { success: true, companyName: data.name };
-    }
-  }
-  return { success: false, error: 'Code not found, already used, or expired.' };
-}
-
-/** Create a job — sets verificationStatus based on whether recruiter is verified */
-export async function createVerifiedJob(
-  job: Omit<Job, 'id'>,
-  recruiterUid: string,
-  companyFirestoreId: string
-): Promise<Job & { verificationStatus: string }> {
-  const numericId = Date.now();
-  // Check if recruiter is verified for this company
-  const companySnap = await getDoc(doc(db, 'companies', companyFirestoreId));
-  const isVerified = companySnap.exists() &&
-    (companySnap.data().verifiedRecruiters ?? []).includes(recruiterUid);
-
-  const verificationStatus = isVerified ? 'live' : 'pending_verification';
-
-  await addDoc(collection(db, 'jobs'), {
-    ...job,
-    numericId,
-    recruiterUid,
-    companyFirestoreId,
-    verificationStatus,
-    applicants: [],
-    createdAt: serverTimestamp(),
-  });
-  return { ...job, id: numericId, verificationStatus };
-}
-
-/** Fetch only live (verified) jobs for the public feed */
-export async function fetchVerifiedJobs(): Promise<Job[]> {
-  const mapJob = (d: any) => {
-    const data = d.data();
-    return { ...data, id: data.numericId, _firestoreId: d.id } as Job & { _firestoreId: string };
-  };
-  try {
-    // Only jobs that are Active AND live (verified)
-    const snap = await getDocs(
-      query(collection(db, 'jobs'),
-        where('status', '==', 'Active'),
-        where('verificationStatus', '==', 'live'),
-        orderBy('createdAt', 'desc'))
-    );
-    return snap.docs.map(mapJob);
-  } catch {
-    // Fallback without compound index — filter client-side
-    try {
-      const snap = await getDocs(
-        query(collection(db, 'jobs'), where('status', '==', 'Active'))
-      );
-      return snap.docs.map(mapJob).filter((j: any) =>
-        !j.verificationStatus || j.verificationStatus === 'live'
-      );
-    } catch {
-      const snap = await getDocs(collection(db, 'jobs'));
-      return snap.docs.map(mapJob).filter((j: any) =>
-        j.status === 'Active' && (!j.verificationStatus || j.verificationStatus === 'live')
-      );
-    }
-  }
-}
-
-/** Update company profile (admin only) */
-export async function updateCompanyProfile(
-  companyFirestoreId: string,
-  adminUid: string,
-  updates: Partial<{ name: string; description: string; industry: string; website: string; logoUrl: string }>
-) {
-  const companyRef = doc(db, 'companies', companyFirestoreId);
-  const snap = await getDoc(companyRef);
-  if (!snap.exists() || snap.data().adminUid !== adminUid) {
-    throw new Error('Only the company admin can update this company.');
-  }
-  await updateDoc(companyRef, { ...updates, updatedAt: serverTimestamp() });
-}
-
-/** Remove a recruiter from a company (admin only) */
-export async function removeRecruiterFromCompany(
-  companyFirestoreId: string,
-  adminUid: string,
-  recruiterUid: string
-) {
-  const companyRef = doc(db, 'companies', companyFirestoreId);
-  const snap = await getDoc(companyRef);
-  if (!snap.exists() || snap.data().adminUid !== adminUid) {
-    throw new Error('Only the company admin can remove recruiters.');
-  }
-  await updateDoc(companyRef, {
-    verifiedRecruiters: arrayRemove(recruiterUid),
-    updatedAt: serverTimestamp(),
-  });
-  await updateDoc(doc(db, 'users', recruiterUid), {
-    verifiedCompanyIds: arrayRemove(companyFirestoreId),
-    updatedAt: serverTimestamp(),
-  });
-}
-
