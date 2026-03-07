@@ -66,6 +66,8 @@ export interface User {
   privacySettings?: PrivacySettings;
   followersCount?: number;
   followingCount?: number;
+  followingCompanies?: string[]; // firestoreIds
+  _firestoreUid?: string;
 }
 
 export interface PrivacySettings {
@@ -236,6 +238,67 @@ export interface MicroLesson {
   completedSteps?: number[]; // indices the viewer has checked
   // universal
   sparkedByIds: number[];
+  createdAt: string;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SKILL CHALLENGES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SubmissionStatus =
+  | 'submitted'
+  | 'under_review'
+  | 'scored'
+  | 'shortlisted'
+  | 'invited'
+  | 'not_selected';
+
+export type SubmissionFormat = 'text' | 'url' | 'file' | 'video';
+
+export interface ScoringCriterion {
+  label: string;
+  weight: number; // percentage out of 100
+  description?: string;
+}
+
+export interface ChallengeSubmission {
+  id: string;
+  challengeId: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  content: string;
+  format: SubmissionFormat;
+  score: number | null;
+  feedback: string | null;
+  isShortlisted: boolean;
+  status: SubmissionStatus;
+  submittedAt: string;
+}
+
+export interface SkillChallenge {
+  id: string;
+  title: string;
+  description: string;
+  instructions: string;
+  companyId?: string;
+  companyName: string;
+  companyLogoUrl?: string;
+  recruiterId: string;
+  targetedSkill: string;        // primary skill this tests
+  skills: string[];             // all required skills
+  difficulty: 'entry' | 'mid' | 'senior';
+  type: 'code' | 'design' | 'strategy' | 'writing' | 'data';
+  timeLimit: number;            // minutes
+  dueDate?: string;             // ISO — alternative to timeLimit
+  submissionFormat: SubmissionFormat;
+  scoringRubric: ScoringCriterion[];
+  linkedJobId?: string;         // optional linked job
+  reward: { credits: number; badge: string; visibility: boolean };
+  expiresAt: string;
+  submissionCount: number;
+  isActive: boolean;
   createdAt: string;
 }
 
