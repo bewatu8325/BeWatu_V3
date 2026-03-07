@@ -28,10 +28,10 @@ const proficiencyWidth = {
 };
 
 const StatItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number; valueClassName: string }> = ({ icon, label, value, valueClassName }) => (
-    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-center">
-        <div className="flex justify-center items-center mb-1 text-slate-400">{icon}</div>
+    <div className="bg-stone-50/50 p-3 rounded-lg border border-stone-200 text-center">
+        <div className="flex justify-center items-center mb-1 text-stone-500">{icon}</div>
         <p className={`text-xl font-bold ${valueClassName}`}>{value}</p>
-        <p className="text-xs text-slate-500">{label}</p>
+        <p className="text-xs text-stone-500">{label}</p>
     </div>
 );
 
@@ -107,7 +107,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <div className="lg:col-span-4 space-y-6">
         {/* Profile Info Tile */}
-        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6 text-center">
+        <div className="bg-white/50 rounded-xl border border-stone-200 p-6 text-center">
           {/* Avatar with upload */}
           <div className="relative w-24 h-24 mx-auto mb-4">
             {/* Hidden file input */}
@@ -130,7 +130,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               <img
                 src={localAvatarUrl || user.avatarUrl}
                 alt={user.name}
-                className="rounded-full border-4 border-slate-700 object-cover h-24 w-24 shadow-lg shadow-cyan-500/10 transition-opacity"
+                className="rounded-full border-4 border-stone-200 object-cover h-24 w-24 shadow-lg shadow-cyan-500/10 transition-opacity"
                 style={{ opacity: avatarUploading ? 0.5 : 1 }}
                 onError={e => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0e7490&color=fff&size=96`; }}
               />
@@ -145,7 +145,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               {/* Upload progress spinner */}
               {avatarUploading && (
                 <div className="absolute inset-0 rounded-full flex flex-col items-center justify-center bg-black/60">
-                  <svg className="h-7 w-7 animate-spin text-cyan-400" viewBox="0 0 24 24" fill="none">
+                  <svg className="h-7 w-7 animate-spin text-[#1a6b52]" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
@@ -159,18 +159,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               user.microIntroductionUrl ? (
                 <button
                   onClick={() => onPlayVideo(user.microIntroductionUrl!)}
-                  className="absolute bottom-0 right-0 bg-cyan-500 p-1.5 rounded-full border-2 border-slate-800 hover:bg-cyan-400 transition-colors"
+                  className="absolute bottom-0 right-0 bg-[#1a4a3a] p-1.5 rounded-full border-2 border-stone-200 hover:bg-[#1a6b52] transition-colors"
                   title={t('playMicroIntro')}
                 >
-                  <PlayIcon className="w-4 h-4 text-slate-900" />
+                  <PlayIcon className="w-4 h-4 text-stone-900" />
                 </button>
               ) : isCurrentUser ? (
                 <button
                   onClick={e => { e.stopPropagation(); onRecordVideo(); }}
-                  className="absolute bottom-0 right-0 bg-slate-700 p-1.5 rounded-full border-2 border-slate-800 hover:bg-slate-600 transition-colors"
+                  className="absolute bottom-0 right-0 bg-stone-100 p-1.5 rounded-full border-2 border-stone-200 hover:bg-stone-200 transition-colors"
                   title={t('recordMicroIntro')}
                 >
-                  <CameraIcon className="w-4 h-4 text-slate-300" />
+                  <CameraIcon className="w-4 h-4 text-stone-700" />
                 </button>
               ) : null
             )}
@@ -182,20 +182,20 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               {avatarError ? (
                 <p className="text-xs text-red-400 text-center">{avatarError}</p>
               ) : (
-                <p className="text-xs text-slate-500 text-center">Click photo to change</p>
+                <p className="text-xs text-stone-500 text-center">Click photo to change</p>
               )}
             </div>
           )}
           <div className="flex items-center justify-center space-x-2">
-            <h2 className="font-bold text-xl text-slate-100">{user.name}</h2>
-            {user.isVerified && <VerifiedIcon className="w-5 h-5 text-cyan-400" title="Verified Work Email" />}
+            <h2 className="font-bold text-xl text-stone-900">{user.name}</h2>
+            {user.isVerified && <VerifiedIcon className="w-5 h-5 text-[#1a6b52]" title="Verified Work Email" />}
           </div>
-          <p className="text-sm text-slate-400 mt-1">{user.headline}</p>
-          <p className="text-slate-300 text-sm mt-4">{user.bio}</p>
+          <p className="text-sm text-stone-500 mt-1">{user.headline}</p>
+          <p className="text-stone-700 text-sm mt-4">{user.bio}</p>
           {isCurrentUser && (
             <button 
                 onClick={() => onNavigate(View.AIChat)}
-                className="mt-4 w-full bg-cyan-500 text-slate-900 font-semibold px-4 py-2 rounded-lg hover:bg-cyan-400 transition-colors text-sm flex items-center justify-center"
+                className="mt-4 w-full bg-[#1a4a3a] text-stone-900 font-semibold px-4 py-2 rounded-lg hover:bg-[#1a6b52] transition-colors text-sm flex items-center justify-center"
             >
                 <BotIcon className="w-5 h-5 mr-2" />
                 {t('aiChat')} with Be
@@ -204,35 +204,35 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         </div>
 
         {/* Stats Tile */}
-         <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+         <div className="bg-white/50 rounded-xl border border-stone-200 p-4">
               <div className="grid grid-cols-3 gap-2">
                    <StatItem icon={<ShieldCheckIcon className="w-5 h-5" />} label={t('reputation')} value={user.reputation} valueClassName="text-green-400" />
                    <StatItem icon={<CoinsIcon className="w-5 h-5" />} label="Credits" value={user.credits} valueClassName="text-yellow-400" />
-                   <StatItem icon={<UsersIcon className="w-5 h-5" />} label="Connections" value={connectionCount} valueClassName="text-cyan-400" />
+                   <StatItem icon={<UsersIcon className="w-5 h-5" />} label="Connections" value={connectionCount} valueClassName="text-[#1a6b52]" />
               </div>
          </div>
       </div>
 
       <div className="lg:col-span-8 space-y-6">
         {/* Skills Tile */}
-        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
+        <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
               {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
                   <div>
-                      <h3 className="font-semibold text-slate-200 text-md mb-3 text-center flex items-center justify-center">
-                          <VerifiedIcon className="w-5 h-5 mr-2 text-cyan-400" />
+                      <h3 className="font-semibold text-stone-800 text-md mb-3 text-center flex items-center justify-center">
+                          <VerifiedIcon className="w-5 h-5 mr-2 text-[#1a6b52]" />
                           {t('verifiedSkills')}
                       </h3>
                       <div className="space-y-3">
                           {user.verifiedSkills.map(skill => (
                               <div key={skill.name} className="group relative">
                                   <div className="flex justify-between items-center mb-1">
-                                      <p className="text-sm font-medium text-slate-300">{skill.name}</p>
-                                      <p className="text-xs text-slate-400">{skill.proficiency}</p>
+                                      <p className="text-sm font-medium text-stone-700">{skill.name}</p>
+                                      <p className="text-xs text-stone-500">{skill.proficiency}</p>
                                   </div>
-                                  <div className="w-full bg-slate-700 rounded-full h-1.5">
-                                      <div className={`bg-cyan-500 h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`}></div>
+                                  <div className="w-full bg-stone-100 rounded-full h-1.5">
+                                      <div className={`bg-[#1a4a3a] h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`}></div>
                                   </div>
-                                  <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-slate-900 border border-slate-600 rounded-md text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                  <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-stone-50 border border-stone-200 rounded-md text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                                       <span className="font-bold">{t('evidence')}</span> {skill.evidence}
                                   </div>
                               </div>
@@ -241,17 +241,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                   </div>
               ) : (
                   <div className="text-center">
-                      <h3 className="font-semibold text-slate-200 text-md mb-2">{t('topSkills')}</h3>
+                      <h3 className="font-semibold text-stone-800 text-md mb-2">{t('topSkills')}</h3>
                       <div className="flex flex-wrap gap-2 justify-center">
                           {user.skills?.map(skill => (
-                              <div key={skill.name} className="flex items-center text-sm bg-cyan-900/50 text-cyan-300 rounded-full px-3 py-1 font-medium border border-cyan-500/20">
+                              <div key={skill.name} className="flex items-center text-sm bg-[#e8f4f0]/50 text-[#1a6b52] rounded-full px-3 py-1 font-medium border border-[#1a4a3a]/20">
                                   {skill.name}
-                                  <span className="ml-1.5 text-cyan-200 font-semibold">{skill.endorsements}</span>
+                                  <span className="ml-1.5 text-[#1a6b52] font-semibold">{skill.endorsements}</span>
                               </div>
                           ))}
                       </div>
                       {isCurrentUser && (
-                        <button onClick={onGenerateSkills} className="mt-4 w-full bg-cyan-500/10 text-cyan-300 font-semibold px-4 py-2 rounded-lg hover:bg-cyan-500/20 transition-colors text-sm flex items-center justify-center border border-cyan-500/20">
+                        <button onClick={onGenerateSkills} className="mt-4 w-full bg-[#1a4a3a]/10 text-[#1a6b52] font-semibold px-4 py-2 rounded-lg hover:bg-[#1a4a3a]/20 transition-colors text-sm flex items-center justify-center border border-[#1a4a3a]/20">
                             <SparklesIcon className="w-4 h-4 mr-2" />
                             {t('generateVerifiedSkills')}
                         </button>
@@ -269,8 +269,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         
         {/* Circles Tile */}
         {userCircles.length > 0 && (
-          <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
-              <h3 className="font-semibold text-slate-200 text-md mb-4 flex items-center justify-center">
+          <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
+              <h3 className="font-semibold text-stone-800 text-md mb-4 flex items-center justify-center">
                   <CirclesIcon className="w-5 h-5 mr-2 text-purple-400"/>
                   {t('myCircles')}
               </h3>
@@ -292,20 +292,20 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 
         {/* Security Settings */}
         {isCurrentUser && (
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
-                <h3 className="font-semibold text-slate-200 text-md mb-4">{t('securitySettings')}</h3>
+            <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
+                <h3 className="font-semibold text-stone-800 text-md mb-4">{t('securitySettings')}</h3>
                 <form onSubmit={handlePasswordChangeSubmit} className="space-y-4 max-w-sm">
                     <div>
-                        <label className="text-sm text-slate-400 font-medium mb-1 block">{t('newPassword')}</label>
-                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 bg-slate-700 text-slate-200 border border-slate-600 rounded-md" placeholder="••••••••"/>
+                        <label className="text-sm text-stone-500 font-medium mb-1 block">{t('newPassword')}</label>
+                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 bg-stone-100 text-stone-800 border border-stone-200 rounded-md" placeholder="••••••••"/>
                     </div>
                     <div>
-                        <label className="text-sm text-slate-400 font-medium mb-1 block">{t('confirmNewPassword')}</label>
-                        <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-2 bg-slate-700 text-slate-200 border border-slate-600 rounded-md" placeholder="••••••••"/>
+                        <label className="text-sm text-stone-500 font-medium mb-1 block">{t('confirmNewPassword')}</label>
+                        <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-2 bg-stone-100 text-stone-800 border border-stone-200 rounded-md" placeholder="••••••••"/>
                     </div>
                     {passwordError && <p className="text-red-400 text-sm">{passwordError}</p>}
                     <div className="flex justify-end">
-                        <button type="submit" className="bg-cyan-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-cyan-500 transition-colors">
+                        <button type="submit" className="bg-[#1a4a3a] text-white font-semibold px-4 py-2 rounded-lg hover:bg-[#1a4a3a] transition-colors">
                             {t('changePassword')}
                         </button>
                     </div>
