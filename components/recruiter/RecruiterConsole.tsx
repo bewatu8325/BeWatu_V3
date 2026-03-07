@@ -252,7 +252,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
                   <button
                     type="submit"
                     disabled={isSearching || !isTrialActive}
-                    className="bg-emerald-600 text-white font-semibold px-6 py-2 rounded-lg hover:opacity-90 transition-colors disabled:bg-cyan-800 disabled:text-stone-400 flex items-center justify-center"
+                    className="bg-emerald-600 text-white font-semibold px-6 py-2 rounded-lg hover:opacity-90 transition-colors disabled:bg-stone-300 disabled:text-stone-400 flex items-center justify-center"
                   >
                     {isSearching ? <LoadingIcon className="w-5 h-5 animate-spin" /> : <SearchIcon className="w-5 h-5" />}
                     <span className="ml-2 hidden sm:inline">Search</span>
