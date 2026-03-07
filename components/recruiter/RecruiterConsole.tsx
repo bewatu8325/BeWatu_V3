@@ -14,6 +14,11 @@ import {
   schedulePipelineInterview,
   rejectPipelineCandidate,
 } from '../../lib/firestoreService';
+import InterviewScheduler from './InterviewScheduler';
+import OutreachTemplates from './OutreachTemplates';
+import PipelineAnalytics from './PipelineAnalytics';
+import TalentPool from './TalentPool';
+import CultureFitScore from './CultureFitScore';
 import Footer from '../Footer';
 import ManageJobsView from '../ManageJobsView';
 import ApplicantInbox from './ApplicantInbox';
@@ -35,7 +40,7 @@ interface RecruiterConsoleProps {
   onViewProfile?: (userId: number) => void;
 }
 
-type RecruiterView = 'dashboard' | 'inbox' | 'pipelines' | 'analytics' | 'manage_jobs';
+type RecruiterView = 'dashboard' | 'inbox' | 'pipelines' | 'interviews' | 'templates' | 'culture_fit' | 'pipeline_analytics' | 'talent_pool' | 'analytics' | 'manage_jobs';
 
 const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const {
@@ -273,6 +278,21 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
       case 'inbox':
         return <ApplicantInbox onViewProfile={onViewProfile} />;
 
+      case 'interviews':
+        return <InterviewScheduler />;
+
+      case 'templates':
+        return <OutreachTemplates />;
+
+      case 'culture_fit':
+        return <CultureFitScore />;
+
+      case 'pipeline_analytics':
+        return <PipelineAnalytics />;
+
+      case 'talent_pool':
+        return <TalentPool onViewProfile={onViewProfile} />;
+
       case 'analytics':
         return <DEIDashboard />;
 
@@ -333,11 +353,26 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
       <main className="container mx-auto px-4 sm:px-6 py-8 flex-grow">
         <div className="flex items-center justify-between mb-6">
           <nav className="flex items-center space-x-2 p-1 bg-slate-800/50 border border-slate-700 rounded-lg">
-            <NavItem label="Dashboard" view="dashboard" />
-            <NavItem label="Applicant Inbox" view="inbox" />
-            <NavItem label="Talent Pipelines" view="pipelines" />
-            <NavItem label="Manage Jobs" view="manage_jobs" />
-            <NavItem label="Equity Analytics" view="analytics" />
+            <div className="flex items-center gap-1">
+              <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 hidden sm:block">Find</span>
+              <NavItem label="AI Search" view="dashboard" />
+              <NavItem label="Inbox" view="inbox" />
+            </div>
+            <div className="h-5 w-px bg-slate-700 hidden sm:block" />
+            <div className="flex items-center gap-1">
+              <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 hidden sm:block">Manage</span>
+              <NavItem label="Pipeline" view="pipelines" />
+              <NavItem label="Interviews" view="interviews" />
+              <NavItem label="Jobs" view="manage_jobs" />
+            </div>
+            <div className="h-5 w-px bg-slate-700 hidden sm:block" />
+            <div className="flex items-center gap-1">
+              <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 hidden sm:block">Insights</span>
+              <NavItem label="Culture Fit" view="culture_fit" />
+              <NavItem label="Analytics" view="pipeline_analytics" />
+              <NavItem label="Talent Pool" view="talent_pool" />
+              <NavItem label="Templates" view="templates" />
+            </div>
           </nav>
         </div>
         {renderContent()}
