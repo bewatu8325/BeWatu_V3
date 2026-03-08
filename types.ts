@@ -431,9 +431,65 @@ export interface ReputationProfile {
   lastComputedAt: string;        // ISO string
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 2 — IDEA NETWORK
+// Append these to types.ts (after the Sprint 1 additions)
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * View enum additions — add these to the existing View enum in types.ts
- * (shown separately here for clarity)
+ * An Idea is a structured problem artifact — not a social post.
+ * It has a lifecycle: seed → developing → arena_ready → in_progress → shipped.
  *
- * Trust = 'TRUST'  — future Trust Graph visualisation view
+ * Firestore path: ideas/{ideaId}
  */
+export type IdeaStage =
+  | 'seed'          // just posted, seeking reaction
+  | 'developing'    // active discussion, taking shape (5+ sparks)
+  | 'arena_ready'   // community voted it ready for a live Arena (15+ sparks)
+  | 'in_progress'   // an Arena is running on this idea
+  | 'shipped'       // became a real thing
+  | 'archived';     // no longer active
+
+export type IdeaDomain =
+  | 'Frontend' | 'Backend' | 'Data' | 'Design'
+  | 'DevOps' | 'Product' | 'AI/ML' | 'Leadership' | 'Other';
+
+export interface IdeaComment {
+  id: string;
+  authorUid: string;
+  authorName: string;
+  authorAvatar: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface Idea {
+  id?: string;                   // Firestore doc ID
+  authorUid: string;
+  authorName: string;
+  authorAvatar: string;
+  title: string;
+  body: string;                  // the problem statement or hypothesis
+  domain: IdeaDomain;
+  stage: IdeaStage;
+
+  // Engagement
+  sparkCount: number;            // total sparks (denormalized for sorting)
+  sparkedByUids: string[];       // who sparked it
+  commentCount: number;
+
+  // Lineage
+  podId?: number;                // Circle/Pod this was posted in (optional)
+  parentIdeaId?: string;         // if this is a fork
+  forkCount: number;
+
+  // Pipeline connections
+  connectedArenaId?: string;     // Arena spawned from this idea
+  connectedChallengeId?: string; // Challenge linked to this idea
+
+  createdAt: string;             // ISO string
+  updatedAt: string;
+}
+
+// Add to the View enum in types.ts:
+// Ideas = 'IDEAS'
