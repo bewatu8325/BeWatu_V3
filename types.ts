@@ -16,8 +16,8 @@ export interface Project {
     description: string;
     technologies: string[];
     url: string;
-    outcome: string; // Measurable outcome, e.g., "Increased user engagement by 15%"
-    aiGeneratedSummary: string; // AI summary of skills demonstrated
+    outcome: string;
+    aiGeneratedSummary: string;
 }
 
 export interface VerifiedAchievement {
@@ -48,16 +48,12 @@ export interface User {
   stripeCustomerId?: string;
   phone?: string;
   isVerified: boolean;
-  
-  // Proof of work
   portfolio: Project[];
   verifiedAchievements: VerifiedAchievement[];
   thirdPartyIntegrations: ThirdPartyIntegration[];
   workStyle: WorkStyle;
   values: string[];
   availability: 'Immediate' | '2 weeks notice' | 'Exploring opportunities';
-
-  // Legacy skills - can be deprecated or used for keyword matching
   skills: { name: string; endorsements: number }[];
   verifiedSkills: VerifiedSkill[] | null;
   microIntroductionUrl: string | null;
@@ -67,14 +63,14 @@ export interface User {
   privacySettings?: PrivacySettings;
   followersCount?: number;
   followingCount?: number;
-  followingCompanies?: string[]; // firestoreIds
+  followingCompanies?: string[];
   _firestoreUid?: string;
 }
 
 export interface PrivacySettings {
-  allowConnectionRequests: boolean;   // others can send connect requests
-  allowFollow: boolean;               // others can follow without connecting
-  visibleToRecruiters: boolean;       // profile shows in recruiter searches
+  allowConnectionRequests: boolean;
+  allowFollow: boolean;
+  visibleToRecruiters: boolean;
   profileVisibility: 'public' | 'connections' | 'private';
 }
 
@@ -90,9 +86,9 @@ export interface Experience {
   role: string;
   company: string;
   startDate: string;
-  endDate: string;   // 'Present' for current
-  outcomes: string[];     // bullet points focused on impact
-  metrics?: string;       // e.g. "↑ 40% conversion, $2M ARR"
+  endDate: string;
+  outcomes: string[];
+  metrics?: string;
   skills?: string[];
 }
 
@@ -122,7 +118,7 @@ export interface Company {
   logoUrl: string;
   website: string;
   adminUid?: string;
-  verifiedRecruiters?: string[];  // firebase UIDs
+  verifiedRecruiters?: string[];
   verificationStatus?: 'unverified' | 'pending' | 'verified';
 }
 
@@ -135,10 +131,10 @@ export interface Job {
   type: 'Full-time' | 'Contract' | 'Internship' | 'Remote';
   experienceLevel: 'Entry-level' | 'Mid-level' | 'Senior-level';
   status: 'Active' | 'Suspended';
-  verificationStatus?: 'pending_verification' | 'live' | 'hidden';  // set by system
+  verificationStatus?: 'pending_verification' | 'live' | 'hidden';
   recruiterId: number;
-  liveDate: string; // ISO 8601 format date string e.g. "2024-08-01"
-  expiryDate: string; // ISO 8601 format date string e.g. "2024-09-01"
+  liveDate: string;
+  expiryDate: string;
 }
 
 export interface Message {
@@ -154,12 +150,12 @@ export type NotificationType = 'MESSAGE' | 'ENDORSEMENT' | 'CONNECTION_REQUEST' 
 
 export interface Notification {
   id: number;
-  userId: number; // The user who should receive the notification
+  userId: number;
   type: NotificationType;
   text: string;
   read: boolean;
   timestamp: string;
-  relatedId?: number; // e.g., ID of the connection request
+  relatedId?: number;
 }
 
 export interface ConnectionRequest {
@@ -199,23 +195,18 @@ export interface AppData {
   articles: Article[];
 }
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PEER LEARNING
-// ─────────────────────────────────────────────────────────────────────────────
-
 export type LessonFormat = 'text' | 'video' | 'link' | 'checklist';
 
 export interface LearnRequest {
   id: string;
   circleId: number;
   authorId: number;
-  skill: string;           // "How do I negotiate salary?"
-  context?: string;        // optional why/goals
+  skill: string;
+  context?: string;
   status: 'open' | 'complete';
   completedAt?: string;
   lessonCount: number;
-  sparkedByIds: number[];  // users who sparked the whole request
+  sparkedByIds: number[];
   createdAt: string;
 }
 
@@ -225,27 +216,17 @@ export interface MicroLesson {
   circleId: number;
   authorId: number;
   format: LessonFormat;
-  // text tip
   body?: string;
-  // video clip
   videoUrl?: string;
   videoDurationSec?: number;
-  // resource link
   linkUrl?: string;
   linkTitle?: string;
   linkDescription?: string;
-  // checklist
   steps?: string[];
-  completedSteps?: number[]; // indices the viewer has checked
-  // universal
+  completedSteps?: number[];
   sparkedByIds: number[];
   createdAt: string;
 }
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SKILL CHALLENGES
-// ─────────────────────────────────────────────────────────────────────────────
 
 export type SubmissionStatus =
   | 'submitted'
@@ -259,7 +240,7 @@ export type SubmissionFormat = 'text' | 'url' | 'file' | 'video';
 
 export interface ScoringCriterion {
   label: string;
-  weight: number; // percentage out of 100
+  weight: number;
   description?: string;
 }
 
@@ -287,15 +268,15 @@ export interface SkillChallenge {
   companyName: string;
   companyLogoUrl?: string;
   recruiterId: string;
-  targetedSkill: string;        // primary skill this tests
-  skills: string[];             // all required skills
+  targetedSkill: string;
+  skills: string[];
   difficulty: 'entry' | 'mid' | 'senior';
   type: 'code' | 'design' | 'strategy' | 'writing' | 'data';
-  timeLimit: number;            // minutes
-  dueDate?: string;             // ISO — alternative to timeLimit
+  timeLimit: number;
+  dueDate?: string;
   submissionFormat: SubmissionFormat;
   scoringRubric: ScoringCriterion[];
-  linkedJobId?: string;         // optional linked job
+  linkedJobId?: string;
   reward: { credits: number; badge: string; visibility: boolean };
   expiresAt: string;
   submissionCount: number;
@@ -312,29 +293,30 @@ export interface CandidateSearchResult {
         cultureFitAnalysis: string;
         personalityMarkers: string[];
         predictiveScores: {
-            roleFit: number; // 0-100
-            cultureFit: number; // 0-100
-            mutualSuccessPotential: number; // 0-100
+            roleFit: number;
+            cultureFit: number;
+            mutualSuccessPotential: number;
         };
         interviewQuestions: string[];
     };
 }
+
 export enum View {
  Feed = 'FEED',
  People = 'PEOPLE',
  Circles = 'CIRCLES',
  Jobs = 'JOBS',
  Messaging = 'MESSAGING',
- Prove = 'PROVE',          // <-- add this
+ Prove = 'PROVE',
  AIChat = 'AICHAT',
  Profile = 'PROFILE',
  RecruiterConsole = 'RECRUITER_CONSOLE',
  Connections = 'CONNECTIONS',
+ Ideas = 'IDEAS',
 }
 
 export type Language = 'en' | 'es';
 
-// FIX: Added missing types that were used in legacy/mock components.
 export enum FeedItemType {
   ARTICLE = 'ARTICLE',
   POST = 'POST',
@@ -376,79 +358,58 @@ export interface FeedItem {
     comments: number;
     timestamp: string;
 }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SPRINT 1 — TRUST INFRASTRUCTURE + REPUTATION GRAPH
-// Add these to the bottom of types.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * A directed, domain-specific trust signal generated automatically from
- * real interactions — never assigned manually.
- *
- * Firestore path: trust_edges/{edgeId}
- */
 export type TrustEvidenceType =
-  | 'challenge_review'      // recruiter/reviewer scored a challenge submission
-  | 'challenge_submission'  // completed a scored challenge (score >= threshold)
-  | 'peer_learning'         // created a micro-lesson in a pod
-  | 'skill_endorsement'     // endorsed a specific skill (via SkillDNA)
-  | 'verified_achievement'  // verified another user's achievement
-  | 'vouched';              // explicit domain vouch (future: manual)
+  | 'challenge_review'
+  | 'challenge_submission'
+  | 'peer_learning'
+  | 'skill_endorsement'
+  | 'verified_achievement'
+  | 'vouched';
 
 export interface TrustEdge {
-  id?: string;              // Firestore doc ID
-  fromUid: string;          // who extends trust
-  toUid: string;            // who receives it
-  domain: string;           // taxonomy domain e.g. "Frontend", "Data", "Leadership"
-  strength: 1 | 2 | 3;     // 1=weak signal, 2=moderate, 3=strong
+  id?: string;
+  fromUid: string;
+  toUid: string;
+  domain: string;
+  strength: 1 | 2 | 3;
   evidenceType: TrustEvidenceType;
-  evidenceRef: string;      // Firestore ID of source doc (challenge, submission, etc.)
-  createdAt: string;        // ISO string (Timestamp on server)
+  evidenceRef: string;
+  createdAt: string;
 }
 
-/**
- * Per-domain trust standing for a user.
- * Computed by Cloud Function trustCompute, stored in reputation_profiles/{uid}
- */
 export interface TrustDomain {
-  name: string;             // matches TrustEdge.domain taxonomy
-  score: number;            // 0–1000, PageRank-weighted
+  name: string;
+  score: number;
   tier: 'emerging' | 'established' | 'authority';
-  edgeCount: number;        // total trust edges pointing here in this domain
-  topVoucherUids: string[]; // UIDs whose trust contributes most weight
+  edgeCount: number;
+  topVoucherUids: string[];
 }
 
-/**
- * Computed reputation profile for a user.
- * Firestore path: reputation_profiles/{uid}
- */
 export interface ReputationProfile {
   uid: string;
   domains: TrustDomain[];
-  overallScore: number;          // weighted sum across domains
-  trajectory: 'rising' | 'stable' | 'declining'; // 90-day trend
+  overallScore: number;
+  trajectory: 'rising' | 'stable' | 'declining';
   totalEvidenceCount: number;
-  lastComputedAt: string;        // ISO string
+  lastComputedAt: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SPRINT 2 — IDEA NETWORK
-// Append these to types.ts (after the Sprint 1 additions)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * An Idea is a structured problem artifact — not a social post.
- * It has a lifecycle: seed → developing → arena_ready → in_progress → shipped.
- *
- * Firestore path: ideas/{ideaId}
- */
 export type IdeaStage =
-  | 'seed'          // just posted, seeking reaction
-  | 'developing'    // active discussion, taking shape (5+ sparks)
-  | 'arena_ready'   // community voted it ready for a live Arena (15+ sparks)
-  | 'in_progress'   // an Arena is running on this idea
-  | 'shipped'       // became a real thing
-  | 'archived';     // no longer active
+  | 'seed'
+  | 'developing'
+  | 'arena_ready'
+  | 'in_progress'
+  | 'shipped'
+  | 'archived';
 
 export type IdeaDomain =
   | 'Frontend' | 'Backend' | 'Data' | 'Design'
@@ -464,32 +425,22 @@ export interface IdeaComment {
 }
 
 export interface Idea {
-  id?: string;                   // Firestore doc ID
+  id?: string;
   authorUid: string;
   authorName: string;
   authorAvatar: string;
   title: string;
-  body: string;                  // the problem statement or hypothesis
+  body: string;
   domain: IdeaDomain;
   stage: IdeaStage;
-
-  // Engagement
-  sparkCount: number;            // total sparks (denormalized for sorting)
-  sparkedByUids: string[];       // who sparked it
+  sparkCount: number;
+  sparkedByUids: string[];
   commentCount: number;
-
-  // Lineage
-  podId?: number;                // Circle/Pod this was posted in (optional)
-  parentIdeaId?: string;         // if this is a fork
+  podId?: number;
+  parentIdeaId?: string;
   forkCount: number;
-
-  // Pipeline connections
-  connectedArenaId?: string;     // Arena spawned from this idea
-  connectedChallengeId?: string; // Challenge linked to this idea
-
-  createdAt: string;             // ISO string
+  connectedArenaId?: string;
+  connectedChallengeId?: string;
+  createdAt: string;
   updatedAt: string;
 }
-
-// Add to the View enum in types.ts:
-// Ideas = 'IDEAS'
