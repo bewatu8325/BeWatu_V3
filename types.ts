@@ -541,22 +541,20 @@ export interface Arena {
 
 // Add to View enum:
 // Arena = 'ARENA'
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 1. TYPES  (append to types.ts)
-// ═══════════════════════════════════════════════════════════════════════════
-
-/*
 // ─────────────────────────────────────────────────────────────────────────────
-// SPRINT 4 — OPPORTUNITY MARKETPLACE
+// Append this block to the END of lib/types.ts
+// Source: Sprint 4 Opportunity Marketplace + BeWatu Factory scoring types
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * An Opportunity is a recruiter-posted role with conditional visibility.
- * Visibility is gated by the candidate's trust score in relevant domains.
- *
- * Firestore path: opportunities/{opportunityId}
- */
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OPPORTUNITY MARKETPLACE  (Sprint 4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// An Opportunity is a recruiter-posted role with conditional visibility.
+// Visibility is gated by the candidate's trust score in relevant domains.
+// Firestore path: opportunities/{opportunityId}
+
 export type OpportunityVisibility =
   | 'public'          // visible to everyone
   | 'trust_gated'     // visible only if candidate meets trust threshold
@@ -608,4 +606,43 @@ export interface OpportunityMatch {
   reasons: string[];        // e.g. ["Strong Frontend trust", "Arena winner"]
   computedAt: string;
 }
-*/
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BEWATU FACTORY — INVESTOR INTELLIGENCE TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ScoreFactor {
+  name: string;
+  impact: 'positive' | 'neutral' | 'negative';
+  note: string;
+}
+
+export interface InvestorScore {
+  value: number;        // 0–100
+  label: string;
+  factors: ScoreFactor[];
+  change: number;       // delta vs last snapshot
+}
+
+export interface StartupIntelligence {
+  startupId:          string;
+  teamReputation:     InvestorScore;
+  ideaValidation:     InvestorScore;
+  prototypeReadiness: InvestorScore;
+  marketPotential:    InvestorScore;
+  overallScore:       number;
+  signal:             'hot' | 'rising' | 'early' | 'watch';
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FIRESTORE TIMESTAMP SAFETY
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Firestore returns Timestamp objects, not ISO strings.
+// Use this type anywhere a date field is stored in Firestore.
+// Replace: createdAt: string  →  createdAt: FSTimestamp
+
+import type { Timestamp } from 'firebase/firestore';
+export type FSTimestamp = string | Timestamp | Date;
