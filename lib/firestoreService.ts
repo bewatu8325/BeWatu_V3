@@ -2523,3 +2523,227 @@ export function computeLocalReputationProfile(
     lastComputedAt: new Date().toISOString(),
   };
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 2 — IDEA NETWORK
+// Append these to lib/firestoreService.ts (after Sprint 1 additions)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { Idea, IdeaComment, IdeaStage, IdeaDomain } from '../types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IDEAS — write
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function createIdea(data: {
+  authorUid: string;
+  authorName: string;
+  authorAvatar: string;
+  title: string;
+  body: string;
+  domain: IdeaDomain;
+  podId?: number;
+  parentIdeaId?: string;
+}): Promise<string> {
+  const safe: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) safe[k] = v;
+  }
+  const ref = await addDoc(collection(db, 'ideas'), {
+    ...safe,
+    stage: 'seed' as IdeaStage,
+    sparkCount: 0,
+    sparkedByUids: [],
+    commentCount: 0,
+    forkCount: 0,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Spark an idea. Atomically increments count and advances stage if thresholds met.
+ * Thresholds: 5 sparks → developing, 15 sparks → arena_ready
+ */
+export async function sparkIdea(ideaId: string, userUid: string): Promise<void> {
+  const ideaRef = doc(db, 'ideas', ideaId);
+  const snap    = await getDoc(ideaRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  if ((data.sparkedByUids ?? []).includes(userUid)) {
+    // Un-spark
+    await updateDoc(ideaRef, {
+      sparkedByUids: arrayRemove(userUid),
+      sparkCount:    increment(-1),
+      updatedAt:     serverTimestamp(),
+    });
+    return;
+  }
+
+  const newCount = (data.sparkCount ?? 0) + 1;
+  const currentStage: IdeaStage = data.stage ?? 'seed';
+
+  let newStage: IdeaStage = currentStage;
+  if (currentStage === 'seed'       && newCount >= 5)  newStage = 'developing';
+  if (currentStage === 'developing' && newCount >= 15) newStage = 'arena_ready';
+
+  await updateDoc(ideaRef, {
+    sparkedByUids: arrayUnion(userUid),
+    sparkCount:    increment(1),
+    stage:         newStage,
+    updatedAt:     serverTimestamp(),
+  });
+}
+
+/** Fork an idea — creates a new idea with parentIdeaId set */
+export async function forkIdea(
+  parentId: string,
+  data: {
+    authorUid: string;
+    authorName: string;
+    authorAvatar: string;
+    title: string;
+    body: string;
+    domain: IdeaDomain;
+    podId?: number;
+  }
+): Promise<string> {
+  const newId = await createIdea({ ...data, parentIdeaId: parentId });
+  // Increment fork count on parent
+  await updateDoc(doc(db, 'ideas', parentId), {
+    forkCount: increment(1),
+    updatedAt: serverTimestamp(),
+  });
+  return newId;
+}
+
+/** Link an idea to an Arena once one is created from it */
+export async function linkIdeaToArena(ideaId: string, arenaId: string): Promise<void> {
+  await updateDoc(doc(db, 'ideas', ideaId), {
+    connectedArenaId: arenaId,
+    stage:            'in_progress' as IdeaStage,
+    updatedAt:        serverTimestamp(),
+  });
+}
+
+/** Mark an idea as shipped */
+export async function markIdeaShipped(ideaId: string): Promise<void> {
+  await updateDoc(doc(db, 'ideas', ideaId), {
+    stage:     'shipped' as IdeaStage,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Add a comment to an idea */
+export async function addIdeaComment(
+  ideaId: string,
+  comment: { authorUid: string; authorName: string; authorAvatar: string; body: string }
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'ideas', ideaId, 'comments'), {
+    ...comment,
+    createdAt: serverTimestamp(),
+  });
+  await updateDoc(doc(db, 'ideas', ideaId), {
+    commentCount: increment(1),
+    updatedAt:    serverTimestamp(),
+  });
+  return ref.id;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IDEAS — read
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Fetch global ideas feed — sorted by spark count, newest first for ties */
+export async function getIdeasFeed(maxResults = 30): Promise<Idea[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas'),
+      where('stage', 'in', ['seed', 'developing', 'arena_ready']),
+      orderBy('sparkCount', 'desc'),
+      orderBy('createdAt',  'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea));
+}
+
+/** Fetch ideas for a specific pod */
+export async function getPodIdeas(podId: number, maxResults = 20): Promise<Idea[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas'),
+      where('podId',  '==', podId),
+      where('stage',  'in', ['seed', 'developing', 'arena_ready', 'in_progress']),
+      orderBy('sparkCount', 'desc'),
+      orderBy('createdAt',  'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea));
+}
+
+/** Fetch ideas by domain (for filtered global feed) */
+export async function getIdeasByDomain(domain: IdeaDomain, maxResults = 20): Promise<Idea[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas'),
+      where('domain', '==', domain),
+      where('stage',  'in', ['seed', 'developing', 'arena_ready']),
+      orderBy('sparkCount', 'desc'),
+      orderBy('createdAt',  'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea));
+}
+
+/** Fetch ideas that are arena_ready (for Arena creation flow) */
+export async function getArenaReadyIdeas(): Promise<Idea[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas'),
+      where('stage', '==', 'arena_ready'),
+      orderBy('sparkCount', 'desc'),
+      limit(10),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea));
+}
+
+/** Fetch comments for an idea */
+export async function getIdeaComments(ideaId: string): Promise<IdeaComment[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas', ideaId, 'comments'),
+      orderBy('createdAt', 'asc'),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as IdeaComment));
+}
+
+/** Subscribe to live ideas for a pod */
+export function subscribeToPodIdeas(
+  podId: number,
+  onUpdate: (ideas: Idea[]) => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'ideas'),
+      where('podId',  '==', podId),
+      where('stage',  'in', ['seed', 'developing', 'arena_ready', 'in_progress']),
+      orderBy('sparkCount', 'desc'),
+      orderBy('createdAt',  'desc'),
+      limit(20),
+    ),
+    (snap) => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea)))
+  );
+}
+
+/** Fetch a single idea */
+export async function getIdea(ideaId: string): Promise<Idea | null> {
+  const snap = await getDoc(doc(db, 'ideas', ideaId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Idea;
+}
