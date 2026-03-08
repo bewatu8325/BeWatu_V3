@@ -20,6 +20,7 @@ interface ProfilePageProps {
   onSelectCircle: (circleId: number) => void;
   onChangePassword: () => void;
   onOpenSecurity: () => void;
+  onReportUser?: (firestoreId: string, name: string) => void;
 }
 
 const proficiencyWidth = {
@@ -46,7 +47,7 @@ const getCircleColor = (circleName: string) => {
     return color;
 };
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity, onReportUser }) => {
   const { t } = useTranslation();
   const { fbUser } = useFirebase();
   const [newPassword, setNewPassword] = useState('');
@@ -222,6 +223,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           <p className="text-sm text-stone-500 mt-1 break-words">{user.headline}</p>
           <p className="text-stone-700 text-sm mt-4 break-words">{user.bio}</p>
 
+          {/* Report user — only visible when viewing another person's profile */}
+          {!isCurrentUser && onReportUser && (
+            <button
+              onClick={() => onReportUser(user._firestoreUid ?? String(user.id), user.name)}
+              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; }}
+            >
+              🚩 Report this user
+            </button>
+          )}
+
         </div>
 
         {/* Stats Tile */}
@@ -381,3 +394,4 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 };
 
 export default ProfilePage;
+
