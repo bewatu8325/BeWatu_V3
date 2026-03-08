@@ -46,6 +46,7 @@ import type {
   ArenaSubmission, 
   ArenaVote 
 } from '../types';
+import type { Opportunity, OpportunityMatch } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS — Firestore doc → BeWatu type
@@ -2978,4 +2979,108 @@ export async function getArena(arenaId: string): Promise<Arena | null> {
 export async function getArenaVotes(arenaId: string): Promise<ArenaVote[]> {
   const snap = await getDocs(collection(db, 'arenas', arenaId, 'votes'));
   return snap.docs.map(d => d.data() as ArenaVote);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2. FIRESTORE SERVICE ADDITIONS  (append to lib/firestoreService.ts)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── OPPORTUNITIES — write ────────────────────────────────────────────────────
+
+export async function createOpportunity(data: Omit<Opportunity, 'id' | 'applicationCount' | 'matchScore' | 'isUnlocked' | 'createdAt'>): Promise<string> {
+  const safe: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) { if (v !== undefined) safe[k] = v; }
+  const ref = await addDoc(collection(db, 'opportunities'), {
+    ...safe,
+    applicationCount: 0,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateOpportunity(id: string, updates: Partial<Opportunity>): Promise<void> {
+  await updateDoc(doc(db, 'opportunities', id), updates);
+}
+
+export async function deactivateOpportunity(id: string): Promise<void> {
+  await updateDoc(doc(db, 'opportunities', id), { isActive: false });
+}
+
+export async function applyToOpportunity(opportunityId: string, applicantUid: string): Promise<void> {
+  await setDoc(doc(db, 'opportunities', opportunityId, 'applicants', applicantUid), {
+    uid: applicantUid,
+    appliedAt: serverTimestamp(),
+    status: 'applied',
+  });
+  await updateDoc(doc(db, 'opportunities', opportunityId), {
+    applicationCount: increment(1),
+  });
+}
+
+// ─── OPPORTUNITIES — read ─────────────────────────────────────────────────────
+
+// Get the user's personalized opportunity feed
+// Includes public + trust-gated ones the user qualifies for
+export async function getOpportunityFeed(uid: string, maxResults = 30): Promise<Opportunity[]> {
+  // Fetch active opportunities, sorted by creation date
+  const snap = await getDocs(
+    query(
+      collection(db, 'opportunities'),
+      where('isActive', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Opportunity));
+}
+
+// Get pre-computed matches for a user (written by Cloud Function)
+export async function getUserMatches(uid: string): Promise<OpportunityMatch[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'opportunity_matches'),
+      where('uid', '==', uid),
+      orderBy('score', 'desc'),
+      limit(20),
+    )
+  );
+  return snap.docs.map(d => d.data() as OpportunityMatch);
+}
+
+// Get opportunities posted by a recruiter (for RecruiterConsole)
+export async function getRecruiterOpportunities(recruiterId: string): Promise<Opportunity[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'opportunities'),
+      where('recruiterId', '==', recruiterId),
+      orderBy('createdAt', 'desc'),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Opportunity));
+}
+
+// Client-side unlock check: does this user's reputation unlock this opportunity?
+export function checkOpportunityUnlock(
+  opportunity: Opportunity,
+  profile: import('../types').ReputationProfile | null
+): boolean {
+  if (opportunity.visibility === 'public') return true;
+  if (!profile) return false;
+  if (opportunity.visibility === 'arena_winner') {
+    // Check trust_edges for arena_winner evidence — simplified: check overall score
+    return profile.overallScore >= 200;
+  }
+  if (opportunity.visibility === 'trust_gated') {
+    return opportunity.trustRequirements.every(req => {
+      const domain = profile.domains.find(d => d.name === req.domain);
+      if (!domain) return false;
+      if (domain.score < req.minTrustScore) return false;
+      if (req.minTier) {
+        const tierOrder = { emerging: 0, established: 1, authority: 2 };
+        return tierOrder[domain.tier] >= tierOrder[req.minTier];
+      }
+      return true;
+    });
+  }
+  return false;
 }
