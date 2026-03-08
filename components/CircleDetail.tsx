@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import IdeaNetwork from './IdeaNetwork';
 import PeerLearning from './PeerLearning';
 import { Circle, Post, User, AppreciationType, Article } from '../types';
 import CreatePost from './CreatePost';
@@ -91,7 +92,8 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
   onRemoveMember,
   onViewProfile
 }) => {
-  const [activeTab, setActiveTab] = useState<'discussion' | 'learn' | 'articles'>('discussion');
+  const [activeTab, setActiveTab] = useState<'discussion' | 'learn' | 'articles' | 'ideas'>('discussion');
+    
 
   const circlePosts = useMemo(
     () => allPosts.filter(post => post.circleId === circle.id).sort((a, b) => b.id - a.id),
@@ -147,6 +149,10 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
                 <nav className="flex space-x-4">
                     <button onClick={() => setActiveTab('discussion')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'discussion' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='discussion'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Discussion</button>
                     <button onClick={() => setActiveTab('learn')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'learn' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='learn'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>
+                        <button onClick={() => setActiveTab('ideas')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'ideas' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab === 'ideas' ? { color:'#1a4a3a', borderColor:'#1a4a3a' } : {}} >
+             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"> <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/> </svg>
+             Ideas
+            </button>
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
                       Learn
                     </button>
@@ -179,6 +185,14 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
                   circleId={circle.id}
                   allUsers={allUsers}
                   currentUser={currentUser}
+                />
+            )}
+
+            {activeTab === 'ideas' && (
+                <IdeaNetwork
+                    currentUser={currentUser}
+                    podId={circle.id}
+                    onArenaLaunch={(idea) => console.log('Arena launch:', idea)} // wire to Sprint 3
                 />
             )}
 
