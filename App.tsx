@@ -70,6 +70,7 @@ const PublicProfilePage = lazy(() => import('./components/PublicProfilePage'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const LoginPage = lazy(() => import('./components/auth/LoginPage'));
+const ReportModal = lazy(() => import('./components/ReportModal'));
 const RegistrationPage = lazy(() => import('./components/auth/RegistrationPage'));
 const ForgotPasswordPage = lazy(() => import('./components/auth/ForgotPasswordPage'));
 const RecruiterConsole = lazy(() => import('./components/recruiter/RecruiterConsole'));
@@ -104,6 +105,17 @@ const MainApp: React.FC = () => {
   const [isSkillsGraphModalOpen, setIsSkillsGraphModalOpen] = useState(false);
   const [isVideoRecorderModalOpen, setIsVideoRecorderModalOpen] = useState(false);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+
+  // ── Report modal ───────────────────────────────────────────────────────────
+  const [reportModalOpen,    setReportModalOpen]    = useState(false);
+  const [reportModalTarget,  setReportModalTarget]  = useState<import('./components/ReportModal').ReportTarget | undefined>(undefined);
+  const [reportModalType,    setReportModalType]    = useState<import('./components/ReportModal').ReportType | undefined>(undefined);
+
+  const openReport = (target?: import('./components/ReportModal').ReportTarget, defaultType?: import('./components/ReportModal').ReportType) => {
+    setReportModalTarget(target);
+    setReportModalType(defaultType);
+    setReportModalOpen(true);
+  };
 
   const [activeCircleId, setActiveCircleId] = useState<number | null>(null);
   const [profileUserId, setProfileUserId] = useState<number | null>(null);
@@ -568,7 +580,7 @@ const MainApp: React.FC = () => {
         break;
 
       case View.Jobs:
-        content = <Jobs jobs={data.jobs} companies={data.companies} onViewCompany={handleViewCompany} onAnalyzeMatch={handleAnalyzeJobMatch} onApplyForJob={handleApplyForJob} appliedJobIds={appliedJobIds} />;
+        content = <Jobs jobs={data.jobs} companies={data.companies} onViewCompany={handleViewCompany} onAnalyzeMatch={handleAnalyzeJobMatch} onApplyForJob={handleApplyForJob} appliedJobIds={appliedJobIds} onReportJob={(id, title) => openReport({ content: { type: 'job_listing', id, preview: title } }, 'content')} />;
         break;
 
       case View.Messaging:
@@ -582,7 +594,7 @@ const MainApp: React.FC = () => {
       case View.Profile: {
         const userToShow = profileUserId ? data.users.find(u => u.id === profileUserId) : currentUser;
         content = userToShow
-          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} />
+          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} />
           : <div>User not found.</div>;
         break;
       }
@@ -668,12 +680,21 @@ const MainApp: React.FC = () => {
         />
         <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">{content}</main>
         {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
-        <Footer onNavigateToConnect={handleNavigateToConnect} />
+        <Footer onNavigateToConnect={handleNavigateToConnect} onReportConcern={() => openReport(undefined, undefined)} />
         {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
         {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
         {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
         {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
         {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
+        {reportModalOpen && fbUser && currentUser && (
+          <ReportModal
+            isOpen={reportModalOpen}
+            onClose={() => setReportModalOpen(false)}
+            reporter={{ firestoreUid: fbUser.uid, name: currentUser.name, email: fbUser.email ?? '' }}
+            target={reportModalTarget}
+            defaultType={reportModalType}
+          />
+        )}
         <MobileNav currentView={currentView} onNavigate={handleSetView} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />
       </div>
       </>
