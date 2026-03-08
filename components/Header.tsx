@@ -1,21 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Home, Users, Users2, Hexagon, Briefcase, MessageSquare,
-  Bell, LogOut, User, ChevronDown, Settings, Sword, Search, Shield,
+  Bell, LogOut, User, ChevronDown, Settings, Sword, Search, Shield, Zap,
 } from 'lucide-react';
 import { LogoIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { View } from '../types'; // adjust path if needed
-
-// ─── Nav items matching your View enum ───────────────────────────────────────
+import { View } from '../types';
 
 const NAV_ITEMS = [
-  { view: View.Feed,      label: 'Home',         icon: Home          },
-  { view: View.Connections, label: 'Circles',  icon: Users2        },
-  { view: View.Circles,     label: 'Pods',     icon: Hexagon       },
-  { view: View.Prove,     label: 'Prove',        icon: Sword         }, // New
-  { view: View.Jobs,      label: 'Opportunities',icon: Briefcase     },
-  { view: View.Messaging, label: 'Messages',     icon: MessageSquare },
+  { view: View.Feed,        label: 'Home',          icon: Home          },
+  { view: View.Connections, label: 'Circles',        icon: Users2        },
+  { view: View.Circles,     label: 'Pods',           icon: Hexagon       },
+  { view: View.Ideas,       label: 'Ideas',          icon: Zap           },
+  { view: View.Prove,       label: 'Prove',          icon: Sword         },
+  { view: View.Jobs,        label: 'Opportunities',  icon: Briefcase     },
+  { view: View.Messaging,   label: 'Messages',       icon: MessageSquare },
 ];
 
 interface HeaderProps {
@@ -48,7 +47,6 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: wire to search view when ready
   }
 
   return (
@@ -80,7 +78,8 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
               <button
                 key={view}
                 onClick={() => onNavigate(view)}
-                className={`relative flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${active ? "font-semibold" : "text-stone-500 hover:text-stone-800"}`} style={active ? { color: "#1a4a3a" } : {}}
+                className={`relative flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${active ? "font-semibold" : "text-stone-500 hover:text-stone-800"}`}
+                style={active ? { color: "#1a4a3a" } : {}}
               >
                 <span className="relative">
                   <Icon className="h-5 w-5" />
