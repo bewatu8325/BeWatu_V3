@@ -3,6 +3,7 @@ import { User, ConnectionRequest, Circle, View, Experience } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import ExperienceSection from './ExperienceSection';
+import ReputationPanel from './profile/ReputationPanel';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { uploadAvatar } from '../lib/storageService';
@@ -87,7 +88,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
       setAvatarError(err.message ?? 'Upload failed');
     } finally {
       setAvatarUploading(false);
-      // Reset input so same file can be re-selected
       if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
   };
@@ -126,21 +126,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
       return;
     }
     setPasswordError('');
-    if (onChangePassword) {
-      onChangePassword();
-    }
+    if (onChangePassword) onChangePassword();
     setNewPassword('');
     setConfirmPassword('');
   };
+
+  const profileUid = (user as any)._firestoreUid ?? String(user.id);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 overflow-x-hidden">
       <div className="lg:col-span-4 space-y-4 min-w-0">
         {/* Profile Info Tile */}
         <div className="bg-white/50 rounded-xl border border-stone-200 p-5 text-center">
-          {/* Avatar with upload */}
           <div className="relative w-24 h-24 mx-auto mb-4">
-            {/* Hidden file input */}
             {isCurrentUser && (
               <input
                 ref={avatarInputRef}
@@ -151,7 +149,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               />
             )}
 
-            {/* Avatar image */}
             <div
               className={`relative h-24 w-24 rounded-full ${isCurrentUser ? 'cursor-pointer group' : ''}`}
               onClick={() => isCurrentUser && !avatarUploading && avatarInputRef.current?.click()}
@@ -165,14 +162,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 onError={e => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0e7490&color=fff&size=96`; }}
               />
 
-              {/* Hover overlay for current user */}
               {isCurrentUser && !avatarUploading && (
                 <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
                   <CameraIcon className="w-7 h-7 text-white" />
                 </div>
               )}
 
-              {/* Upload progress spinner */}
               {avatarUploading && (
                 <div className="absolute inset-0 rounded-full flex flex-col items-center justify-center bg-black/60">
                   <svg className="h-7 w-7 animate-spin text-[#1a6b52]" viewBox="0 0 24 24" fill="none">
@@ -184,7 +179,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               )}
             </div>
 
-            {/* Micro-intro / camera button (only when NOT showing upload overlay) */}
             {!avatarUploading && (
               user.microIntroductionUrl ? (
                 <button
@@ -206,7 +200,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
             )}
           </div>
 
-          {/* Upload hint & error */}
           {isCurrentUser && (
             <div className="mb-2 -mt-2">
               {avatarError ? (
@@ -216,6 +209,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               )}
             </div>
           )}
+
           <div className="flex items-center justify-center space-x-2">
             <h2 className="font-bold text-xl text-stone-900 break-words">{user.name}</h2>
             {user.isVerified && <VerifiedIcon className="w-5 h-5 text-[#1a6b52]" title="Verified Work Email" />}
@@ -223,7 +217,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           <p className="text-sm text-stone-500 mt-1 break-words">{user.headline}</p>
           <p className="text-stone-700 text-sm mt-4 break-words">{user.bio}</p>
 
-          {/* Report user — only visible when viewing another person's profile */}
           {!isCurrentUser && onReportUser && (
             <button
               onClick={() => onReportUser(user._firestoreUid ?? String(user.id), user.name)}
@@ -234,65 +227,68 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               🚩 Report this user
             </button>
           )}
-
         </div>
 
-        {/* Stats Tile */}
-         <div className="bg-white/50 rounded-xl border border-stone-200 p-4">
-              <div className="grid grid-cols-3 gap-2">
-                   <StatItem icon={<ShieldCheckIcon className="w-5 h-5" />} label={t('reputation')} value={user.reputation} valueClassName="text-green-400" />
-                   <StatItem icon={<CoinsIcon className="w-5 h-5" />} label="Credits" value={user.credits} valueClassName="text-yellow-400" />
-                   <StatItem icon={<UsersIcon className="w-5 h-5" />} label="Connections" value={connectionCount} valueClassName="text-[#1a6b52]" />
-              </div>
-         </div>
+        {/* Stats Tile — reputation replaced with ReputationPanel compact */}
+        <div className="bg-white/50 rounded-xl border border-stone-200 p-4">
+          <div className="grid grid-cols-3 gap-2">
+            <ReputationPanel uid={profileUid} isOwn={isCurrentUser} compact />
+            <StatItem icon={<CoinsIcon className="w-5 h-5" />} label="Credits" value={user.credits} valueClassName="text-yellow-400" />
+            <StatItem icon={<UsersIcon className="w-5 h-5" />} label="Connections" value={connectionCount} valueClassName="text-[#1a6b52]" />
+          </div>
+        </div>
       </div>
 
       <div className="lg:col-span-8 space-y-4 min-w-0">
         {/* Skills Tile */}
         <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
-              {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
-                  <div>
-                      <h3 className="font-semibold text-stone-800 text-md mb-3 text-center flex items-center justify-center">
-                          <VerifiedIcon className="w-5 h-5 mr-2 text-[#1a6b52]" />
-                          {t('verifiedSkills')}
-                      </h3>
-                      <div className="space-y-3">
-                          {user.verifiedSkills.map(skill => (
-                              <div key={skill.name} className="group relative">
-                                  <div className="flex justify-between items-center mb-1">
-                                      <p className="text-sm font-medium text-stone-700">{skill.name}</p>
-                                      <p className="text-xs text-stone-500">{skill.proficiency}</p>
-                                  </div>
-                                  <div className="w-full bg-stone-100 rounded-full h-1.5">
-                                      <div className={`bg-[#1a4a3a] h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`}></div>
-                                  </div>
-                                  <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-stone-50 border border-stone-200 rounded-md text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                      <span className="font-bold">{t('evidence')}</span> {skill.evidence}
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
+          {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
+            <div>
+              <h3 className="font-semibold text-stone-800 text-md mb-3 text-center flex items-center justify-center">
+                <VerifiedIcon className="w-5 h-5 mr-2 text-[#1a6b52]" />
+                {t('verifiedSkills')}
+              </h3>
+              <div className="space-y-3">
+                {user.verifiedSkills.map(skill => (
+                  <div key={skill.name} className="group relative">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-sm font-medium text-stone-700">{skill.name}</p>
+                      <p className="text-xs text-stone-500">{skill.proficiency}</p>
+                    </div>
+                    <div className="w-full bg-stone-100 rounded-full h-1.5">
+                      <div className={`bg-[#1a4a3a] h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`}></div>
+                    </div>
+                    <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-stone-50 border border-stone-200 rounded-md text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                      <span className="font-bold">{t('evidence')}</span> {skill.evidence}
+                    </div>
                   </div>
-              ) : (
-                  <div className="text-center">
-                      <h3 className="font-semibold text-stone-800 text-md mb-2">{t('topSkills')}</h3>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                          {user.skills?.map(skill => (
-                              <div key={skill.name} className="flex items-center text-sm bg-[#e8f4f0]/50 text-[#1a6b52] rounded-full px-3 py-1 font-medium border border-[#1a4a3a]/20">
-                                  {skill.name}
-                                  <span className="ml-1.5 text-[#1a6b52] font-semibold">{skill.endorsements}</span>
-                              </div>
-                          ))}
-                      </div>
-                      {isCurrentUser && (
-                        <button onClick={onGenerateSkills} className="mt-4 w-full bg-[#1a4a3a]/10 text-[#1a6b52] font-semibold px-4 py-2 rounded-lg hover:bg-[#1a4a3a]/20 transition-colors text-sm flex items-center justify-center border border-[#1a4a3a]/20">
-                            <SparklesIcon className="w-4 h-4 mr-2" />
-                            {t('generateVerifiedSkills')}
-                        </button>
-                      )}
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center">
+              <h3 className="font-semibold text-stone-800 text-md mb-2">{t('topSkills')}</h3>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {user.skills?.map(skill => (
+                  <div key={skill.name} className="flex items-center text-sm bg-[#e8f4f0]/50 text-[#1a6b52] rounded-full px-3 py-1 font-medium border border-[#1a4a3a]/20">
+                    {skill.name}
+                    <span className="ml-1.5 text-[#1a6b52] font-semibold">{skill.endorsements}</span>
                   </div>
+                ))}
+              </div>
+              {isCurrentUser && (
+                <button onClick={onGenerateSkills} className="mt-4 w-full bg-[#1a4a3a]/10 text-[#1a6b52] font-semibold px-4 py-2 rounded-lg hover:bg-[#1a4a3a]/20 transition-colors text-sm flex items-center justify-center border border-[#1a4a3a]/20">
+                  <SparklesIcon className="w-4 h-4 mr-2" />
+                  {t('generateVerifiedSkills')}
+                </button>
               )}
-          </div>
+            </div>
+          )}
+        </div>
+
+        {/* Trust Reputation Panel — full domain breakdown */}
+        <ReputationPanel uid={profileUid} isOwn={isCurrentUser} />
+
         {/* Resume Upload */}
         {isCurrentUser && (
           <div className="bg-white rounded-2xl border shadow-sm p-5" style={{ borderColor: '#e7e5e4' }}>
@@ -349,23 +345,23 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         {/* Circles Tile */}
         {userCircles.length > 0 && (
           <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
-              <h3 className="font-semibold text-stone-800 text-md mb-4 flex items-center justify-center">
-                  <CirclesIcon className="w-5 h-5 mr-2 text-purple-400"/>
-                  {t('myCircles')}
-              </h3>
-              <div className="flex flex-wrap gap-3 justify-center">
-                  {userCircles.map(circle => (
-                      <button 
-                          key={circle.id} 
-                          onClick={() => onSelectCircle(circle.id)}
-                          title={circle.name}
-                          className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-purple-500"
-                          style={{ backgroundColor: getCircleColor(circle.name) }}
-                      >
-                          {circle.name.charAt(0).toUpperCase()}
-                      </button>
-                  ))}
-              </div>
+            <h3 className="font-semibold text-stone-800 text-md mb-4 flex items-center justify-center">
+              <CirclesIcon className="w-5 h-5 mr-2 text-purple-400"/>
+              {t('myCircles')}
+            </h3>
+            <div className="flex flex-wrap gap-3 justify-center">
+              {userCircles.map(circle => (
+                <button 
+                  key={circle.id} 
+                  onClick={() => onSelectCircle(circle.id)}
+                  title={circle.name}
+                  className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-purple-500"
+                  style={{ backgroundColor: getCircleColor(circle.name) }}
+                >
+                  {circle.name.charAt(0).toUpperCase()}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -394,4 +390,3 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 };
 
 export default ProfilePage;
-
