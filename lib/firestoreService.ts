@@ -39,6 +39,13 @@ import {
   AppreciationType,
   NotificationType,
 } from '../types';
+import type { 
+  Arena, 
+  ArenaPhase, 
+  ArenaParticipant, 
+  ArenaSubmission, 
+  ArenaVote 
+} from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS — Firestore doc → BeWatu type
@@ -2746,4 +2753,229 @@ export async function getIdea(ideaId: string): Promise<Idea | null> {
   const snap = await getDoc(doc(db, 'ideas', ideaId));
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() } as Idea;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 3 — ARENA MVP
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── ARENAS — write ───────────────────────────────────────────────────────────
+
+export async function createArena(data: {
+  title: string;
+  brief: string;
+  hostUid: string;
+  hostName: string;
+  hostAvatar: string;
+  type: Arena['type'];
+  domain: string;
+  sourceIdeaId?: string;
+  sourceChallengeId?: string;
+  maxParticipants?: number;
+  phaseDurationMinutes?: number;
+  scheduledStartAt?: string;
+}): Promise<string> {
+  const safe: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) safe[k] = v;
+  }
+  const ref = await addDoc(collection(db, 'arenas'), {
+    ...safe,
+    phase: 'lobby' as ArenaPhase,
+    participantUids: [data.hostUid],
+    maxParticipants: data.maxParticipants ?? 8,
+    phaseDurationMinutes: data.phaseDurationMinutes ?? 30,
+    submissionCount: 0,
+    phaseStartedAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  // Write host as first participant
+  await setDoc(doc(db, 'arenas', ref.id, 'participants', data.hostUid), {
+    uid: data.hostUid,
+    displayName: data.hostName,
+    avatarUrl: data.hostAvatar,
+    isHost: true,
+    presenceStatus: 'active',
+    joinedAt: serverTimestamp(),
+    lastSeenAt: serverTimestamp(),
+  });
+
+  return ref.id;
+}
+
+/** Join an arena as a participant */
+export async function joinArena(arenaId: string, participant: {
+  uid: string;
+  displayName: string;
+  avatarUrl: string;
+}): Promise<void> {
+  const arenaRef = doc(db, 'arenas', arenaId);
+  await updateDoc(arenaRef, {
+    participantUids: arrayUnion(participant.uid),
+    updatedAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, 'arenas', arenaId, 'participants', participant.uid), {
+    ...participant,
+    isHost: false,
+    presenceStatus: 'active',
+    joinedAt: serverTimestamp(),
+    lastSeenAt: serverTimestamp(),
+  });
+}
+
+/** Host advances arena to next phase */
+export async function advanceArenaPhase(arenaId: string, toPhase: ArenaPhase): Promise<void> {
+  await updateDoc(doc(db, 'arenas', arenaId), {
+    phase: toPhase,
+    phaseStartedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Participant submits during open phase */
+export async function submitToArena(arenaId: string, data: {
+  authorUid: string;
+  authorName: string;
+  authorAvatar: string;
+  content: string;
+  format: ArenaSubmission['format'];
+}): Promise<string> {
+  const ref = await addDoc(collection(db, 'arenas', arenaId, 'submissions'), {
+    ...data,
+    arenaId,
+    reactions: { fire: [], think: [], collab: [] },
+    isWinner: false,
+    submittedAt: serverTimestamp(),
+  });
+  // Record submissionId on participant doc
+  await updateDoc(doc(db, 'arenas', arenaId, 'participants', data.authorUid), {
+    submissionId: ref.id,
+  });
+  await updateDoc(doc(db, 'arenas', arenaId), {
+    submissionCount: increment(1),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/** React to a submission during review phase */
+export async function reactToArenaSubmission(
+  arenaId: string,
+  submissionId: string,
+  userUid: string,
+  reaction: 'fire' | 'think' | 'collab'
+): Promise<void> {
+  const ref = doc(db, 'arenas', arenaId, 'submissions', submissionId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const arr: string[] = snap.data().reactions?.[reaction] ?? [];
+  if (arr.includes(userUid)) {
+    await updateDoc(ref, { [`reactions.${reaction}`]: arrayRemove(userUid) });
+  } else {
+    await updateDoc(ref, { [`reactions.${reaction}`]: arrayUnion(userUid) });
+  }
+}
+
+/** Cast a verdict vote */
+export async function castArenaVote(arenaId: string, vote: {
+  voterUid: string;
+  nominatedUid: string;
+  reasoning?: string;
+}): Promise<void> {
+  await setDoc(doc(db, 'arenas', arenaId, 'votes', vote.voterUid), {
+    ...vote,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Close the arena — host finalises winner.
+ * Trust edge generation happens in the Cloud Function (onArenaClose).
+ */
+export async function closeArena(arenaId: string, winnerUid: string): Promise<void> {
+  await updateDoc(doc(db, 'arenas', arenaId), {
+    phase: 'closed' as ArenaPhase,
+    winnerUid,
+    phaseStartedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  // Mark the winner's submission
+  const subsSnap = await getDocs(
+    query(collection(db, 'arenas', arenaId, 'submissions'), where('authorUid', '==', winnerUid))
+  );
+  for (const d of subsSnap.docs) {
+    await updateDoc(d.ref, { isWinner: true });
+  }
+}
+
+/** Presence heartbeat — call every 30s from the arena component */
+export async function updateArenaPresence(
+  arenaId: string,
+  uid: string,
+  status: ArenaParticipant['presenceStatus'] = 'active'
+): Promise<void> {
+  await updateDoc(doc(db, 'arenas', arenaId, 'participants', uid), {
+    presenceStatus: status,
+    lastSeenAt: serverTimestamp(),
+  });
+}
+
+// ─── ARENAS — read ────────────────────────────────────────────────────────────
+
+/** Subscribe to arena doc — drives phase transitions in real time */
+export function subscribeToArena(
+  arenaId: string,
+  onUpdate: (arena: Arena) => void
+): () => void {
+  return onSnapshot(doc(db, 'arenas', arenaId), (snap) => {
+    if (snap.exists()) onUpdate({ id: snap.id, ...snap.data() } as Arena);
+  });
+}
+
+/** Subscribe to participant presence */
+export function subscribeToArenaParticipants(
+  arenaId: string,
+  onUpdate: (participants: ArenaParticipant[]) => void
+): () => void {
+  return onSnapshot(collection(db, 'arenas', arenaId, 'participants'), (snap) => {
+    onUpdate(snap.docs.map(d => d.data() as ArenaParticipant));
+  });
+}
+
+/** Subscribe to submissions — live during open + review phases */
+export function subscribeToArenaSubmissions(
+  arenaId: string,
+  onUpdate: (submissions: ArenaSubmission[]) => void
+): () => void {
+  return onSnapshot(
+    query(collection(db, 'arenas', arenaId, 'submissions'), orderBy('submittedAt', 'asc')),
+    (snap) => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() } as ArenaSubmission)))
+  );
+}
+
+/** Get open/lobby arenas for the global discovery list */
+export async function getOpenArenas(maxResults = 20): Promise<Arena[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'arenas'),
+      where('phase', 'in', ['lobby', 'brief', 'open', 'review', 'verdict']),
+      orderBy('createdAt', 'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Arena));
+}
+
+/** Get a single arena */
+export async function getArena(arenaId: string): Promise<Arena | null> {
+  const snap = await getDoc(doc(db, 'arenas', arenaId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Arena;
+}
+
+/** Get votes for verdict phase */
+export async function getArenaVotes(arenaId: string): Promise<ArenaVote[]> {
+  const snap = await getDocs(collection(db, 'arenas', arenaId, 'votes'));
+  return snap.docs.map(d => d.data() as ArenaVote);
 }
