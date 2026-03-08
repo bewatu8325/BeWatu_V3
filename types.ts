@@ -376,3 +376,64 @@ export interface FeedItem {
     comments: number;
     timestamp: string;
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 1 — TRUST INFRASTRUCTURE + REPUTATION GRAPH
+// Add these to the bottom of types.ts
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A directed, domain-specific trust signal generated automatically from
+ * real interactions — never assigned manually.
+ *
+ * Firestore path: trust_edges/{edgeId}
+ */
+export type TrustEvidenceType =
+  | 'challenge_review'      // recruiter/reviewer scored a challenge submission
+  | 'challenge_submission'  // completed a scored challenge (score >= threshold)
+  | 'peer_learning'         // created a micro-lesson in a pod
+  | 'skill_endorsement'     // endorsed a specific skill (via SkillDNA)
+  | 'verified_achievement'  // verified another user's achievement
+  | 'vouched';              // explicit domain vouch (future: manual)
+
+export interface TrustEdge {
+  id?: string;              // Firestore doc ID
+  fromUid: string;          // who extends trust
+  toUid: string;            // who receives it
+  domain: string;           // taxonomy domain e.g. "Frontend", "Data", "Leadership"
+  strength: 1 | 2 | 3;     // 1=weak signal, 2=moderate, 3=strong
+  evidenceType: TrustEvidenceType;
+  evidenceRef: string;      // Firestore ID of source doc (challenge, submission, etc.)
+  createdAt: string;        // ISO string (Timestamp on server)
+}
+
+/**
+ * Per-domain trust standing for a user.
+ * Computed by Cloud Function trustCompute, stored in reputation_profiles/{uid}
+ */
+export interface TrustDomain {
+  name: string;             // matches TrustEdge.domain taxonomy
+  score: number;            // 0–1000, PageRank-weighted
+  tier: 'emerging' | 'established' | 'authority';
+  edgeCount: number;        // total trust edges pointing here in this domain
+  topVoucherUids: string[]; // UIDs whose trust contributes most weight
+}
+
+/**
+ * Computed reputation profile for a user.
+ * Firestore path: reputation_profiles/{uid}
+ */
+export interface ReputationProfile {
+  uid: string;
+  domains: TrustDomain[];
+  overallScore: number;          // weighted sum across domains
+  trajectory: 'rising' | 'stable' | 'declining'; // 90-day trend
+  totalEvidenceCount: number;
+  lastComputedAt: string;        // ISO string
+}
+
+/**
+ * View enum additions — add these to the existing View enum in types.ts
+ * (shown separately here for clarity)
+ *
+ * Trust = 'TRUST'  — future Trust Graph visualisation view
+ */
