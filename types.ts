@@ -541,3 +541,71 @@ export interface Arena {
 
 // Add to View enum:
 // Arena = 'ARENA'
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1. TYPES  (append to types.ts)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/*
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 4 — OPPORTUNITY MARKETPLACE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * An Opportunity is a recruiter-posted role with conditional visibility.
+ * Visibility is gated by the candidate's trust score in relevant domains.
+ *
+ * Firestore path: opportunities/{opportunityId}
+ */
+export type OpportunityVisibility =
+  | 'public'          // visible to everyone
+  | 'trust_gated'     // visible only if candidate meets trust threshold
+  | 'arena_winner'    // visible only if candidate has won an Arena in this domain
+  | 'invite_only';    // recruiter manually invites
+
+export interface OpportunityRequirement {
+  domain: string;           // e.g. "Frontend"
+  minTrustScore: number;    // 0–1000 — candidate must meet this
+  minTier?: 'emerging' | 'established' | 'authority';
+}
+
+export interface Opportunity {
+  id?: string;
+  title: string;
+  companyName: string;
+  companyLogoUrl?: string;
+  recruiterId: string;
+  recruiterName: string;
+
+  // Content
+  summary: string;          // short teaser (shown before unlock)
+  fullDescription: string;  // shown after visibility unlock
+  location: string;
+  type: 'Full-time' | 'Contract' | 'Internship' | 'Remote';
+  experienceLevel: 'Entry-level' | 'Mid-level' | 'Senior-level';
+  salaryRange?: string;     // e.g. "$120k–$160k"
+  primaryDomain: string;    // main domain tag
+
+  // Visibility gating
+  visibility: OpportunityVisibility;
+  trustRequirements: OpportunityRequirement[];
+
+  // Matching
+  matchScore?: number;      // 0–100, computed by daily function, per-user
+  isUnlocked?: boolean;     // computed client-side from user's reputation
+
+  // Lifecycle
+  isActive: boolean;
+  applicationCount: number;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface OpportunityMatch {
+  uid: string;
+  opportunityId: string;
+  score: number;            // 0–100
+  reasons: string[];        // e.g. ["Strong Frontend trust", "Arena winner"]
+  computedAt: string;
+}
+*/
