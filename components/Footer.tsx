@@ -2,9 +2,10 @@ import React from 'react';
 
 interface FooterProps {
   onNavigateToConnect?: () => void;
+  onReportConcern?: () => void;
 }
 
-const Footer: React.FC<FooterProps> = ({ onNavigateToConnect }) => {
+const Footer: React.FC<FooterProps> = ({ onNavigateToConnect, onReportConcern }) => {
   return (
     <footer className="border-t mt-12" style={{ borderColor: '#e7e5e4', backgroundColor: '#ffffff' }}>
       <div className="container mx-auto px-4 sm:px-6 py-5">
@@ -16,6 +17,17 @@ const Footer: React.FC<FooterProps> = ({ onNavigateToConnect }) => {
             </button>
           )}
           <a href="#" className="text-stone-400 hover:text-stone-700 transition-colors">Community Standards</a>
+          {onReportConcern && (
+            <button
+              onClick={onReportConcern}
+              className="transition-colors"
+              style={{ color: '#dc2626', fontWeight: 600 }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#b91c1c')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#dc2626')}
+            >
+              🚩 Report a concern
+            </button>
+          )}
           <p className="text-stone-400">&copy; {new Date().getFullYear()} BeWatu</p>
         </div>
       </div>
