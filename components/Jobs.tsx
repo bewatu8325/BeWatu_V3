@@ -9,9 +9,10 @@ interface JobsProps {
   onAnalyzeMatch: (job: Job, company: Company) => void;
   onApplyForJob: (job: Job) => void;
   appliedJobIds: number[];
+  onReportJob?: (jobId: string, jobTitle: string) => void;
 }
 
-const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMatch, onApplyForJob, appliedJobIds }) => {
+const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMatch, onApplyForJob, appliedJobIds, onReportJob }) => {
   const [filters, setFilters] = useState({
       keyword: '',
       location: '',
@@ -100,7 +101,7 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
       </div>
       <div className="space-y-4">
         {filteredJobs.length > 0 ? (
-            filteredJobs.map((job) => job.company ? <JobCard key={job.id} job={job} company={job.company} onViewCompany={onViewCompany} onAnalyzeMatch={onAnalyzeMatch} onApplyForJob={onApplyForJob} appliedJobIds={appliedJobIds} /> : null)
+            filteredJobs.map((job) => job.company ? <JobCard key={job.id} job={job} company={job.company} onViewCompany={onViewCompany} onAnalyzeMatch={onAnalyzeMatch} onApplyForJob={onApplyForJob} appliedJobIds={appliedJobIds} onReportJob={onReportJob} /> : null)
         ) : (
             <div className="text-center py-10 bg-stone-50 rounded-2xl border" style={{ borderColor:"#e7e5e4" }}>
                 <p className="text-stone-400">No jobs found matching your criteria.</p>
