@@ -2247,3 +2247,279 @@ export async function isPlatformAdmin(uid: string): Promise<boolean> {
   if (!snap.exists()) return false;
   return snap.data().isPlatformAdmin === true;
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 1 — TRUST INFRASTRUCTURE
+// Append these functions to the bottom of lib/firestoreService.ts
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { TrustEdge, TrustEvidenceType, ReputationProfile } from '../types';
+
+// ─── Domain taxonomy ──────────────────────────────────────────────────────────
+// Mirrors SkillDNA's SKILL_CLUSTERS so trust domains map directly to skill clusters.
+// A challenge's `targetedSkill` or `type` maps to one of these domains.
+
+export const TRUST_DOMAIN_MAP: Record<string, string> = {
+  // Challenge types → domain
+  code:     'Frontend',
+  design:   'Design',
+  strategy: 'Product',
+  writing:  'Leadership',
+  data:     'Data',
+  // Skill cluster names pass through directly
+  Frontend:   'Frontend',
+  Backend:    'Backend',
+  Data:       'Data',
+  Design:     'Design',
+  DevOps:     'DevOps',
+  Product:    'Product',
+  'AI/ML':    'AI/ML',
+  Leadership: 'Leadership',
+};
+
+/** Map a challenge type or skill name to a canonical trust domain */
+export function resolveTrustDomain(raw: string): string {
+  return TRUST_DOMAIN_MAP[raw] ?? TRUST_DOMAIN_MAP[raw?.toLowerCase()] ?? 'Other';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRUST EDGES — write
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Write a trust edge. Idempotent — if an edge with the same fromUid/toUid/
+ * domain/evidenceRef already exists it is updated rather than duplicated.
+ */
+export async function writeTrustEdge(edge: Omit<TrustEdge, 'id' | 'createdAt'>): Promise<string> {
+  // Check for existing edge with same source to avoid duplicates
+  const existing = await getDocs(
+    query(
+      collection(db, 'trust_edges'),
+      where('fromUid',     '==', edge.fromUid),
+      where('toUid',       '==', edge.toUid),
+      where('domain',      '==', edge.domain),
+      where('evidenceRef', '==', edge.evidenceRef),
+    )
+  );
+
+  if (!existing.empty) {
+    // Update strength if higher signal now
+    const docRef = existing.docs[0].ref;
+    const current = existing.docs[0].data().strength ?? 1;
+    if (edge.strength > current) {
+      await updateDoc(docRef, { strength: edge.strength });
+    }
+    return existing.docs[0].id;
+  }
+
+  const ref = await addDoc(collection(db, 'trust_edges'), {
+    ...edge,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Called when a recruiter/reviewer scores a challenge submission.
+ * Creates a trust edge: reviewer → submitter in the challenge's domain.
+ */
+export async function recordChallengeReviewTrust(
+  reviewerUid: string,
+  submitterUid: string,
+  challengeId: string,
+  submissionId: string,
+  score: number,          // 0–100
+  challengeType: string,  // 'code' | 'design' | 'strategy' | 'writing' | 'data'
+): Promise<void> {
+  if (reviewerUid === submitterUid) return; // no self-trust
+
+  const domain   = resolveTrustDomain(challengeType);
+  // Score >= 80 → strong signal, 60–79 → moderate, below → weak
+  const strength: 1 | 2 | 3 = score >= 80 ? 3 : score >= 60 ? 2 : 1;
+
+  await writeTrustEdge({
+    fromUid:      reviewerUid,
+    toUid:        submitterUid,
+    domain,
+    strength,
+    evidenceType: 'challenge_review',
+    evidenceRef:  submissionId,
+  });
+}
+
+/**
+ * Called when a user completes a scored challenge with score >= 60.
+ * Creates a trust edge: company/challenge → submitter (the recruiter is the proxy truster).
+ */
+export async function recordChallengeCompletionTrust(
+  recruiterId: string,
+  submitterUid: string,
+  challengeId: string,
+  submissionId: string,
+  score: number,
+  challengeType: string,
+): Promise<void> {
+  if (score < 60) return; // below threshold, no signal
+  if (recruiterId === submitterUid) return;
+
+  const domain   = resolveTrustDomain(challengeType);
+  const strength: 1 | 2 | 3 = score >= 85 ? 3 : score >= 70 ? 2 : 1;
+
+  await writeTrustEdge({
+    fromUid:      recruiterId,
+    toUid:        submitterUid,
+    domain,
+    strength,
+    evidenceType: 'challenge_submission',
+    evidenceRef:  submissionId,
+  });
+}
+
+/**
+ * Called when a micro-lesson is sparked >= 3 times (peer recognition).
+ * Creates a trust edge: lesson author earns trust in pod's skill domain.
+ */
+export async function recordPeerLearningTrust(
+  teacherUid: string,
+  learnerUid: string,
+  lessonId: string,
+  skillDomain: string,
+): Promise<void> {
+  if (teacherUid === learnerUid) return;
+
+  await writeTrustEdge({
+    fromUid:      learnerUid,
+    toUid:        teacherUid,
+    domain:       resolveTrustDomain(skillDomain),
+    strength:     2,
+    evidenceType: 'peer_learning',
+    evidenceRef:  lessonId,
+  });
+}
+
+/**
+ * Called when a skill endorsement is made via SkillDNA.
+ */
+export async function recordSkillEndorsementTrust(
+  endorserUid: string,
+  endorsedUid: string,
+  skillName: string,
+  endorsementRef: string,
+): Promise<void> {
+  if (endorserUid === endorsedUid) return;
+
+  await writeTrustEdge({
+    fromUid:      endorserUid,
+    toUid:        endorsedUid,
+    domain:       resolveTrustDomain(skillName),
+    strength:     1, // endorsements are weak signals alone
+    evidenceType: 'skill_endorsement',
+    evidenceRef:  endorsementRef,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRUST EDGES — read
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Fetch all trust edges pointing TO a user (incoming trust). */
+export async function getIncomingTrustEdges(uid: string): Promise<TrustEdge[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'trust_edges'),
+      where('toUid', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(200),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as TrustEdge));
+}
+
+/** Fetch all trust edges FROM a user (trust they've extended). */
+export async function getOutgoingTrustEdges(uid: string): Promise<TrustEdge[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'trust_edges'),
+      where('fromUid', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(200),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as TrustEdge));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REPUTATION PROFILES — read
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch the computed reputation profile for a user.
+ * Returns null if not yet computed (Cloud Function hasn't run).
+ */
+export async function getReputationProfile(uid: string): Promise<ReputationProfile | null> {
+  const snap = await getDoc(doc(db, 'reputation_profiles', uid));
+  if (!snap.exists()) return null;
+  return { uid, ...snap.data() } as ReputationProfile;
+}
+
+/**
+ * Subscribe to live reputation profile updates for a user.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToReputationProfile(
+  uid: string,
+  onUpdate: (profile: ReputationProfile | null) => void,
+): () => void {
+  return onSnapshot(doc(db, 'reputation_profiles', uid), (snap) => {
+    onUpdate(snap.exists() ? ({ uid, ...snap.data() } as ReputationProfile) : null);
+  });
+}
+
+/**
+ * Compute a lightweight local reputation profile from raw trust edges.
+ * Used as a fallback before the Cloud Function has run, or for instant
+ * feedback after a new trust edge is written.
+ *
+ * This is a simplified version of the Cloud Function logic — no PageRank
+ * weighting, just raw edge aggregation.
+ */
+export function computeLocalReputationProfile(
+  uid: string,
+  edges: TrustEdge[],
+): ReputationProfile {
+  const incoming = edges.filter(e => e.toUid === uid);
+
+  // Group by domain
+  const domainMap: Record<string, { score: number; count: number; vouchers: Set<string> }> = {};
+
+  for (const edge of incoming) {
+    if (!domainMap[edge.domain]) {
+      domainMap[edge.domain] = { score: 0, count: 0, vouchers: new Set() };
+    }
+    const weight = edge.strength === 3 ? 40 : edge.strength === 2 ? 20 : 8;
+    domainMap[edge.domain].score += weight;
+    domainMap[edge.domain].count += 1;
+    domainMap[edge.domain].vouchers.add(edge.fromUid);
+  }
+
+  const domains = Object.entries(domainMap).map(([name, d]) => ({
+    name,
+    score: Math.min(d.score, 1000),
+    tier: (d.score >= 200 ? 'authority' : d.score >= 80 ? 'established' : 'emerging') as
+      'emerging' | 'established' | 'authority',
+    edgeCount: d.count,
+    topVoucherUids: [...d.vouchers].slice(0, 5),
+  }));
+
+  domains.sort((a, b) => b.score - a.score);
+
+  const overallScore = domains.reduce((sum, d) => sum + d.score, 0);
+
+  return {
+    uid,
+    domains,
+    overallScore: Math.min(overallScore, 5000),
+    trajectory: 'rising',
+    totalEvidenceCount: incoming.length,
+    lastComputedAt: new Date().toISOString(),
+  };
+}
