@@ -1,4 +1,5 @@
 import { AppData, User, Job, VerifiedSkill, CandidateSearchResult } from '../types';
+import type { ReputationProfile, Idea, Arena, Opportunity, TrustEdge } from '../types';
 
 // Helper function to call our secure API gateway
 async function callGeminiApi(body: object): Promise<any> {
@@ -591,4 +592,282 @@ ${JSON.stringify(allUsers.filter(u => !u.isRecruiter), null, 2)}`;
         console.error("Error searching candidates:", error);
         throw new Error("Failed to perform candidate search with the API gateway.");
     }
+};
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 5 — AI LAYER UPGRADE
+// Append these functions to services/geminiService.ts
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// New functions:
+//   generateReputationNarrative    — human-readable trust summary for a profile
+//   synthesizeArenaOutcome         — post-arena debrief & learning summary
+//   generateOpportunityInsight     — explains why a user matches (or doesn't) an opportunity
+//   generateIdeaRefinement         — improves an idea brief using domain knowledge
+//   findReputationPathways         — suggests actions to improve trust in target domain
+//   generateArenaBrief             — creates a challenge brief from an idea + domain context
+//
+// All functions use graph context (reputation profile, trust edges, arena history)
+// passed from the calling component — no new Firebase reads inside geminiService.
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function profileSummary(profile: ReputationProfile): string {
+  if (!profile) return 'No reputation data available.';
+  const topDomains = [...profile.domains]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(d => `${d.name} (${d.score}/1000, ${d.tier})`)
+    .join(', ');
+  return `Overall score: ${profile.overallScore}. Trajectory: ${profile.trajectory}. Top domains: ${topDomains}. Total evidence signals: ${profile.totalEvidenceCount}.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. REPUTATION NARRATIVE
+// Generates a 2–3 sentence human-readable summary of a user's trust profile.
+// Used in: ProfilePage sidebar, RecruiterConsole candidate detail
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const generateReputationNarrative = async (
+  userName: string,
+  profile: ReputationProfile,
+  recentEdges: TrustEdge[],
+  isOwnProfile: boolean
+): Promise<string> => {
+  const edgeSummary = recentEdges.slice(0, 5)
+    .map(e => `${e.evidenceType} in ${e.domain} (strength ${e.strength})`)
+    .join('; ');
+
+  const pronoun = isOwnProfile ? 'You have' : `${userName} has`;
+  const prompt = `You are BeWatu's AI career intelligence layer. Write a 2–3 sentence professional narrative summarising this person's trust profile. Be specific, warm, and forward-looking. Do not use filler phrases like "beacon of" or "testament to".
+
+**Profile:**
+${profileSummary(profile)}
+
+**Recent trust signals:**
+${edgeSummary || 'None yet.'}
+
+**Instructions:**
+- Name the person's strongest domain(s) with concrete tier info
+- Mention their trajectory (${profile.trajectory})
+- End with one actionable next step to grow their reputation
+- Start with "${pronoun}" — do not start with their name
+- Max 60 words`;
+
+  const response = await callGeminiApi({ model: 'gemini-2.5-flash', contents: prompt });
+  return response.text.trim();
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. ARENA SYNTHESIS
+// Post-arena debrief: what was learned, who stood out, key insights.
+// Used in: ArenaView closed phase
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const synthesizeArenaOutcome = async (
+  arena: Arena,
+  submissions: { authorName: string; content: string; isWinner: boolean; reactionScore: number }[],
+  participants: { displayName: string }[]
+): Promise<{ summary: string; keyInsights: string[]; winnerReasoning: string }> => {
+  const subText = submissions.map(s =>
+    `[${s.isWinner ? 'WINNER' : 'Submission'}] ${s.authorName} (reaction score: ${s.reactionScore}): ${s.content.slice(0, 300)}`
+  ).join('\n\n');
+
+  const prompt = `You are BeWatu's AI arena synthesizer. Analyze this completed Arena and produce structured insights.
+
+**Arena:** "${arena.title}"
+**Brief:** ${arena.brief}
+**Domain:** ${arena.domain}
+**Participants:** ${participants.map(p => p.displayName).join(', ')}
+
+**Submissions:**
+${subText}
+
+Respond ONLY in this exact JSON format (no markdown, no preamble):
+{
+  "summary": "2-3 sentence summary of the arena — what problem was tackled and what emerged",
+  "keyInsights": ["insight 1", "insight 2", "insight 3"],
+  "winnerReasoning": "1-2 sentences explaining why the winning submission stood out"
+}`;
+
+  const response = await callGeminiApi({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: { responseMimeType: 'application/json' },
+  });
+
+  try {
+    const text = response.text.replace(/```json|```/g, '').trim();
+    return JSON.parse(text);
+  } catch {
+    return {
+      summary: 'Arena completed successfully.',
+      keyInsights: ['Participants demonstrated strong domain expertise.'],
+      winnerReasoning: 'The winning submission best addressed the brief.',
+    };
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. OPPORTUNITY INSIGHT
+// Explains why a user matches (or doesn't match) an opportunity.
+// Used in: OpportunityFeed card expanded view, RecruiterConsole candidate match
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const generateOpportunityInsight = async (
+  userName: string,
+  profile: ReputationProfile,
+  opportunity: Opportunity,
+  matchScore: number
+): Promise<string> => {
+  const prompt = `You are BeWatu's AI matching intelligence. In 2–3 sentences, explain to ${userName} why they are a ${matchScore}% match for this opportunity. Be honest and specific. If the score is low, be constructive.
+
+**User reputation:**
+${profileSummary(profile)}
+
+**Opportunity:** ${opportunity.title} at ${opportunity.companyName}
+**Domain:** ${opportunity.primaryDomain}
+**Level:** ${opportunity.experienceLevel}
+**Trust requirements:** ${opportunity.trustRequirements.map(r => `${r.domain} ≥ ${r.minTrustScore}`).join(', ') || 'None specified'}
+
+Keep it under 50 words. Start with "Your" not with the person's name.`;
+
+  const response = await callGeminiApi({ model: 'gemini-2.5-flash', contents: prompt });
+  return response.text.trim();
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. IDEA REFINEMENT
+// Takes a raw idea and returns an improved version with sharper brief and
+// a suggested Arena structure.
+// Used in: IdeaNetwork — "Refine with AI" button on idea cards
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const generateIdeaRefinement = async (
+  idea: Idea,
+  authorProfile: ReputationProfile | null
+): Promise<{ refinedTitle: string; refinedBrief: string; suggestedArenaStructure: string }> => {
+  const domainContext = authorProfile?.domains.find(d => d.name === idea.domain);
+
+  const prompt = `You are BeWatu's AI idea coach. A user has posted an idea and wants help sharpening it into an Arena-ready problem statement.
+
+**Original Idea:**
+Title: ${idea.title}
+Body: ${idea.body}
+Domain: ${idea.domain}
+Current sparks: ${idea.sparkCount}
+
+**Author's domain standing:** ${domainContext ? `${idea.domain} score ${domainContext.score}/1000, ${domainContext.tier} tier` : 'No domain data'}
+
+Respond ONLY in this exact JSON format (no markdown, no preamble):
+{
+  "refinedTitle": "sharper, more specific title (max 80 chars)",
+  "refinedBrief": "rewritten problem statement — concrete, specific, solvable in a 30-min arena. Include success criteria. 60–120 words.",
+  "suggestedArenaStructure": "1–2 sentences describing what the ideal submission would look like and how participants would be evaluated"
+}`;
+
+  const response = await callGeminiApi({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: { responseMimeType: 'application/json' },
+  });
+
+  try {
+    const text = response.text.replace(/```json|```/g, '').trim();
+    return JSON.parse(text);
+  } catch {
+    return {
+      refinedTitle: idea.title,
+      refinedBrief: idea.body,
+      suggestedArenaStructure: 'Open submissions with peer review and vote.',
+    };
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. REPUTATION PATHWAYS
+// Suggests 3 concrete actions to improve trust in a target domain.
+// Used in: ReputationPanel — "How to improve" button
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const findReputationPathways = async (
+  userName: string,
+  profile: ReputationProfile,
+  targetDomain: string
+): Promise<{ action: string; impact: 'high' | 'medium' | 'low'; description: string }[]> => {
+  const currentDomain = profile.domains.find(d => d.name === targetDomain);
+
+  const prompt = `You are BeWatu's AI reputation coach. Suggest exactly 3 concrete actions ${userName} can take on the BeWatu platform to grow their trust in ${targetDomain}.
+
+**Current ${targetDomain} standing:** ${currentDomain ? `Score ${currentDomain.score}/1000, ${currentDomain.tier} tier, ${currentDomain.edgeCount} trust edges` : 'No standing yet'}
+**Overall profile:** ${profileSummary(profile)}
+
+BeWatu trust is earned through: completing skill challenges, running or participating in Arenas, creating micro-lessons in Pods, endorsing others' skills, posting Arena-ready Ideas.
+
+Respond ONLY in this exact JSON format (no markdown, no preamble):
+[
+  { "action": "short action title", "impact": "high|medium|low", "description": "1 sentence of specific guidance" },
+  { "action": "short action title", "impact": "high|medium|low", "description": "1 sentence of specific guidance" },
+  { "action": "short action title", "impact": "high|medium|low", "description": "1 sentence of specific guidance" }
+]`;
+
+  const response = await callGeminiApi({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: { responseMimeType: 'application/json' },
+  });
+
+  try {
+    const text = response.text.replace(/```json|```/g, '').trim();
+    return JSON.parse(text);
+  } catch {
+    return [
+      { action: 'Participate in an Arena', impact: 'high', description: `Join or host a ${targetDomain} Arena to earn strong trust signals from peers.` },
+      { action: 'Complete a Challenge', impact: 'high', description: `Submit to a ${targetDomain} Skill Challenge to earn verified evidence.` },
+      { action: 'Post a micro-lesson', impact: 'medium', description: `Share a tip in a Pod focused on ${targetDomain} to earn peer learning trust.` },
+    ];
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. ARENA BRIEF GENERATOR
+// Creates a structured Arena brief from a topic + domain.
+// Used in: CreateArenaModal — "Generate brief" button
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const generateArenaBrief = async (
+  topic: string,
+  domain: string,
+  durationMinutes: number,
+  hostProfile: ReputationProfile | null
+): Promise<{ title: string; brief: string }> => {
+  const prompt = `You are BeWatu's AI arena designer. Create a focused, solvable Arena brief for a ${durationMinutes}-minute live collaboration session.
+
+**Topic:** ${topic}
+**Domain:** ${domain}
+**Host domain standing:** ${hostProfile?.domains.find(d => d.name === domain)?.tier ?? 'newcomer'} in ${domain}
+
+Requirements for the brief:
+- Must be solvable in ${durationMinutes} minutes by one person
+- Concrete deliverable (not "think about X" — "build/write/design X")
+- Specific enough that participants know when they're done
+- Include what a strong submission would contain
+
+Respond ONLY in this exact JSON format (no markdown, no preamble):
+{
+  "title": "Arena title (max 80 chars)",
+  "brief": "Full problem statement with context, constraints, and success criteria. 80–150 words."
+}`;
+
+  const response = await callGeminiApi({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: { responseMimeType: 'application/json' },
+  });
+
+  try {
+    const text = response.text.replace(/```json|```/g, '').trim();
+    return JSON.parse(text);
+  } catch {
+    return { title: topic, brief: `Design and build a solution for: ${topic}` };
+  }
 };
