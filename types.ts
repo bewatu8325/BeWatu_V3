@@ -444,3 +444,100 @@ export interface Idea {
   createdAt: string;
   updatedAt: string;
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 3 — ARENA MVP
+// Append to bottom of types.ts
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * An Arena is a time-boxed, phased live collaboration event.
+ * It's spawned from an arena_ready Idea, or from a Challenge directly.
+ *
+ * Lifecycle: lobby → brief → open → review → verdict → closed
+ *
+ * Firestore path: arenas/{arenaId}
+ */
+export type ArenaPhase =
+  | 'lobby'     // waiting for participants, not started
+  | 'brief'     // host presents the brief (read-only, 2 min)
+  | 'open'      // submissions open (15–60 min configurable)
+  | 'review'    // participants review each other's submissions (10 min)
+  | 'verdict'   // host + participants vote on winner (5 min)
+  | 'closed';   // archived, trust edges written
+
+export type ArenaType =
+  | 'challenge'   // linked to a SkillChallenge
+  | 'idea'        // spawned from an Idea
+  | 'open';       // standalone, no parent
+
+export interface ArenaParticipant {
+  uid: string;
+  displayName: string;
+  avatarUrl: string;
+  joinedAt: string;        // ISO
+  isHost: boolean;
+  submissionId?: string;   // set when they submit
+  presenceStatus: 'active' | 'away' | 'disconnected';
+  lastSeenAt: string;      // ISO — updated by heartbeat
+}
+
+export interface ArenaSubmission {
+  id?: string;             // Firestore doc ID
+  arenaId: string;
+  authorUid: string;
+  authorName: string;
+  authorAvatar: string;
+  content: string;         // text, markdown, or URL
+  format: 'text' | 'url' | 'markdown';
+  reactions: {
+    fire: string[];        // UIDs who reacted
+    think: string[];
+    collab: string[];
+  };
+  reviewScore?: number;    // average from peer review phase (0–10)
+  isWinner: boolean;
+  submittedAt: string;
+}
+
+export interface ArenaVote {
+  voterUid: string;
+  nominatedUid: string;   // who they voted as winner
+  reasoning?: string;
+  createdAt: string;
+}
+
+export interface Arena {
+  id?: string;             // Firestore doc ID
+  title: string;
+  brief: string;           // the problem statement shown to participants
+  hostUid: string;
+  hostName: string;
+  type: ArenaType;
+
+  // Lineage
+  sourceIdeaId?: string;
+  sourceChallengeId?: string;
+
+  // Participants (denormalized for real-time reads)
+  participantUids: string[];
+  maxParticipants: number;  // default 8
+
+  // Phase control
+  phase: ArenaPhase;
+  phaseStartedAt: string;   // ISO — when current phase began
+  phaseDurationMinutes: number; // duration of the OPEN phase
+  scheduledStartAt?: string; // ISO — for lobby countdown
+
+  // Outcome
+  winnerUid?: string;
+  submissionCount: number;
+
+  // Domain for trust edge generation
+  domain: string;           // e.g. "Frontend", "Product"
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Add to View enum:
+// Arena = 'ARENA'
