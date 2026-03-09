@@ -6,6 +6,8 @@ import {
 import { LogoIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { View } from '../types';
+import { Factory, Loader2 } from 'lucide-react';
+import { redirectToFactory } from '../lib/handoff';
 
 const NAV_ITEMS = [
   { view: View.Feed,        label: 'Home',          icon: Home          },
@@ -31,6 +33,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
   const { currentUser } = useFirebase();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [factoryLoading, setFactoryLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,6 +51,15 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
   }
+  async function handleGoToFactory() {
+  setFactoryLoading(true);
+  try {
+    await redirectToFactory("/");
+  } catch (err) {
+    console.error("Handoff failed:", err);
+    setFactoryLoading(false);
+  }
+}
 
   return (
     <header className="fixed top-0 right-0 left-0 z-50 border-b bg-white/95 backdrop-blur-sm" style={{ borderColor: "#e7e5e4" }}>
@@ -153,6 +165,15 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
                 <Settings className="h-4 w-4" />Settings
               </button>
+              <button
+  onClick={() => { handleGoToFactory(); setMenuOpen(false); }}
+  disabled={factoryLoading}
+  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-green-50 transition-colors"
+  style={{ color: "#1a4a3a" }}
+>
+  {factoryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Factory className="h-4 w-4" />}
+  {factoryLoading ? "Launching…" : "Go to Factory →"}
+</button>
               <div className="my-1 h-px bg-stone-100" />
               <button onClick={() => { setMenuOpen(false); onLogout(); }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 transition-colors">
