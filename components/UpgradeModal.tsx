@@ -12,7 +12,7 @@
 import React, { useState, useCallback } from 'react';
 import { X, Check, Loader2, Shield } from 'lucide-react';
 import { TIERS, SubscriptionTier } from '../lib/subscription';
-import { setStripeCustomerId } from '../lib/firebaseAuth';
+import { setStripeCustomerId, updateUserInFirestore } from '../lib/firebaseAuth';
 import { useFirebase } from '../contexts/FirebaseContext';
 import PaymentForm from './PaymentForm';
 
@@ -71,6 +71,13 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
 
       // 3. Save Stripe customer ID to Firestore
       await setStripeCustomerId(fbUser.uid, data.customerId);
+      await updateUserInFirestore(fbUser.uid, {
+        subscriptionTier: tier,
+        subscriptionStatus: 'trialing',
+        subscriptionId: data.subscriptionId,
+        subscriptionPriceId: data.subscriptionPriceId,
+        trialEndsAt: data.trialEnd ? new Date(data.trialEnd * 1000).toISOString() : null,
+      } as any);
 
       // 4. Update local user context
       refreshUser({
