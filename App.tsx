@@ -96,6 +96,8 @@ const MainApp: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeChatUserId, setActiveChatUserId] = useState<number | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState<null | 'pro' | 'factory' | 'investor'>(null);
+const [showPricing, setShowPricing] = useState(false);
 
   const [coPilotModalOpen, setCoPilotModalOpen] = useState(false);
   const [coPilotModalTitle, setCoPilotModalTitle] = useState('');
@@ -530,6 +532,7 @@ const MainApp: React.FC = () => {
       case View.Feed:
         content = (
           <div className="space-y-4">
+            <FactoryUnlockBanner onUnlock={() => setShowUpgradeModal('factory')} />
             <SparksTray />
             <HomePage
               data={data}
@@ -614,6 +617,23 @@ const MainApp: React.FC = () => {
         }
         break;
       }
+
+      case View.Pricing:
+        content = (
+          <PricingPage
+            onUpgrade={(tier) => setShowUpgradeModal(tier)}
+            onClose={() => setCurrentView(View.Feed)}
+          />
+        );
+        break;
+
+      case View.Factory:
+        content = (
+          <div className="p-8 text-center text-stone-500">
+            Factory workspace coming soon.
+          </div>
+        );
+        break;
 
       default:
         content = null;
@@ -747,7 +767,17 @@ const MainApp: React.FC = () => {
     </Suspense>
   );
 };
-
+{/* Upgrade Modal */}
+{showUpgradeModal && (
+  <UpgradeModal
+    tier={showUpgradeModal}
+    onClose={() => setShowUpgradeModal(null)}
+    onSuccess={(tier) => {
+      setShowUpgradeModal(null);
+      if (tier === 'factory') setCurrentView(View.Factory);
+    }}
+  />
+)}
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT
 // ─────────────────────────────────────────────────────────────────────────────

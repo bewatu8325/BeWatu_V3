@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Home, Users, Users2, Hexagon, Briefcase, MessageSquare,
-  Bell, LogOut, User, ChevronDown, Settings, Sword, Search, Shield, Zap,
+  Bell, LogOut, User, ChevronDown, Settings, Sword, Search, Shield, Zap, CreditCard,
 } from 'lucide-react';
 import { LogoIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { view: View.Prove,       label: 'Prove',          icon: Sword         },
   { view: View.Jobs,        label: 'Opportunities',  icon: Briefcase     },
   { view: View.Messaging,   label: 'Messages',       icon: MessageSquare },
+  { view: View.Pricing, label: 'Pricing', icon: CreditCard },
 ];
 
 interface HeaderProps {

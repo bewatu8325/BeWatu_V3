@@ -65,6 +65,21 @@ export interface User {
   followingCount?: number;
   followingCompanies?: string[];
   _firestoreUid?: string;
+  subscriptionTier?: 'free' | 'pro' | 'factory' | 'investor';
+  subscriptionStatus?: 'active' | 'trialing' | 'canceled' | 'paused' | 'past_due';
+  subscriptionId?: string;
+  subscriptionPriceId?: string;
+  currentPeriodEnd?: string;
+  trialEndsAt?: string;
+  trialEndingSoon?: boolean;
+  factoryUnlocked?: boolean;
+  factoryUnlockedAt?: string;
+  factoryUnlockReason?: string;
+  ideaTractionScore?: number;
+  collaborationScore?: number;
+  teamFormationScore?: number;
+  arenaPerformanceScore?: number;
+  proSubscriptionDays?: number;
 }
 
 export interface PrivacySettings {
@@ -313,6 +328,8 @@ export enum View {
  RecruiterConsole = 'RECRUITER_CONSOLE',
  Connections = 'CONNECTIONS',
  Ideas = 'IDEAS',
+  Pricing = 'PRICING',
+  Factory = 'FACTORY',
 }
 
 export type Language = 'en' | 'es';
