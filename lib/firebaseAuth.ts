@@ -258,7 +258,14 @@ export async function updateUserInFirestore(
     ...(updates.values !== undefined && { values: updates.values }),
     ...(updates.workStyle !== undefined && { workStyle: updates.workStyle }),
     ...(updates.reputation !== undefined && { reputation: updates.reputation }),
-    ...(updates.credits !== undefined && { credits: updates.credits }),
+    ...(updates.credits !== undefined     ...(updates.credits !== undefined && { credits: updates.credits }),    ...(updates.credits !== undefined && { credits: updates.credits }), { credits: updates.credits }),
+    ...(updates.subscriptionTier !== undefined     ...(updates.credits !== undefined && { credits: updates.credits }),    ...(updates.credits !== undefined && { credits: updates.credits }), { subscriptionTier: updates.subscriptionTier }),
+    ...(updates.subscriptionStatus !== undefined     ...(updates.credits !== undefined && { credits: updates.credits }),    ...(updates.credits !== undefined && { credits: updates.credits }), { subscriptionStatus: updates.subscriptionStatus }),
+    ...(updates.subscriptionId !== undefined     ...(updates.credits !== undefined && { credits: updates.credits }),    ...(updates.credits !== undefined && { credits: updates.credits }), { subscriptionId: updates.subscriptionId }),
+    ...(updates.subscriptionPriceId !== undefined     ...(updates.credits !== undefined && { credits: updates.credits }),    ...(updates.credits !== undefined && { credits: updates.credits }), { subscriptionPriceId: updates.subscriptionPriceId }),
+    ...(updates.trialEndsAt !== undefined     ...(updates.credits !== undefined && { credits: updates.credits }),    ...(updates.credits !== undefined && { credits: updates.credits }), { trialEndsAt: updates.trialEndsAt }),
+    ...(updates.currentPeriodEnd !== undefined     ...(updates.credits !== undefined && { credits: updates.credits }),    ...(updates.credits !== undefined && { credits: updates.credits }), { currentPeriodEnd: updates.currentPeriodEnd }),
+    ...(updates.factoryUnlocked !== undefined     ...(updates.credits !== undefined && { credits: updates.credits }),    ...(updates.credits !== undefined && { credits: updates.credits }), { factoryUnlocked: updates.factoryUnlocked }),
     updatedAt: serverTimestamp(),
   };
   await updateDoc(doc(db, 'users', fbUid), fsUpdates);
