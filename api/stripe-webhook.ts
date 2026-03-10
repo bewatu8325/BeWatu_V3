@@ -139,7 +139,7 @@ export default async function handler(req: Request): Promise<Response> {
           subscriptionId:       sub.id,
           subscriptionPriceId:  priceId,
           trialEndsAt:          sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
-          currentPeriodEnd:     new Date(sub.current_period_end * 1000).toISOString(),
+          currentPeriodEnd:     new Date((sub as any).current_period_end * 1000).toISOString(),
         });
         break;
       }
