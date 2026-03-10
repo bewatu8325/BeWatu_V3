@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {formatDistanceToNow} from "date-fns";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -968,26 +969,17 @@ export const updatePrivacySettings = functions.https.onCall(async (data: any, co
 // BeWatu Factory — Cross-site SSO Handoff
 // ===================================================================
 
-// ===================================================================
-// BeWatu Factory — Cross-site SSO Handoff
-// ===================================================================
-
-export const mintHandoffToken = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "You must be signed in to use this function"
-    );
+export const mintHandoffToken = onCall({
+  cors: ["https://bewatu.com", "https://www.bewatu.com", "http://localhost:3000"],
+}, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in");
   }
-
   try {
-    const customToken = await admin.auth().createCustomToken(context.auth.uid);
+    const customToken = await admin.auth().createCustomToken(request.auth.uid);
     return { token: customToken };
   } catch (err) {
     console.error("mintHandoffToken error:", err);
-    throw new functions.https.HttpsError(
-      "internal",
-      "Failed to generate handoff token"
-    );
+    throw new HttpsError("internal", "Failed to generate handoff token");
   }
 });
