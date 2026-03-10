@@ -968,6 +968,10 @@ export const updatePrivacySettings = functions.https.onCall(async (data: any, co
 // BeWatu Factory — Cross-site SSO Handoff
 // ===================================================================
 
+// ===================================================================
+// BeWatu Factory — Cross-site SSO Handoff
+// ===================================================================
+
 export const mintHandoffToken = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(

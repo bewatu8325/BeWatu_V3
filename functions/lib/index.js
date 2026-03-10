@@ -846,6 +846,9 @@ exports.updatePrivacySettings = functions.https.onCall(async (data, context) => 
 // ===================================================================
 // BeWatu Factory — Cross-site SSO Handoff
 // ===================================================================
+// ===================================================================
+// BeWatu Factory — Cross-site SSO Handoff
+// ===================================================================
 exports.mintHandoffToken = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "You must be signed in to use this function");
