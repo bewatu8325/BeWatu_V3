@@ -77,6 +77,9 @@ const RecruiterConsole = lazy(() => import('./components/recruiter/RecruiterCons
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const Footer = lazy(() => import('./components/Footer'));
 const SuccessBanner = lazy(() => import('./components/SuccessBanner'));
+const FactoryUnlockBanner = lazy(() => import('./components/FactoryUnlockBanner'));
+const PricingPage = lazy(() => import('./components/PricingPage'));
+const UpgradeModal = lazy(() => import('./components/UpgradeModal'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
@@ -764,20 +767,19 @@ const [showPricing, setShowPricing] = useState(false);
   return (
     <Suspense fallback={<FullPageLoader />}>
       {authState === 'authenticated' ? renderContent() : renderAuthFlow()}
+      {showUpgradeModal && (
+        <UpgradeModal
+          tier={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(null)}
+          onSuccess={(tier) => {
+            setShowUpgradeModal(null);
+            if (tier === 'factory') setCurrentView(View.Factory);
+          }}
+        />
+      )}
     </Suspense>
   );
 };
-{/* Upgrade Modal */}
-{showUpgradeModal && (
-  <UpgradeModal
-    tier={showUpgradeModal}
-    onClose={() => setShowUpgradeModal(null)}
-    onSuccess={(tier) => {
-      setShowUpgradeModal(null);
-      if (tier === 'factory') setCurrentView(View.Factory);
-    }}
-  />
-)}
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT
 // ─────────────────────────────────────────────────────────────────────────────
