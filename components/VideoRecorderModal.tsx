@@ -4,7 +4,7 @@ import { storage } from '../lib/firebase';
 import { LoadingIcon, CameraIcon } from '../constants';
 
 interface VideoRecorderModalProps {
-  onSave: (videoUrl: string) => void;
+  onSave: (videoUrl: string, thumbnailUrl: string) => void;
   onClose: () => void;
   fbUid: string;
 }
@@ -31,6 +31,47 @@ async function uploadVideoToStorage(
       async () => resolve(await getDownloadURL(task.snapshot.ref))
     );
   });
+}
+
+// ─── Generate thumbnail from video blob ──────────────────────────────────────
+async function generateThumbnail(blob: Blob): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const url = URL.createObjectURL(blob);
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.currentTime = 0.5;
+    video.onloadeddata = async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 480;
+        canvas.height = video.videoHeight || 854;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas not supported');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(thumbBlob => {
+          URL.revokeObjectURL(url);
+          if (thumbBlob) resolve(thumbBlob);
+          else reject(new Error('Failed to generate thumbnail'));
+        }, 'image/jpeg', 0.85);
+      } catch (err) {
+        URL.revokeObjectURL(url);
+        reject(err);
+      }
+    };
+    video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Video load failed')); };
+    video.load();
+  });
+}
+
+async function uploadThumbnailToStorage(blob: Blob, fbUid: string): Promise<string> {
+  const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+  const { storage } = await import('../lib/firebase');
+  const path = `vibe-clips/${fbUid}/thumbnail_${Date.now()}.jpg`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
+  return getDownloadURL(storageRef);
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -80,7 +121,7 @@ const UploadProgress: React.FC<{ pct: number }> = ({ pct }) => (
 );
 
 // ─── Record tab ───────────────────────────────────────────────────────────────
-const RecordTab: React.FC<{ fbUid: string; onSave: (url: string) => void }> = ({ fbUid, onSave }) => {
+const RecordTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: string) => void }> = ({ fbUid, onSave }) => {
   const [permission, setPermission] = useState<'idle' | 'pending' | 'granted' | 'denied'>('idle');
   const [status, setStatus] = useState<'idle' | 'recording' | 'recorded' | 'uploading'>('idle');
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -173,8 +214,12 @@ const RecordTab: React.FC<{ fbUid: string; onSave: (url: string) => void }> = ({
     setStatus('uploading');
     setError(null);
     try {
-      const url = await uploadVideoToStorage(recordedBlob, fbUid, setUploadPct);
-      onSave(url);
+      const [url, thumbBlob] = await Promise.all([
+        uploadVideoToStorage(recordedBlob, fbUid, setUploadPct),
+        generateThumbnail(recordedBlob).catch(() => null),
+      ]);
+      const thumbnailUrl = thumbBlob ? await uploadThumbnailToStorage(thumbBlob, fbUid).catch(() => '') : '';
+      onSave(url, thumbnailUrl);
     } catch (err: any) {
       setError('Upload failed. Please try again.');
       setStatus('recorded');
@@ -288,7 +333,7 @@ const RecordTab: React.FC<{ fbUid: string; onSave: (url: string) => void }> = ({
 };
 
 // ─── Upload tab ───────────────────────────────────────────────────────────────
-const UploadTab: React.FC<{ fbUid: string; onSave: (url: string) => void }> = ({ fbUid, onSave }) => {
+const UploadTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: string) => void }> = ({ fbUid, onSave }) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -327,8 +372,12 @@ const UploadTab: React.FC<{ fbUid: string; onSave: (url: string) => void }> = ({
     setUploading(true);
     setError(null);
     try {
-      const url = await uploadVideoToStorage(file, fbUid, setUploadPct);
-      onSave(url);
+      const [url, thumbBlob] = await Promise.all([
+        uploadVideoToStorage(file, fbUid, setUploadPct),
+        generateThumbnail(file).catch(() => null),
+      ]);
+      const thumbnailUrl = thumbBlob ? await uploadThumbnailToStorage(thumbBlob, fbUid).catch(() => '') : '';
+      onSave(url, thumbnailUrl);
     } catch {
       setError('Upload failed. Please try again.');
       setUploading(false);
