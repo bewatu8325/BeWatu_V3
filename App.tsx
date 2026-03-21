@@ -380,12 +380,12 @@ const [showPricing, setShowPricing] = useState(false);
     setIsSkillsGraphModalOpen(false);
   };
 
-  const handleSaveMicroIntroduction = async (videoUrl: string) => {
+const handleSaveMicroIntroduction = async (videoUrl: string, thumbnailUrl: string) => {
     if (!data || !currentUser || !fbUser) return;
-    const updatedUser = { ...currentUser, microIntroductionUrl: videoUrl };
+    const updatedUser = { ...currentUser, microIntroductionUrl: videoUrl, microIntroductionThumbnail: thumbnailUrl };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
     refreshUser(updatedUser);
-    await updateUserInFirestore(fbUser.uid, { microIntroductionUrl: videoUrl });
+    await updateUserInFirestore(fbUser.uid, { microIntroductionUrl: videoUrl, microIntroductionThumbnail: thumbnailUrl } as any);
     setIsVideoRecorderModalOpen(false);
   };
 
