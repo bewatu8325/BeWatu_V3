@@ -1,13 +1,37 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { storage } from '../lib/firebase';
 import { LoadingIcon, CameraIcon } from '../constants';
 
 interface VideoRecorderModalProps {
   onSave: (videoUrl: string) => void;
   onClose: () => void;
+  fbUid: string;
 }
 
 const MAX_DURATION = 30;
 const GREEN = '#1a4a3a';
+
+// ─── Upload to Firebase Storage ───────────────────────────────────────────────
+async function uploadVideoToStorage(
+  blob: Blob,
+  fbUid: string,
+  onProgress?: (pct: number) => void
+): Promise<string> {
+  const ext = blob.type.includes('webm') ? 'webm' : 'mp4';
+  const path = `vibe-clips/${fbUid}/${Date.now()}.${ext}`;
+  const storageRef = ref(storage, path);
+  const task = uploadBytesResumable(storageRef, blob, { contentType: blob.type });
+
+  return new Promise((resolve, reject) => {
+    task.on(
+      'state_changed',
+      snap => onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+      reject,
+      async () => resolve(await getDownloadURL(task.snapshot.ref))
+    );
+  });
+}
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const IconUpload = () => (
@@ -39,12 +63,31 @@ const IconRefresh = () => (
   </svg>
 );
 
+// ─── Upload progress bar ──────────────────────────────────────────────────────
+const UploadProgress: React.FC<{ pct: number }> = ({ pct }) => (
+  <div className="flex flex-col gap-1.5">
+    <div className="flex justify-between text-xs text-stone-500">
+      <span>Uploading…</span>
+      <span>{pct}%</span>
+    </div>
+    <div className="w-full h-1.5 rounded-full bg-stone-200 overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all duration-300"
+        style={{ width: `${pct}%`, backgroundColor: GREEN }}
+      />
+    </div>
+  </div>
+);
+
 // ─── Record tab ───────────────────────────────────────────────────────────────
-const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
+const RecordTab: React.FC<{ fbUid: string; onSave: (url: string) => void }> = ({ fbUid, onSave }) => {
   const [permission, setPermission] = useState<'idle' | 'pending' | 'granted' | 'denied'>('idle');
-  const [status, setStatus] = useState<'idle' | 'recording' | 'recorded'>('idle');
+  const [status, setStatus] = useState<'idle' | 'recording' | 'recorded' | 'uploading'>('idle');
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(MAX_DURATION);
+  const [uploadPct, setUploadPct] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
@@ -65,6 +108,7 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
     recorderRef.current.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     recorderRef.current.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      setRecordedBlob(blob);
       setRecordedUrl(URL.createObjectURL(blob));
       setStatus('recorded');
       chunksRef.current = [];
@@ -84,11 +128,7 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
   const flipCamera = useCallback(async () => {
     const next = facingMode === 'user' ? 'environment' : 'user';
     setFacingMode(next);
-    try {
-      await startStream(next);
-    } catch {
-      setFacingMode(facingMode);
-    }
+    try { await startStream(next); } catch { setFacingMode(facingMode); }
   }, [facingMode, startStream]);
 
   const startRecording = () => {
@@ -113,9 +153,24 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
   };
 
   const handleRetake = () => {
+    setRecordedBlob(null);
     setRecordedUrl(null);
     setStatus('idle');
     setCountdown(MAX_DURATION);
+    setError(null);
+  };
+
+  const handleSave = async () => {
+    if (!recordedBlob) return;
+    setStatus('uploading');
+    setError(null);
+    try {
+      const url = await uploadVideoToStorage(recordedBlob, fbUid, setUploadPct);
+      onSave(url);
+    } catch (err: any) {
+      setError('Upload failed. Please try again.');
+      setStatus('recorded');
+    }
   };
 
   useEffect(() => () => {
@@ -127,7 +182,6 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Preview */}
       <div className="relative aspect-video rounded-xl overflow-hidden bg-stone-100">
         {permission === 'denied' && (
           <div className="flex h-full items-center justify-center text-sm text-red-500 px-6 text-center">
@@ -156,38 +210,38 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
           className={`w-full h-full object-cover ${permission === 'idle' || permission === 'denied' ? 'hidden' : ''}`}
           src={recordedUrl || undefined}
         />
-        {/* REC badge */}
         {status === 'recording' && (
           <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-1 text-xs font-bold text-white">
             <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
             REC &nbsp;00:{countdown.toString().padStart(2, '0')}
           </div>
         )}
-        {/* Flip camera button — only when live preview is showing */}
-        {permission === 'granted' && status !== 'recorded' && (
+        {permission === 'granted' && status !== 'recorded' && status !== 'uploading' && (
           <button
             onClick={flipCamera}
-            title={facingMode === 'user' ? 'Switch to rear camera' : 'Switch to front camera'}
             className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 7h-3a2 2 0 0 1-2-2V2"/>
               <path d="M9 2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9l-5-5"/>
               <path d="M12 12m-3 0a3 3 0 1 0 6 0 3 3 0 1 0-6 0"/>
-              <path d="m15.5 9.5 1-1"/>
             </svg>
           </button>
         )}
       </div>
 
-      {/* Progress bar when recording */}
       {status === 'recording' && (
         <div className="w-full h-1.5 rounded-full bg-stone-200 overflow-hidden">
           <div className="h-full rounded-full bg-red-400 transition-all duration-1000" style={{ width: `${progress}%` }} />
         </div>
       )}
 
-      {/* Controls */}
+      {status === 'uploading' && <UploadProgress pct={uploadPct} />}
+
+      {error && (
+        <div className="text-sm text-red-500 text-center">{error}</div>
+      )}
+
       <div className="flex items-center justify-center gap-3 pt-1">
         {permission === 'idle' && (
           <button onClick={getPermissions}
@@ -199,14 +253,12 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
         {permission === 'granted' && status === 'idle' && (
           <button onClick={startRecording}
             className="flex h-14 w-14 items-center justify-center rounded-full border-4 bg-red-500 hover:bg-red-400 transition-colors"
-            style={{ borderColor: '#fca5a5' }}
-            title="Start recording" />
+            style={{ borderColor: '#fca5a5' }} />
         )}
         {permission === 'granted' && status === 'recording' && (
           <button onClick={stopRecording}
             className="flex h-14 w-14 items-center justify-center rounded-lg border-4 bg-red-500 hover:bg-red-400 transition-colors"
-            style={{ borderColor: '#fca5a5' }}
-            title="Stop recording" />
+            style={{ borderColor: '#fca5a5' }} />
         )}
         {status === 'recorded' && (
           <>
@@ -215,7 +267,7 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
               style={{ borderColor: '#e7e5e4' }}>
               <IconRefresh /> Retake
             </button>
-            <button onClick={() => recordedUrl && onSave(recordedUrl)}
+            <button onClick={handleSave}
               className="flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-bold text-white hover:opacity-90 transition-opacity"
               style={{ backgroundColor: GREEN }}>
               <IconCheck /> Save Vibe Clip
@@ -228,24 +280,26 @@ const RecordTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
 };
 
 // ─── Upload tab ───────────────────────────────────────────────────────────────
-const UploadTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
+const UploadTab: React.FC<{ fbUid: string; onSave: (url: string) => void }> = ({ fbUid, onSave }) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
+  const handleFile = (f: File) => {
     setError(null);
-    if (!file.type.startsWith('video/')) {
+    if (!f.type.startsWith('video/')) {
       setError('Please select a video file (MP4, MOV, WebM, etc.)');
       return;
     }
-    if (file.size > 100 * 1024 * 1024) {
+    if (f.size > 100 * 1024 * 1024) {
       setError('File is too large. Maximum size is 100 MB.');
       return;
     }
-    // Check duration
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(f);
     const video = document.createElement('video');
     video.preload = 'metadata';
     video.onloadedmetadata = () => {
@@ -254,22 +308,35 @@ const UploadTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
         URL.revokeObjectURL(url);
       } else {
         setPreviewUrl(url);
+        setFile(f);
       }
     };
     video.src = url;
   };
 
+  const handleSave = async () => {
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const url = await uploadVideoToStorage(file, fbUid, setUploadPct);
+      onSave(url);
+    } catch {
+      setError('Upload failed. Please try again.');
+      setUploading(false);
+    }
+  };
+
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
   };
 
   return (
     <div className="flex flex-col gap-4">
       {!previewUrl ? (
-        /* Drop zone */
         <div
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -287,20 +354,16 @@ const UploadTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
             <p className="mt-1 text-sm text-stone-500">or <span className="font-semibold" style={{ color: GREEN }}>browse files</span></p>
             <p className="mt-2 text-xs text-stone-400">MP4, MOV, WebM · max 30 seconds · max 100 MB</p>
           </div>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-          />
+          <input ref={inputRef} type="file" accept="video/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
         </div>
       ) : (
-        /* Preview */
         <div className="relative aspect-video rounded-xl overflow-hidden bg-stone-100">
           <video src={previewUrl} controls className="w-full h-full object-cover" />
         </div>
       )}
+
+      {uploading && <UploadProgress pct={uploadPct} />}
 
       {error && (
         <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -309,16 +372,14 @@ const UploadTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
         </div>
       )}
 
-      {previewUrl && (
+      {previewUrl && !uploading && (
         <div className="flex items-center justify-center gap-3">
-          <button
-            onClick={() => { setPreviewUrl(null); setError(null); }}
+          <button onClick={() => { setPreviewUrl(null); setFile(null); setError(null); }}
             className="flex items-center gap-1.5 rounded-full border px-5 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
             style={{ borderColor: '#e7e5e4' }}>
             <IconRefresh /> Choose different
           </button>
-          <button
-            onClick={() => onSave(previewUrl)}
+          <button onClick={handleSave}
             className="flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-bold text-white hover:opacity-90 transition-opacity"
             style={{ backgroundColor: GREEN }}>
             <IconCheck /> Save Vibe Clip
@@ -330,7 +391,7 @@ const UploadTab: React.FC<{ onSave: (url: string) => void }> = ({ onSave }) => {
 };
 
 // ─── Modal shell ──────────────────────────────────────────────────────────────
-const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose }) => {
+const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose, fbUid }) => {
   const [tab, setTab] = useState<'record' | 'upload'>('record');
 
   return (
@@ -340,7 +401,6 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose
         style={{ borderColor: '#e7e5e4' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#e7e5e4' }}>
           <div>
             <h2 className="font-bold text-lg text-stone-900">Add Vibe Clip</h2>
@@ -351,7 +411,6 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 px-6 pt-4">
           {([
             { id: 'record', label: 'Record', icon: <IconVideo /> },
@@ -370,11 +429,10 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose
           ))}
         </div>
 
-        {/* Tab content */}
         <div className="p-6 pt-4">
           {tab === 'record'
-            ? <RecordTab onSave={onSave} />
-            : <UploadTab onSave={onSave} />
+            ? <RecordTab fbUid={fbUid} onSave={onSave} />
+            : <UploadTab fbUid={fbUid} onSave={onSave} />
           }
         </div>
       </div>
