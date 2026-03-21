@@ -983,3 +983,95 @@ export const mintHandoffToken = onCall({
     throw new HttpsError("internal", "Failed to generate handoff token");
   }
 });
+
+// ===================================================================
+// CoSentiment Integration
+// ===================================================================
+
+const COSENTIMENT_API = "https://www.cosentiment.com/api/bewatu";
+
+function cosentimentHeaders() {
+  const key = process.env.COSENTIMENT_API_KEY;
+  if (!key) throw new HttpsError("internal", "CoSentiment API key not configured");
+  return {
+    "Content-Type": "application/json",
+    "x-bewatu-api-key": key,
+  };
+}
+
+// Fetch a teaser score for a company by domain.
+// Called from CompanyProfileModal when it opens — result is shown as a blurred
+// score widget that CTAs to CoSentiment for the full analysis.
+export const getCoSentimentTeaser = onCall({
+  cors: ["https://bewatu.com", "https://www.bewatu.com", "http://localhost:3000"],
+}, async (request) => {
+  const { domain } = request.data as { domain: string };
+  if (!domain || typeof domain !== "string") {
+    throw new HttpsError("invalid-argument", "domain is required");
+  }
+
+  // Sanitise — strip any path or query string, just the hostname
+  const hostname = domain.replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+
+  try {
+    const res = await fetch(`${COSENTIMENT_API}/score/${encodeURIComponent(hostname)}`, {
+      headers: cosentimentHeaders(),
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch (err) {
+    console.error("getCoSentimentTeaser error:", err);
+    return null; // fail silently — CoSentiment is additive, never blocking
+  }
+});
+
+// Send a community sentiment signal to CoSentiment.
+// Fired when a Bewatu user follows a company, so CoSentiment scores benefit
+// from Bewatu engagement data. Fire-and-forget from the client side.
+export const sendCoSentimentSignal = onCall({
+  cors: ["https://bewatu.com", "https://www.bewatu.com", "http://localhost:3000"],
+}, async (request) => {
+  const {
+    domain,
+    mentions = 1,
+    positive_mentions = 0,
+    negative_mentions = 0,
+    engagement_score = 0.5,
+    top_topics = [],
+  } = request.data as {
+    domain: string;
+    mentions?: number;
+    positive_mentions?: number;
+    negative_mentions?: number;
+    engagement_score?: number;
+    top_topics?: string[];
+  };
+
+  if (!domain || typeof domain !== "string") {
+    throw new HttpsError("invalid-argument", "domain is required");
+  }
+
+  const hostname = domain.replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+  const bewatu_user_id = request.auth?.uid ?? null;
+
+  try {
+    await fetch(`${COSENTIMENT_API}/signal`, {
+      method: "POST",
+      headers: cosentimentHeaders(),
+      body: JSON.stringify({
+        domain: hostname,
+        mentions,
+        positive_mentions,
+        negative_mentions,
+        engagement_score,
+        top_topics,
+        bewatu_user_id,
+      }),
+    });
+  } catch (err) {
+    console.error("sendCoSentimentSignal error:", err);
+    // Swallow — signals are best-effort
+  }
+
+  return { ok: true };
+});
