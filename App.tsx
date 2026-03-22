@@ -707,7 +707,7 @@ const handleSaveMicroIntroduction = async (videoUrl: string, thumbnailUrl: strin
         {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
         {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
         {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
-        {isVideoRecorderModalOpen && <VideoRecorderModal fbUid={fbUser?.uid ?? ''} onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
+        {isVideoRecorderModalOpen && <VideoRecorderModal fbUid={fbUser?.uid ?? ''} oldVideoUrl={currentUser?.microIntroductionUrl} oldThumbnailUrl={currentUser?.microIntroductionThumbnail} onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
         {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
         {reportModalOpen && fbUser && currentUser && (
           <ReportModal
