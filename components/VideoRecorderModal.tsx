@@ -7,6 +7,8 @@ interface VideoRecorderModalProps {
   onSave: (videoUrl: string, thumbnailUrl: string) => void;
   onClose: () => void;
   fbUid: string;
+  oldVideoUrl?: string | null;
+  oldThumbnailUrl?: string | null;
 }
 
 const MAX_DURATION = 30;
@@ -74,6 +76,25 @@ async function uploadThumbnailToStorage(blob: Blob, fbUid: string): Promise<stri
   return getDownloadURL(storageRef);
 }
 
+// ─── Delete old files from Storage ───────────────────────────────────────────
+async function deleteOldVibeClip(oldVideoUrl?: string | null, oldThumbnailUrl?: string | null): Promise<void> {
+  if (!oldVideoUrl && !oldThumbnailUrl) return;
+  try {
+    const { ref, deleteObject } = await import('firebase/storage');
+    const { storage } = await import('../lib/firebase');
+    const deletions: Promise<void>[] = [];
+    if (oldVideoUrl?.includes('firebasestorage')) {
+      deletions.push(deleteObject(ref(storage, oldVideoUrl)).catch(() => {}));
+    }
+    if (oldThumbnailUrl?.includes('firebasestorage')) {
+      deletions.push(deleteObject(ref(storage, oldThumbnailUrl)).catch(() => {}));
+    }
+    await Promise.all(deletions);
+  } catch {
+    // Non-fatal — old file cleanup failure should not block new upload
+  }
+}
+
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const IconUpload = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -121,7 +142,7 @@ const UploadProgress: React.FC<{ pct: number }> = ({ pct }) => (
 );
 
 // ─── Record tab ───────────────────────────────────────────────────────────────
-const RecordTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: string) => void }> = ({ fbUid, onSave }) => {
+const RecordTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: string) => void; oldVideoUrl?: string | null; oldThumbnailUrl?: string | null }> = ({ fbUid, onSave, oldVideoUrl, oldThumbnailUrl }) => {
   const [permission, setPermission] = useState<'idle' | 'pending' | 'granted' | 'denied'>('idle');
   const [status, setStatus] = useState<'idle' | 'recording' | 'recorded' | 'uploading'>('idle');
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -214,6 +235,8 @@ const RecordTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: s
     setStatus('uploading');
     setError(null);
     try {
+      // Delete old files first (non-blocking)
+      deleteOldVibeClip(oldVideoUrl, oldThumbnailUrl);
       const [url, thumbBlob] = await Promise.all([
         uploadVideoToStorage(recordedBlob, fbUid, setUploadPct),
         generateThumbnail(recordedBlob).catch(() => null),
@@ -333,7 +356,7 @@ const RecordTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: s
 };
 
 // ─── Upload tab ───────────────────────────────────────────────────────────────
-const UploadTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: string) => void }> = ({ fbUid, onSave }) => {
+const UploadTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: string) => void; oldVideoUrl?: string | null; oldThumbnailUrl?: string | null }> = ({ fbUid, onSave, oldVideoUrl, oldThumbnailUrl }) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -372,6 +395,8 @@ const UploadTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: s
     setUploading(true);
     setError(null);
     try {
+      // Delete old files first (non-blocking)
+      deleteOldVibeClip(oldVideoUrl, oldThumbnailUrl);
       const [url, thumbBlob] = await Promise.all([
         uploadVideoToStorage(file, fbUid, setUploadPct),
         generateThumbnail(file).catch(() => null),
@@ -448,7 +473,7 @@ const UploadTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: s
 };
 
 // ─── Modal shell ──────────────────────────────────────────────────────────────
-const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose, fbUid }) => {
+const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose, fbUid, oldVideoUrl, oldThumbnailUrl }) => {
   const [tab, setTab] = useState<'record' | 'upload'>('record');
 
   return (
@@ -488,8 +513,8 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose
 
         <div className="p-6 pt-4">
           {tab === 'record'
-            ? <RecordTab fbUid={fbUid} onSave={onSave} />
-            : <UploadTab fbUid={fbUid} onSave={onSave} />
+            ? <RecordTab fbUid={fbUid} onSave={onSave} oldVideoUrl={oldVideoUrl} oldThumbnailUrl={oldThumbnailUrl} />
+            : <UploadTab fbUid={fbUid} onSave={onSave} oldVideoUrl={oldVideoUrl} oldThumbnailUrl={oldThumbnailUrl} />
           }
         </div>
       </div>
