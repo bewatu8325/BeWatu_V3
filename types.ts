@@ -132,6 +132,10 @@ export interface Company {
   industry: string;
   logoUrl: string;
   website: string;
+  domain?: string;
+ticker?: string;
+source?: 'cosentiment' | 'user';
+claimed?: boolean;
   adminUid?: string;
   verifiedRecruiters?: string[];
   verificationStatus?: 'unverified' | 'pending' | 'verified';
@@ -330,6 +334,7 @@ export enum View {
  Ideas = 'IDEAS',
   Pricing = 'PRICING',
   Factory = 'FACTORY',
+  Companies = 'COMPANIES'
 }
 
 export type Language = 'en' | 'es';

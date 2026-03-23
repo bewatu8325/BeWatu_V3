@@ -31,6 +31,7 @@ import {
   Post,
   User,
   Job,
+  Company,
   Message,
   Notification,
   ConnectionRequest,
@@ -3083,4 +3084,77 @@ export function checkOpportunityUnlock(
     });
   }
   return false;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANIES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchCompanies(claimedOnly = false): Promise<Company[]> {
+  const q = claimedOnly
+    ? query(collection(db, 'companies'), where('claimed', '==', true), orderBy('name'), limit(200))
+    : query(collection(db, 'companies'), orderBy('name'), limit(200));
+
+  const snap = await getDocs(q);
+  return snap.docs.map(d => {
+    const data = d.data();
+    return {
+      id:                 data.numericId ?? 0,
+      _firestoreId:       d.id,
+      name:               data.name ?? '',
+      description:        data.description ?? '',
+      industry:           data.industry ?? '',
+      logoUrl:            data.logoUrl ?? '',
+      website:            data.website ?? '',
+      domain:             data.domain ?? '',
+      ticker:             data.ticker ?? '',
+      source:             data.source ?? 'user',
+      claimed:            data.claimed ?? false,
+      verified:           data.verified ?? false,
+      adminUid:           data.adminUid ?? undefined,
+      verifiedRecruiters: data.verifiedRecruiters ?? [],
+      verificationStatus: data.verificationStatus ?? 'unverified',
+    } as Company & { domain: string; ticker: string; source: string; claimed: boolean };
+  });
+}
+
+export async function claimCompany(
+  firestoreId: string,
+  recruiterUid: string,
+  recruiterEmail: string,
+  companyDomain: string
+): Promise<{ success: boolean; reason?: string }> {
+  const freeEmailDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com'];
+  const emailDomain = recruiterEmail.split('@')[1]?.toLowerCase() ?? '';
+
+  if (freeEmailDomains.includes(emailDomain)) {
+    return { success: false, reason: 'A corporate email address is required to claim a company.' };
+  }
+
+  if (companyDomain && !companyDomain.includes(emailDomain) && !emailDomain.includes(companyDomain.replace(/^www\./, ''))) {
+    return {
+      success: false,
+      reason: `Your email domain (${emailDomain}) must match the company domain (${companyDomain}).`,
+    };
+  }
+
+  const ref = doc(db, 'companies', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return { success: false, reason: 'Company not found.' };
+
+  const data = snap.data();
+  if (data.claimed && data.adminUid && data.adminUid !== recruiterUid) {
+    return { success: false, reason: 'This company has already been claimed by another admin.' };
+  }
+
+  await updateDoc(ref, {
+    claimed:            true,
+    adminUid:           recruiterUid,
+    verificationStatus: 'pending',
+    claimedAt:          serverTimestamp(),
+    updatedAt:          serverTimestamp(),
+  });
+
+  return { success: true };
 }

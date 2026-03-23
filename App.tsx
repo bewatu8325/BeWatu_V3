@@ -45,7 +45,7 @@ import {
   fetchCircles,
   createCircle,
   fetchUsers,
-  getOrCreateCompanyForRecruiter,
+  fetchCompanies,
   applyToJobWithProfile,
 } from './lib/firestoreService';
 
@@ -80,6 +80,7 @@ const SuccessBanner = lazy(() => import('./components/SuccessBanner'));
 const FactoryUnlockBanner = lazy(() => import('./components/FactoryUnlockBanner'));
 const PricingPage = lazy(() => import('./components/PricingPage'));
 const UpgradeModal = lazy(() => import('./components/UpgradeModal'));
+const CompaniesPage = lazy(() => import('./components/CompaniesPage'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
@@ -168,22 +169,13 @@ const [showPricing, setShowPricing] = useState(false);
         ]);
 
       const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
-
-      // Fetch company BEFORE setData — await inside setData() passes a Promise, not the resolved value
-      const company = await getOrCreateCompanyForRecruiter(
-        fbUser?.uid ?? '',
-        user.name,
-        user.headline
-      ).catch(() => ({
-        id: 1, _firestoreId: '', name: user.headline || user.name,
-        description: '', industry: '', logoUrl: '', website: ''
-      }));
+      const firestoreCompanies = await fetchCompanies(false).catch(() => []);
 
       setData({
         users: [user, ...otherUsers],
         posts: firestorePosts.posts,
         jobs: firestoreJobs,
-        companies: [company],
+        companies: firestoreCompanies,
         messages: firestoreMessages,
         notifications: [],
         connectionRequests: firestoreConnections,
@@ -640,6 +632,10 @@ const handleSaveMicroIntroduction = async (videoUrl: string, thumbnailUrl: strin
             Factory workspace coming soon.
           </div>
         );
+        break;
+
+      case View.Companies:
+        content = <CompaniesPage onViewCompany={handleViewCompany} />;
         break;
 
       default:
