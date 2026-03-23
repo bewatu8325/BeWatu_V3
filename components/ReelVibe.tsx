@@ -56,6 +56,8 @@ function UploadSheet({ onClose, onUploaded }: { onClose: () => void; onUploaded:
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [shareWithCircles, setShareWithCircles] = useState(true);
+  const [selectedCircles, setSelectedCircles] = useState<string[]>([]);
 
   async function handleFile(f: File) {
     if (!f.type.startsWith('video/')) { setError('Please select a video file.'); return; }
@@ -99,6 +101,7 @@ function UploadSheet({ onClose, onUploaded }: { onClose: () => void; onUploaded:
         caption: caption.trim(),
         skill: skill.trim(),
         tags,
+        sharedWithCircles: shareWithCircles,
       });
 
       await updateUserInFirestore(fbUser.uid, {
@@ -243,6 +246,24 @@ function UploadSheet({ onClose, onUploaded }: { onClose: () => void; onUploaded:
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Share with circles toggle */}
+          <div className="flex items-center justify-between p-3 rounded-xl border" style={{ borderColor: '#e7e5e4' }}>
+            <div>
+              <p className="text-sm font-semibold text-stone-800">Share with your circles</p>
+              <p className="text-xs text-stone-400 mt-0.5">Visible to your connections and circle members</p>
+            </div>
+            <button
+              onClick={() => setShareWithCircles(s => !s)}
+              className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+              style={{ background: shareWithCircles ? GREEN : '#d1d5db' }}
+            >
+              <span
+                className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                style={{ left: shareWithCircles ? '22px' : '2px' }}
+              />
+            </button>
           </div>
 
           {uploading && (
@@ -509,14 +530,14 @@ export function ReelVibeFeed({ onViewProfile }: ReelVibeProps) {
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    const idx = Math.round(el.scrollTop / el.clientHeight);
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
     setActiveIndex(idx);
   }, []);
 
   function scrollTo(idx: number) {
     const el = containerRef.current;
     if (!el) return;
-    el.scrollTo({ top: idx * el.clientHeight, behavior: 'smooth' });
+    el.scrollTo({ left: idx * el.clientWidth, behavior: 'smooth' });
   }
 
   async function handleLike(id: string) {
@@ -642,7 +663,7 @@ export function ReelVibeFeed({ onViewProfile }: ReelVibeProps) {
               style={{ scrollbarWidth: 'none' }}
             >
               {filteredReels.map((reel, i) => (
-                <div key={reel.id} className="w-full snap-start snap-always flex-shrink-0" style={{ height: '100%', aspectRatio: '9/16' }}>
+                <div key={reel.id} className="snap-start snap-always flex-shrink-0" style={{ width: '100%', height: '100%', minWidth: '100%' }}>
                   <ReelPlayer
                     reel={reel}
                     isActive={i === activeIndex}
@@ -656,20 +677,20 @@ export function ReelVibeFeed({ onViewProfile }: ReelVibeProps) {
             </div>
 
             {/* Nav arrows */}
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-row gap-2 z-20">
               <button
                 onClick={() => scrollTo(Math.max(0, activeIndex - 1))}
                 disabled={activeIndex === 0}
                 className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white disabled:opacity-30"
               >
-                <ChevronUp className="w-4 h-4" />
+                <ChevronUp className="w-4 h-4 -rotate-90" />
               </button>
               <button
                 onClick={() => scrollTo(Math.min(filteredReels.length - 1, activeIndex + 1))}
                 disabled={activeIndex === filteredReels.length - 1}
                 className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white disabled:opacity-30"
               >
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="w-4 h-4 -rotate-90" />
               </button>
             </div>
 

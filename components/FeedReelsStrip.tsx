@@ -238,8 +238,25 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
 
   return (
     <>
-      <div className="bg-white rounded-2xl border shadow-sm p-3" style={{ borderColor: '#e7e5e4' }}>
-        <div className="flex items-center gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+      <div className="bg-white rounded-2xl border shadow-sm" style={{ borderColor: '#e7e5e4' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b" style={{ borderColor: '#f5f5f4' }}>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="text-sm font-bold text-stone-800">Reel Vibes</span>
+            <span className="text-xs text-stone-400">· from your network</span>
+          </div>
+          {onAddReel && (
+            <button
+              onClick={onAddReel}
+              className="text-xs font-semibold px-3 py-1 rounded-full text-white"
+              style={{ background: GREEN }}
+            >
+              + Share Reel
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-3 overflow-x-auto px-3 py-3" style={{ scrollbarWidth: 'none' }}>
 
           {/* Add your reel bubble */}
           {onAddReel && (
@@ -294,7 +311,7 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
           })}
 
           {uniqueReels.length === 0 && (
-            <p className="text-sm text-stone-400 py-2 px-2">No reels from your network yet</p>
+            <p className="text-sm text-stone-400 py-1">No reels from your network yet — be the first!</p>
           )}
         </div>
       </div>
