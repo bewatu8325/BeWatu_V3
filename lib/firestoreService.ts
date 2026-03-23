@@ -3100,7 +3100,7 @@ export async function fetchCompanies(claimedOnly = false): Promise<Company[]> {
   return snap.docs.map(d => {
     const data = d.data();
     return {
-      id:                 data.numericId ?? 0,
+      id:                 data.numericId && data.numericId > 0 ? data.numericId : Math.abs(d.id.split('').reduce((a, c) => (a << 5) - a + c.charCodeAt(0), 0)),
       _firestoreId:       d.id,
       name:               data.name ?? '',
       description:        data.description ?? '',
