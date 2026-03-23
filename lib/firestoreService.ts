@@ -1346,7 +1346,13 @@ export async function unfollowCompany(userUid: string, companyFirestoreId: strin
 
 export async function getSuggestedCompanies(limit_ = 5): Promise<any[]> {
   const snap = await getDocs(query(collection(db, 'companies'), limit(limit_)));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map(d => {
+    const data = d.data();
+    const numericId = data.numericId && data.numericId > 0
+      ? data.numericId
+      : Math.abs(d.id.split('').reduce((a: number, c: string) => (a << 5) - a + c.charCodeAt(0), 0));
+    return { ...data, id: numericId, _firestoreId: d.id };
+  });
 }
 
 export async function getFollowingCompanies(userUid: string): Promise<any[]> {
