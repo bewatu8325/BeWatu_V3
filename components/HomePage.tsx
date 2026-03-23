@@ -16,10 +16,11 @@ interface HomePageProps {
     addPost: (content: string) => void;
     onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
     onViewProfile: (userId: number) => void;
+    onViewCompany?: (companyId: number | string) => void;
 }
 
 const HomePage: React.FC<HomePageProps> = (props) => {
-    const { data, currentUser, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, addPost, onAppreciatePost, onViewProfile } = props;
+    const { data, currentUser, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, addPost, onAppreciatePost, onViewProfile, onViewCompany } = props;
 
     // IDs of accepted connections
     const networkIds = new Set<number>(
@@ -87,6 +88,7 @@ const HomePage: React.FC<HomePageProps> = (props) => {
                     jobs={data.jobs.slice(0, 5)}
                     users={data.users.filter(u => u.id !== currentUser.id).slice(0, 5)}
                     companies={data.companies}
+                    onViewCompany={onViewCompany}
                     onViewProfile={onViewProfile}
                 />
             </aside>
