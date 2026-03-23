@@ -141,7 +141,7 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
                 <div key={company.id} className="flex items-center gap-3">
                   {/* Logo / initial */}
                   <button
-                    onClick={() => onViewCompany?.(company.numericId ?? company.id)}
+                    onClick={() => onViewCompany?.((company as any)._firestoreId ?? company.numericId ?? company.id)}
                     className="shrink-0"
                   >
                     {company.logoUrl ? (
@@ -154,7 +154,7 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
                   </button>
 
                   <div className="flex-1 min-w-0">
-                    <button onClick={() => onViewCompany?.(company.numericId ?? company.id)} className="font-semibold text-sm text-stone-900 hover:underline text-left truncate block w-full">
+                    <button onClick={() => onViewCompany?.((company as any)._firestoreId ?? company.numericId ?? company.id)} className="font-semibold text-sm text-stone-900 hover:underline text-left truncate block w-full">
                       {company.name}
                     </button>
                     <p className="text-xs text-stone-500 truncate">{company.industry}</p>

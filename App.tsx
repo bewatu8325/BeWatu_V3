@@ -340,8 +340,17 @@ const [showPricing, setShowPricing] = useState(false);
     setData(d => d ? { ...d, connectionRequests: [...d.connectionRequests, newRequest] } : null);
   };
 
-  const handleViewCompany = (companyId: number) => {
-    if (data) setSelectedCompany(data.companies.find(c => c.id === companyId) || null);
+  const handleViewCompany = (companyId: number | string) => {
+    // Try numeric ID first
+    const found = data.companies.find(c => c.id === companyId || (c as any)._firestoreId === companyId);
+    if (found) { setSelectedCompany(found); return; }
+    // Fetch all companies and try again
+    import('./lib/firestoreService').then(({ fetchCompanies }) =>
+      fetchCompanies(false).then(all => {
+        const match = all.find(c => c.id === companyId || (c as any)._firestoreId === companyId);
+        if (match) setSelectedCompany(match as any);
+      }).catch(() => {})
+    );
   };
 
   const handleAnalyzeSynergy = async (otherUser: User) => {
