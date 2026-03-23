@@ -19,6 +19,7 @@ import {
 import { Company, Job } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import app from '../lib/firebase';
 import {
   followCompany,
   unfollowCompany,
@@ -1790,7 +1791,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
     const raw = company.website ?? '';
     const domain = raw.replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
     if (!domain) return;
-    const fns = getFunctions();
+    const fns = getFunctions(app);
     const getTeaser = httpsCallable<{ domain: string }, CoSentimentData | null>(fns, 'getCoSentimentTeaser');
     getTeaser({ domain })
       .then(res => { if (res.data?.teaser?.has_data) setCosentimentData(res.data); })
@@ -1842,7 +1843,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
         // Fire CoSentiment signal — fire-and-forget
         const domain = (company.website ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
         if (domain) {
-          const fns = getFunctions();
+          const fns = getFunctions(app);
           const sendSignal = httpsCallable(fns, 'sendCoSentimentSignal');
           sendSignal({ domain, mentions: 1, positive_mentions: 1, negative_mentions: 0, engagement_score: 0.7, top_topics: [] }).catch(() => {});
         }
