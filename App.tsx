@@ -380,7 +380,11 @@ const [showPricing, setShowPricing] = useState(false);
     setIsSkillsGraphModalOpen(false);
   };
 
+<<<<<<< HEAD
   const handleSaveMicroIntroduction = async (videoUrl: string, thumbnailUrl: string) => {
+=======
+const handleSaveMicroIntroduction = async (videoUrl: string, thumbnailUrl: string) => {
+>>>>>>> origin/main
     if (!data || !currentUser || !fbUser) return;
     const updatedUser = { ...currentUser, microIntroductionUrl: videoUrl, microIntroductionThumbnail: thumbnailUrl };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
@@ -707,7 +711,7 @@ const [showPricing, setShowPricing] = useState(false);
         {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
         {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
         {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
-        {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
+        {isVideoRecorderModalOpen && <VideoRecorderModal fbUid={fbUser?.uid ?? ''} oldVideoUrl={currentUser?.microIntroductionUrl} oldThumbnailUrl={currentUser?.microIntroductionThumbnail} onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
         {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
         {reportModalOpen && fbUser && currentUser && (
           <ReportModal
