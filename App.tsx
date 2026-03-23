@@ -341,7 +341,6 @@ const [showPricing, setShowPricing] = useState(false);
   };
 
   const handleViewCompany = (companyId: number | string) => {
-    console.log('[handleViewCompany] companyId:', companyId, 'data.companies ids:', data.companies.map(c => ({ id: c.id, fid: (c as any)._firestoreId })));
     const found = data.companies.find(c => c.id === companyId || (c as any)._firestoreId === companyId);
     if (found) { setSelectedCompany(found); return; }
     // Fetch all companies and try again
@@ -549,6 +548,7 @@ const [showPricing, setShowPricing] = useState(false);
               addPost={addPost}
               onAppreciatePost={handleAppreciatePost}
               onViewProfile={handleViewProfile}
+              onViewCompany={handleViewCompany}
             />
           </div>
         );
