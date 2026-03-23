@@ -6,6 +6,7 @@ import ExperienceSection from './ExperienceSection';
 import ReputationPanel from './profile/ReputationPanel';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFirebase } from '../contexts/FirebaseContext';
+import ProfileReelsStrip from './ProfileReelsStrip';
 import { uploadAvatar } from '../lib/storageService';
 import { updateUserInFirestore } from '../lib/firebaseAuth';
 
@@ -240,6 +241,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
       </div>
 
       <div className="lg:col-span-8 space-y-4 min-w-0">
+        {/* Reels Strip */}
+        <ProfileReelsStrip
+          fbUid={user._firestoreUid ?? String(user.id)}
+          isCurrentUser={isCurrentUser}
+          onNavigate={onNavigate}
+        />
         {/* Skills Tile */}
         <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
           {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
