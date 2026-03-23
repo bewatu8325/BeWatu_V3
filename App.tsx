@@ -372,11 +372,7 @@ const [showPricing, setShowPricing] = useState(false);
     setIsSkillsGraphModalOpen(false);
   };
 
-<<<<<<< HEAD
   const handleSaveMicroIntroduction = async (videoUrl: string, thumbnailUrl: string) => {
-=======
-const handleSaveMicroIntroduction = async (videoUrl: string, thumbnailUrl: string) => {
->>>>>>> origin/main
     if (!data || !currentUser || !fbUser) return;
     const updatedUser = { ...currentUser, microIntroductionUrl: videoUrl, microIntroductionThumbnail: thumbnailUrl };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
