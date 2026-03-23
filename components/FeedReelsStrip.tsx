@@ -7,7 +7,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Play, Heart, MessageCircle, ChevronLeft, ChevronRight, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Share2, Flag, X, Play, Heart, MessageCircle, ChevronLeft, ChevronRight, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { getReelVibes, toggleReelLike, incrementReelView, type ReelVibe } from '../lib/firestoreService';
 
@@ -33,6 +33,9 @@ function ReelPlayerModal({
   const [likeCount, setLikeCount] = useState(0);
   const [viewed, setViewed] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const reel = reels[index];
@@ -78,6 +81,14 @@ function ReelPlayerModal({
 
   function prev() { if (index > 0) setIndex(i => i - 1); }
   function next() { if (index < reels.length - 1) setIndex(i => i + 1); }
+
+  function handleShare() {
+    setShowShare(true);
+  }
+
+  function handleReport() {
+    setShowReport(true);
+  }
 
   if (!reel) return null;
 
@@ -246,15 +257,7 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
             <span className="text-sm font-bold text-stone-800">Reel Vibes</span>
             <span className="text-xs text-stone-400">· from your network</span>
           </div>
-          {onAddReel && (
-            <button
-              onClick={onAddReel}
-              className="text-xs font-semibold px-3 py-1 rounded-full text-white"
-              style={{ background: GREEN }}
-            >
-              + Share Reel
-            </button>
-          )}
+
         </div>
         <div className="flex items-center gap-3 overflow-x-auto px-3 py-3" style={{ scrollbarWidth: 'none' }}>
 
