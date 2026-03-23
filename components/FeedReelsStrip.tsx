@@ -117,16 +117,9 @@ function ReelPlayerModal({
 
         {/* Top bar */}
         <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-10">
-          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white">
-            <X className="w-5 h-5" />
-          </button>
+<div />
           <div className="flex items-center gap-2">
             {/* Progress dots */}
-            <div className="flex gap-1">
-              {reels.map((_, i) => (
-                <div key={i} className="h-0.5 rounded-full transition-all" style={{ width: i === index ? 20 : 6, background: i === index ? 'white' : 'rgba(255,255,255,0.4)' }} />
-              ))}
-            </div>
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); const v = videoRef.current; if (v) { v.muted = !muted; setMuted(m => !m); }}}
