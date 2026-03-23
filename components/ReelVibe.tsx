@@ -638,7 +638,7 @@ export function ReelVibeFeed({ onViewProfile }: ReelVibeProps) {
             <div
               ref={containerRef}
               onScroll={handleScroll}
-              className="w-full h-full overflow-y-scroll snap-y snap-mandatory"
+              className="w-full h-full overflow-x-scroll snap-x snap-mandatory flex"
               style={{ scrollbarWidth: 'none' }}
             >
               {filteredReels.map((reel, i) => (

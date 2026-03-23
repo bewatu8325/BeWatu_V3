@@ -8,7 +8,7 @@ interface RecommendationsSidebarProps {
   users: User[];
   companies: Company[];
   onViewProfile: (userId: number) => void;
-  onViewCompany?: (companyId: number) => void;
+  onViewCompany?: (companyId: number | string) => void;
   onFollow?: (userId: number) => void;
 }
 
