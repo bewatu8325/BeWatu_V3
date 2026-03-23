@@ -7,7 +7,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { Share2, Flag, X, Play, Heart, MessageCircle, ChevronLeft, ChevronRight, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Share2, Flag, Plus, X, Play, Heart, MessageCircle, ChevronLeft, ChevronRight, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { getReelVibes, toggleReelLike, incrementReelView, type ReelVibe } from '../lib/firestoreService';
 
@@ -117,7 +117,7 @@ function ReelPlayerModal({
 
         {/* Top bar */}
         <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-10">
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white">
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white">
             <X className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
