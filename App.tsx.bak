@@ -77,9 +77,6 @@ const RecruiterConsole = lazy(() => import('./components/recruiter/RecruiterCons
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const Footer = lazy(() => import('./components/Footer'));
 const SuccessBanner = lazy(() => import('./components/SuccessBanner'));
-const FactoryUnlockBanner = lazy(() => import('./components/FactoryUnlockBanner'));
-const PricingPage = lazy(() => import('./components/PricingPage'));
-const UpgradeModal = lazy(() => import('./components/UpgradeModal'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
@@ -380,12 +377,12 @@ const [showPricing, setShowPricing] = useState(false);
     setIsSkillsGraphModalOpen(false);
   };
 
-  const handleSaveMicroIntroduction = async (videoUrl: string, thumbnailUrl: string) => {
+  const handleSaveMicroIntroduction = async (videoUrl: string) => {
     if (!data || !currentUser || !fbUser) return;
-    const updatedUser = { ...currentUser, microIntroductionUrl: videoUrl, microIntroductionThumbnail: thumbnailUrl };
+    const updatedUser = { ...currentUser, microIntroductionUrl: videoUrl };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
     refreshUser(updatedUser);
-    await updateUserInFirestore(fbUser.uid, { microIntroductionUrl: videoUrl, microIntroductionThumbnail: thumbnailUrl } as any);
+    await updateUserInFirestore(fbUser.uid, { microIntroductionUrl: videoUrl });
     setIsVideoRecorderModalOpen(false);
   };
 
@@ -767,19 +764,20 @@ const [showPricing, setShowPricing] = useState(false);
   return (
     <Suspense fallback={<FullPageLoader />}>
       {authState === 'authenticated' ? renderContent() : renderAuthFlow()}
-      {showUpgradeModal && (
-        <UpgradeModal
-          tier={showUpgradeModal}
-          onClose={() => setShowUpgradeModal(null)}
-          onSuccess={(tier) => {
-            setShowUpgradeModal(null);
-            if (tier === 'factory') setCurrentView(View.Factory);
-          }}
-        />
-      )}
     </Suspense>
   );
 };
+{/* Upgrade Modal */}
+{showUpgradeModal && (
+  <UpgradeModal
+    tier={showUpgradeModal}
+    onClose={() => setShowUpgradeModal(null)}
+    onSuccess={(tier) => {
+      setShowUpgradeModal(null);
+      if (tier === 'factory') setCurrentView(View.Factory);
+    }}
+  />
+)}
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT
 // ─────────────────────────────────────────────────────────────────────────────

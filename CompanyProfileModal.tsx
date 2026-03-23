@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Company, Job } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   followCompany,
   unfollowCompany,
@@ -1698,6 +1699,61 @@ function SubmissionsReview({
   );
 }
 
+// ─── CoSentiment Widget ───────────────────────────────────────────────────────
+interface CoSentimentData {
+  company: { name: string; ticker?: string; sector?: string };
+  teaser: { score_range: string; sentiment: string; has_data: boolean };
+  cta: { url: string; label: string; signup_url: string };
+}
+
+function CoSentimentWidget({ data, userId }: { data: CoSentimentData; userId?: string }) {
+  const { score_range, sentiment } = data.teaser;
+  const sentimentColor =
+    sentiment === 'positive' ? '#059669' :
+    sentiment === 'negative' ? '#dc2626' : '#d97706';
+  const signupUrl = `https://www.cosentiment.com/sign-up?ref=bewatu${userId ? `&bewatu_id=${userId}` : ''}`;
+
+  return (
+    <div className="bg-white rounded-2xl border p-4 space-y-3" style={{ borderColor: '#e7e5e4' }}>
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: '#059669' }}>
+          <span className="text-white font-black text-sm" style={{ fontFamily: 'Georgia, serif' }}>C</span>
+        </div>
+        <span className="text-sm font-bold text-stone-700">CoSentiment Score</span>
+        <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          style={{ background: '#e8f4f0', color: '#1a4a3a' }}>
+          Live data
+        </span>
+      </div>
+
+      {/* Blurred score */}
+      <div className="flex items-baseline gap-2">
+        <span className="text-4xl font-black tabular-nums select-none"
+          style={{ color: sentimentColor, filter: 'blur(6px)', userSelect: 'none' }}>
+          {score_range}
+        </span>
+        <span className="text-xs text-stone-400">/ 100</span>
+        <span className="text-xs font-semibold capitalize ml-1" style={{ color: sentimentColor }}>
+          {sentiment}
+        </span>
+      </div>
+
+      <p className="text-xs text-stone-400 leading-relaxed">
+        Based on user reviews, support health, social signals & more. Sign up to unlock the full score.
+      </p>
+
+      {/* CTA */}
+      <a href={signupUrl} target="_blank" rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold text-white hover:opacity-90 transition-opacity"
+        style={{ background: '#059669', textDecoration: 'none' }}>
+        See full analysis → Free on CoSentiment
+      </a>
+    </div>
+  );
+}
+
 // Missing lucide icon not in 0.263.1
 function Inbox({ className }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>;
@@ -1726,6 +1782,20 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
   const [showCreateChallenge, setShowCreateChallenge] = useState(false);
   const [submitTarget, setSubmitTarget] = useState<any | null>(null);
   const [reviewTarget, setReviewTarget] = useState<any | null>(null);
+
+  // ── CoSentiment ──
+  const [cosentimentData, setCosentimentData] = useState<CoSentimentData | null>(null);
+
+  useEffect(() => {
+    const raw = company.website ?? '';
+    const domain = raw.replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
+    if (!domain) return;
+    const fns = getFunctions();
+    const getTeaser = httpsCallable<{ domain: string }, CoSentimentData | null>(fns, 'getCoSentimentTeaser');
+    getTeaser({ domain })
+      .then(res => { if (res.data?.teaser?.has_data) setCosentimentData(res.data); })
+      .catch(() => {}); // fail silently — CoSentiment is additive
+  }, [company.website]);
 
   const companyJobs = allJobs.filter(j => j.companyId === company.id);
   const isOwner = company.adminUid === fbUser?.uid || (company.verifiedRecruiters ?? []).includes(fbUser?.uid ?? '');
@@ -1769,6 +1839,13 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
       } else {
         await followCompany(fbUser.uid, company._firestoreId);
         setIsFollowing(true);
+        // Fire CoSentiment signal — fire-and-forget
+        const domain = (company.website ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
+        if (domain) {
+          const fns = getFunctions();
+          const sendSignal = httpsCallable(fns, 'sendCoSentimentSignal');
+          sendSignal({ domain, mentions: 1, positive_mentions: 1, negative_mentions: 0, engagement_score: 0.7, top_topics: [] }).catch(() => {});
+        }
       }
     } finally {
       setFollowBusy(false);
@@ -1858,6 +1935,11 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
           <div className="flex-1 px-4 py-4 pb-24 space-y-4">
             {tab === 'overview' && (
               <>
+                {/* CoSentiment Score Widget */}
+                {cosentimentData && (
+                  <CoSentimentWidget data={cosentimentData} userId={fbUser?.uid} />
+                )}
+
                 {/* Jobs */}
                 {companyJobs.length > 0 && (
                   <div className="bg-white rounded-2xl border p-4 space-y-3" style={{ borderColor: '#e7e5e4' }}>

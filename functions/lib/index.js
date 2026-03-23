@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.mintHandoffToken = exports.updatePrivacySettings = exports.permanentlyDeleteUserData = exports.exportUserData = exports.invalidateAICaches = exports.setCachedSynergyAnalysis = exports.getCachedSynergyAnalysis = exports.setCachedJobAnalysis = exports.getCachedJobAnalysis = exports.syncUserProfileToPosts = exports.createChallenge = exports.deleteJob = exports.updateJob = exports.createJob = exports.sendMessage = exports.appreciatePost = exports.createPost = exports.updateUser = exports.getCurrentUser = exports.getPaginatedMessages = exports.getPaginatedUsers = exports.getPaginatedJobs = exports.getPaginatedPosts = exports.getInitialAppData = exports.undoDeleteAccount = exports.deleteAccount = exports.completeRegistration = exports.createUserProfile = void 0;
+exports.sendCoSentimentSignal = exports.getCoSentimentTeaser = exports.mintHandoffToken = exports.updatePrivacySettings = exports.permanentlyDeleteUserData = exports.exportUserData = exports.invalidateAICaches = exports.setCachedSynergyAnalysis = exports.getCachedSynergyAnalysis = exports.setCachedJobAnalysis = exports.getCachedJobAnalysis = exports.syncUserProfileToPosts = exports.createChallenge = exports.deleteJob = exports.updateJob = exports.createJob = exports.sendMessage = exports.appreciatePost = exports.createPost = exports.updateUser = exports.getCurrentUser = exports.getPaginatedMessages = exports.getPaginatedUsers = exports.getPaginatedJobs = exports.getPaginatedPosts = exports.getInitialAppData = exports.undoDeleteAccount = exports.deleteAccount = exports.completeRegistration = exports.createUserProfile = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const date_fns_1 = require("date-fns");
@@ -861,5 +861,76 @@ exports.mintHandoffToken = (0, https_1.onCall)({
         console.error("mintHandoffToken error:", err);
         throw new https_1.HttpsError("internal", "Failed to generate handoff token");
     }
+});
+// ===================================================================
+// CoSentiment Integration
+// ===================================================================
+const COSENTIMENT_API = "https://www.cosentiment.com/api/bewatu";
+function cosentimentHeaders() {
+    const key = process.env.COSENTIMENT_API_KEY;
+    if (!key)
+        throw new https_1.HttpsError("internal", "CoSentiment API key not configured");
+    return {
+        "Content-Type": "application/json",
+        "x-bewatu-api-key": key,
+    };
+}
+// Fetch a teaser score for a company by domain.
+// Called from CompanyProfileModal when it opens — result is shown as a blurred
+// score widget that CTAs to CoSentiment for the full analysis.
+exports.getCoSentimentTeaser = (0, https_1.onCall)({
+    cors: ["https://bewatu.com", "https://www.bewatu.com", "http://localhost:3000"],
+}, async (request) => {
+    const { domain } = request.data;
+    if (!domain || typeof domain !== "string") {
+        throw new https_1.HttpsError("invalid-argument", "domain is required");
+    }
+    // Sanitise — strip any path or query string, just the hostname
+    const hostname = domain.replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+    try {
+        const res = await fetch(`${COSENTIMENT_API}/score/${encodeURIComponent(hostname)}`, {
+            headers: cosentimentHeaders(),
+        });
+        if (!res.ok)
+            return null;
+        return res.json();
+    }
+    catch (err) {
+        console.error("getCoSentimentTeaser error:", err);
+        return null; // fail silently — CoSentiment is additive, never blocking
+    }
+});
+// Send a community sentiment signal to CoSentiment.
+// Fired when a Bewatu user follows a company, so CoSentiment scores benefit
+// from Bewatu engagement data. Fire-and-forget from the client side.
+exports.sendCoSentimentSignal = (0, https_1.onCall)({
+    cors: ["https://bewatu.com", "https://www.bewatu.com", "http://localhost:3000"],
+}, async (request) => {
+    const { domain, mentions = 1, positive_mentions = 0, negative_mentions = 0, engagement_score = 0.5, top_topics = [], } = request.data;
+    if (!domain || typeof domain !== "string") {
+        throw new https_1.HttpsError("invalid-argument", "domain is required");
+    }
+    const hostname = domain.replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+    const bewatu_user_id = request.auth?.uid ?? null;
+    try {
+        await fetch(`${COSENTIMENT_API}/signal`, {
+            method: "POST",
+            headers: cosentimentHeaders(),
+            body: JSON.stringify({
+                domain: hostname,
+                mentions,
+                positive_mentions,
+                negative_mentions,
+                engagement_score,
+                top_topics,
+                bewatu_user_id,
+            }),
+        });
+    }
+    catch (err) {
+        console.error("sendCoSentimentSignal error:", err);
+        // Swallow — signals are best-effort
+    }
+    return { ok: true };
 });
 //# sourceMappingURL=index.js.map

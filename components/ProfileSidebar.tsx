@@ -44,8 +44,6 @@ const VibeClipTile: React.FC<{
   onPlayVideo: (url: string) => void;
   onNavigate: (view: View) => void;
 }> = ({ user, onRecordVideo, onPlayVideo, onNavigate }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(false);
   const hasVideo = !!user.microIntroductionUrl;
 
   const initials = user.name
@@ -55,69 +53,42 @@ const VibeClipTile: React.FC<{
     .toUpperCase()
     .slice(0, 2);
 
+  // Always open modal on tap for full audio experience
   const handleTap = () => {
-    if (!hasVideo || !videoRef.current) return;
-    if (playing) {
-      videoRef.current.pause();
-      setPlaying(false);
-    } else {
-      const v = videoRef.current;
-      // Mute for inline play — required on iOS Safari and avoids autoplay blocks.
-      // The user tapped so this is a direct gesture; muted inline play is
-      // universally allowed. Unmute is a separate user action if desired.
-      v.muted = true;
-      const playPromise = v.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => { setPlaying(true); })
-          .catch(() => {
-            // Inline play fully blocked (e.g. restricted browser) — open modal fallback
-            onPlayVideo(user.microIntroductionUrl!);
-          });
-      } else {
-        setPlaying(true);
-      }
-    }
+    if (!hasVideo) return;
+    onPlayVideo(user.microIntroductionUrl!);
   };
 
   return (
-    // 9:14 aspect ratio container
     <div
       className="relative w-full overflow-hidden rounded-2xl shadow-md cursor-pointer select-none"
       style={{ aspectRatio: '9/14', backgroundColor: '#1a4a3a' }}
       onClick={handleTap}
     >
       {hasVideo ? (
-        /* ── Video mode ── */
         <>
-          <video
-            ref={videoRef}
-            src={user.microIntroductionUrl!}
-            poster={user.microIntroductionThumbnail ?? undefined}
-            className="absolute inset-0 w-full h-full object-cover"
-            preload="metadata"
-            muted
-            loop
-            playsInline
-            webkit-playsinline="true"
-            onEnded={() => setPlaying(false)}
-            onPause={() => setPlaying(false)}
-            onPlay={() => setPlaying(true)}
-            onError={() => {
-              // Inline video failed (CORS or bad URL) — open modal as fallback
-              console.error('[VibeClipTile] Video load error, src:', user.microIntroductionUrl);
-              onPlayVideo(user.microIntroductionUrl!);
-            }}
-          />
-
-          {/* Play/pause overlay — only visible when paused */}
-          {!playing && (
-            <div className="absolute inset-0 flex items-center justify-center bg-stone-900/25">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/40">
-                <PlayIcon className="w-7 h-7 text-white ml-1" />
-              </div>
-            </div>
+          {/* Thumbnail — static image preview, no inline video playback */}
+          {user.microIntroductionThumbnail ? (
+            <img
+              src={user.microIntroductionThumbnail}
+              alt={user.name}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'linear-gradient(160deg, #4db89a 0%, #1a6b52 45%, #1a4a3a 100%)',
+              }}
+            />
           )}
+
+          {/* Play overlay */}
+          <div className="absolute inset-0 flex items-center justify-center bg-stone-900/25">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/40">
+              <PlayIcon className="w-7 h-7 text-white ml-1" />
+            </div>
+          </div>
 
           {/* Gradient overlay at bottom */}
           <div
@@ -129,17 +100,17 @@ const VibeClipTile: React.FC<{
           <div className="absolute bottom-0 left-0 right-0 p-4 pr-5 pointer-events-none">
             <p className="font-bold text-white text-lg leading-tight truncate">{user.name}</p>
             <p className="text-white/80 text-sm mt-0.5 truncate">{user.headline}</p>
-            {user.location && (
+            {(user as any).location && (
               <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1 truncate">
                 <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
                 </svg>
-                {user.location}
+                {(user as any).location}
               </p>
             )}
           </div>
 
-          {/* Update clip button — top-right so it never overlaps name */}
+          {/* Update clip button */}
           <button
             onClick={e => { e.stopPropagation(); onRecordVideo(); }}
             className="absolute top-3 right-3 pointer-events-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors"
@@ -150,7 +121,6 @@ const VibeClipTile: React.FC<{
           </button>
         </>
       ) : (
-        /* ── No-video mode ── */
         <>
           {/* Gradient bg */}
           <div
