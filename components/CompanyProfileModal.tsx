@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { Company, Job } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../lib/firebase';
 import {
   followCompany,
@@ -1791,10 +1790,9 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
     const raw = company.website ?? '';
     const domain = raw.replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
     if (!domain) return;
-    const fns = getFunctions(app);
-    const getTeaser = httpsCallable<{ domain: string }, CoSentimentData | null>(fns, 'getCoSentimentTeaser');
-    getTeaser({ domain })
-      .then(res => { if (res.data?.teaser?.has_data) setCosentimentData(res.data); })
+    fetch(`/api/cosentiment-teaser?domain=${encodeURIComponent(domain)}`)
+      .then(r => r.json())
+      .then(data => { if (data?.teaser?.has_data) setCosentimentData(data); })
       .catch(() => {}); // fail silently — CoSentiment is additive
   }, [company.website]);
 
@@ -1843,8 +1841,8 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
         // Fire CoSentiment signal — fire-and-forget
         const domain = (company.website ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
         if (domain) {
-          const fns = getFunctions(app);
-          const sendSignal = httpsCallable(fns, 'sendCoSentimentSignal');
+          // sendCoSentimentSignal via Vercel edge function (fire and forget)
+          const sendSignal = (data: any) => fetch('/api/cosentiment-signal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
           sendSignal({ domain, mentions: 1, positive_mentions: 1, negative_mentions: 0, engagement_score: 0.7, top_topics: [] }).catch(() => {});
         }
       }
