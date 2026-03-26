@@ -1,0 +1,79 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// firestore-arena-rules.txt
+// Add these rules into your existing firestore.rules file,
+// inside the `match /databases/{database}/documents { ... }` block.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── arena_industries ──────────────────────────────────────────────────────────
+// Public read (anyone can browse arenas).
+// Write: Cloud Functions only (ops panel writes via admin SDK, bypasses rules).
+match /arena_industries/{industryId} {
+  allow read:  if true;
+  allow write: if false; // admin SDK only
+}
+
+// ── industry_verifications ───────────────────────────────────────────────────
+// Companies can read their own verifications.
+// Create: authenticated users (tied to their company during submission).
+// Update: Cloud Functions only (ops approves/rejects via admin SDK).
+match /industry_verifications/{verificationId} {
+  allow read:   if request.auth != null &&
+                   resource.data.companyId == request.auth.uid;
+                // Note: companyId here is the Firestore company doc ID.
+                // For multi-user companies, adjust to check recruiterUid field.
+  allow create: if request.auth != null;
+  allow update: if false; // admin SDK only
+  allow delete: if false;
+}
+
+// ── arena_challenges ──────────────────────────────────────────────────────────
+// Live challenges: anyone can read.
+// Pending/suspended: only the posting company and ops (admin SDK) can read.
+// Create: authenticated users (payment confirmed by webhook).
+// Update: company can update non-status fields on their own live challenges,
+//         or increment viewCount/submissionCount.
+//         Status changes (live/suspended): admin SDK only.
+match /arena_challenges/{challengeId} {
+  allow read: if
+    // Public if live
+    resource.data.verificationStatus == "live"
+    // Or own company's challenges (any status)
+    || (request.auth != null && resource.data.recruiterId == request.auth.uid);
+
+  allow create: if request.auth != null
+    && request.resource.data.recruiterId == request.auth.uid
+    && request.resource.data.verificationStatus == "pending_ops";
+
+  allow update: if request.auth != null && (
+    // Poster can update non-status fields on their own pending/live challenges
+    (
+      resource.data.recruiterId == request.auth.uid
+      && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(["verificationStatus", "stripePaymentIntentId", "shortlistedUids",
+                   "isVerifiedPoster", "isRegulatedPoster", "companyId", "recruiterId"])
+    )
+    // Anyone can increment viewCount (anonymous browsing)
+    || request.resource.data.diff(resource.data).affectedKeys().hasOnly(["viewCount"])
+    // Company can add to shortlistedUids (identity reveal, after Stripe payment checked server-side)
+    || (
+      resource.data.recruiterId == request.auth.uid
+      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["shortlistedUids", "updatedAt"])
+    )
+  );
+
+  allow delete: if false; // never delete, only suspend
+}
+
+// ── arena_challenge_drafts ───────────────────────────────────────────────────
+// Temporary holding area for challenge data before Stripe checkout completes.
+// Deleted by webhook after challenge is created.
+match /arena_challenge_drafts/{draftId} {
+  allow read, write: if request.auth != null
+    && (resource == null || resource.data.recruiterId == request.auth.uid);
+  allow delete: if false; // admin SDK only (webhook deletes it)
+}
+
+// ── verificationRequests (existing) — add industry_verification type ──────────
+// Existing rules already allow create if authenticated.
+// The industry_verification type is handled by existing ops queue.
+// No rule changes needed; industry requests flow through the same collection.
