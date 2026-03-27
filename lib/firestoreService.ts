@@ -180,6 +180,35 @@ export async function sendConnectionRequest(
   receiverUid: string,
   receiverNumericId: number
 ): Promise<ConnectionRequest & { _firestoreId: string }> {
+  // Server-side duplicate guard — check both directions
+  const [existingSent, existingReceived] = await Promise.all([
+    getDocs(query(
+      collection(db, 'connections'),
+      where('senderUid', '==', senderUid),
+      where('receiverUid', '==', receiverUid),
+    )),
+    getDocs(query(
+      collection(db, 'connections'),
+      where('senderUid', '==', receiverUid),
+      where('receiverUid', '==', senderUid),
+    )),
+  ]);
+
+  // If any non-cancelled request exists, return it instead of creating a new one
+  for (const d of [...existingSent.docs, ...existingReceived.docs]) {
+    if (d.data().status !== 'cancelled' && d.data().status !== 'declined') {
+      const data = d.data();
+      return {
+        id: data.senderNumericId * 100000 + data.receiverNumericId,
+        fromUserId: data.senderNumericId,
+        toUserId: data.receiverNumericId,
+        status: data.status,
+        _firestoreId: d.id,
+        createdAt: data.createdAt,
+      } as any;
+    }
+  }
+
   const ref = await addDoc(collection(db, 'connections'), {
     senderUid,
     senderNumericId,
@@ -195,6 +224,7 @@ export async function sendConnectionRequest(
     toUserId: receiverNumericId,
     status: 'pending',
     _firestoreId: ref.id,
+    createdAt: new Date(),
   } as ConnectionRequest & { _firestoreId: string };
 }
 
@@ -222,11 +252,13 @@ export async function fetchConnectionRequests(uid: string): Promise<ConnectionRe
     getDocs(query(collection(db, 'connections'), where('receiverUid', '==', uid))),
   ]);
   const seen = new Set<string>();
-  const results: (ConnectionRequest & { _firestoreId: string; senderUid?: string; receiverUid?: string })[] = [];
+  const results: (ConnectionRequest & { _firestoreId: string; senderUid?: string; receiverUid?: string; createdAt?: any })[] = [];
   for (const d of [...sent.docs, ...received.docs]) {
     if (seen.has(d.id)) continue;
     seen.add(d.id);
     const data = d.data();
+    // Skip expired (> 30 days old) declined/cancelled requests
+    if (data.status === 'declined' || data.status === 'cancelled') continue;
     results.push({
       id: data.senderNumericId * 100000 + data.receiverNumericId,
       fromUserId: data.senderNumericId,
@@ -235,11 +267,44 @@ export async function fetchConnectionRequests(uid: string): Promise<ConnectionRe
       _firestoreId: d.id,
       senderUid: data.senderUid,
       receiverUid: data.receiverUid,
+      createdAt: data.createdAt, // needed for expiry calculation
     } as any);
   }
   return results;
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANCEL / REFRESH CONNECTION REQUESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Cancel an outgoing pending connection request.
+ * Sets status to 'cancelled' rather than deleting, so the duplicate guard
+ * in sendConnectionRequest still works.
+ */
+export async function cancelConnectionRequest(
+  firestoreDocId: string
+): Promise<void> {
+  await updateDoc(doc(db, 'connections', firestoreDocId), {
+    status: 'cancelled',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Refresh a pending connection request that is about to expire.
+ * Resets createdAt to now, extending the expiry by 30 days from today.
+ * Only valid within the last 7 days before expiry.
+ */
+export async function refreshConnectionRequest(
+  firestoreDocId: string
+): Promise<void> {
+  await updateDoc(doc(db, 'connections', firestoreDocId), {
+    createdAt: serverTimestamp(), // reset the clock
+    updatedAt: serverTimestamp(),
+  });
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FOLLOW REQUESTS
