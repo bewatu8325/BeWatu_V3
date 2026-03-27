@@ -69,7 +69,7 @@ const VideoRecorderModal = lazy(() => import('./components/VideoRecorderModal'))
 const VideoPlayerModal = lazy(() => import('./components/VideoPlayerModal'));
 const Circles = lazy(() => import('./components/Circles'));
 const CircleDetail = lazy(() => import('./components/CircleDetail'));
-const AIChat = lazy(() => import('./components/AIChat'));
+const CareerIntelligence = lazy(() => import('./components/CareerIntelligence'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const SecurityPrivacyPage = lazy(() => import('./components/SecurityPrivacyPage'));
 const PublicProfilePage = lazy(() => import('./components/PublicProfilePage'));
@@ -660,7 +660,13 @@ const MainApp: React.FC = () => {
         break;
 
       case View.AIChat:
-        content = <AIChat currentUser={currentUser} />;
+        content = (
+          <CareerIntelligence
+            currentUser={currentUser}
+            allUsers={data.users}
+            onNavigate={handleSetView}
+          />
+        );
         break;
 
       case View.Profile: {
@@ -809,7 +815,7 @@ const MainApp: React.FC = () => {
           <Footer onNavigateToConnect={handleNavigateToConnect} onReportConcern={() => openReport(undefined, undefined)} />
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
-          {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
+          {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
           {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
           {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
           {reportModalOpen && fbUser && currentUser && (
