@@ -8,6 +8,10 @@ import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
+import PricingPage from './components/PricingPage';
+import FactoryUnlockBanner from './components/FactoryUnlockBanner';
+import UpgradeModal from './components/UpgradeModal';
+import { SubscriptionTier } from './lib/subscription';
 
 // ── Firebase auth ─────────────────────────────────────────────────────────────
 import {
@@ -45,7 +49,7 @@ import {
   fetchCircles,
   createCircle,
   fetchUsers,
-  fetchCompanies,
+  getOrCreateCompanyForRecruiter,
   applyToJobWithProfile,
 } from './lib/firestoreService';
 
@@ -77,10 +81,6 @@ const RecruiterConsole = lazy(() => import('./components/recruiter/RecruiterCons
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const Footer = lazy(() => import('./components/Footer'));
 const SuccessBanner = lazy(() => import('./components/SuccessBanner'));
-const FactoryUnlockBanner = lazy(() => import('./components/FactoryUnlockBanner'));
-const PricingPage = lazy(() => import('./components/PricingPage'));
-const UpgradeModal = lazy(() => import('./components/UpgradeModal'));
-const CompaniesPage = lazy(() => import('./components/CompaniesPage'));
 const ArenaDiscovery = lazy(() => import('./components/arenas/ArenaDiscovery'));
 const ArenaIndustryView = lazy(() => import('./components/arenas/ArenaIndustryView'));
 
@@ -102,8 +102,8 @@ const MainApp: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeChatUserId, setActiveChatUserId] = useState<number | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const [showUpgradeModal, setShowUpgradeModal] = useState<null | 'pro' | 'factory' | 'investor'>(null);
-const [showPricing, setShowPricing] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState<SubscriptionTier | null>(null);
+  const [showPricing, setShowPricing] = useState(false);
 
   const [coPilotModalOpen, setCoPilotModalOpen] = useState(false);
   const [coPilotModalTitle, setCoPilotModalTitle] = useState('');
@@ -115,9 +115,9 @@ const [showPricing, setShowPricing] = useState(false);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
 
   // ── Report modal ───────────────────────────────────────────────────────────
-  const [reportModalOpen,    setReportModalOpen]    = useState(false);
-  const [reportModalTarget,  setReportModalTarget]  = useState<import('./components/ReportModal').ReportTarget | undefined>(undefined);
-  const [reportModalType,    setReportModalType]    = useState<import('./components/ReportModal').ReportType | undefined>(undefined);
+  const [reportModalOpen,   setReportModalOpen]   = useState(false);
+  const [reportModalTarget, setReportModalTarget] = useState<import('./components/ReportModal').ReportTarget | undefined>(undefined);
+  const [reportModalType,   setReportModalType]   = useState<import('./components/ReportModal').ReportType | undefined>(undefined);
 
   const openReport = (target?: import('./components/ReportModal').ReportTarget, defaultType?: import('./components/ReportModal').ReportType) => {
     setReportModalTarget(target);
@@ -150,7 +150,6 @@ const [showPricing, setShowPricing] = useState(false);
       setAuthState('authenticated');
       loadAppData(currentUser);
     } else if (currentUser && authState === 'authenticated' && !data && !loading) {
-      // Data can be null right after registration if the context user arrived late
       loadAppData(currentUser);
     }
   }, [authLoading, currentUser, authState, data, loading]);
@@ -172,13 +171,21 @@ const [showPricing, setShowPricing] = useState(false);
         ]);
 
       const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
-      const firestoreCompanies = await fetchCompanies(false).catch(() => []);
+
+      const company = await getOrCreateCompanyForRecruiter(
+        fbUser?.uid ?? '',
+        user.name,
+        user.headline
+      ).catch(() => ({
+        id: 1, _firestoreId: '', name: user.headline || user.name,
+        description: '', industry: '', logoUrl: '', website: ''
+      }));
 
       setData({
         users: [user, ...otherUsers],
         posts: firestorePosts.posts,
         jobs: firestoreJobs,
-        companies: firestoreCompanies,
+        companies: [company],
         messages: firestoreMessages,
         notifications: [],
         connectionRequests: firestoreConnections,
@@ -250,8 +257,6 @@ const [showPricing, setShowPricing] = useState(false);
       if (stripeCustomerId && fbUser) await setStripeCustomerId(fbUser.uid, stripeCustomerId);
       setActiveProfile(isRecruiter ? 'recruiter' : 'user');
       setAuthState('authenticated');
-      // currentUser from context may not have refreshed yet after registration.
-      // Prefer the freshly-registered user from context; fall back to a minimal user obj.
       const userToLoad = currentUser ?? {
         id: Date.now(), name, headline: '', bio: '', avatarUrl: '',
         industry: '', professionalGoals: [], reputation: 0, credits: 100,
@@ -277,7 +282,7 @@ const [showPricing, setShowPricing] = useState(false);
   const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
   const handleEnterAdminPanel = () => setActiveProfile('admin');
   const handleChangePassword = async (currentPassword: string, newPassword: string) => changePassword(currentPassword, newPassword);
-  const handleForgotPassword = async (email: string) => { await forgotPassword(email); }; // page handles navigation after showing success
+  const handleForgotPassword = async (email: string) => { await forgotPassword(email); };
 
   // ── Data mutation handlers ────────────────────────────────────────────────
 
@@ -343,16 +348,8 @@ const [showPricing, setShowPricing] = useState(false);
     setData(d => d ? { ...d, connectionRequests: [...d.connectionRequests, newRequest] } : null);
   };
 
-  const handleViewCompany = (companyId: number | string) => {
-    const found = data.companies.find(c => c.id === companyId || (c as any)._firestoreId === companyId);
-    if (found) { setSelectedCompany(found); return; }
-    // Fetch all companies and try again
-    import('./lib/firestoreService').then(({ fetchCompanies }) =>
-      fetchCompanies(false).then(all => {
-        const match = all.find(c => c.id === companyId || (c as any)._firestoreId === companyId);
-        if (match) setSelectedCompany(match as any);
-      }).catch(() => {})
-    );
+  const handleViewCompany = (companyId: number) => {
+    if (data) setSelectedCompany(data.companies.find(c => c.id === companyId) || null);
   };
 
   const handleAnalyzeSynergy = async (otherUser: User) => {
@@ -383,12 +380,12 @@ const [showPricing, setShowPricing] = useState(false);
     setIsSkillsGraphModalOpen(false);
   };
 
-  const handleSaveMicroIntroduction = async (videoUrl: string, thumbnailUrl: string) => {
+  const handleSaveMicroIntroduction = async (videoUrl: string) => {
     if (!data || !currentUser || !fbUser) return;
-    const updatedUser = { ...currentUser, microIntroductionUrl: videoUrl, microIntroductionThumbnail: thumbnailUrl };
+    const updatedUser = { ...currentUser, microIntroductionUrl: videoUrl };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
     refreshUser(updatedUser);
-    await updateUserInFirestore(fbUser.uid, { microIntroductionUrl: videoUrl, microIntroductionThumbnail: thumbnailUrl } as any);
+    await updateUserInFirestore(fbUser.uid, { microIntroductionUrl: videoUrl });
     setIsVideoRecorderModalOpen(false);
   };
 
@@ -456,6 +453,7 @@ const [showPricing, setShowPricing] = useState(false);
       setCurrentView(View.Profile);
     }
   };
+
   const handleSetView = (view: View) => {
     setCurrentView(view);
     if (view === View.Profile && currentUser) setProfileUserId(currentUser.id);
@@ -463,6 +461,7 @@ const [showPricing, setShowPricing] = useState(false);
     if (view !== View.Circles) setActiveCircleId(null);
     setIsMobileNavOpen(false);
   };
+
   const handleSelectCircle = (circleId: number) => { setCurrentView(View.Circles); setActiveCircleId(circleId); };
 
   const handleFollowUser = async (userId: number) => {
@@ -471,7 +470,6 @@ const [showPricing, setShowPricing] = useState(false);
     const receiver = data.users.find(u => u.id === userId) as any;
     const receiverUid = receiver?._firestoreUid ?? String(userId);
     const privacy = receiver?.privacySettings;
-    // If receiver allows follow without approval, mark accepted immediately
     if (!privacy || privacy.allowFollow !== false) {
       const req = await fbSendFollowRequest(fbUser.uid, currentUser.id, receiverUid, userId);
       setData(d => d ? { ...d, followRequests: [...(d.followRequests ?? []), req] } : null);
@@ -490,6 +488,7 @@ const [showPricing, setShowPricing] = useState(false);
       followRequests: (d.followRequests ?? []).map(r => r.id === requestId ? { ...r, status } : r),
     } : null);
   };
+
   const handleNavigateToConnect = () => setAuthState('connect');
   const handleNavigateToLanding = () => setAuthState('landing');
 
@@ -551,7 +550,6 @@ const [showPricing, setShowPricing] = useState(false);
               addPost={addPost}
               onAppreciatePost={handleAppreciatePost}
               onViewProfile={handleViewProfile}
-              onViewCompany={handleViewCompany}
             />
           </div>
         );
@@ -611,11 +609,23 @@ const [showPricing, setShowPricing] = useState(false);
 
       case View.Prove:
         content = (
+          <ProveView
+            currentUser={currentUser}
+            onViewProfile={handleViewProfile}
+            onStartMessage={startMessage}
+            onConnect={handleSendConnection}
+            allJobs={data.jobs}
+          />
+        );
+        break;
+
+      case View.Arenas as any:
+        content = (
           <Suspense fallback={<div />}>
             <ArenaDiscovery
-              onSelectIndustry={(slug) => {
+              onSelectIndustry={(slug: string) => {
                 setActiveArenaIndustry(slug);
-                setCurrentView(View.ArenaIndustry as any);
+                setCurrentView('ARENA_INDUSTRY' as any);
               }}
               onPostChallenge={() => {}}
               currentUserCompany={selectedCompany}
@@ -629,8 +639,8 @@ const [showPricing, setShowPricing] = useState(false);
           <Suspense fallback={<div />}>
             <ArenaIndustryView
               industry={activeArenaIndustry as any}
-              onBack={() => setCurrentView(View.Prove)}
-              onSelectChallenge={(id) => console.log('challenge selected:', id)}
+              onBack={() => setCurrentView(View.Arenas as any)}
+              onSelectChallenge={(id: string) => console.log('challenge:', id)}
               onPostChallenge={() => {}}
               currentUserCompany={selectedCompany}
             />
@@ -653,7 +663,7 @@ const [showPricing, setShowPricing] = useState(false);
       case View.Pricing:
         content = (
           <PricingPage
-            onUpgrade={(tier) => setShowUpgradeModal(tier)}
+            onUpgrade={(tier) => setShowUpgradeModal(tier as SubscriptionTier)}
             onClose={() => setCurrentView(View.Feed)}
           />
         );
@@ -667,92 +677,99 @@ const [showPricing, setShowPricing] = useState(false);
         );
         break;
 
-      case View.Companies:
-        content = <CompaniesPage onViewCompany={handleViewCompany} />;
-        break;
-
       default:
         content = null;
     }
 
     return (
       <>
-      {/* Security & Privacy overlay */}
-      {showSecurityPage && currentUser && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
-          <div className="min-h-screen">
-            <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={0} />
-            <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
-              <Suspense fallback={<div />}>
-                <SecurityPrivacyPage user={currentUser} onBack={() => setShowSecurityPage(false)} onChangePassword={() => handleChangePassword('' as any, '' as any)} />
-              </Suspense>
-            </main>
+        {/* Security & Privacy overlay */}
+        {showSecurityPage && currentUser && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
+            <div className="min-h-screen">
+              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={0} />
+              <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
+                <Suspense fallback={<div />}>
+                  <SecurityPrivacyPage user={currentUser} onBack={() => setShowSecurityPage(false)} onChangePassword={() => handleChangePassword('' as any, '' as any)} />
+                </Suspense>
+              </main>
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Public profile overlay */}
-      {publicProfileUserId && data && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
-          <div className="min-h-screen">
-            <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} />
-            <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
-              <Suspense fallback={<div />}>
-                {(() => {
-                  const pubUser = data.users.find(u => u.id === publicProfileUserId);
-                  if (!pubUser) return <p className="text-stone-500 p-8">User not found.</p>;
-                  const isConn = data.connectionRequests.some(r =>
-                    r.status === 'accepted' && ((r.fromUserId === currentUser!.id && r.toUserId === publicProfileUserId) || (r.toUserId === currentUser!.id && r.fromUserId === publicProfileUserId))
-                  );
-                  return (
-                    <PublicProfilePage
-                      user={pubUser}
-                      isConnected={isConn}
-                      isFollowing={followedUserIds.has(publicProfileUserId)}
-                      onBack={() => setPublicProfileUserId(null)}
-                      onConnect={(uid) => { fbSendConnectionRequest(currentUser!.id, uid); }}
-                      onFollow={handleFollowUser}
-                      onViewCompany={handleViewCompany}
-                      onMessage={(uid) => { setPublicProfileUserId(null); startMessage(uid); }}
-                      onPlayVideo={url => setPlayingVideoUrl(url)}
-                    />
-                  );
-                })()}
-              </Suspense>
-            </main>
-            <MobileNav currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} />
-          </div>
-        </div>
-      )}
-
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#f5f5f4" }}>
-        <Header
-          currentView={currentView}
-          onNavigate={handleSetView}
-          onLogout={handleLogout}
-          onSwitchToRecruiter={handleSwitchProfile}
-          notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
-          pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length}
-        />
-        <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">{content}</main>
-        {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
-        <Footer onNavigateToConnect={handleNavigateToConnect} onReportConcern={() => openReport(undefined, undefined)} />
-        {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
-        {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
-        {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
-        {isVideoRecorderModalOpen && <VideoRecorderModal fbUid={fbUser?.uid ?? ''} oldVideoUrl={currentUser?.microIntroductionUrl} oldThumbnailUrl={currentUser?.microIntroductionThumbnail} onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
-        {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
-        {reportModalOpen && fbUser && currentUser && (
-          <ReportModal
-            isOpen={reportModalOpen}
-            onClose={() => setReportModalOpen(false)}
-            reporter={{ firestoreUid: fbUser.uid, name: currentUser.name, email: fbUser.email ?? '' }}
-            target={reportModalTarget}
-            defaultType={reportModalType}
-          />
         )}
-        <MobileNav currentView={currentView} onNavigate={handleSetView} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />
-      </div>
+
+        {/* Public profile overlay */}
+        {publicProfileUserId && data && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
+            <div className="min-h-screen">
+              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} />
+              <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
+                <Suspense fallback={<div />}>
+                  {(() => {
+                    const pubUser = data.users.find(u => u.id === publicProfileUserId);
+                    if (!pubUser) return <p className="text-stone-500 p-8">User not found.</p>;
+                    const isConn = data.connectionRequests.some(r =>
+                      r.status === 'accepted' && ((r.fromUserId === currentUser!.id && r.toUserId === publicProfileUserId) || (r.toUserId === currentUser!.id && r.fromUserId === publicProfileUserId))
+                    );
+                    return (
+                      <PublicProfilePage
+                        user={pubUser}
+                        isConnected={isConn}
+                        isFollowing={followedUserIds.has(publicProfileUserId)}
+                        onBack={() => setPublicProfileUserId(null)}
+                        onConnect={(uid) => { fbSendConnectionRequest(currentUser!.id, uid); }}
+                        onFollow={handleFollowUser}
+                        onViewCompany={handleViewCompany}
+                        onMessage={(uid) => { setPublicProfileUserId(null); startMessage(uid); }}
+                        onPlayVideo={url => setPlayingVideoUrl(url)}
+                      />
+                    );
+                  })()}
+                </Suspense>
+              </main>
+              <MobileNav currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} />
+            </div>
+          </div>
+        )}
+
+        <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#f5f5f4" }}>
+          <Header
+            currentView={currentView}
+            onNavigate={handleSetView}
+            onLogout={handleLogout}
+            onSwitchToRecruiter={handleSwitchProfile}
+            notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
+            pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length}
+          />
+          <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">{content}</main>
+          {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
+          <Footer onNavigateToConnect={handleNavigateToConnect} onReportConcern={() => openReport(undefined, undefined)} />
+          {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
+          {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
+          {isSkillsGraphModalOpen && <SkillsGraphModal onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
+          {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
+          {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
+          {reportModalOpen && fbUser && currentUser && (
+            <ReportModal
+              isOpen={reportModalOpen}
+              onClose={() => setReportModalOpen(false)}
+              reporter={{ firestoreUid: fbUser.uid, name: currentUser.name, email: fbUser.email ?? '' }}
+              target={reportModalTarget}
+              defaultType={reportModalType}
+            />
+          )}
+          {/* Upgrade Modal */}
+          {showUpgradeModal && (
+            <UpgradeModal
+              tier={showUpgradeModal}
+              onClose={() => setShowUpgradeModal(null)}
+              onSuccess={(tier) => {
+                setShowUpgradeModal(null);
+                if (tier === 'factory') setCurrentView(View.Factory);
+              }}
+            />
+          )}
+          <MobileNav currentView={currentView} onNavigate={handleSetView} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />
+        </div>
       </>
     );
   };
@@ -800,19 +817,10 @@ const [showPricing, setShowPricing] = useState(false);
   return (
     <Suspense fallback={<FullPageLoader />}>
       {authState === 'authenticated' ? renderContent() : renderAuthFlow()}
-      {showUpgradeModal && (
-        <UpgradeModal
-          tier={showUpgradeModal}
-          onClose={() => setShowUpgradeModal(null)}
-          onSuccess={(tier) => {
-            setShowUpgradeModal(null);
-            if (tier === 'factory') setCurrentView(View.Factory);
-          }}
-        />
-      )}
     </Suspense>
   );
 };
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT
 // ─────────────────────────────────────────────────────────────────────────────
