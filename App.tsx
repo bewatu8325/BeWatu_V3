@@ -156,6 +156,7 @@ const MainApp: React.FC = () => {
 
   // ── Load app data ─────────────────────────────────────────────────────────
   const loadAppData = useCallback(async (user: User) => {
+    setData(null); // Always clear previous user's data first
     setLoading(true);
     setError(null);
     try {
@@ -273,10 +274,21 @@ const MainApp: React.FC = () => {
 
   const handleLogout = async () => {
     await logout();
-    setAuthState('landing');
+    // Reset all state before changing auth state to prevent stale data leaking
     setData(null);
     setCurrentView(View.Feed);
+    setActiveProfile('user');
+    setProfileUserId(null);
+    setActiveChatUserId(null);
+    setActiveCircleId(null);
+    setActiveArenaIndustry(null);
+    setFollowedUserIds(new Set());
+    setAppliedJobIds([]);
+    setSelectedCompany(null);
+    setPublicProfileUserId(null);
+    setShowSecurityPage(false);
     sessionStorage.removeItem('beWatuData');
+    setAuthState('landing');
   };
 
   const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
@@ -333,18 +345,41 @@ const MainApp: React.FC = () => {
   const handleConnectionRequest = async (requestId: number, status: 'accepted' | 'declined') => {
     if (!data) return;
     const req = (data.connectionRequests as any[]).find(cr => cr.id === requestId);
-    if (req?._firestoreId && fbUser) await fbRespondToConnection(req._firestoreId, status, req.senderUid ?? fbUser.uid, fbUser.uid);
+    if (req?._firestoreId && fbUser) {
+      await fbRespondToConnection(req._firestoreId, status, req.senderUid ?? fbUser.uid, fbUser.uid);
+    }
     setData({
       ...data,
-      connectionRequests: data.connectionRequests.map(cr => cr.id === requestId ? { ...cr, status } : cr),
+      // Remove the request entirely from the list — it's either accepted (now a circle)
+      // or declined (gone). Don't just update status or it stays in pending view.
+      connectionRequests: data.connectionRequests.filter(cr => cr.id !== requestId).concat(
+        // Keep it in the array with updated status so "My Circles" can show it,
+        // but mark it so the Requests tab can filter it out
+        status === 'accepted'
+          ? [{ ...req, status: 'accepted' }]
+          : []
+      ),
       notifications: data.notifications.filter(n => n.relatedId !== requestId),
     });
   };
 
   const handleSendConnection = async (receiverId: number) => {
-    if (!currentUser || !fbUser) return;
-    const receiver = data?.users.find(u => u.id === receiverId) as any;
-    const newRequest = await fbSendConnectionRequest(fbUser.uid, currentUser.id, receiver?._firestoreUid ?? String(receiverId), receiverId);
+    if (!currentUser || !fbUser || !data) return;
+
+    // Guard: don't send if a request already exists in any direction
+    const alreadyExists = (data.connectionRequests as any[]).some(cr =>
+      (cr.fromUserId === currentUser.id && cr.toUserId === receiverId) ||
+      (cr.fromUserId === receiverId && cr.toUserId === currentUser.id)
+    );
+    if (alreadyExists) return;
+
+    const receiver = data.users.find(u => u.id === receiverId) as any;
+    const newRequest = await fbSendConnectionRequest(
+      fbUser.uid,
+      currentUser.id,
+      receiver?._firestoreUid ?? String(receiverId),
+      receiverId
+    );
     setData(d => d ? { ...d, connectionRequests: [...d.connectionRequests, newRequest] } : null);
   };
 
@@ -519,6 +554,9 @@ const MainApp: React.FC = () => {
         </div>
       </div>
     );
+
+    // Guard: if data belongs to a different user (mid-login transition), show loader
+    if (data.users[0]?.id !== currentUser.id) return <FullPageLoader />;
 
     if (activeProfile === 'admin') {
       return (
