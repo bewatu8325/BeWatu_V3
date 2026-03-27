@@ -40,10 +40,10 @@ export type IndustrySlug =
   | "banking"
   | "insurance"
   | "healthcare"
-  | "lending"
-  | "wealth"
+  | "industrial"
+  | "retail"
   | "regtech"
-  | "proptech";
+  | "techdata";
 
 export type VerificationStatus =
   | "pending"
