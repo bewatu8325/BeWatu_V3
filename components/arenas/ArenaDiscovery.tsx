@@ -20,7 +20,7 @@ import {
   getArenaIndustries,
   type ArenaIndustry,
   type IndustrySlug,
-} from "../lib/arenaService";
+} from "../../lib/arenaService";
 
 // ─── Icon map ─────────────────────────────────────────────────────────────────
 
