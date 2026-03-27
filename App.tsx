@@ -81,6 +81,8 @@ const FactoryUnlockBanner = lazy(() => import('./components/FactoryUnlockBanner'
 const PricingPage = lazy(() => import('./components/PricingPage'));
 const UpgradeModal = lazy(() => import('./components/UpgradeModal'));
 const CompaniesPage = lazy(() => import('./components/CompaniesPage'));
+const ArenaDiscovery = lazy(() => import('./components/arenas/ArenaDiscovery'));
+const ArenaIndustryView = lazy(() => import('./components/arenas/ArenaIndustryView'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
@@ -124,6 +126,7 @@ const [showPricing, setShowPricing] = useState(false);
   };
 
   const [activeCircleId, setActiveCircleId] = useState<number | null>(null);
+  const [activeArenaIndustry, setActiveArenaIndustry] = useState<string | null>(null);
   const [profileUserId, setProfileUserId] = useState<number | null>(null);
   const [showSecurityPage, setShowSecurityPage] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<number | null>(null);
@@ -607,7 +610,32 @@ const [showPricing, setShowPricing] = useState(false);
       }
 
       case View.Prove:
-        content = <ProveView onViewProfile={handleViewProfile} />;
+        content = (
+          <Suspense fallback={<div />}>
+            <ArenaDiscovery
+              onSelectIndustry={(slug) => {
+                setActiveArenaIndustry(slug);
+                setCurrentView(View.ArenaIndustry as any);
+              }}
+              onPostChallenge={() => {}}
+              currentUserCompany={selectedCompany}
+            />
+          </Suspense>
+        );
+        break;
+
+      case 'ARENA_INDUSTRY' as any:
+        content = activeArenaIndustry ? (
+          <Suspense fallback={<div />}>
+            <ArenaIndustryView
+              industry={activeArenaIndustry as any}
+              onBack={() => setCurrentView(View.Prove)}
+              onSelectChallenge={(id) => console.log('challenge selected:', id)}
+              onPostChallenge={() => {}}
+              currentUserCompany={selectedCompany}
+            />
+          </Suspense>
+        ) : null;
         break;
 
       case View.Circles: {
