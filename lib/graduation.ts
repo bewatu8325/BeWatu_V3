@@ -120,3 +120,25 @@ export const SIGNAL_META: Record<keyof typeof SIGNAL_WEIGHTS, {
     actions: ["Submit solutions", "Get shortlisted", "Win arena challenges"],
   },
 };
+// Aliases for FactoryUnlockBanner compatibility
+export function getGraduationProgress(user: {
+  ideaTractionScore?:     number;
+  collaborationScore?:    number;
+  teamFormationScore?:    number;
+  arenaPerformanceScore?: number;
+  factoryUnlocked?:       boolean;
+  subscriptionTier?:      string;
+}): GraduationStatus {
+  return computeGraduationStatus(user);
+}
+
+export function getGraduationSignals(user: {
+  ideaTractionScore?:     number;
+  collaborationScore?:    number;
+  teamFormationScore?:    number;
+  arenaPerformanceScore?: number;
+}): typeof SIGNAL_META {
+  return SIGNAL_META;
+}
+
+export type { GraduationStatus };
