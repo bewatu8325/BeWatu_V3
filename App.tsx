@@ -39,6 +39,8 @@ import {
   fetchFollowRequests,
   sendFollowRequest as fbSendFollowRequest,
   respondToFollowRequest as fbRespondToFollowRequest,
+  cancelConnectionRequest as fbCancelConnectionRequest,
+  refreshConnectionRequest as fbRefreshConnectionRequest,
   subscribeToNotifications,
   markNotificationsRead as fbMarkNotificationsRead,
   createJob as fbCreateJob,
@@ -383,6 +385,28 @@ const MainApp: React.FC = () => {
     setData(d => d ? { ...d, connectionRequests: [...d.connectionRequests, newRequest] } : null);
   };
 
+  const handleCancelConnection = async (requestId: number) => {
+    if (!data) return;
+    const req = (data.connectionRequests as any[]).find(r => r.id === requestId);
+    if (req?._firestoreId) await fbCancelConnectionRequest(req._firestoreId);
+    setData(d => d ? {
+      ...d,
+      connectionRequests: d.connectionRequests.filter(r => r.id !== requestId),
+    } : null);
+  };
+
+  const handleRefreshConnection = async (requestId: number) => {
+    if (!data) return;
+    const req = (data.connectionRequests as any[]).find(r => r.id === requestId);
+    if (req?._firestoreId) await fbRefreshConnectionRequest(req._firestoreId);
+    setData(d => d ? {
+      ...d,
+      connectionRequests: d.connectionRequests.map(r =>
+        r.id === requestId ? { ...r, createdAt: new Date() } : r
+      ),
+    } : null);
+  };
+
   const handleViewCompany = (companyId: number) => {
     if (data) setSelectedCompany(data.companies.find(c => c.id === companyId) || null);
   };
@@ -621,6 +645,8 @@ const MainApp: React.FC = () => {
             onDeclineFollow={(id) => handleFollowRequest(id, 'declined')}
             onViewProfile={handleViewProfile}
             onConnect={handleSendConnection}
+            onCancel={handleCancelConnection}
+            onRefresh={handleRefreshConnection}
           />
         );
         break;
