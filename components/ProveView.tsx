@@ -28,6 +28,7 @@ import {
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import { compressVideo } from '../lib/compressVideo';
+import { useFirebase } from '../contexts/FirebaseContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -217,10 +218,12 @@ function ReelPlayer({
 
 function UploadReelModal({
   currentUser,
+  fbUid,
   onClose,
   onUploaded,
 }: {
   currentUser: any;
+  fbUid:       string;
   onClose:     () => void;
   onUploaded:  () => void;
 }) {
@@ -282,7 +285,7 @@ function UploadReelModal({
       setStep('uploading');
 
       // Use Firebase Auth UID for storage path
-      const uid = currentUser._firestoreUid ?? String(currentUser.id);
+      const uid = fbUid;
       const ext  = compressed instanceof File ? file.name.split('.').pop() : 'webm';
       const path = `reels/${uid}/${Date.now()}.${ext}`;
       const storageRef = ref(storage, path);
@@ -301,7 +304,7 @@ function UploadReelModal({
 
       // Save to Firestore
       await addDoc(collection(db, 'reels'), {
-        authorUid:    currentUser._firestoreUid ?? String(currentUser.id),
+        authorUid:    fbUid,
         authorName:   currentUser.name,
         authorAvatar: currentUser.avatarUrl ?? null,
         authorTitle:  currentUser.headline ?? currentUser.title ?? '',
@@ -548,6 +551,7 @@ export default function ProveView({
   onConnect,
   allJobs = [],
 }: ProveViewProps) {
+  const { fbUser } = useFirebase();
   const [reels, setReels]         = useState<Reel[]>([]);
   const [loading, setLoading]     = useState(true);
   const [showUpload, setShowUpload] = useState(false);
@@ -556,7 +560,7 @@ export default function ProveView({
   const [filterIndustry, setFilterIndustry] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'mine' | 'matches'>('all');
 
-  const currentUid = currentUser?._firestoreUid ?? String(currentUser?.id ?? '');
+  const currentUid = fbUser?.uid ?? String(currentUser?.id ?? '');
 
   useEffect(() => {
     const q = query(
@@ -803,6 +807,7 @@ export default function ProveView({
       {showUpload && (
         <UploadReelModal
           currentUser={currentUser}
+          fbUid={fbUser?.uid ?? ''}
           onClose={() => setShowUpload(false)}
           onUploaded={() => setShowUpload(false)}
         />
