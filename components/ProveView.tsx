@@ -95,11 +95,11 @@ function ReelPlayer({
   return (
     <div className={`bg-white border border-stone-200 rounded-2xl overflow-hidden ${compact ? '' : 'shadow-sm hover:shadow-md transition-shadow'}`}>
       {/* Video */}
-      <div className="relative bg-stone-900 aspect-video cursor-pointer" onClick={toggle}>
+      <div className="relative bg-stone-900 aspect-[9/16] cursor-pointer" onClick={toggle}>
         <video
           ref={videoRef}
           src={reel.videoUrl}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
           onTimeUpdate={() => {
             if (!videoRef.current) return;
             setProgress((videoRef.current.currentTime / videoRef.current.duration) * 100);
@@ -373,8 +373,8 @@ function UploadReelModal({
             <div className="space-y-5">
               {/* Preview */}
               {videoPreview && (
-                <div className="relative rounded-xl overflow-hidden bg-stone-900 aspect-video">
-                  <video src={videoPreview} className="w-full h-full object-cover" controls />
+                <div className="relative rounded-xl overflow-hidden bg-stone-900 aspect-[9/16]">
+                  <video src={videoPreview} className="w-full h-full object-contain" controls />
                   <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
                     {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, '0')}s
                   </div>
@@ -700,7 +700,7 @@ export default function ProveView({
           {loading ? (
             <div className="grid sm:grid-cols-2 gap-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-2xl bg-stone-100 animate-pulse aspect-[4/5]" />
+                <div key={i} className="rounded-2xl bg-stone-100 animate-pulse aspect-[9/16]" />
               ))}
             </div>
           ) : filtered.length === 0 ? (
