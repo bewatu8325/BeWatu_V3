@@ -580,7 +580,7 @@ const MainApp: React.FC = () => {
     );
 
     // Guard: if data belongs to a different user (mid-login transition), show loader
-    if (data.users[0]?.id !== currentUser.id) return <FullPageLoader />;
+    if (data && currentUser && !data.users.some(u => u.id === currentUser.id)) return <FullPageLoader />;
 
     if (activeProfile === 'admin') {
       return (
