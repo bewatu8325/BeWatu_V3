@@ -27,6 +27,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
+import { compressVideo } from '../lib/compressVideo';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -223,7 +224,7 @@ function UploadReelModal({
   onClose:     () => void;
   onUploaded:  () => void;
 }) {
-  const [step, setStep]             = useState<'pick' | 'details' | 'uploading' | 'done'>('pick');
+  const [step, setStep]             = useState<'pick' | 'details' | 'compressing' | 'uploading' | 'done'>('pick');
   const [file, setFile]             = useState<File | null>(null);
   const [videoPreview, setPreview]  = useState<string | null>(null);
   const [duration, setDuration]     = useState(0);
@@ -266,14 +267,26 @@ function UploadReelModal({
       setError('Add a pitch and at least one skill tag.');
       return;
     }
-    setStep('uploading');
+    setStep('compressing');
     setError(null);
 
     try {
-      // Upload video to Firebase Storage
-      const path = `reels/${currentUser._firestoreUid ?? currentUser.id}/${Date.now()}_${file.name}`;
+      // Compress video client-side to fit reel box (max 720p, 1.5Mbps)
+      const compressed = await compressVideo(file, {
+        maxWidth:    720,
+        maxHeight:   1280,
+        videoBitrate: 1_500_000,
+        audioBitrate: 128_000,
+      });
+
+      setStep('uploading');
+
+      // Use Firebase Auth UID for storage path
+      const uid = currentUser._firestoreUid ?? String(currentUser.id);
+      const ext  = compressed instanceof File ? file.name.split('.').pop() : 'webm';
+      const path = `reels/${uid}/${Date.now()}.${ext}`;
       const storageRef = ref(storage, path);
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      const uploadTask = uploadBytesResumable(storageRef, compressed);
 
       await new Promise<void>((resolve, reject) => {
         uploadTask.on(
@@ -454,6 +467,17 @@ function UploadReelModal({
               >
                 <Upload size={14} /> Upload reel
               </button>
+            </div>
+          )}
+
+          {/* Step: compressing */}
+          {step === 'compressing' && (
+            <div className="py-8 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-stone-50 flex items-center justify-center mx-auto mb-4">
+                <Video size={24} className="text-stone-400 animate-pulse" />
+              </div>
+              <p className="text-sm font-semibold text-stone-900 mb-1">Optimising your reel...</p>
+              <p className="text-xs text-stone-400">Resizing to fit the reel player. This takes a few seconds.</p>
             </div>
           )}
 
