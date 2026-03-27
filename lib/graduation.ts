@@ -1,185 +1,122 @@
 /**
  * lib/graduation.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Tracks user activity signals and determines when a user has earned
- * the right to unlock the Factory tier.
+ * BeWatu → Factory graduation system.
  *
- * Signals tracked:
- *   - Idea traction (engagements on ideas)
- *   - Collaboration activity (circle posts, comments)
- *   - Team formation (teams created or joined)
- *   - Arena performance (solutions ranked top 3)
- *   - Pro subscription duration (30+ days)
+ * Two-step gate:
+ *   Step 1 — Earn access (composite score ≥ 60)
+ *   Step 2 — Activate with $49/month Factory subscription
+ *
+ * Tiers from pricing page:
+ *   Explorer  — free  (bewatu.com only)
+ *   Pro       — $19/month (bewatu.com, enhanced)
+ *   Factory   — $49/month (factory.bewatu.com access)
+ *   Investor  — $199/month (investor console access)
+ *
+ * Score signals (each 0–100, weighted):
+ *   ideaTractionScore      30% — upvotes, forks, comments on ideas
+ *   collaborationScore     25% — team joins, pod contributions, connections
+ *   teamFormationScore     25% — teams created/joined, projects started
+ *   arenaPerformanceScore  20% — solutions submitted, shortlisted, won
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
+export const SIGNAL_WEIGHTS = {
+  ideaTractionScore:     0.30,
+  collaborationScore:    0.25,
+  teamFormationScore:    0.25,
+  arenaPerformanceScore: 0.20,
+} as const;
 
-// ── Signal weights ────────────────────────────────────────────────────────────
+export const GRADUATION_THRESHOLD  = 60;
+export const FACTORY_PRICE_MONTHLY = 49;
+export const INVESTOR_PRICE_MONTHLY = 199;
 
-export interface GraduationSignals {
-  ideaTractionScore:     number;   // 0-100, based on idea engagements
-  collaborationScore:    number;   // 0-100, based on posts/comments
-  teamFormationScore:    number;   // 0-100, based on teams created/joined
-  arenaPerformanceScore: number;   // 0-100, based on arena rankings
-  proSubscriptionDays:   number;   // days as Pro subscriber
-  totalScore:            number;   // weighted total
-  factoryUnlocked:       boolean;  // whether Factory has been unlocked
-  factoryUnlockedAt?:    string;   // ISO date when unlocked
-  factoryUnlockReason?:  string;   // what triggered the unlock
-}
+export type SubscriptionTier = "free" | "pro" | "factory" | "investor";
 
-const WEIGHTS = {
-  ideaTraction:     0.30,
-  collaboration:    0.20,
-  teamFormation:    0.25,
-  arenaPerformance: 0.25,
-};
-
-const FACTORY_UNLOCK_THRESHOLD = 60; // out of 100
-
-// ── Compute total score ───────────────────────────────────────────────────────
-
-export function computeGraduationScore(signals: Omit<GraduationSignals, 'totalScore' | 'factoryUnlocked' | 'factoryUnlockedAt' | 'factoryUnlockReason'>): number {
-  return Math.round(
-    signals.ideaTractionScore     * WEIGHTS.ideaTraction     +
-    signals.collaborationScore    * WEIGHTS.collaboration     +
-    signals.teamFormationScore    * WEIGHTS.teamFormation     +
-    signals.arenaPerformanceScore * WEIGHTS.arenaPerformance
-  );
-}
-
-// ── Check if user qualifies for Factory unlock ────────────────────────────────
-
-export function qualifiesForFactory(signals: GraduationSignals): { qualifies: boolean; reason: string } {
-  // Direct qualification paths
-  if (signals.ideaTractionScore >= 80) {
-    return { qualifies: true, reason: 'Your idea gained significant traction in the community' };
-  }
-  if (signals.teamFormationScore >= 80) {
-    return { qualifies: true, reason: 'You successfully formed a team and started collaborating' };
-  }
-  if (signals.arenaPerformanceScore >= 80) {
-    return { qualifies: true, reason: 'Your arena solutions ranked in the top performers' };
-  }
-  if (signals.proSubscriptionDays >= 30 && signals.totalScore >= 40) {
-    return { qualifies: true, reason: 'You\'ve been an active Pro member and are ready for Factory' };
-  }
-
-  // Overall score threshold
-  if (signals.totalScore >= FACTORY_UNLOCK_THRESHOLD) {
-    return { qualifies: true, reason: 'You\'ve demonstrated strong engagement across the platform' };
-  }
-
-  return { qualifies: false, reason: '' };
-}
-
-// ── Fetch graduation signals from Firestore ───────────────────────────────────
-
-export async function getGraduationSignals(uid: string): Promise<GraduationSignals> {
-  const snap = await getDoc(doc(db, 'users', uid));
-  if (!snap.exists()) throw new Error('User not found');
-
-  const data = snap.data();
-
-  const signals: GraduationSignals = {
-    ideaTractionScore:     data.ideaTractionScore     ?? 0,
-    collaborationScore:    data.collaborationScore     ?? 0,
-    teamFormationScore:    data.teamFormationScore     ?? 0,
-    arenaPerformanceScore: data.arenaPerformanceScore  ?? 0,
-    proSubscriptionDays:   data.proSubscriptionDays    ?? 0,
-    totalScore:            0,
-    factoryUnlocked:       data.factoryUnlocked        ?? false,
-    factoryUnlockedAt:     data.factoryUnlockedAt,
-    factoryUnlockReason:   data.factoryUnlockReason,
-  };
-
-  signals.totalScore = computeGraduationScore(signals);
-  return signals;
-}
-
-// ── Update a specific signal ──────────────────────────────────────────────────
-
-export async function updateGraduationSignal(
-  uid: string,
-  signal: keyof Pick<GraduationSignals, 'ideaTractionScore' | 'collaborationScore' | 'teamFormationScore' | 'arenaPerformanceScore'>,
-  value: number
-): Promise<void> {
-  const clampedValue = Math.min(100, Math.max(0, value));
-  await updateDoc(doc(db, 'users', uid), {
-    [signal]: clampedValue,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// ── Check and unlock Factory if qualified ────────────────────────────────────
-
-export async function checkAndUnlockFactory(uid: string): Promise<{ unlocked: boolean; reason?: string }> {
-  const signals = await getGraduationSignals(uid);
-
-  // Already unlocked
-  if (signals.factoryUnlocked) return { unlocked: true };
-
-  const { qualifies, reason } = qualifiesForFactory(signals);
-
-  if (qualifies) {
-    await updateDoc(doc(db, 'users', uid), {
-      factoryUnlocked:     true,
-      factoryUnlockedAt:   new Date().toISOString(),
-      factoryUnlockReason: reason,
-      updatedAt:           serverTimestamp(),
-    });
-    return { unlocked: true, reason };
-  }
-
-  return { unlocked: false };
-}
-
-// ── Progress helpers for UI ───────────────────────────────────────────────────
-
-export interface GraduationProgress {
-  score:       number;
-  threshold:   number;
-  percentage:  number;
+export interface GraduationStatus {
+  compositeScore:        number;
+  hasEarnedAccess:       boolean;
+  hasActiveSubscription: boolean;
+  hasFactoryAccess:      boolean;
+  tier:                  SubscriptionTier;
   signals: {
-    label:       string;
-    score:       number;
-    weight:      number;
-    description: string;
-  }[];
+    ideaTractionScore:     number;
+    collaborationScore:    number;
+    teamFormationScore:    number;
+    arenaPerformanceScore: number;
+  };
+  pointsToGo:    number;
+  weakestSignal: keyof typeof SIGNAL_WEIGHTS;
+  nextActions:   string[];
 }
 
-export function getGraduationProgress(signals: GraduationSignals): GraduationProgress {
+export function computeGraduationStatus(user: {
+  ideaTractionScore?:     number;
+  collaborationScore?:    number;
+  teamFormationScore?:    number;
+  arenaPerformanceScore?: number;
+  factoryUnlocked?:       boolean;
+  subscriptionTier?:      string;
+}): GraduationStatus {
+  const signals = {
+    ideaTractionScore:     user.ideaTractionScore     ?? 0,
+    collaborationScore:    user.collaborationScore     ?? 0,
+    teamFormationScore:    user.teamFormationScore     ?? 0,
+    arenaPerformanceScore: user.arenaPerformanceScore  ?? 0,
+  };
+
+  const compositeScore = Math.round(
+    signals.ideaTractionScore     * SIGNAL_WEIGHTS.ideaTractionScore     +
+    signals.collaborationScore    * SIGNAL_WEIGHTS.collaborationScore    +
+    signals.teamFormationScore    * SIGNAL_WEIGHTS.teamFormationScore    +
+    signals.arenaPerformanceScore * SIGNAL_WEIGHTS.arenaPerformanceScore
+  );
+
+  const tier = (user.subscriptionTier ?? "free") as SubscriptionTier;
+  const hasEarnedAccess       = compositeScore >= GRADUATION_THRESHOLD;
+  const hasActiveSubscription = tier === "factory" || tier === "investor" || user.factoryUnlocked === true;
+  const hasFactoryAccess      = hasEarnedAccess && hasActiveSubscription;
+  const pointsToGo            = Math.max(0, GRADUATION_THRESHOLD - compositeScore);
+
+  const weightedSignals = (Object.entries(signals) as [keyof typeof SIGNAL_WEIGHTS, number][])
+    .map(([key, val]) => ({ key, weighted: val * SIGNAL_WEIGHTS[key] }));
+  const weakestSignal = weightedSignals.sort((a, b) => a.weighted - b.weighted)[0].key;
+
+  const nextActions: string[] = [];
+  if (signals.ideaTractionScore < 40)     nextActions.push("Post an idea and get it to 10+ upvotes");
+  if (signals.collaborationScore < 40)    nextActions.push("Join a pod and contribute 3 times this week");
+  if (signals.teamFormationScore < 40)    nextActions.push("Join a team or form one around a validated idea");
+  if (signals.arenaPerformanceScore < 40) nextActions.push("Submit a solution to an open arena challenge");
+  if (nextActions.length === 0)           nextActions.push("You've qualified — activate your Factory subscription");
+
   return {
-    score:      signals.totalScore,
-    threshold:  FACTORY_UNLOCK_THRESHOLD,
-    percentage: Math.min(100, Math.round((signals.totalScore / FACTORY_UNLOCK_THRESHOLD) * 100)),
-    signals: [
-      {
-        label:       'Idea Traction',
-        score:       signals.ideaTractionScore,
-        weight:      30,
-        description: 'Get engagement on your ideas — likes, comments, and saves',
-      },
-      {
-        label:       'Team Formation',
-        score:       signals.teamFormationScore,
-        weight:      25,
-        description: 'Create or join teams and collaborate with others',
-      },
-      {
-        label:       'Arena Performance',
-        score:       signals.arenaPerformanceScore,
-        weight:      25,
-        description: 'Submit solutions to arenas and rank in the top performers',
-      },
-      {
-        label:       'Collaboration',
-        score:       signals.collaborationScore,
-        weight:      20,
-        description: 'Actively post, comment, and contribute in circles',
-      },
-    ],
+    compositeScore, hasEarnedAccess, hasActiveSubscription,
+    hasFactoryAccess, tier, signals, pointsToGo, weakestSignal, nextActions,
   };
 }
+
+export const SIGNAL_META: Record<keyof typeof SIGNAL_WEIGHTS, {
+  label: string; weight: string; desc: string; actions: string[];
+}> = {
+  ideaTractionScore: {
+    label: "Idea traction", weight: "30%",
+    desc: "Your ideas gaining traction in the community",
+    actions: ["Post ideas", "Get upvotes", "Receive comments", "Have ideas forked"],
+  },
+  collaborationScore: {
+    label: "Collaboration", weight: "25%",
+    desc: "Active participation and connecting with others",
+    actions: ["Join pods", "Make connections", "Contribute to discussions", "Join teams"],
+  },
+  teamFormationScore: {
+    label: "Team formation", weight: "25%",
+    desc: "Building and joining teams to execute on ideas",
+    actions: ["Create a team", "Join a team", "Start a project", "Complete milestones"],
+  },
+  arenaPerformanceScore: {
+    label: "Arena performance", weight: "20%",
+    desc: "Competing and winning in industry challenges",
+    actions: ["Submit solutions", "Get shortlisted", "Win arena challenges"],
+  },
+};
