@@ -800,6 +800,207 @@ function ConnectionMap({
 
 // ─── Recommended tab ──────────────────────────────────────────────────────────
 
+// ─── Recommendation engine ────────────────────────────────────────────────────
+//
+// Four signal tiers, each contributing a weighted score:
+//
+//   Tier 1 — Network graph (40%)   Second-degree connections via shared circles
+//   Tier 2 — Complementarity (30%) Skill gaps filled, adjacent industries
+//   Tier 3 — Intent & activity (20%) Availability alignment, goals overlap
+//   Tier 4 — Momentum (10%)         New users, verified, high reputation
+//
+// Reasons are human-readable labels shown on each card so users understand
+// WHY they're being recommended — the most important trust signal of all.
+
+const ADJACENT_INDUSTRIES: Record<string, string[]> = {
+  'Fintech':     ['Banking', 'Insurance', 'Payments', 'RegTech', 'Lending', 'Wealth Management'],
+  'Banking':     ['Fintech', 'Insurance', 'Lending', 'Wealth Management', 'RegTech'],
+  'Insurance':   ['Fintech', 'Banking', 'HealthTech', 'RegTech'],
+  'HealthTech':  ['Insurance', 'BioTech', 'MedTech', 'AI/ML'],
+  'AI/ML':       ['Data Science', 'HealthTech', 'Fintech', 'EdTech', 'SaaS'],
+  'SaaS':        ['B2B', 'Enterprise', 'AI/ML', 'DevTools', 'Fintech'],
+  'RegTech':     ['Fintech', 'Banking', 'Insurance', 'Compliance'],
+  'Payments':    ['Fintech', 'Banking', 'E-commerce', 'B2B'],
+  'PropTech':    ['Real Estate', 'Construction', 'Fintech', 'SaaS'],
+  'EdTech':      ['SaaS', 'AI/ML', 'Consumer', 'Enterprise'],
+  'Climate Tech':['Energy', 'SaaS', 'Hardware', 'Policy'],
+};
+
+const BUILDING_AVAILABILITY = ['Building something', 'Open to collaborating', 'Looking for co-founder'];
+const OPEN_AVAILABILITY     = ['Open to opportunities', 'Exploring opportunities', 'Actively looking'];
+
+function getSkillNames(skills: any[]): string[] {
+  return (skills ?? []).map((s: any) =>
+    typeof s === 'string' ? s.toLowerCase() : (s.name ?? '').toLowerCase()
+  ).filter(Boolean);
+}
+
+function scoreRecommendation(
+  candidate:    User,
+  currentUser:  User,
+  connections:  User[],        // currentUser's accepted connections
+  allUsers:     User[],
+): { score: number; reasons: string[]; tier: 'top' | 'good' | 'maybe' } {
+  let score = 0;
+  const reasons: string[] = [];
+
+  const mySkills        = new Set(getSkillNames(currentUser.skills ?? []));
+  const theirSkills     = getSkillNames(candidate.skills ?? []);
+  const myGoals         = new Set((currentUser.professionalGoals ?? []).map((g: string) => g.toLowerCase()));
+  const theirGoals      = (candidate.professionalGoals ?? []).map((g: string) => g.toLowerCase());
+  const myIndustry      = (currentUser.industry ?? '').toLowerCase();
+  const theirIndustry   = (candidate.industry ?? '').toLowerCase();
+  const connectedIds    = new Set(connections.map(u => u.id));
+
+  // ── Tier 1: Network graph (40 pts max) ────────────────────────────────────
+  // Second-degree: connections of connections
+  const myConnections   = connections;
+  const theirConnections = allUsers.filter(u =>
+    u.id !== currentUser.id &&
+    u.id !== candidate.id &&
+    connectedIds.has(u.id)
+  );
+  const mutualCount = myConnections.filter(c =>
+    theirConnections.some(t => t.id === c.id)
+  ).length;
+
+  if (mutualCount >= 3) {
+    score += 40;
+    reasons.push(`${mutualCount} mutual circles`);
+  } else if (mutualCount === 2) {
+    score += 28;
+    reasons.push('2 mutual circles');
+  } else if (mutualCount === 1) {
+    score += 16;
+    reasons.push('1 mutual circle');
+  }
+
+  // ── Tier 2: Complementarity (30 pts max) ──────────────────────────────────
+
+  // Skills they have that you don't — fill YOUR gap
+  const theyFillMyGap = theirSkills.filter(s => !mySkills.has(s));
+  if (theyFillMyGap.length >= 3) {
+    score += 20;
+    reasons.push(`Fills your ${theyFillMyGap[0]} gap`);
+  } else if (theyFillMyGap.length >= 1) {
+    score += 10;
+    reasons.push(`Brings ${theyFillMyGap[0]}`);
+  }
+
+  // Shared skills — common ground for conversation
+  const sharedSkills = theirSkills.filter(s => mySkills.has(s));
+  if (sharedSkills.length >= 3) {
+    score += 10;
+    reasons.push(`${sharedSkills.length} shared skills`);
+  } else if (sharedSkills.length >= 1) {
+    score += 5;
+    reasons.push(`Knows ${sharedSkills[0]}`);
+  }
+
+  // Adjacent industry — more valuable than exact match
+  if (theirIndustry && myIndustry) {
+    if (theirIndustry === myIndustry) {
+      score += 8;
+      reasons.push('Same industry');
+    } else {
+      const myAdjacent = (ADJACENT_INDUSTRIES[currentUser.industry ?? ''] ?? [])
+        .map(s => s.toLowerCase());
+      if (myAdjacent.includes(theirIndustry)) {
+        score += 12; // adjacent scores HIGHER than same — more complementary
+        reasons.push('Adjacent industry');
+      }
+    }
+  }
+
+  // ── Tier 3: Intent & activity (20 pts max) ────────────────────────────────
+
+  // Shared professional goals — strongest intent signal
+  const sharedGoals = theirGoals.filter(g => myGoals.has(g));
+  if (sharedGoals.length > 0) {
+    score += 14;
+    reasons.push('Shared goals');
+  }
+
+  // Both building — highest-intent availability match
+  const myAvail    = currentUser.availability ?? '';
+  const theirAvail = candidate.availability   ?? '';
+  const bothBuilding = BUILDING_AVAILABILITY.some(a => myAvail.includes(a)) &&
+                       BUILDING_AVAILABILITY.some(a => theirAvail.includes(a));
+  const bothOpen     = OPEN_AVAILABILITY.some(a => myAvail.includes(a)) &&
+                       OPEN_AVAILABILITY.some(a => theirAvail.includes(a));
+  if (bothBuilding) {
+    score += 12;
+    reasons.push('Both building');
+  } else if (bothOpen) {
+    score += 6;
+    reasons.push('Both open to opportunities');
+  }
+
+  // Work style alignment — collaboration style match
+  const myCollab    = (currentUser.workStyle as any)?.collaboration ?? '';
+  const theirCollab = (candidate.workStyle   as any)?.collaboration ?? '';
+  if (myCollab && theirCollab && myCollab === theirCollab) {
+    score += 4;
+    // Don't add a reason for this — it's a background signal, not a headline
+  }
+
+  // ── Tier 4: Momentum (10 pts max) ─────────────────────────────────────────
+
+  // Verified profile — trust signal
+  if (candidate.isVerified) {
+    score += 4;
+    reasons.push('Verified');
+  }
+
+  // High reputation — active contributor
+  if ((candidate.reputation ?? 0) > 50) {
+    score += 4;
+    if (!reasons.includes('Verified')) reasons.push('Active contributor');
+  } else if ((candidate.reputation ?? 0) > 20) {
+    score += 2;
+  }
+
+  // New to BeWatu — momentum signal, needs connections most
+  const createdAt = (candidate as any).createdAt;
+  if (createdAt) {
+    const created = createdAt?.toDate ? createdAt.toDate() : new Date(createdAt);
+    const daysSinceJoin = (Date.now() - created.getTime()) / 86400000;
+    if (daysSinceJoin < 7) {
+      score += 6;
+      reasons.push('New to BeWatu');
+    } else if (daysSinceJoin < 30) {
+      score += 2;
+    }
+  }
+
+  // ── Tier classification ────────────────────────────────────────────────────
+  const tier: 'top' | 'good' | 'maybe' =
+    score >= 30 ? 'top' :
+    score >= 12 ? 'good' :
+    'maybe';
+
+  // Cap reasons at 3 — don't overwhelm the card
+  return { score, reasons: reasons.slice(0, 3), tier };
+}
+
+// ─── Tier badge ───────────────────────────────────────────────────────────────
+
+function TierBadge({ tier }: { tier: 'top' | 'good' | 'maybe' }) {
+  if (tier === 'top') return (
+    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+      ★ Strong match
+    </span>
+  );
+  if (tier === 'good') return (
+    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+      Good match
+    </span>
+  );
+  return null;
+}
+
+// ─── RecommendedTab ───────────────────────────────────────────────────────────
+
 function RecommendedTab({
   currentUser,
   allUsers,
@@ -815,33 +1016,33 @@ function RecommendedTab({
   onConnect?: (userId: number) => void;
   onViewProfile: (id: number) => void;
 }) {
-  const [sent, setSent] = useState<Set<number>>(new Set());
+  const [sent, setSent]         = useState<Set<number>>(new Set());
+  const [showAll, setShowAll]   = useState(false);
 
-  // People not already connected and not self
   const connectedIds = new Set(connections.map(u => u.id));
-  const pendingIds = new Set(
+  const pendingIds   = new Set(
     connectionRequests
-      .filter(r => r.fromUserId === currentUser.id || r.toUserId === currentUser.id)
+      .filter(r => r.status === 'pending' &&
+        (r.fromUserId === currentUser.id || r.toUserId === currentUser.id))
       .flatMap(r => [r.fromUserId, r.toUserId])
   );
 
-  // Score each user by shared industry / skills overlap
-  const scored = allUsers
-    .filter(u => u.id !== currentUser.id && !connectedIds.has(u.id) && !pendingIds.has(u.id))
-    .map(u => {
-      let score = 0;
-      const reasons: string[] = [];
-      if (u.industry && u.industry === currentUser.industry) { score += 3; reasons.push('Same industry'); }
-      const mySkills = new Set((currentUser.skills ?? []).map((s: any) => (typeof s === 'string' ? s : s.name).toLowerCase()));
-      const shared = (u.skills ?? []).filter((s: any) => mySkills.has((typeof s === 'string' ? s : s.name).toLowerCase()));
-      if (shared.length > 0) { score += shared.length * 2; reasons.push(`${shared.length} shared skill${shared.length > 1 ? 's' : ''}`); }
-      if (u.isVerified) { score += 1; reasons.push('Verified'); }
-      if (u.availability === currentUser.availability) { score += 1; reasons.push('Same availability'); }
-      return { user: u, score, reasons };
-    })
-    .filter(x => x.score > 0 || allUsers.length < 10) // show all if small network
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 18);
+  const candidates = allUsers.filter(u =>
+    u.id !== currentUser.id &&
+    !connectedIds.has(u.id) &&
+    !pendingIds.has(u.id)
+  );
+
+  const scored = candidates
+    .map(u => ({ user: u, ...scoreRecommendation(u, currentUser, connections, allUsers) }))
+    .filter(x => x.score > 0 || candidates.length <= 8)
+    .sort((a, b) => b.score - a.score);
+
+  const topMatches  = scored.filter(x => x.tier === 'top');
+  const goodMatches = scored.filter(x => x.tier === 'good');
+  const maybeMatches = scored.filter(x => x.tier === 'maybe');
+
+  const visible = showAll ? scored : scored.slice(0, 12);
 
   const handleConnect = (userId: number) => {
     setSent(prev => new Set(prev).add(userId));
@@ -855,22 +1056,49 @@ function RecommendedTab({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
         </svg>
         <p className="text-lg font-medium text-stone-600">No recommendations yet</p>
-        <p className="text-sm mt-1">Add skills and industry to your profile for better matches</p>
+        <p className="text-sm mt-1">Add skills, industry, and goals to your profile for better matches</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-stone-500">{scored.length} people you may know</p>
+    <div className="space-y-6">
+
+      {/* Summary line */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-stone-500">
+          {topMatches.length > 0 && (
+            <span className="font-semibold text-stone-800">{topMatches.length} strong match{topMatches.length !== 1 ? 'es' : ''} · </span>
+          )}
+          {scored.length} people you may know
+        </p>
+        {/* Profile completeness nudge */}
+        {scored.every(x => x.score < 8) && (
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+            Complete your profile for better matches
+          </p>
+        )}
+      </div>
+
+      {/* Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {scored.map(({ user, reasons }) => (
+        {visible.map(({ user, reasons, tier, score }) => (
           <div
             key={user.id}
-            className="bg-white rounded-2xl border p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow"
-            style={{ borderColor: '#e7e5e4' }}
+            className={`bg-white rounded-2xl border p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow ${
+              tier === 'top' ? 'border-amber-200 ring-1 ring-amber-100' : ''
+            }`}
+            style={tier === 'top' ? {} : { borderColor: '#e7e5e4' }}
           >
-            {/* Top row */}
+            {/* Tier badge */}
+            <div className="flex items-center justify-between">
+              <TierBadge tier={tier} />
+              {user.isVerified && (
+                <span className="text-[10px] font-medium text-emerald-700">✓ Verified</span>
+              )}
+            </div>
+
+            {/* Avatar + name */}
             <div className="flex items-center gap-3">
               <button onClick={() => onViewProfile(user.id)} className="shrink-0">
                 <Avatar user={user} size={48} />
@@ -883,27 +1111,42 @@ function RecommendedTab({
                   {user.name}
                 </button>
                 <p className="text-xs text-stone-500 truncate">{user.headline}</p>
-                {user.isVerified && <span className="text-xs font-medium" style={{ color: '#1a6b52' }}>✓ Verified</span>}
+                {user.industry && (
+                  <p className="text-xs text-stone-400 truncate">{user.industry}</p>
+                )}
               </div>
             </div>
-            {/* Reasons */}
+
+            {/* Reason tags — the "why" */}
             {reasons.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {reasons.map(r => (
-                  <span key={r} className="rounded-full px-2 py-0.5 text-[11px] font-medium text-[#1a4a3a] bg-[#e8f4f0]">
+                  <span
+                    key={r}
+                    className="rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+                    style={{ color: '#1a4a3a', backgroundColor: '#e8f4f0' }}
+                  >
                     {r}
                   </span>
                 ))}
               </div>
             )}
+
+            {/* Availability badge */}
+            {user.availability && user.availability !== 'Not looking' && (
+              <p className="text-[11px] text-stone-400 truncate">
+                {user.availability}
+              </p>
+            )}
+
             {/* Connect button */}
             <button
               onClick={() => handleConnect(user.id)}
               disabled={sent.has(user.id)}
-              className={`w-full rounded-lg py-1.5 text-sm font-medium transition-colors ${
+              className={`w-full rounded-xl py-2 text-sm font-semibold transition-colors mt-auto ${
                 sent.has(user.id)
                   ? 'bg-stone-100 text-stone-400 cursor-default'
-                  : 'text-white hover:bg-[#163d30]'
+                  : 'text-white hover:opacity-90'
               }`}
               style={sent.has(user.id) ? {} : { backgroundColor: '#1a4a3a' }}
             >
@@ -912,6 +1155,18 @@ function RecommendedTab({
           </div>
         ))}
       </div>
+
+      {/* Show more */}
+      {scored.length > 12 && !showAll && (
+        <div className="text-center">
+          <button
+            onClick={() => setShowAll(true)}
+            className="text-sm font-medium text-stone-500 hover:text-stone-800 border border-stone-200 rounded-xl px-5 py-2.5 hover:bg-stone-50 transition-colors"
+          >
+            Show {scored.length - 12} more
+          </button>
+        </div>
+      )}
     </div>
   );
 }
