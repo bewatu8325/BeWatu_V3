@@ -1,771 +1,788 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * components/ProveView.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The "Prove" page — a reel-based skill showcase.
+ * Users upload 30–90s video reels with a written pitch, skill tags,
+ * and industry tags. Others can browse, react, and get matched.
+ *
+ * Features:
+ *   - Upload reel with pitch + skill/industry tags
+ *   - Browse feed of reels (filterable by skill/industry)
+ *   - React to reels (spark, connect, message)
+ *   - Opportunity matching based on reel tags
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Sword, PlusCircle, Filter, Loader2, Clock, Users, Zap, Film,
-  Code, Palette, BarChart3, PenTool, Database, ArrowLeft,
-  Star, EyeOff, Eye, CheckCircle, Send, Trophy, X, Plus,
+  Play, Pause, Upload, X, Plus, Zap, MessageSquare,
+  UserPlus, Briefcase, Filter, Search, CheckCircle2,
+  Video, ChevronRight, Star, Clock, Tag, Building2,
+  Flame, Eye, Heart, MoreHorizontal, Sparkles,
 } from 'lucide-react';
 import {
-  getChallenges,
-  getChallengesForUser,
-  submitChallenge,
-  submitSkillChallenge,
-  getChallengeSubmissions,
-  scoreSubmission,
-  shortlistSubmission,
-  createChallenge,
-  createSkillChallenge,
-  updateSubmissionStatus,
-  inviteCandidateFromChallenge,
-  getUserChallengeSubmissions,
-  type ChallengeDifficulty,
-  type ChallengeType,
-} from '../lib/firestoreService';
-import { useFirebase } from '../contexts/FirebaseContext';
-import { ReelVibeFeed } from './ReelVibe';
+  collection, addDoc, query, orderBy, onSnapshot,
+  updateDoc, doc, arrayUnion, arrayRemove, serverTimestamp,
+  where, limit,
+} from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../lib/firebase';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Reel {
+  id:           string;
+  authorUid:    string;
+  authorName:   string;
+  authorAvatar: string;
+  authorTitle:  string;
+  videoUrl:     string;
+  thumbnailUrl: string | null;
+  pitch:        string;
+  skills:       string[];
+  industries:   string[];
+  duration:     number;
+  sparks:       string[];
+  views:        number;
+  createdAt:    any;
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TYPE_FILTERS: { value: ChallengeType | 'all'; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'code', label: 'Code' },
-  { value: 'design', label: 'Design' },
-  { value: 'strategy', label: 'Strategy' },
-  { value: 'writing', label: 'Writing' },
-  { value: 'data', label: 'Data' },
+const SKILL_SUGGESTIONS = [
+  'Product Management', 'Machine Learning', 'React', 'Python', 'Go',
+  'Fintech', 'UX Design', 'Data Engineering', 'Growth', 'Fundraising',
+  'Sales', 'DevOps', 'Blockchain', 'Healthcare Tech', 'B2B SaaS',
+  'TypeScript', 'System Design', 'Marketing', 'Operations', 'Finance',
 ];
 
-const DIFFICULTY_FILTERS = [
-  { value: 'all', label: 'All Levels' },
-  { value: 'entry', label: 'Level 1' },
-  { value: 'mid', label: 'Level 2' },
-  { value: 'senior', label: 'Level 3' },
+const INDUSTRY_OPTIONS = [
+  'Payments', 'Banking', 'Insurance', 'Healthcare', 'Lending',
+  'Wealth & Investment', 'RegTech', 'PropTech', 'SaaS', 'Web3',
+  'AI/ML', 'Climate Tech', 'EdTech', 'Logistics', 'E-commerce',
 ];
 
-const TYPE_CONFIG: Record<string, { icon: typeof Code; label: string; gradient: string; accent: string }> = {
-  code:     { icon: Code,     label: 'Code Challenge',     gradient: 'from-blue-500/20 to-purple-500/20',  accent: 'from-blue-500/20 to-purple-500/20'  },
-  design:   { icon: Palette,  label: 'Design Challenge',   gradient: 'from-pink-500/20 to-orange-500/20', accent: 'from-pink-500/20 to-orange-500/20'  },
-  strategy: { icon: BarChart3,label: 'Strategy Challenge', gradient: 'from-cyan-500/20 to-teal-500/20',   accent: 'from-cyan-500/20 to-teal-500/20'   },
-  writing:  { icon: PenTool,  label: 'Writing Challenge',  gradient: 'from-amber-500/20 to-yellow-500/20',accent: 'from-amber-500/20 to-yellow-500/20' },
-  data:     { icon: Database, label: 'Data Challenge',     gradient: 'from-emerald-500/20 to-green-500/20',accent:'from-emerald-500/20 to-green-500/20' },
-};
+// ─── Video player ─────────────────────────────────────────────────────────────
 
-const DIFF_CONFIG: Record<string, { label: string; level: number; color: string }> = {
-  entry:  { label: 'Level 1', level: 1, color: 'text-green-400' },
-  mid:    { label: 'Level 2', level: 2, color: 'text-amber-400' },
-  senior: { label: 'Level 3', level: 3, color: 'text-red-400'   },
-};
+function ReelPlayer({
+  reel,
+  onSpark,
+  onConnect,
+  onMessage,
+  currentUid,
+  compact = false,
+}: {
+  reel:       Reel;
+  onSpark:    (id: string) => void;
+  onConnect:  (uid: string) => void;
+  onMessage:  (uid: string) => void;
+  currentUid: string;
+  compact?:   boolean;
+}) {
+  const videoRef    = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying]   = useState(false);
+  const [progress, setProgress] = useState(0);
+  const hasSparked = reel.sparks?.includes(currentUid);
 
-const CHALLENGE_TYPES: { value: ChallengeType; label: string }[] = [
-  { value: 'code', label: 'Code' },
-  { value: 'design', label: 'Design' },
-  { value: 'strategy', label: 'Strategy' },
-  { value: 'writing', label: 'Writing' },
-  { value: 'data', label: 'Data' },
-];
+  const toggle = () => {
+    if (!videoRef.current) return;
+    if (playing) { videoRef.current.pause(); setPlaying(false); }
+    else         { videoRef.current.play();  setPlaying(true);  }
+  };
 
-const CHALLENGE_DIFFS: { value: ChallengeDifficulty; label: string }[] = [
-  { value: 'entry', label: 'Level 1 (Entry)' },
-  { value: 'mid',   label: 'Level 2 (Mid)'   },
-  { value: 'senior',label: 'Level 3 (Senior)'},
-];
-
-// ─── Inline ArrowRight (not in lucide@0.263.1) ───────────────────────────────
-function ArrowRight({ className }: { className?: string }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M5 12h14M12 5l7 7-7 7" />
-    </svg>
+    <div className={`bg-white border border-stone-200 rounded-2xl overflow-hidden ${compact ? '' : 'shadow-sm hover:shadow-md transition-shadow'}`}>
+      {/* Video */}
+      <div className="relative bg-stone-900 aspect-video cursor-pointer" onClick={toggle}>
+        <video
+          ref={videoRef}
+          src={reel.videoUrl}
+          className="w-full h-full object-cover"
+          onTimeUpdate={() => {
+            if (!videoRef.current) return;
+            setProgress((videoRef.current.currentTime / videoRef.current.duration) * 100);
+          }}
+          onEnded={() => setPlaying(false)}
+          playsInline
+        />
+        {/* Play overlay */}
+        {!playing && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+            <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+              <Play size={20} className="text-stone-900 ml-0.5" fill="currentColor" />
+            </div>
+          </div>
+        )}
+        {/* Duration badge */}
+        <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+          <Clock size={10} />
+          {Math.floor(reel.duration / 60)}:{String(Math.floor(reel.duration % 60)).padStart(2, '0')}
+        </div>
+        {/* Progress bar */}
+        {playing && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+            <div className="h-full bg-emerald-400 transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="p-4">
+        {/* Author row */}
+        <div className="flex items-center gap-2.5 mb-3">
+          {reel.authorAvatar ? (
+            <img src={reel.authorAvatar} alt={reel.authorName} className="w-9 h-9 rounded-full object-cover" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">
+              {reel.authorName?.slice(0, 1)}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-stone-900 truncate">{reel.authorName}</p>
+            <p className="text-xs text-stone-500 truncate">{reel.authorTitle}</p>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-stone-400">
+            <Eye size={11} />
+            {reel.views ?? 0}
+          </div>
+        </div>
+
+        {/* Pitch */}
+        <p className="text-sm text-stone-700 mb-3 leading-relaxed line-clamp-2">{reel.pitch}</p>
+
+        {/* Skill tags */}
+        {reel.skills?.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {reel.skills.slice(0, 4).map(skill => (
+              <span key={skill} className="text-xs bg-stone-100 text-stone-600 rounded-full px-2.5 py-0.5">
+                {skill}
+              </span>
+            ))}
+            {reel.skills.length > 4 && (
+              <span className="text-xs text-stone-400">+{reel.skills.length - 4}</span>
+            )}
+          </div>
+        )}
+
+        {/* Industry tags */}
+        {reel.industries?.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {reel.industries.slice(0, 2).map(ind => (
+              <span key={ind} className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-2.5 py-0.5 flex items-center gap-1">
+                <Building2 size={9} />
+                {ind}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 pt-3 border-t border-stone-100">
+          <button
+            onClick={() => onSpark(reel.id)}
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
+              hasSparked
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-stone-100 text-stone-600 hover:bg-amber-50 hover:text-amber-600'
+            }`}
+          >
+            <Zap size={12} fill={hasSparked ? 'currentColor' : 'none'} />
+            {hasSparked ? 'Sparked' : 'Spark'} {reel.sparks?.length > 0 && <span className="text-stone-400 font-normal">{reel.sparks.length}</span>}
+          </button>
+
+          {reel.authorUid !== currentUid && (
+            <>
+              <button
+                onClick={() => onConnect(reel.authorUid)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200 transition-all"
+              >
+                <UserPlus size={12} /> Connect
+              </button>
+              <button
+                onClick={() => onMessage(reel.authorUid)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200 transition-all"
+              >
+                <MessageSquare size={12} /> Message
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ─── Submissions Panel ────────────────────────────────────────────────────────
+// ─── Upload modal ─────────────────────────────────────────────────────────────
 
-function SubmissionsPanel({
-  challengeId, submissions, isRecruiter, blindMode,
-  onRefresh, recruiterId, onViewProfile,
+function UploadReelModal({
+  currentUser,
+  onClose,
+  onUploaded,
 }: {
-  challengeId: string;
-  submissions: any[];
-  isRecruiter: boolean;
-  blindMode: boolean;
-  onRefresh: () => void;
-  recruiterId?: string;
-  onViewProfile?: (userId: string) => void;
+  currentUser: any;
+  onClose:     () => void;
+  onUploaded:  () => void;
 }) {
-  const [scoringId, setScoringId] = useState<string | null>(null);
-  const [scoreValue, setScoreValue] = useState(0);
-  const [feedbackValue, setFeedbackValue] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [shortlisting, setShortlisting] = useState<string | null>(null);
+  const [step, setStep]             = useState<'pick' | 'details' | 'uploading' | 'done'>('pick');
+  const [file, setFile]             = useState<File | null>(null);
+  const [videoPreview, setPreview]  = useState<string | null>(null);
+  const [duration, setDuration]     = useState(0);
+  const [pitch, setPitch]           = useState('');
+  const [skills, setSkills]         = useState<string[]>([]);
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [skillInput, setSkillInput] = useState('');
+  const [progress, setProgress]     = useState(0);
+  const [error, setError]           = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const ranked = [...submissions].filter(s => s.score != null).sort((a, b) => (b.score || 0) - (a.score || 0));
-  const unscored = submissions.filter(s => s.score == null);
-
-  const medalColor = (i: number) => i === 0 ? 'text-yellow-400' : i === 1 ? 'text-stone-500' : i === 2 ? 'text-amber-600' : 'text-stone-400';
-
-  async function handleScore(subId: string) {
-    if (scoreValue < 0 || scoreValue > 100) return;
-    setSaving(true);
-    try { await scoreSubmission(challengeId, subId, scoreValue, feedbackValue); setScoringId(null); onRefresh(); }
-    finally { setSaving(false); }
+  function handleFile(f: File) {
+    if (!f.type.startsWith('video/')) { setError('Please upload a video file.'); return; }
+    if (f.size > 200 * 1024 * 1024) { setError('Video must be under 200MB.'); return; }
+    setFile(f);
+    const url = URL.createObjectURL(f);
+    setPreview(url);
+    // Get duration
+    const v = document.createElement('video');
+    v.src = url;
+    v.onloadedmetadata = () => {
+      if (v.duration < 10) { setError('Video must be at least 10 seconds long.'); setFile(null); return; }
+      if (v.duration > 90) { setError('Video must be 90 seconds or shorter.'); setFile(null); return; }
+      setDuration(Math.round(v.duration));
+      setError(null);
+      setStep('details');
+    };
   }
 
-  async function handleShortlist(subId: string) {
-    setShortlisting(subId);
-    try { await shortlistSubmission(challengeId, subId, recruiterId ?? ''); onRefresh(); }
-    finally { setShortlisting(null); }
+  function addSkill(s: string) {
+    const trimmed = s.trim();
+    if (trimmed && !skills.includes(trimmed) && skills.length < 8) {
+      setSkills(prev => [...prev, trimmed]);
+    }
+    setSkillInput('');
   }
 
-  const displayName = (sub: any, idx: number) => (blindMode && isRecruiter) ? `Candidate #${idx + 1}` : sub.userName || 'Anonymous';
+  async function handleUpload() {
+    if (!file || !pitch.trim() || skills.length === 0) {
+      setError('Add a pitch and at least one skill tag.');
+      return;
+    }
+    setStep('uploading');
+    setError(null);
+
+    try {
+      // Upload video to Firebase Storage
+      const path = `reels/${currentUser._firestoreUid ?? currentUser.id}/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, path);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          snap => setProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+          reject,
+          resolve
+        );
+      });
+
+      const videoUrl = await getDownloadURL(uploadTask.snapshot.ref);
+
+      // Save to Firestore
+      await addDoc(collection(db, 'reels'), {
+        authorUid:    currentUser._firestoreUid ?? String(currentUser.id),
+        authorName:   currentUser.name,
+        authorAvatar: currentUser.avatarUrl ?? null,
+        authorTitle:  currentUser.headline ?? currentUser.title ?? '',
+        videoUrl,
+        thumbnailUrl: null,
+        pitch:        pitch.trim(),
+        skills,
+        industries,
+        duration,
+        sparks:    [],
+        views:     0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      setStep('done');
+      setTimeout(() => { onUploaded(); onClose(); }, 1500);
+    } catch (err: any) {
+      setError(err.message ?? 'Upload failed. Please try again.');
+      setStep('details');
+    }
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Leaderboard */}
-      {ranked.length > 0 && (
-        <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor:"#e7e5e4" }}>
-          <h3 className="flex items-center gap-2 text-sm font-bold text-stone-900">
-            <Trophy className="h-4 w-4 text-yellow-400" />Leaderboard
-          </h3>
-          <div className="mt-4 flex flex-col gap-2">
-            {ranked.slice(0, 10).map((sub, i) => (
-              <div key={sub.id} className={`flex items-center gap-3 rounded-lg p-3 ${i < 3 ? 'bg-stone-100' : ''}`}>
-                <div className={`flex h-8 w-8 items-center justify-center rounded-full font-bold text-sm ${i < 3 ? 'bg-stone-50 border" style={{ borderColor:"#e7e5e4" }} ' : ''} ${medalColor(i)}`}>
-                  {i < 3 ? <Trophy className="h-4 w-4" /> : <span>{i + 1}</span>}
-                </div>
-                {!blindMode ? (
-                  <div className="h-8 w-8 rounded-full bg-stone-100 overflow-hidden shrink-0">
-                    {sub.userAvatar ? <img src={sub.userAvatar} alt="" className="h-full w-full object-cover" /> :
-                      <div className="h-full w-full flex items-center justify-center text-xs font-bold text-stone-500">{(sub.userName || '?')[0]}</div>}
-                  </div>
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-stone-100 flex items-center justify-center shrink-0">
-                    <EyeOff className="h-3.5 w-3.5 text-stone-500" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-stone-800 truncate">{displayName(sub, i)}</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Star className="h-3.5 w-3.5 text-amber-400" />
-                  <span className="text-sm font-bold text-stone-900">{sub.score}</span>
-                  <span className="text-xs text-stone-500">/100</span>
-                </div>
-                {sub.isShortlisted && <span className="rounded-full bg-green-500/10 border border-green-500/20 px-2 py-0.5 text-[10px] font-bold text-green-400">SHORTLISTED</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}>
 
-      {/* Recruiter view */}
-      {isRecruiter && (
-        <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor:"#e7e5e4" }}>
-          <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-stone-900">
-              <Eye className="h-4 w-4 text-emerald-600" />Submissions ({submissions.length})
-            </h3>
-            {blindMode && (
-              <span className="flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-500">
-                <EyeOff className="h-3 w-3" />Blind Mode
-              </span>
-            )}
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-stone-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <Video size={15} className="text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-stone-900">Upload your reel</p>
+              <p className="text-xs text-stone-500">30–90 seconds · showcase your skills</p>
+            </div>
           </div>
-          {submissions.length === 0 ? (
-            <p className="mt-4 text-center text-sm text-stone-500">No submissions yet.</p>
-          ) : (
-            <div className="mt-4 flex flex-col gap-3">
-              {[...unscored, ...ranked].map((sub, idx) => (
-                <div key={sub.id} className="rounded-xl border bg-white p-4 shadow-sm" style={{ borderColor:"#e7e5e4" }}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {!blindMode ? (
-                        <div className="h-7 w-7 rounded-full bg-stone-100 overflow-hidden shrink-0">
-                          {sub.userAvatar ? <img src={sub.userAvatar} alt="" className="h-full w-full object-cover" /> :
-                            <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-stone-500">{(sub.userName || '?')[0]}</div>}
-                        </div>
-                      ) : (
-                        <div className="h-7 w-7 rounded-full bg-stone-100 flex items-center justify-center shrink-0"><EyeOff className="h-3 w-3 text-stone-500" /></div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-stone-800 truncate">{displayName(sub, idx)}</p>
-                        <p className="text-[10px] text-stone-400">{sub.submittedAt?.toDate?.()?.toLocaleDateString() ?? ''}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {sub.score != null && (
-                        <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-600">
-                          <Star className="h-3 w-3" />{sub.score}/100
-                        </span>
-                      )}
-                      {sub.isShortlisted && <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-400">PIPELINE</span>}
-                    </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-5">
+
+          {/* Step: pick file */}
+          {step === 'pick' && (
+            <div>
+              <div
+                onClick={() => inputRef.current?.click()}
+                className="border-2 border-dashed border-stone-200 rounded-xl p-10 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-all"
+              >
+                <Upload size={28} className="text-stone-300 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-stone-700 mb-1">Click to upload your reel</p>
+                <p className="text-xs text-stone-400">MP4, MOV, WebM · max 200MB · 10–90 seconds</p>
+              </div>
+              <input ref={inputRef} type="file" accept="video/*" className="hidden"
+                onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
+              {error && <p className="text-xs text-red-500 mt-2 text-center">{error}</p>}
+            </div>
+          )}
+
+          {/* Step: details */}
+          {step === 'details' && (
+            <div className="space-y-5">
+              {/* Preview */}
+              {videoPreview && (
+                <div className="relative rounded-xl overflow-hidden bg-stone-900 aspect-video">
+                  <video src={videoPreview} className="w-full h-full object-cover" controls />
+                  <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
+                    {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, '0')}s
                   </div>
-                  <div className="mt-3 rounded-lg bg-stone-50 p-3">
-                    <p className="whitespace-pre-wrap text-xs text-stone-800">{sub.content}</p>
-                  </div>
-                  {sub.feedback && (
-                    <div className="mt-2 rounded-xl bg-amber-50 border border-amber-500/20 p-3">
-                      <p className="text-[10px] font-medium text-amber-400 mb-1">Feedback</p>
-                      <p className="text-xs text-stone-800">{sub.feedback}</p>
-                    </div>
-                  )}
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {sub.score == null && scoringId !== sub.id && (
-                      <button onClick={() => { setScoringId(sub.id); setScoreValue(0); setFeedbackValue(''); }}
-                        className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-[#1a6b52]/20 transition-colors">
-                        <Star className="h-3 w-3" />Score
-                      </button>
-                    )}
-                    {!sub.isShortlisted && (
-                      <button onClick={() => handleShortlist(sub.id)} disabled={shortlisting === sub.id}
-                        className="flex items-center gap-1 rounded-lg bg-green-500/10 px-3 py-1.5 text-xs font-medium text-green-400 hover:bg-green-500/20 disabled:opacity-50 transition-colors">
-                        {shortlisting === sub.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
-                        Move to Pipeline
-                      </button>
-                    )}
-                    {!blindMode && onViewProfile && (
-                      <button onClick={() => onViewProfile(sub.userId)} className="text-xs text-stone-500 hover:text-emerald-600 transition-colors">View Profile</button>
-                    )}
-                  </div>
-                  {scoringId === sub.id && (
-                    <div className="mt-3 rounded-lg border border-[#1a4a3a]/20 bg-[#e8f4f0] p-3 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <label className="text-xs font-medium text-stone-800">Score (0-100)</label>
-                        <input type="number" min={0} max={100} value={scoreValue} onChange={e => setScoreValue(Number(e.target.value))}
-                          className="w-20 rounded-lg border bg-stone-50 px-2 py-1 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-                      </div>
-                      <textarea value={feedbackValue} onChange={e => setFeedbackValue(e.target.value)} rows={2}
-                        placeholder="Add feedback (visible to candidate)..."
-                        className="w-full resize-none rounded-lg border bg-stone-50 px-3 py-2 text-xs text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleScore(sub.id)} disabled={saving}
-                          className="flex items-center gap-1 rounded-lg bg-[#1a4a3a] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1a6b52] disabled:opacity-50 transition-colors">
-                          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}Submit Score
-                        </button>
-                        <button onClick={() => setScoringId(null)} className="text-xs text-stone-500 hover:text-stone-800 transition-colors">Cancel</button>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              ))}
+              )}
+
+              {/* Pitch */}
+              <div>
+                <label className="block text-xs font-semibold text-stone-500 mb-1.5 uppercase tracking-widest">
+                  Written pitch <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={pitch}
+                  onChange={e => setPitch(e.target.value)}
+                  placeholder="What can you do? What problem do you solve? What makes you different?"
+                  rows={3}
+                  maxLength={280}
+                  className="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-stone-400 resize-none"
+                />
+                <p className="text-xs text-stone-400 mt-1 text-right">{pitch.length}/280</p>
+              </div>
+
+              {/* Skills */}
+              <div>
+                <label className="block text-xs font-semibold text-stone-500 mb-1.5 uppercase tracking-widest">
+                  Skill tags <span className="text-red-400">*</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {skills.map(s => (
+                    <span key={s} className="flex items-center gap-1 text-xs bg-emerald-100 text-emerald-700 rounded-full px-2.5 py-1">
+                      {s}
+                      <button onClick={() => setSkills(prev => prev.filter(x => x !== s))}>
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={skillInput}
+                    onChange={e => setSkillInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addSkill(skillInput); } }}
+                    placeholder="Type a skill and press Enter"
+                    className="flex-1 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-stone-400"
+                  />
+                  <button onClick={() => addSkill(skillInput)}
+                    className="bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl px-3 py-2 text-sm font-semibold transition-colors">
+                    Add
+                  </button>
+                </div>
+                {/* Suggestions */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {SKILL_SUGGESTIONS.filter(s => !skills.includes(s)).slice(0, 8).map(s => (
+                    <button key={s} onClick={() => addSkill(s)}
+                      className="text-xs bg-stone-50 text-stone-500 border border-stone-200 rounded-full px-2.5 py-0.5 hover:bg-stone-100 transition-colors">
+                      + {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Industries */}
+              <div>
+                <label className="block text-xs font-semibold text-stone-500 mb-1.5 uppercase tracking-widest">
+                  Industries (optional)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {INDUSTRY_OPTIONS.map(ind => (
+                    <button
+                      key={ind}
+                      onClick={() => setIndustries(prev =>
+                        prev.includes(ind) ? prev.filter(x => x !== ind) : [...prev, ind]
+                      )}
+                      className={`text-xs rounded-full px-2.5 py-1 border transition-all ${
+                        industries.includes(ind)
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                          : 'bg-stone-50 text-stone-500 border-stone-200 hover:border-stone-300'
+                      }`}
+                    >
+                      {industries.includes(ind) && <span className="mr-0.5">✓</span>}
+                      {ind}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {error && <p className="text-xs text-red-500">{error}</p>}
+
+              <button
+                onClick={handleUpload}
+                disabled={!pitch.trim() || skills.length === 0}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl py-3 text-sm font-bold transition-colors flex items-center justify-center gap-2"
+              >
+                <Upload size={14} /> Upload reel
+              </button>
+            </div>
+          )}
+
+          {/* Step: uploading */}
+          {step === 'uploading' && (
+            <div className="py-8 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+                <Upload size={24} className="text-emerald-600 animate-bounce" />
+              </div>
+              <p className="text-sm font-semibold text-stone-900 mb-2">Uploading your reel...</p>
+              <div className="h-2 bg-stone-100 rounded-full overflow-hidden mx-8 mb-2">
+                <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="text-xs text-stone-400">{progress}%</p>
+            </div>
+          )}
+
+          {/* Step: done */}
+          {step === 'done' && (
+            <div className="py-8 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={28} className="text-emerald-600" />
+              </div>
+              <p className="text-sm font-bold text-stone-900 mb-1">Reel uploaded!</p>
+              <p className="text-xs text-stone-500">Your reel is now live on the Prove feed.</p>
             </div>
           )}
         </div>
-      )}
-    </div>
-  );
-}
-
-
-
-// ─── Challenge Detail ─────────────────────────────────────────────────────────
-
-function ChallengeDetail({
-  challengeId, onBack, onViewProfile,
-}: {
-  challengeId: string;
-  onBack: () => void;
-  onViewProfile?: (userId: number) => void;
-}) {
-  const { currentUser, fbUser } = useFirebase();
-  const [challenge, setChallenge] = useState<any>(null);
-  const [submissions, setSubmissions] = useState<any[]>([]);
-  const [mySubmission, setMySubmission] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [content, setContent] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [blindMode, setBlindMode] = useState(true);
-
-  const isRecruiter = (currentUser as any)?.isRecruiter ?? false;
-  const [proveTab, setProveTab] = useState<'challenges' | 'reels'>('challenges');
-
-  async function load() {
-    setLoading(true);
-    try {
-      const [subs] = await Promise.all([
-        getChallengeSubmissions(challengeId).catch(() => []),
-      ]);
-      setSubmissions(subs);
-      if (fbUser) {
-        const mine = subs.find((s: any) => s.userId === fbUser.uid);
-        if (mine) { setMySubmission(mine); setSubmitted(true); }
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Load challenge from submissions list (passed from parent)
-  useEffect(() => { load(); }, [challengeId]);
-
-  async function handleSubmit() {
-    if (!currentUser || !fbUser || !content.trim()) return;
-    setSubmitting(true);
-    try {
-      await submitChallenge(challengeId, {
-        userId: fbUser.uid,
-        userName: currentUser.name,
-        userAvatar: currentUser.avatarUrl,
-        content: content.trim(),
-      });
-      setSubmitted(true); setContent(''); load();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-stone-500" /></div>;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <button onClick={onBack} className="inline-flex w-fit items-center gap-1.5 text-sm text-stone-500 hover:text-stone-800 transition-colors">
-        <ArrowLeft className="h-4 w-4" />Back to Challenges
-      </button>
-
-      {!submitted && !isRecruiter && (
-        <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor:"#e7e5e4" }}>
-          <h2 className="text-sm font-bold text-stone-900">Submit Your Solution</h2>
-          <p className="mt-1 text-xs text-stone-500">Top performers earn credits and may be shortlisted. Submissions are anonymous to recruiters by default.</p>
-          <textarea value={content} onChange={e => setContent(e.target.value)} rows={6}
-            placeholder="Write your solution, paste code, or describe your approach..."
-            className="mt-3 w-full resize-none rounded-lg border bg-stone-50 px-4 py-3 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-          <div className="mt-3 flex items-center justify-end">
-            <button onClick={handleSubmit} disabled={submitting || !content.trim()}
-              className="flex items-center gap-1.5 rounded-lg bg-[#1a4a3a] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6b52] disabled:opacity-50 transition-colors">
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}Submit
-            </button>
-          </div>
-        </div>
-      )}
-
-      {submitted && !isRecruiter && (
-        <div className="flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 p-5">
-          <CheckCircle className="h-5 w-5 text-green-400 shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-stone-900">Submission received</p>
-            <p className="text-xs text-stone-500">
-              {mySubmission?.score != null
-                ? `Score: ${mySubmission.score}/100${mySubmission.feedback ? ` — ${mySubmission.feedback}` : ''}`
-                : 'Waiting for review from the challenge creator.'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {isRecruiter && (
-        <div className="flex items-center justify-end">
-          <button onClick={() => setBlindMode(b => !b)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${blindMode ? 'bg-[#1a4a3a] text-white' : 'bg-stone-100 text-stone-700'}`}>
-            <EyeOff className="h-3.5 w-3.5" />Blind Mode {blindMode ? 'ON' : 'OFF'}
-          </button>
-        </div>
-      )}
-
-      <SubmissionsPanel
-        challengeId={challengeId}
-        submissions={submissions}
-        isRecruiter={isRecruiter}
-        blindMode={blindMode}
-        onRefresh={load}
-        recruiterId={fbUser?.uid}
-        onViewProfile={onViewProfile ? (uid) => {
-          const user = submissions.find((s: any) => s.userId === uid);
-          if (user) onViewProfile(0); // TODO: map uid to numericId
-        } : undefined}
-      />
-    </div>
-  );
-}
-
-// ─── Create Challenge Dialog ──────────────────────────────────────────────────
-
-function CreateChallengeDialog({
-  open, onClose, onCreated, companyName,
-}: {
-  open: boolean; onClose: () => void; onCreated: () => void; companyName: string;
-}) {
-  const { fbUser } = useFirebase();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [type, setType] = useState<ChallengeType>('code');
-  const [difficulty, setDifficulty] = useState<ChallengeDifficulty>('entry');
-  const [timeLimit, setTimeLimit] = useState(60);
-  const [credits, setCredits] = useState(50);
-  const [badge, setBadge] = useState('');
-  const [skillInput, setSkillInput] = useState('');
-  const [skills, setSkills] = useState<string[]>([]);
-  const [daysUntilExpiry, setDaysUntilExpiry] = useState(14);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState('');
-
-  function addSkill() {
-    const s = skillInput.trim();
-    if (s && !skills.includes(s)) { setSkills([...skills, s]); setSkillInput(''); }
-  }
-
-  async function handleCreate() {
-    if (!fbUser || !title.trim() || !description.trim()) { setError('Title and description are required.'); return; }
-    setError(''); setCreating(true);
-    try {
-      await createChallenge({
-        title: title.trim(), description: description.trim(),
-        recruiterId: fbUser.uid, companyName, skills, difficulty, type, timeLimit,
-        reward: { credits, badge: badge.trim() || `${title.trim()} Champion`, visibility: true },
-        expiresAt: new Date(Date.now() + daysUntilExpiry * 24 * 60 * 60 * 1000).toISOString(),
-      });
-      setTitle(''); setDescription(''); setSkills([]); setBadge('');
-      onCreated(); onClose();
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to create challenge.');
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border bg-white p-6" style={{ borderColor:"#e7e5e4" }} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute right-4 top-4 text-stone-500 hover:text-stone-800 transition-colors"><X className="h-5 w-5" /></button>
-        <h2 className="text-lg font-bold text-stone-900">Create a Prove Challenge</h2>
-        <p className="mt-1 text-xs text-stone-500">Design a quest-style challenge to discover top talent.</p>
-        {error && <div className="mt-3 rounded-lg bg-red-900/20 border border-red-500/30 px-3 py-2 text-xs text-red-400">{error}</div>}
-
-        <div className="mt-5 flex flex-col gap-4">
-          <div>
-            <label className="text-xs font-medium text-stone-800 mb-1 block">Title</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Build a responsive dashboard"
-              className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-stone-800 mb-1 block">Description</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
-              placeholder="Describe what participants need to build, solve, or design..."
-              className="w-full resize-none rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-stone-800 mb-1 block">Type</label>
-              <select value={type} onChange={e => setType(e.target.value as ChallengeType)}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }}>
-                {CHALLENGE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-stone-800 mb-1 block">Difficulty</label>
-              <select value={difficulty} onChange={e => setDifficulty(e.target.value as ChallengeDifficulty)}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }}>
-                {CHALLENGE_DIFFS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-stone-800 mb-1 block">Time Limit (min)</label>
-              <input type="number" min={15} max={480} value={timeLimit} onChange={e => setTimeLimit(Number(e.target.value))}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-stone-800 mb-1 block">Expires in (days)</label>
-              <input type="number" min={1} max={90} value={daysUntilExpiry} onChange={e => setDaysUntilExpiry(Number(e.target.value))}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-stone-800 mb-1 block flex items-center gap-1"><Zap className="h-3 w-3 text-amber-400" />Credits Reward</label>
-              <input type="number" min={0} value={credits} onChange={e => setCredits(Number(e.target.value))}
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-stone-800 mb-1 block">Badge Name</label>
-              <input value={badge} onChange={e => setBadge(e.target.value)} placeholder="Auto-generated if empty"
-                className="w-full rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-stone-800 mb-1 block">Required Skills</label>
-            <div className="flex gap-2">
-              <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                placeholder="Add a skill"
-                className="flex-1 rounded-lg border bg-stone-50 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#1a4a3a]" style={{ borderColor:"#e7e5e4" }} />
-              <button onClick={addSkill} className="flex items-center gap-1 rounded-lg bg-stone-100 px-3 py-2 text-xs font-medium text-stone-800 hover:bg-stone-200 transition-colors">
-                <Plus className="h-3 w-3" />Add
-              </button>
-            </div>
-            {skills.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {skills.map(s => (
-                  <span key={s} className="flex items-center gap-1 rounded-full bg-emerald-50 border border-[#1a4a3a]/20 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
-                    {s}
-                    <button onClick={() => setSkills(skills.filter(x => x !== s))}><X className="h-2.5 w-2.5" /></button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <button onClick={handleCreate} disabled={creating || !title.trim()}
-            className="mt-2 w-full rounded-lg bg-[#1a4a3a] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1a6b52] disabled:opacity-50 transition-colors">
-            {creating ? 'Creating...' : 'Launch Challenge'}
-          </button>
-        </div>
       </div>
     </div>
   );
 }
 
-// ─── Challenge Card ───────────────────────────────────────────────────────────
+// ─── Opportunity match card ───────────────────────────────────────────────────
 
-function ChallengeCard({ challenge, onClick }: { challenge: any; onClick: () => void }) {
-  const diff = DIFF_CONFIG[challenge.difficulty] ?? DIFF_CONFIG.entry;
-  const typeConf = TYPE_CONFIG[challenge.type] ?? TYPE_CONFIG.code;
-  const TypeIcon = typeConf.icon;
-  const expired = challenge.expiresAt ? new Date(challenge.expiresAt) < new Date() : false;
-  const daysLeft = challenge.expiresAt
-    ? Math.max(0, Math.ceil((new Date(challenge.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : null;
-
+function OpportunityMatch({ job, onView }: { job: any; onView: () => void }) {
   return (
-    <button onClick={onClick} className="group relative flex flex-col overflow-hidden rounded-xl border bg-white text-left transition-all hover:shadow-md" style={{ borderColor:"#e7e5e4" }}>
-      <div className={`relative bg-gradient-to-r ${typeConf.gradient} px-5 py-4`}>
-        <div className="flex items-start justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-stone-50/80">
-            <TypeIcon className="h-5 w-5 text-stone-800" />
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-1">
-              {[1, 2, 3].map(lvl => (
-                <div key={lvl} className={`h-2 w-5 rounded-full ${lvl <= diff.level ? 'bg-stone-200' : 'bg-stone-200/20'}`} />
-              ))}
-            </div>
-            <span className={`text-xs font-bold ${diff.color}`}>{diff.label}</span>
-          </div>
-        </div>
-        {expired && (
-          <div className="absolute inset-0 flex items-center justify-center bg-stone-50/80">
-            <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white">EXPIRED</span>
-          </div>
-        )}
+    <div className="bg-white border border-stone-200 rounded-xl p-4 flex items-center gap-3 hover:border-stone-300 transition-colors cursor-pointer" onClick={onView}>
+      <div className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center flex-shrink-0">
+        <Briefcase size={14} className="text-stone-500" />
       </div>
-      <div className="flex flex-1 flex-col gap-3 px-5 py-4">
-        <div>
-          <p className="text-xs font-medium text-stone-500">{challenge.companyName}</p>
-          <h3 className="mt-0.5 text-sm font-bold text-stone-900 line-clamp-2 group-hover:text-emerald-600 transition-colors">{challenge.title}</h3>
-        </div>
-        <p className="text-xs text-stone-500 line-clamp-2">{challenge.description}</p>
-        {challenge.skills?.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {challenge.skills.slice(0, 3).map((skill: string) => (
-              <span key={skill} className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-700">{skill}</span>
-            ))}
-            {challenge.skills.length > 3 && <span className="text-[10px] text-stone-400">+{challenge.skills.length - 3}</span>}
-          </div>
-        )}
-        <div className="mt-auto flex items-center justify-between border-t border-stone-200 pt-3">
-          <div className="flex items-center gap-3 text-xs text-stone-500">
-            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{challenge.timeLimit}m</span>
-            <span className="flex items-center gap-1"><Users className="h-3 w-3" />{challenge.submissionCount || 0}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {challenge.reward?.credits > 0 && (
-              <span className="flex items-center gap-0.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
-                <Zap className="h-2.5 w-2.5" />{challenge.reward.credits}
-              </span>
-            )}
-            {daysLeft !== null && !expired && (
-              <span className={`text-[10px] font-medium ${daysLeft <= 3 ? 'text-red-400' : 'text-stone-400'}`}>{daysLeft}d left</span>
-            )}
-          </div>
-        </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-stone-900 truncate">{job.title}</p>
+        <p className="text-xs text-stone-500 truncate">{job.company}</p>
       </div>
-    </button>
+      <div className="flex items-center gap-1 text-xs font-semibold text-emerald-600 flex-shrink-0">
+        <Sparkles size={11} />
+        {job.matchScore}%
+      </div>
+    </div>
   );
 }
 
-// ─── Main Prove View ──────────────────────────────────────────────────────────
+// ─── Main ProveView ───────────────────────────────────────────────────────────
 
 interface ProveViewProps {
-  onViewProfile?: (userId: number) => void;
+  currentUser:    any;
+  onViewProfile:  (id: number) => void;
+  onStartMessage: (id: number) => void;
+  onConnect:      (id: number) => void;
+  allJobs?:       any[];
 }
 
-export function ProveView({ onViewProfile }: ProveViewProps) {
-  const { currentUser, fbUser } = useFirebase();
-  const [challenges, setChallenges] = useState<any[]>([]);
-  const [userSubmissionStatus, setUserSubmissionStatus] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState<ChallengeType | 'all'>('all');
-  const [diffFilter, setDiffFilter] = useState('all');
-  const [activeChallengeId, setActiveChallengeId] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
+export default function ProveView({
+  currentUser,
+  onViewProfile,
+  onStartMessage,
+  onConnect,
+  allJobs = [],
+}: ProveViewProps) {
+  const [reels, setReels]         = useState<Reel[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
+  const [search, setSearch]       = useState('');
+  const [filterSkill, setFilterSkill] = useState<string | null>(null);
+  const [filterIndustry, setFilterIndustry] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'mine' | 'matches'>('all');
 
-  const isRecruiter = (currentUser as any)?.isRecruiter ?? false;
-  const [proveTab, setProveTab] = useState<'challenges' | 'reels'>('challenges');
+  const currentUid = currentUser?._firestoreUid ?? String(currentUser?.id ?? '');
 
-  async function loadChallenges() {
-    setLoading(true);
-    try {
-      const chs = fbUser
-        ? await getChallengesForUser(fbUser.uid).catch(() => getChallenges())
-        : await getChallenges();
-      setChallenges(chs);
-      // Load user submission statuses
-      if (fbUser && chs.length > 0) {
-        const subMap: Record<string, string> = {};
-        await Promise.all(chs.slice(0, 20).map(async (ch: any) => {
-          try {
-            const subs = await getChallengeSubmissions(ch.id);
-            const mine = subs.find((s: any) => s.userId === fbUser.uid);
-            if (mine) subMap[ch.id] = mine.status ?? 'submitted';
-          } catch {}
-        }));
-        setUserSubmissionStatus(subMap);
-      }
-    } catch {
-      setChallenges([]);
-    } finally {
+  useEffect(() => {
+    const q = query(
+      collection(db, 'reels'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    const unsub = onSnapshot(q, snap => {
+      setReels(snap.docs.map(d => ({ id: d.id, ...d.data() } as Reel)));
       setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const handleSpark = async (reelId: string) => {
+    const reel = reels.find(r => r.id === reelId);
+    if (!reel) return;
+    const hasSparked = reel.sparks?.includes(currentUid);
+    await updateDoc(doc(db, 'reels', reelId), {
+      sparks: hasSparked ? arrayRemove(currentUid) : arrayUnion(currentUid),
+    });
+  };
+
+  // Match reels against user's skills from their profile
+  const userSkills = (currentUser?.skills ?? []).map((s: any) =>
+    typeof s === 'string' ? s.toLowerCase() : s.name?.toLowerCase()
+  );
+
+  const filtered = reels.filter(r => {
+    if (activeTab === 'mine')    return r.authorUid === currentUid;
+    if (activeTab === 'matches') {
+      return r.skills?.some(s => userSkills.includes(s.toLowerCase())) && r.authorUid !== currentUid;
     }
-  }
-
-  useEffect(() => { loadChallenges(); }, []);
-
-  const filtered = challenges.filter(c => {
-    if (typeFilter !== 'all' && c.type !== typeFilter) return false;
-    if (diffFilter !== 'all' && c.difficulty !== diffFilter) return false;
+    if (filterSkill)    return r.skills?.some(s => s.toLowerCase().includes(filterSkill.toLowerCase()));
+    if (filterIndustry) return r.industries?.includes(filterIndustry);
+    if (search) {
+      const q = search.toLowerCase();
+      return r.authorName?.toLowerCase().includes(q) ||
+             r.pitch?.toLowerCase().includes(q) ||
+             r.skills?.some(s => s.toLowerCase().includes(q));
+    }
     return true;
   });
 
-  if (activeChallengeId) {
-    return <ChallengeDetail challengeId={activeChallengeId} onBack={() => setActiveChallengeId(null)} onViewProfile={onViewProfile} />;
-  }
+  // Jobs that match reel skills in user's reels
+  const mySkills = reels
+    .filter(r => r.authorUid === currentUid)
+    .flatMap(r => r.skills ?? [])
+    .map(s => s.toLowerCase());
+
+  const matchedJobs = allJobs
+    .map(job => {
+      const jobSkills = (job.requiredSkills ?? job.skills ?? []).map((s: string) => s.toLowerCase());
+      const overlap   = mySkills.filter(s => jobSkills.includes(s));
+      return { ...job, matchScore: Math.round((overlap.length / Math.max(jobSkills.length, 1)) * 100) };
+    })
+    .filter(j => j.matchScore > 0)
+    .sort((a, b) => b.matchScore - a.matchScore)
+    .slice(0, 5);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="max-w-5xl mx-auto px-4 py-6">
+
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
-            <Sword className="h-5 w-5 text-emerald-600" />Prove
-          </h1>
-          <p className="mt-1 text-sm text-stone-500">Showcase your skills — take challenges or post a reel.</p>
+          <h1 className="text-2xl font-bold text-stone-900 mb-1">Prove</h1>
+          <p className="text-stone-500 text-sm">
+            Show what you can do. Upload a 30–90s reel and let your skills speak.
+          </p>
         </div>
-        {isRecruiter && proveTab === 'challenges' && (
-          <button onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a4a3a] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6b52] transition-colors">
-            <PlusCircle className="h-4 w-4" />Create Challenge
-          </button>
-        )}
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex gap-1 rounded-2xl border bg-white p-1" style={{ borderColor: '#e7e5e4' }}>
         <button
-          onClick={() => setProveTab('challenges')}
-          className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-bold transition-all"
-          style={proveTab === 'challenges'
-            ? { background: '#1a4a3a', color: 'white' }
-            : { color: '#78716c' }}
+          onClick={() => setShowUpload(true)}
+          className="flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
         >
-          <Sword className="h-4 w-4" />
-          Challenges
-        </button>
-        <button
-          onClick={() => setProveTab('reels')}
-          className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-bold transition-all"
-          style={proveTab === 'reels'
-            ? { background: '#1a4a3a', color: 'white' }
-            : { color: '#78716c' }}
-        >
-          <Film className="h-4 w-4" />
-          Reel Vibes
+          <Video size={14} /> Upload reel
         </button>
       </div>
 
-      {/* Reel Vibes tab */}
-      {proveTab === 'reels' && (
-        <ReelVibeFeed onViewProfile={onViewProfile} />
-      )}
+      <div className="flex gap-6">
+        {/* Main column */}
+        <div className="flex-1 min-w-0">
 
-      {/* Challenges tab — only render when active */}
-      {proveTab === 'challenges' && <>
+          {/* Tabs */}
+          <div className="flex items-center gap-1 mb-5 bg-stone-100 rounded-xl p-1">
+            {([
+              { id: 'all',     label: 'All reels' },
+              { id: 'matches', label: 'Matches for me' },
+              { id: 'mine',    label: 'My reels' },
+            ] as const).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-white text-stone-900 shadow-sm'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Filter className="h-4 w-4 text-stone-500" />
-        <div className="flex flex-wrap gap-1.5">
-          {TYPE_FILTERS.map(f => (
-            <button key={f.value} onClick={() => setTypeFilter(f.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${typeFilter === f.value ? 'bg-[#1a4a3a] text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <div className="h-4 w-px bg-stone-100" />
-        <div className="flex flex-wrap gap-1.5">
-          {DIFFICULTY_FILTERS.map(f => (
-            <button key={f.value} onClick={() => setDiffFilter(f.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${diffFilter === f.value ? 'bg-stone-200 text-stone-900' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+          {/* Search + filters */}
+          {activeTab === 'all' && (
+            <div className="flex gap-2 mb-5 flex-wrap">
+              <div className="relative flex-1 min-w-40">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setFilterSkill(null); setFilterIndustry(null); }}
+                  placeholder="Search reels, skills, people..."
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-stone-400 bg-white"
+                />
+              </div>
+              <select
+                value={filterSkill ?? ''}
+                onChange={e => { setFilterSkill(e.target.value || null); setSearch(''); }}
+                className="text-xs border border-stone-200 rounded-xl px-3 py-2 bg-white text-stone-600 focus:outline-none"
+              >
+                <option value="">All skills</option>
+                {SKILL_SUGGESTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select
+                value={filterIndustry ?? ''}
+                onChange={e => { setFilterIndustry(e.target.value || null); setSearch(''); }}
+                className="text-xs border border-stone-200 rounded-xl px-3 py-2 bg-white text-stone-600 focus:outline-none"
+              >
+                <option value="">All industries</option>
+                {INDUSTRY_OPTIONS.map(i => <option key={i} value={i}>{i}</option>)}
+              </select>
+            </div>
+          )}
 
-      {/* Grid */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-stone-500" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-16">
-          <Sword className="h-10 w-10 text-stone-600" />
-          <p className="mt-3 text-sm font-medium text-stone-500">No challenges match your filters.</p>
-          {isRecruiter && (
-            <button onClick={() => setShowCreate(true)} className="mt-3 text-sm font-medium text-emerald-600 hover:text-emerald-600 transition-colors">
-              Create the first challenge
-            </button>
+          {/* Reel grid */}
+          {loading ? (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-2xl bg-stone-100 animate-pulse aspect-[4/5]" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-20 border border-dashed border-stone-200 rounded-2xl">
+              <Video size={28} className="text-stone-200 mx-auto mb-3" />
+              <p className="text-stone-500 text-sm mb-1">
+                {activeTab === 'mine'
+                  ? "You haven't uploaded a reel yet."
+                  : activeTab === 'matches'
+                  ? "No matching reels found. Update your profile skills."
+                  : "No reels match your search."}
+              </p>
+              {activeTab === 'mine' && (
+                <button onClick={() => setShowUpload(true)}
+                  className="mt-3 text-xs font-semibold text-emerald-600 hover:text-emerald-500 transition-colors">
+                  Upload your first reel →
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {filtered.map(reel => (
+                <ReelPlayer
+                  key={reel.id}
+                  reel={reel}
+                  onSpark={handleSpark}
+                  onConnect={(uid) => {
+                    const user = undefined; // connect by uid
+                    onConnect(0);
+                  }}
+                  onMessage={(uid) => onStartMessage(0)}
+                  currentUid={currentUid}
+                />
+              ))}
+            </div>
           )}
         </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(challenge => {
-            const subStatus = userSubmissionStatus[challenge.id];
-            const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-              submitted:    { label: 'Submitted',    color: '#0369a1', bg: '#e0f2fe' },
-              under_review: { label: 'Under Review', color: '#b45309', bg: '#fef3c7' },
-              scored:       { label: 'Scored',       color: '#7c3aed', bg: '#f3f0ff' },
-              shortlisted:  { label: 'Shortlisted',  color: '#1a4a3a', bg: '#e8f4f0' },
-              invited:      { label: 'Invited!',     color: '#059669', bg: '#d1fae5' },
-              not_selected: { label: 'Not selected', color: '#78716c', bg: '#f5f5f4' },
-            };
-            const sm = subStatus ? STATUS_META[subStatus] : null;
-            return (
-              <div key={challenge.id} className="relative">
-                <ChallengeCard challenge={challenge} onClick={() => setActiveChallengeId(challenge.id)} />
-                {sm && (
-                  <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[10px] font-bold border"
-                    style={{ background: sm.bg, color: sm.color, borderColor: sm.color + '40' }}>
-                    {sm.label}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
 
-      <CreateChallengeDialog
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreated={loadChallenges}
-        companyName={(currentUser as any)?.company ?? (currentUser as any)?.headline ?? 'Company'}
-      />
-      </> /* end challenges tab */}
+        {/* Sidebar — opportunity matches */}
+        <div className="hidden lg:block w-72 flex-shrink-0">
+          <div className="sticky top-24 space-y-4">
+
+            {/* My reel stats */}
+            {reels.filter(r => r.authorUid === currentUid).length > 0 && (
+              <div className="bg-white border border-stone-200 rounded-2xl p-4">
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest mb-3">Your reels</p>
+                {reels.filter(r => r.authorUid === currentUid).map(r => (
+                  <div key={r.id} className="flex items-center gap-2 mb-2 last:mb-0">
+                    <div className="w-8 h-8 rounded-lg bg-stone-900 flex items-center justify-center flex-shrink-0">
+                      <Play size={10} className="text-white" fill="currentColor" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-stone-700 truncate">{r.pitch?.slice(0, 40)}...</p>
+                      <div className="flex items-center gap-2 text-xs text-stone-400 mt-0.5">
+                        <span className="flex items-center gap-0.5"><Zap size={9} />{r.sparks?.length ?? 0}</span>
+                        <span className="flex items-center gap-0.5"><Eye size={9} />{r.views ?? 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Matched opportunities */}
+            {matchedJobs.length > 0 && (
+              <div className="bg-white border border-stone-200 rounded-2xl p-4">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Sparkles size={13} className="text-emerald-600" />
+                  <p className="text-xs font-semibold text-stone-700">Matched opportunities</p>
+                </div>
+                <div className="space-y-2">
+                  {matchedJobs.map(job => (
+                    <OpportunityMatch key={job.id} job={job} onView={() => {}} />
+                  ))}
+                </div>
+                <p className="text-xs text-stone-400 mt-3 text-center">
+                  Based on skills in your reels
+                </p>
+              </div>
+            )}
+
+            {/* Tips */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+              <p className="text-xs font-semibold text-emerald-800 mb-2 flex items-center gap-1.5">
+                <Star size={12} className="text-emerald-600" /> Tips for a great reel
+              </p>
+              {[
+                'Show your work, not just your face',
+                'Mention a specific problem you solved',
+                'Keep it under 60s — shorter is sharper',
+                'Tag skills you want to be hired for',
+              ].map(tip => (
+                <div key={tip} className="flex items-start gap-1.5 mb-1.5 last:mb-0">
+                  <ChevronRight size={11} className="text-emerald-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-emerald-700">{tip}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Upload modal */}
+      {showUpload && (
+        <UploadReelModal
+          currentUser={currentUser}
+          onClose={() => setShowUpload(false)}
+          onUploaded={() => setShowUpload(false)}
+        />
+      )}
     </div>
   );
 }
-
-export default ProveView;
