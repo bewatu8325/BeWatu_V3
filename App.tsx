@@ -579,8 +579,10 @@ const MainApp: React.FC = () => {
       </div>
     );
 
-    // Guard: if data belongs to a different user (mid-login transition), show loader
-    if (data && currentUser && !data.users.some(u => u.id === currentUser.id)) return <FullPageLoader />;
+    // Guard: only block during mid-login transition (data loaded but still loading new user's data)
+    // Don't block if loading is complete — the current user may simply not be in allUsers yet
+    if (!loading && data && currentUser && data.users.length > 1 &&
+        !data.users.some(u => u.id === currentUser.id)) return <FullPageLoader />;
 
     if (activeProfile === 'admin') {
       return (
