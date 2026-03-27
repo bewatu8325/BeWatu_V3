@@ -32,7 +32,7 @@ import {
   type IndustrySlug,
   type ChallengeTier,
   type PrizeType,
-} from "../lib/arenaService";
+} from "../../lib/arenaService";
 
 // ─── Tier config ──────────────────────────────────────────────────────────────
 
