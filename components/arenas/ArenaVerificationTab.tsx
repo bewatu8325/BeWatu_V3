@@ -22,7 +22,7 @@ import {
   type ArenaIndustry,
   type IndustryVerification,
   type IndustrySlug,
-} from "../../lib/arenaService"use client";
+} from "../../lib/arenaService";
 
 // ─── Status config ─────────────────────────────────────────────────────────────
 
