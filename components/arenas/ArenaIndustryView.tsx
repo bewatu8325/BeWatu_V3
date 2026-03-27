@@ -26,7 +26,7 @@ import {
   type ArenaChallenge,
   type IndustrySlug,
   type ChallengeTier,
-} from "../../lib/arenaService";";
+} from "../../lib/arenaService";
 import {
   ArenaSponsorHero,
   SponsorChallengeBadge,
