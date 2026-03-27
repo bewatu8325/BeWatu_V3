@@ -20,6 +20,8 @@ interface ConnectionsViewProps {
   onDeclineFollow?: (requestId: number) => Promise<void>;
   onViewProfile: (userId: number) => void;
   onConnect: (userId: number) => Promise<void>;
+  onCancel?: (requestId: number) => Promise<void>;
+  onRefresh?: (requestId: number) => Promise<void>;
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -51,6 +53,52 @@ function Avatar({ user, size = 40 }: { user: User; size?: number }) {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
+// ─── Expiry helpers ───────────────────────────────────────────────────────────
+
+const REQUEST_EXPIRY_DAYS = 30;
+const REFRESH_WINDOW_DAYS = 7; // can refresh in last 7 days before expiry
+
+function getDaysRemaining(req: any): number | null {
+  const createdAt = req.createdAt;
+  if (!createdAt) return null;
+  const created = createdAt?.toDate ? createdAt.toDate() : new Date(createdAt);
+  const expiresAt = new Date(created.getTime() + REQUEST_EXPIRY_DAYS * 86400000);
+  const remaining = Math.ceil((expiresAt.getTime() - Date.now()) / 86400000);
+  return remaining;
+}
+
+function isExpired(req: any): boolean {
+  const days = getDaysRemaining(req);
+  return days !== null && days <= 0;
+}
+
+function canRefresh(req: any): boolean {
+  const days = getDaysRemaining(req);
+  return days !== null && days > 0 && days <= REFRESH_WINDOW_DAYS;
+}
+
+function ExpiryBadge({ req }: { req: any }) {
+  const days = getDaysRemaining(req);
+  if (days === null) return null;
+  if (days <= 0) return (
+    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
+      Expired
+    </span>
+  );
+  if (days <= REFRESH_WINDOW_DAYS) return (
+    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+      Expires in {days}d
+    </span>
+  );
+  return (
+    <span className="text-xs text-stone-400">
+      {days}d left
+    </span>
+  );
+}
+
+// ─── Pending tab ──────────────────────────────────────────────────────────────
+
 function PendingTab({
   incoming,
   outgoing,
@@ -58,6 +106,8 @@ function PendingTab({
   onAccept,
   onDecline,
   onViewProfile,
+  onCancel,
+  onRefresh,
   incomingFollows,
   outgoingFollows,
   onAcceptFollow,
@@ -69,11 +119,271 @@ function PendingTab({
   onAccept: (id: number) => Promise<void>;
   onDecline: (id: number) => Promise<void>;
   onViewProfile: (uid: number) => void;
+  onCancel?: (id: number) => Promise<void>;
+  onRefresh?: (id: number) => Promise<void>;
   incomingFollows: FollowRequest[];
   outgoingFollows: FollowRequest[];
   onAcceptFollow?: (id: number) => Promise<void>;
   onDeclineFollow?: (id: number) => Promise<void>;
 }) {
+  const [busy, setBusy] = useState<Record<number, boolean>>({});
+
+  const act = async (fn: () => Promise<void>, id: number) => {
+    setBusy(b => ({ ...b, [id]: true }));
+    try { await fn(); } finally { setBusy(b => ({ ...b, [id]: false })); }
+  };
+
+  const hasAnything = incoming.length > 0 || outgoing.length > 0 || incomingFollows.length > 0 || outgoingFollows.length > 0;
+  if (!hasAnything) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-stone-400">
+        <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <p className="text-lg font-medium text-stone-600">No pending requests</p>
+        <p className="text-sm mt-1">Go to People to discover and connect with others</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+
+      {/* ── Incoming connection requests — card grid ── */}
+      {incoming.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
+            Connection Requests · {incoming.length}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {incoming.map(req => {
+              const sender = allUsers.find(u => u.id === req.fromUserId);
+              if (!sender) return null;
+              const expired = isExpired(req);
+              return (
+                <div
+                  key={req.id}
+                  className={`bg-white rounded-2xl border p-4 flex flex-col gap-3 shadow-sm ${expired ? 'opacity-60' : ''}`}
+                  style={{ borderColor: '#e7e5e4' }}
+                >
+                  {/* Top row */}
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => onViewProfile(sender.id)} className="shrink-0">
+                      <Avatar user={sender} size={48} />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <button onClick={() => onViewProfile(sender.id)}
+                        className="font-semibold text-stone-900 hover:underline text-left text-sm truncate block w-full">
+                        {sender.name}
+                      </button>
+                      <p className="text-xs text-stone-500 truncate">{sender.headline}</p>
+                    </div>
+                    <ExpiryBadge req={req} />
+                  </div>
+
+                  {/* Actions */}
+                  {!expired ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => act(() => onAccept(req.id), req.id)}
+                        disabled={busy[req.id]}
+                        className="flex-1 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                        style={{ backgroundColor: '#1a4a3a' }}
+                      >
+                        {busy[req.id] ? '…' : 'Accept'}
+                      </button>
+                      <button
+                        onClick={() => act(() => onDecline(req.id), req.id)}
+                        disabled={busy[req.id]}
+                        className="flex-1 py-2 rounded-xl text-sm font-semibold text-stone-600 border border-stone-200 bg-white hover:bg-stone-50 transition disabled:opacity-50"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-center text-stone-400">This request has expired</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Outgoing connection requests — card grid ── */}
+      {outgoing.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
+            Sent Requests · {outgoing.length}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {outgoing.map(req => {
+              const receiver = allUsers.find(u => u.id === req.toUserId);
+              if (!receiver) return null;
+              const expired  = isExpired(req);
+              const refresh  = canRefresh(req);
+              const days     = getDaysRemaining(req);
+
+              return (
+                <div
+                  key={req.id}
+                  className={`bg-white rounded-2xl border p-4 flex flex-col gap-3 shadow-sm ${expired ? 'opacity-60' : ''}`}
+                  style={{ borderColor: '#e7e5e4' }}
+                >
+                  {/* Top row */}
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => onViewProfile(receiver.id)} className="shrink-0">
+                      <Avatar user={receiver} size={48} />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <button onClick={() => onViewProfile(receiver.id)}
+                        className="font-semibold text-stone-900 hover:underline text-left text-sm truncate block w-full">
+                        {receiver.name}
+                      </button>
+                      <p className="text-xs text-stone-500 truncate">{receiver.headline}</p>
+                    </div>
+                  </div>
+
+                  {/* Expiry bar */}
+                  {days !== null && days > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] text-stone-400">
+                        <span>Pending</span>
+                        <span>{days}d remaining</span>
+                      </div>
+                      <div className="h-1 w-full rounded-full bg-stone-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(100, (days / REQUEST_EXPIRY_DAYS) * 100)}%`,
+                            backgroundColor: days <= 7 ? '#f59e0b' : '#1a4a3a',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {expired && (
+                    <p className="text-xs text-center text-red-500 font-medium">Request expired</p>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    {refresh && onRefresh && (
+                      <button
+                        onClick={() => act(() => onRefresh(req.id), req.id)}
+                        disabled={busy[req.id]}
+                        className="flex-1 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                        style={{ backgroundColor: '#1a4a3a' }}
+                      >
+                        {busy[req.id] ? '…' : '↻ Refresh'}
+                      </button>
+                    )}
+                    {onCancel && (
+                      <button
+                        onClick={() => act(() => onCancel(req.id), req.id)}
+                        disabled={busy[req.id]}
+                        className="flex-1 py-2 rounded-xl text-sm font-semibold text-stone-600 border border-stone-200 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition disabled:opacity-50"
+                      >
+                        {busy[req.id] ? '…' : 'Cancel'}
+                      </button>
+                    )}
+                    {!onCancel && (
+                      <div className="flex-1 py-2 rounded-xl text-sm font-medium text-center text-amber-700 bg-amber-50 border border-amber-200">
+                        Pending
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Incoming follow requests ── */}
+      {incomingFollows.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Follow Requests · {incomingFollows.length}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {incomingFollows.map(req => {
+              const sender = allUsers.find(u => u.id === req.fromUserId);
+              if (!sender) return null;
+              return (
+                <div key={req.id} className="bg-white rounded-2xl border p-4 flex flex-col gap-3 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => onViewProfile(sender.id)} className="shrink-0">
+                      <Avatar user={sender} size={48} />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <button onClick={() => onViewProfile(sender.id)} className="font-semibold text-stone-900 hover:underline text-left text-sm truncate block w-full">
+                        {sender.name}
+                      </button>
+                      <p className="text-xs text-stone-500 truncate">{sender.headline}</p>
+                      <p className="text-xs text-stone-400 mt-0.5">wants to follow you</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => act(() => onAcceptFollow!(req.id), req.id)}
+                      disabled={busy[req.id] || !onAcceptFollow}
+                      className="flex-1 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                      style={{ backgroundColor: '#1a4a3a' }}
+                    >
+                      {busy[req.id] ? '…' : 'Allow'}
+                    </button>
+                    <button
+                      onClick={() => act(() => onDeclineFollow!(req.id), req.id)}
+                      disabled={busy[req.id] || !onDeclineFollow}
+                      className="flex-1 py-2 rounded-xl text-sm font-semibold text-stone-600 border border-stone-200 bg-white hover:bg-stone-50 transition disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Outgoing follow requests ── */}
+      {outgoingFollows.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
+            Following Requests Sent · {outgoingFollows.length}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {outgoingFollows.map(req => {
+              const receiver = allUsers.find(u => u.id === req.toUserId);
+              if (!receiver) return null;
+              return (
+                <div key={req.id} className="bg-white rounded-2xl border p-4 flex flex-col gap-3 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => onViewProfile(receiver.id)} className="shrink-0">
+                      <Avatar user={receiver} size={48} />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <button onClick={() => onViewProfile(receiver.id)} className="font-semibold text-stone-900 hover:underline text-left text-sm truncate block w-full">
+                        {receiver.name}
+                      </button>
+                      <p className="text-xs text-stone-500 truncate">{receiver.headline}</p>
+                    </div>
+                  </div>
+                  <div className="py-2 rounded-xl text-sm font-medium text-center text-amber-700 bg-amber-50 border border-amber-200">
+                    Following pending
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+} {
   const [busy, setBusy] = useState<Record<number, boolean>>({});
 
   const act = async (fn: () => Promise<void>, id: number) => {
@@ -808,6 +1118,8 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
   onDeclineFollow,
   onViewProfile,
   onConnect,
+  onCancel,
+  onRefresh,
 }) => {
   const [tab, setTab] = useState<Tab>('pending');
 
@@ -895,6 +1207,8 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
             onAcceptFollow={onAcceptFollow}
             onDeclineFollow={onDeclineFollow}
             onViewProfile={onViewProfile}
+            onCancel={onCancel}
+            onRefresh={onRefresh}
           />
         )}
         {tab === 'network' && (
