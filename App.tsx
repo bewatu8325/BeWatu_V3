@@ -88,6 +88,7 @@ const ArenaDiscovery = lazy(() => import('./components/arenas/ArenaDiscovery'));
 const ArenaIndustryView = lazy(() => import('./components/arenas/ArenaIndustryView'));
 const RecruiterUpgradeBanner = lazy(() => import('./components/recruiter/RecruiterUpgradeBanner'));
 const GenerationalFeed = lazy(() => import('./components/GenerationalFeed'));
+const CompaniesPage = lazy(() => import('./components/CompaniesPage'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
@@ -868,6 +869,14 @@ ${references || 'Not provided'}`;
     />
   );
   break;
+
+      case View.Companies:
+        content = (
+          <Suspense fallback={<div />}>
+            <CompaniesPage onViewCompany={handleViewCompany} />
+          </Suspense>
+        );
+        break;
 
       default:
         content = null;
