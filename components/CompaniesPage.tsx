@@ -123,7 +123,10 @@ export default function CompaniesPage({ onViewCompany }: CompaniesPageProps) {
   useEffect(() => {
     fetchCompanies(false)
       .then(data => setCompanies(data as ExtendedCompany[]))
-      .catch(console.error)
+      .catch(err => {
+        console.error('fetchCompanies error:', err);
+        setClaimError('Could not load companies. Please try refreshing.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
