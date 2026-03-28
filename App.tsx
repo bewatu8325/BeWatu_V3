@@ -334,6 +334,26 @@ const MainApp: React.FC = () => {
     setData({ ...data, posts: [newPost, ...data.posts] });
   };
 
+  const handlePerspectivePost = async (question: string, context: string, seeking: any[]) => {
+    if (!fbUser || !currentUser) return;
+    const { createPerspectivePost } = await import('./lib/generationalFeatures');
+    await createPerspectivePost(question, context, seeking, {
+      uid: fbUser.uid, numericId: currentUser.id,
+      name: currentUser.name, avatarUrl: currentUser.avatarUrl,
+    });
+  };
+
+  const handleWisdomThread = async (threadData: any) => {
+    if (!fbUser || !currentUser) return;
+    const { createWisdomThread } = await import('./lib/generationalFeatures');
+    await createWisdomThread({
+      ...threadData,
+      authorId:     currentUser.id,
+      authorName:   currentUser.name,
+      authorAvatar: currentUser.avatarUrl,
+    }, fbUser.uid);
+  };
+
   const handleAppreciatePost = async (postId: number, appreciationType: AppreciationType) => {
     if (!data || !fbUser) return;
     const post = data.posts.find(p => p.id === postId) as (Post & { _firestoreId?: string }) | undefined;
