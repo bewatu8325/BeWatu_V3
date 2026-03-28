@@ -1,6 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { User, ConnectionRequest, Circle, View } from '../types';
-import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, UsersIcon } from '../constants';
+import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, CirclesIcon, UsersIcon } from '../constants';
 
 interface ProfileSidebarProps {
   user: User;
@@ -19,17 +19,6 @@ const proficiencyWidth = {
   'Proficient': 'w-3/4',
   'Expert': 'w-4/4',
 };
-
-const StatItem: React.FC<{
-  icon: React.ReactNode; label: string; value: string | number;
-  valueClassName: string; valueStyle?: React.CSSProperties;
-}> = ({ icon, label, value, valueClassName, valueStyle }) => (
-  <div className="bg-stone-50 p-3 rounded-xl border text-center" style={{ borderColor: '#e7e5e4' }}>
-    <div className="flex justify-center items-center mb-1 text-stone-400">{icon}</div>
-    <p className={`text-xl font-bold ${valueClassName}`} style={valueStyle}>{value}</p>
-    <p className="text-xs text-stone-500">{label}</p>
-  </div>
-);
 
 const getCircleColor = (name: string) => {
   let hash = 0;
@@ -200,14 +189,54 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         onNavigate={onNavigate}
       />
 
-      {/* ── Stats ── */}
-      <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
-        <div className="grid grid-cols-3 gap-2">
-          <StatItem icon={<ShieldCheckIcon className="w-5 h-5" />} label="Reputation" value={user.reputation} valueClassName="text-emerald-600" />
-          <StatItem icon={<CoinsIcon className="w-5 h-5" />} label="Credits" value={user.credits} valueClassName="text-amber-500" />
-          <StatItem icon={<UsersIcon className="w-5 h-5" />} label="Connections" value={connectionCount} valueClassName="font-bold" valueStyle={{ color: '#1a4a3a' }} />
-        </div>
-      </div>
+      {/* ── Profile strength ── */}
+      {(() => {
+        const checks = [
+          { label: 'Profile photo',       done: !!user.avatarUrl },
+          { label: 'Headline',            done: !!user.headline },
+          { label: 'About section',       done: !!user.bio },
+          { label: 'Industry',            done: !!user.industry },
+          { label: 'Skills (3+)',         done: (user.skills?.length ?? 0) >= 3 },
+          { label: 'Goals',               done: (user.professionalGoals?.length ?? 0) > 0 },
+          { label: 'Intro video',         done: !!user.microIntroductionUrl },
+          { label: 'Verified skills',     done: !!(user.verifiedSkills?.length) },
+        ];
+        const score   = Math.round((checks.filter(c => c.done).length / checks.length) * 100);
+        const missing = checks.filter(c => !c.done).map(c => c.label);
+        const color   = score >= 80 ? '#1a6b52' : score >= 50 ? '#d97706' : '#dc2626';
+        const label   = score >= 80 ? 'Strong' : score >= 50 ? 'Good' : 'Getting started';
+        return (
+          <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-stone-700">Profile strength</p>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${color}15`, color }}>
+                {label}
+              </span>
+            </div>
+            {/* Progress bar */}
+            <div className="h-2 w-full rounded-full bg-stone-100 overflow-hidden mb-3">
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${score}%`, backgroundColor: color }} />
+            </div>
+            <div className="flex items-center justify-between text-xs text-stone-400 mb-2">
+              <span>{score}% complete</span>
+              <button onClick={() => onNavigate(View.Connections)}
+                className="flex items-center gap-1 font-semibold transition-colors hover:opacity-80"
+                style={{ color: '#1a4a3a' }}>
+                <UsersIcon className="w-3.5 h-3.5" />
+                {connectionCount} circle{connectionCount !== 1 ? 's' : ''}
+              </button>
+            </div>
+            {missing.length > 0 && (
+              <p className="text-xs text-stone-400 leading-relaxed">
+                Add: {missing.slice(0, 2).join(' · ')}
+                {missing.length > 2 && ` +${missing.length - 2} more`}
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Lens — Career Intelligence ── */}
       <button
