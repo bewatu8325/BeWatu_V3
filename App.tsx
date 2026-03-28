@@ -103,6 +103,8 @@ const MainApp: React.FC = () => {
   const [authState, setAuthState] = useState<AuthState>('landing');
   const [activeProfile, setActiveProfile] = useState<ActiveProfile>('user');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [seedLog, setSeedLog]               = useState<string[]>([]);
+  const [seedRunning, setSeedRunning]       = useState(false);
   const [currentView, setCurrentView] = useState<View>(View.Feed);
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -325,6 +327,32 @@ const MainApp: React.FC = () => {
 
   const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
   const handleEnterAdminPanel = () => setActiveProfile('admin');
+
+  const runSeeds = async (which: 'arena' | 'generational' | 'both') => {
+    if (!fbUser || seedRunning) return;
+    setSeedRunning(true);
+    setSeedLog([]);
+    const log = (msg: string) => setSeedLog(prev => [...prev, msg]);
+    try {
+      if (which === 'arena' || which === 'both') {
+        log('🌱 Starting arena challenges seed…');
+        const { seedArenaChallenges } = await import('./scripts/seedArenaChallenges');
+        await seedArenaChallenges(fbUser.uid, fbUser.email ?? '');
+        log('✅ Arena challenges seeded');
+      }
+      if (which === 'generational' || which === 'both') {
+        log('🌱 Starting generational content seed…');
+        const { seedGenerationalContent } = await import('./lib/generationalFeatures');
+        await seedGenerationalContent(fbUser.uid);
+        log('✅ Generational content seeded');
+      }
+      log('🎉 All done! Refresh the page to see new data.');
+    } catch (err: any) {
+      log(`❌ Error: ${err.message ?? String(err)}`);
+    } finally {
+      setSeedRunning(false);
+    }
+  };
   const handleChangePassword = async (currentPassword: string, newPassword: string) => changePassword(currentPassword, newPassword);
   const handleForgotPassword = async (email: string) => { await forgotPassword(email); };
 
@@ -773,6 +801,34 @@ ${references || 'Not provided'}`;
           <div className="space-y-4">
             <FactoryUnlockBanner onUnlock={() => setShowUpgradeModal('factory')} />
             <SparksTray />
+
+            {/* ── Admin seed panel — remove after seeding ── */}
+            {isPlatformAdmin && (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-base">🔧</span>
+                  <p className="font-bold text-amber-900 text-sm">Admin Seed Panel</p>
+                  <span className="text-[10px] text-amber-600 bg-amber-100 rounded-full px-2 py-0.5">Remove after use</span>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {[
+                    { label: '🏟️ Seed Arena Challenges', action: () => runSeeds('arena') },
+                    { label: '🌱 Seed Generational Content', action: () => runSeeds('generational') },
+                    { label: '⚡ Seed Both', action: () => runSeeds('both') },
+                  ].map(({ label, action }) => (
+                    <button key={label} onClick={action} disabled={seedRunning}
+                      className="text-xs font-bold px-3.5 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-colors">
+                      {seedRunning ? 'Running…' : label}
+                    </button>
+                  ))}
+                </div>
+                {seedLog.length > 0 && (
+                  <div className="bg-amber-900/10 rounded-xl p-3 space-y-1 font-mono text-xs text-amber-900 max-h-40 overflow-y-auto">
+                    {seedLog.map((line, i) => <p key={i}>{line}</p>)}
+                  </div>
+                )}
+              </div>
+            )}
             <HomePage
               data={data}
               currentUser={currentUser}
