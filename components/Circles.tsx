@@ -1,21 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Circle, PodType, PodStage } from '../types';
 import {
   Users, Plus, X, ArrowRight, Hexagon, Sparkles,
   Lightbulb, GitMerge, Trophy, Globe,
   ChevronRight, UserPlus, Lock, Clock,
+  LogOut, AlertTriangle, Loader2,
 } from 'lucide-react';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const GREEN    = '#1a4a3a';
 const GREEN_LT = '#e8f4f0';
 
 interface CirclesProps {
-  circles:          Circle[];
-  onSelectCircle:   (circleId: number) => void;
-  onCreateCircle?:  (name: string, description: string, extra?: Partial<Circle>) => Promise<void>;
-  onJoinCircle?:    (circleId: number) => Promise<void>;
-  onApplyToCircle?: (circleId: number) => Promise<void>;
-  currentUserId?:   number;
+  circles:               Circle[];
+  onSelectCircle:        (circleId: number) => void;
+  onCreateCircle?:       (name: string, description: string, extra?: Partial<Circle>) => Promise<void>;
+  onJoinCircle?:         (circleId: number) => Promise<void>;
+  onApplyToCircle?:      (circleId: number) => Promise<void>;
+  onLeaveCircle?:        (circleId: number) => Promise<void>;
+  currentUserId?:        number;
+  currentUserFirestoreUid?: string;
 }
 
 // ── Pod type config ────────────────────────────────────────────────────────────
@@ -89,16 +94,26 @@ function PodTypeBadge({ type }: { type: PodType }) {
 
 // ── Pod card ──────────────────────────────────────────────────────────────────
 
-function PodCard({ circle, isMember, onSelect, onJoin, onApply, currentUserId }: {
-  circle: Circle; isMember: boolean;
-  onSelect: () => void; onJoin?: () => void; onApply?: () => void; currentUserId?: number;
+function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave, currentUserId }: {
+  circle: Circle; isMember: boolean; isOwner?: boolean;
+  onSelect: () => void; onJoin?: () => void; onApply?: () => void;
+  onLeave?: () => void; currentUserId?: number;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const [hovered,       setHovered]       = useState(false);
+  const [confirmLeave,  setConfirmLeave]  = useState(false);
+  const [leaving,       setLeaving]       = useState(false);
   const pal        = getPalette(circle.name);
   const type       = circle.podType ?? 'community';
   const cfg        = POD_TYPE_CONFIG[type];
   const isPending  = currentUserId && (circle.pendingMembers ?? []).includes(currentUserId);
   const visibility = circle.visibility ?? 'open';
+
+  async function handleLeave(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirmLeave) { setConfirmLeave(true); return; }
+    setLeaving(true);
+    try { await onLeave?.(); } finally { setLeaving(false); setConfirmLeave(false); }
+  }
 
   return (
     <div
@@ -175,9 +190,32 @@ function PodCard({ circle, isMember, onSelect, onJoin, onApply, currentUserId }:
         <div className="flex items-center justify-between mt-auto pt-1">
           <MemberRings count={circle.members.length} />
           {isMember ? (
-            <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: pal.text }}>
-              Open <ArrowRight size={11} />
-            </span>
+            <div className="flex items-center gap-2">
+              {!isOwner && onLeave && (
+                confirmLeave ? (
+                  <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                    <span className="text-[10px] text-red-500">Leave?</span>
+                    <button onClick={handleLeave} disabled={leaving}
+                      className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50">
+                      {leaving ? '…' : 'Yes'}
+                    </button>
+                    <button onClick={e => { e.stopPropagation(); setConfirmLeave(false); }}
+                      className="text-[10px] text-stone-400 hover:text-stone-600">
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={handleLeave}
+                    className="flex items-center gap-1 text-[10px] text-stone-300 hover:text-red-400 transition-colors"
+                    title="Leave pod">
+                    <LogOut size={10} /> Leave
+                  </button>
+                )
+              )}
+              <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: pal.text }}>
+                Open <ArrowRight size={11} />
+              </span>
+            </div>
           ) : isPending ? (
             <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600">
               <Clock size={10} /> Pending
@@ -207,9 +245,10 @@ function PodCard({ circle, isMember, onSelect, onJoin, onApply, currentUserId }:
 
 // ── Create pod modal ──────────────────────────────────────────────────────────
 
-function CreatePodModal({ onClose, onCreate }: {
+function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
   onClose: () => void;
   onCreate: (name: string, description: string, extra?: Partial<Circle>) => Promise<void>;
+  existingChallengePodIds?: string[]; // challengeIds already used by user's pods
 }) {
   const [step, setStep]                 = useState<'type' | 'details'>('type');
   const [selectedType, setSelectedType] = useState<PodType | null>(null);
@@ -220,11 +259,30 @@ function CreatePodModal({ onClose, onCreate }: {
   const [podStage, setPodStage]         = useState<PodStage>('Idea');
   const [rolesInput, setRolesInput]     = useState('');
   const [rolesNeeded, setRolesNeeded]   = useState<string[]>([]);
-  const [challengeTitle, setChallengeTitle] = useState('');
+  // Challenge picker state
+  const [challenges,        setChallenges]        = useState<any[]>([]);
+  const [challengesLoading, setChallengesLoading] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState<any | null>(null);
+  const [challengeFilter,   setChallengeFilter]   = useState('');
   const [minExp, setMinExp]             = useState('');
   const [maxExp, setMaxExp]             = useState('');
   const [creating, setCreating]         = useState(false);
   const [error, setError]               = useState('');
+
+  // Fetch live challenges when challenge type is selected
+  useEffect(() => {
+    if (selectedType !== 'challenge') return;
+    setChallengesLoading(true);
+    getDocs(
+      query(
+        collection(db, 'arena_challenges'),
+        where('verificationStatus', '==', 'live')
+      )
+    ).then(snap => {
+      setChallenges(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }).catch(console.error)
+      .finally(() => setChallengesLoading(false));
+  }, [selectedType]);
 
   function addRole(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && rolesInput.trim()) {
@@ -238,13 +296,24 @@ function CreatePodModal({ onClose, onCreate }: {
     e.preventDefault();
     if (!name.trim() || !description.trim()) { setError('Please fill in all fields.'); return; }
     if (!selectedType) return;
+    if (selectedType === 'challenge') {
+      if (!selectedChallenge) { setError('Please select an Arena challenge.'); return; }
+      if (existingChallengePodIds.includes(selectedChallenge.id)) {
+        setError('You already have a pod for this challenge. You can only create one pod per challenge.');
+        return;
+      }
+    }
     setCreating(true); setError('');
     try {
       await onCreate(name.trim(), description.trim(), {
         podType:    selectedType,
         visibility: selectedType === 'community' ? 'open' : visibility,
         ...(selectedType === 'innovation' && { problemStatement: problemStatement.trim(), stage: podStage, rolesNeeded }),
-        ...(selectedType === 'challenge'  && { challengeTitle: challengeTitle.trim() }),
+        ...(selectedType === 'challenge'  && {
+          challengeId:    selectedChallenge.id,
+          challengeTitle: selectedChallenge.title,
+          arenaIndustry:  selectedChallenge.arenaIndustry ?? selectedChallenge.arenaSlug,
+        }),
         ...(selectedType === 'generational' && {
           minExperienceYears: minExp ? parseInt(minExp) : undefined,
           maxExperienceYears: maxExp ? parseInt(maxExp) : undefined,
@@ -375,10 +444,77 @@ function CreatePodModal({ onClose, onCreate }: {
 
             {selectedType === 'challenge' && (
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Challenge name</label>
-                <input value={challengeTitle} onChange={e => setChallengeTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-400 placeholder:text-stone-400"
-                  placeholder="Which Arena challenge is this for?" disabled={creating} />
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+                  Select an Arena challenge
+                </label>
+                {challengesLoading ? (
+                  <div className="flex items-center gap-2 py-4 text-stone-400 text-sm">
+                    <Loader2 size={14} className="animate-spin" /> Loading live challenges…
+                  </div>
+                ) : challenges.length === 0 ? (
+                  <div className="text-center py-6 border border-dashed border-stone-200 rounded-xl">
+                    <Trophy size={18} className="text-stone-300 mx-auto mb-2" />
+                    <p className="text-xs text-stone-400">No live challenges right now</p>
+                    <p className="text-[10px] text-stone-300 mt-1">Check back when new arena challenges are posted</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {/* Search filter */}
+                    <input
+                      value={challengeFilter}
+                      onChange={e => setChallengeFilter(e.target.value)}
+                      className="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-stone-400 placeholder:text-stone-400 mb-1"
+                      placeholder="Search challenges…"
+                    />
+                    {challenges
+                      .filter(c => !challengeFilter || c.title?.toLowerCase().includes(challengeFilter.toLowerCase()) || c.arenaIndustry?.toLowerCase().includes(challengeFilter.toLowerCase()))
+                      .map(challenge => {
+                        const alreadyUsed = existingChallengePodIds.includes(challenge.id);
+                        const isSelected  = selectedChallenge?.id === challenge.id;
+                        const daysLeft    = challenge.deadline?.seconds
+                          ? Math.max(0, Math.ceil((challenge.deadline.seconds * 1000 - Date.now()) / 86400000))
+                          : null;
+                        return (
+                          <button key={challenge.id} type="button"
+                            onClick={() => !alreadyUsed && setSelectedChallenge(challenge)}
+                            disabled={alreadyUsed}
+                            className="w-full text-left p-3 rounded-xl border-2 transition-all"
+                            style={{
+                              borderColor:     isSelected ? '#4c1d95' : '#e7e5e4',
+                              backgroundColor: isSelected ? '#ede9fe' : alreadyUsed ? '#fafaf9' : 'white',
+                              opacity:         alreadyUsed ? 0.5 : 1,
+                            }}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-stone-900 line-clamp-1">{challenge.title}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] text-stone-400">{challenge.arenaIndustry}</span>
+                                  {challenge.prize && (
+                                    <span className="text-[10px] font-semibold text-emerald-600">{challenge.prize}</span>
+                                  )}
+                                  {daysLeft !== null && (
+                                    <span className={`text-[10px] font-medium ${daysLeft <= 7 ? 'text-red-500' : 'text-stone-400'}`}>
+                                      {daysLeft}d left
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {alreadyUsed && (
+                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">
+                                  Pod exists
+                                </span>
+                              )}
+                              {isSelected && (
+                                <div className="w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  <span className="text-white text-[9px]">✓</span>
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -445,7 +581,8 @@ function CreatePodModal({ onClose, onCreate }: {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const Circles: React.FC<CirclesProps> = ({
-  circles, onSelectCircle, onCreateCircle, onJoinCircle, onApplyToCircle, currentUserId,
+  circles, onSelectCircle, onCreateCircle, onJoinCircle,
+  onApplyToCircle, onLeaveCircle, currentUserId, currentUserFirestoreUid,
 }) => {
   const [isModalOpen, setIsModalOpen]   = useState(false);
   const [activeFilter, setActiveFilter] = useState<PodType | 'all'>('all');
@@ -454,6 +591,11 @@ const Circles: React.FC<CirclesProps> = ({
   const otherPods = circles.filter(c => !currentUserId || !c.members.includes(currentUserId));
   const filteredOther = activeFilter === 'all' ? otherPods
     : otherPods.filter(c => (c.podType ?? 'community') === activeFilter);
+
+  // Challenge IDs the current user already has a pod for — enforces one-per-challenge
+  const existingChallengePodIds = myPods
+    .filter(c => c.podType === 'challenge' && c.challengeId)
+    .map(c => c.challengeId!);
 
   const FILTER_TABS: { id: PodType | 'all'; label: string; emoji: string }[] = [
     { id: 'all',          label: 'All',          emoji: '✨' },
@@ -511,8 +653,12 @@ const Circles: React.FC<CirclesProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myPods.map(circle => (
-                  <PodCard key={circle.id} circle={circle} isMember currentUserId={currentUserId}
-                    onSelect={() => onSelectCircle(circle.id)} />
+                  <PodCard key={circle.id} circle={circle} isMember
+                    isOwner={circle.adminId === currentUserId}
+                    currentUserId={currentUserId}
+                    onSelect={() => onSelectCircle(circle.id)}
+                    onLeave={circle.adminId !== currentUserId ? () => onLeaveCircle?.(circle.id) : undefined}
+                  />
                 ))}
               </div>
             </section>
@@ -563,9 +709,11 @@ const Circles: React.FC<CirclesProps> = ({
       )}
 
       {isModalOpen && (
-        <CreatePodModal onClose={() => setIsModalOpen(false)} onCreate={async (n, d, extra) => {
-          await onCreateCircle?.(n, d, extra);
-        }} />
+        <CreatePodModal
+          onClose={() => setIsModalOpen(false)}
+          existingChallengePodIds={existingChallengePodIds}
+          onCreate={async (n, d, extra) => { await onCreateCircle?.(n, d, extra); }}
+        />
       )}
     </div>
   );
