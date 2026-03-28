@@ -7,9 +7,9 @@
  *   - Generational pods
  *
  * Collections:
- *   perspective_posts   — { question, context, seekingFrom, responses[], authorUid, ... }
- *   wisdom_threads      — { headline, theLesson, theContext, doingItAgain, whoNeedsThis, ... }
- *   generational_pods   — { name, topic, purpose, slots, members[], ... }
+ *   perspective_posts    — { question, context, seekingFrom, responses[], authorUid, ... }
+ *   wisdom_threads       — { headline, theLesson, theContext, doingItAgain, whoNeedsThis, ... }
+ *   circles (podType: 'generational') — generational pods, merged with Pods tab
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -201,25 +201,39 @@ export async function fetchWisdomThreads(count = 20): Promise<WisdomThreadData[]
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function createGenerationalPod(
-  podData:   Omit<GenerationalPodData, 'id' | 'members' | 'createdAt'>,
+  podData:    Omit<GenerationalPodData, 'id' | 'members' | 'createdAt'>,
   creatorUid: string,
-  creator:   { numericId: number; name: string; avatarUrl?: string; stage: CareerStage; role: string }
+  creator:    { numericId: number; name: string; avatarUrl?: string; stage: CareerStage; role: string }
 ): Promise<GenerationalPodData> {
   const firstMember = {
-    userId:   creator.numericId,
-    name:     creator.name,
+    userId:    creator.numericId,
+    name:      creator.name,
     avatarUrl: creator.avatarUrl ?? null,
-    stage:    creator.stage,
-    role:     creator.role,
-    joinedAt: new Date().toISOString(),
+    stage:     creator.stage,
+    role:      creator.role,
+    joinedAt:  new Date().toISOString(),
   };
 
-  const ref = await addDoc(collection(db, 'generational_pods'), {
-    ...podData,
+  // Write to 'circles' collection with podType: 'generational'
+  // Standard fields: members (numeric IDs) for Circles.tsx compatibility
+  // Extended fields: generationalMembers (rich objects) for GenerationalFeed
+  const ref = await addDoc(collection(db, 'circles'), {
+    // Standard Circle fields
+    name:        podData.name,
+    description: podData.purpose ?? podData.topic ?? '',
+    members:     [creator.numericId],   // numeric array for Circles.tsx
+    adminId:     creator.numericId,
+    podType:     'generational',
+    visibility:  'open',
+    // Generational-specific fields
+    topic:       podData.topic ?? '',
+    purpose:     podData.purpose ?? '',
+    capacity:    podData.capacity ?? 12,
+    slots:       podData.slots,
+    generationalMembers: [firstMember], // rich member objects for GenerationalFeed
     creatorUid,
-    members:   [firstMember],
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    createdAt:   serverTimestamp(),
+    updatedAt:   serverTimestamp(),
   });
 
   return {
@@ -231,32 +245,40 @@ export async function createGenerationalPod(
 }
 
 export async function joinGenerationalPod(
-  podId:    string,
-  member:   { numericId: number; name: string; avatarUrl?: string; stage: CareerStage; role: string }
+  podId:  string,
+  member: { numericId: number; name: string; avatarUrl?: string; stage: CareerStage; role: string }
 ): Promise<void> {
-  await updateDoc(doc(db, 'generational_pods', podId), {
-    members: arrayUnion({
-      userId:    member.numericId,
-      name:      member.name,
-      avatarUrl: member.avatarUrl ?? null,
-      stage:     member.stage,
-      role:      member.role,
-      joinedAt:  new Date().toISOString(),
-    }),
-    updatedAt: serverTimestamp(),
+  const richMember = {
+    userId:    member.numericId,
+    name:      member.name,
+    avatarUrl: member.avatarUrl ?? null,
+    stage:     member.stage,
+    role:      member.role,
+    joinedAt:  new Date().toISOString(),
+  };
+  // Update both the numeric members array (for Circles.tsx) and rich generationalMembers
+  await updateDoc(doc(db, 'circles', podId), {
+    members:             arrayUnion(member.numericId),
+    generationalMembers: arrayUnion(richMember),
+    updatedAt:           serverTimestamp(),
   });
 }
 
 export async function fetchGenerationalPods(count = 20): Promise<GenerationalPodData[]> {
   const snap = await getDocs(
-    query(collection(db, 'generational_pods'), orderBy('createdAt', 'desc'), limit(count))
+    query(
+      collection(db, 'circles'),
+      where('podType', '==', 'generational'),
+      orderBy('createdAt', 'desc'),
+      limit(count)
+    )
   );
   return snap.docs.map(d => {
     const data = d.data();
     return {
       id:        d.id,
       name:      data.name,
-      purpose:   data.purpose,
+      purpose:   data.purpose ?? data.description ?? '',
       topic:     data.topic ?? '',
       capacity:  data.capacity ?? 12,
       slots:     data.slots ?? {
@@ -265,13 +287,14 @@ export async function fetchGenerationalPods(count = 20): Promise<GenerationalPod
         established: { min: 1, max: 3 },
         veteran:     { min: 1, max: 3 },
       },
-      members:   (data.members ?? []).map((m: any) => ({
+      // Use rich generationalMembers if available, fall back to empty
+      members:   (data.generationalMembers ?? []).map((m: any) => ({
         ...m,
         joinedAt: m.joinedAt ? new Date(m.joinedAt) : new Date(),
       })),
-      isPrivate:  data.isPrivate ?? false,
-      createdBy:  data.createdBy ?? 0,
-      createdAt:  data.createdAt?.toDate?.() ?? new Date(),
+      createdAt: data.createdAt instanceof Timestamp
+        ? data.createdAt.toDate()
+        : new Date(data.createdAt ?? Date.now()),
       _firestoreId: d.id,
     };
   });
@@ -393,12 +416,23 @@ export async function seedGenerationalContent(adminUid: string): Promise<void> {
   ];
 
   for (const pod of podSeed) {
-    await addDoc(collection(db, 'generational_pods'), {
-      ...pod,
-      creatorUid: adminUid,
-      members:    [],
-      createdAt:  serverTimestamp(),
-      updatedAt:  serverTimestamp(),
+    await addDoc(collection(db, 'circles'), {
+      // Standard Circle fields
+      name:        pod.name,
+      description: pod.purpose ?? pod.topic ?? '',
+      members:     [],
+      adminId:     0,
+      podType:     'generational',
+      visibility:  'open',
+      // Generational-specific
+      topic:       pod.topic ?? '',
+      purpose:     pod.purpose ?? '',
+      capacity:    pod.capacity,
+      slots:       pod.slots,
+      generationalMembers: [],
+      creatorUid:  adminUid,
+      createdAt:   serverTimestamp(),
+      updatedAt:   serverTimestamp(),
     });
   }
 
