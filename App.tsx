@@ -349,24 +349,50 @@ const MainApp: React.FC = () => {
   };
 
   const handleConnectionRequest = async (requestId: number, status: 'accepted' | 'declined') => {
-    if (!data) return;
-    const req = (data.connectionRequests as any[]).find(cr => cr.id === requestId);
-    if (req?._firestoreId && fbUser) {
-      await fbRespondToConnection(req._firestoreId, status, req.senderUid ?? fbUser.uid, fbUser.uid);
+    if (!data || !fbUser) return;
+
+    // Find by numeric id first, fall back to _firestoreId match
+    const req = (data.connectionRequests as any[]).find(cr => cr.id === requestId)
+      ?? (data.connectionRequests as any[]).find(cr => cr._firestoreId === String(requestId));
+
+    if (!req) {
+      console.warn('handleConnectionRequest: request not found for id', requestId);
+      return;
     }
-    setData({
-      ...data,
-      // Remove the request entirely from the list — it's either accepted (now a circle)
-      // or declined (gone). Don't just update status or it stays in pending view.
-      connectionRequests: data.connectionRequests.filter(cr => cr.id !== requestId).concat(
-        // Keep it in the array with updated status so "My Circles" can show it,
-        // but mark it so the Requests tab can filter it out
-        status === 'accepted'
-          ? [{ ...req, status: 'accepted' }]
-          : []
-      ),
-      notifications: data.notifications.filter(n => n.relatedId !== requestId),
+
+    // Write to Firestore first — must succeed before updating local state
+    if (req._firestoreId) {
+      try {
+        await fbRespondToConnection(
+          req._firestoreId,
+          status,
+          req.senderUid ?? req.receiverUid ?? fbUser.uid,
+          fbUser.uid
+        );
+      } catch (err) {
+        console.error('respondToConnection failed:', err);
+        return; // Don't update local state if Firestore write failed
+      }
+    }
+
+    // Update local state immediately for snappy UI
+    setData(d => {
+      if (!d) return null;
+      return {
+        ...d,
+        connectionRequests: d.connectionRequests
+          .filter(cr => cr.id !== req.id && (cr as any)._firestoreId !== req._firestoreId)
+          .concat(status === 'accepted' ? [{ ...req, status: 'accepted' }] : []),
+        notifications: d.notifications.filter(n => n.relatedId !== requestId),
+      };
     });
+
+    // Re-fetch connections from Firestore to ensure consistency
+    if (status === 'accepted') {
+      fetchConnectionRequests(fbUser.uid).then(fresh => {
+        setData(d => d ? { ...d, connectionRequests: fresh } : null);
+      }).catch(console.error);
+    }
   };
 
   const handleSendConnection = async (receiverId: number) => {
