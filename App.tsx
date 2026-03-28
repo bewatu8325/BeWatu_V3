@@ -131,6 +131,8 @@ const MainApp: React.FC = () => {
   const [activeArenaIndustry, setActiveArenaIndustry] = useState<string | null>(null);
   const [profileUserId, setProfileUserId] = useState<number | null>(null);
   const [showSecurityPage, setShowSecurityPage] = useState(false);
+  const [showConnectPage, setShowConnectPage] = useState(false);
+  const [showAboutPage, setShowAboutPage]   = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<number | null>(null);
   const [followedUserIds, setFollowedUserIds] = useState<Set<number>>(new Set());
 
@@ -173,13 +175,7 @@ const MainApp: React.FC = () => {
           fetchUsers().catch(() => []),
         ]);
 
-      // Filter out the current user from allUsers using both id and firestoreUid
-      // to handle cases where numericId was set to Date.now() during registration
-      const currentUid = fbUser?.uid ?? '';
-      const otherUsers = firestoreUsers.filter(u =>
-        u.id !== user.id &&
-        (u as any)._firestoreUid !== currentUid
-      );
+      const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
 
       const company = await getOrCreateCompanyForRecruiter(
         fbUser?.uid ?? '',
@@ -295,6 +291,8 @@ const MainApp: React.FC = () => {
     setSelectedCompany(null);
     setPublicProfileUserId(null);
     setShowSecurityPage(false);
+    setShowConnectPage(false);
+    setShowAboutPage(false);
     sessionStorage.removeItem('beWatuData');
     setAuthState('landing');
   };
@@ -437,7 +435,48 @@ const MainApp: React.FC = () => {
 
   const handleGenerateSkillsGraph = async (resume: string, digitalFootprint: string, references: string) => {
     if (!data || !currentUser || !fbUser) return;
-    const verifiedSkills = await generateSkillsGraph(resume, digitalFootprint, references);
+
+    // Call Claude proxy instead of broken Gemini endpoint
+    const prompt = `Analyse this professional's background and return a JSON array of verified skills.
+Each skill: { "name": string, "level": "beginner"|"intermediate"|"advanced"|"expert", "endorsements": 0, "source": "platform"|"resume"|"endorsement" }
+Return ONLY valid JSON — no markdown, no explanation.
+
+Background:
+${resume || 'No resume provided'}
+
+Digital presence:
+${digitalFootprint || 'Not provided'}
+
+References/testimonials:
+${references || 'Not provided'}`;
+
+    let verifiedSkills: any[] = [];
+    try {
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system: 'You are a professional skills analyser. Return only valid JSON arrays. No markdown. No explanation.',
+          prompt,
+          maxTokens: 800,
+        }),
+      });
+      if (res.ok) {
+        const { text } = await res.json();
+        const clean = text.replace(/```json|```/g, '').trim();
+        verifiedSkills = JSON.parse(clean);
+      }
+    } catch (err) {
+      console.error('Skills generation error:', err);
+      // Fall back to deriving from existing profile skills
+      verifiedSkills = (currentUser.skills ?? []).map((s: any) => ({
+        name:        typeof s === 'string' ? s : s.name,
+        level:       'intermediate',
+        endorsements: 0,
+        source:      'platform',
+      }));
+    }
+
     const updatedUser = { ...currentUser, verifiedSkills };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
     refreshUser(updatedUser);
@@ -554,7 +593,10 @@ const MainApp: React.FC = () => {
     } : null);
   };
 
-  const handleNavigateToConnect = () => setAuthState('connect');
+  const handleNavigateToConnect = () => {
+    if (authState === 'authenticated') setShowConnectPage(true);
+    else setAuthState('connect');
+  };
   const handleNavigateToLanding = () => setAuthState('landing');
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -584,6 +626,9 @@ const MainApp: React.FC = () => {
         </div>
       </div>
     );
+
+    // Guard: if data belongs to a different user (mid-login transition), show loader
+    if (data && currentUser && !data.users.some(u => u.id === currentUser.id)) return <FullPageLoader />;
 
     if (activeProfile === 'admin') {
       return (
@@ -770,6 +815,27 @@ const MainApp: React.FC = () => {
           </div>
         )}
 
+        {/* Connect with us overlay */}
+        {showConnectPage && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f0ede6' }}>
+            <Suspense fallback={<div />}>
+              <ConnectPage onNavigateBack={() => setShowConnectPage(false)} />
+            </Suspense>
+          </div>
+        )}
+
+        {/* Our story overlay */}
+        {showAboutPage && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f0ede6' }}>
+            <Suspense fallback={<div />}>
+              <AboutPage
+                onNavigateBack={() => setShowAboutPage(false)}
+                onNavigateToConnect={() => { setShowAboutPage(false); setShowConnectPage(true); }}
+              />
+            </Suspense>
+          </div>
+        )}
+
         {/* Public profile overlay */}
         {publicProfileUserId && data && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
@@ -815,7 +881,7 @@ const MainApp: React.FC = () => {
           />
           <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">{content}</main>
           {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
-          <Footer onNavigateToConnect={handleNavigateToConnect} onReportConcern={() => openReport(undefined, undefined)} />
+          <Footer onNavigateToConnect={handleNavigateToConnect} onNavigateToAbout={() => setShowAboutPage(true)} onReportConcern={() => openReport(undefined, undefined)} />
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
           {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
