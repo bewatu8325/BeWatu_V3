@@ -340,33 +340,34 @@ export function SparksTray() {
 
   return (
     <>
-      <div className="rounded-2xl border bg-white p-3 shadow-sm" style={{ borderColor: "#e7e5e4" }}>
-        <div className="flex items-center justify-between mb-1 px-1">
+      <div className="bg-white border rounded-2xl shadow-sm overflow-hidden" style={{ borderColor: "#e7e5e4" }}>
+        {/* Slim header — just label + expire, no paragraph */}
+        <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
           <div className="flex items-center gap-1.5">
             <Flame className="h-3.5 w-3.5 text-amber-500" />
             <h2 className="text-xs font-bold text-stone-700">Sparks</h2>
           </div>
-          <span className="text-[10px] text-stone-400">Expire in 48h</span>
+          <span className="text-[10px] text-stone-400">48h</span>
         </div>
-        <p className="text-[11px] text-stone-400 px-1 mb-2 leading-snug">
-          Celebrate wins, share insights, and let your network know what you've achieved. Sparks disappear after 48 hours — keep it fresh.
-        </p>
-        <div className="flex items-center gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-          {/* Create button */}
+        {/* Stories-style horizontal strip */}
+        <div className="flex items-center gap-3 overflow-x-auto px-3 pb-3 pt-1" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+          {/* Create spark button */}
           <button onClick={() => setCreateOpen(true)} className="flex flex-col items-center gap-1 shrink-0">
             <div className="relative">
-              {currentUser.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt="" className="h-14 w-14 rounded-full object-cover border-2" style={{ borderColor: "#e7e5e4" }} />
-              ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-full text-sm font-medium text-white border-2" style={{ backgroundColor: "#1a4a3a", borderColor: "#e7e5e4" }}>
-                  {initials(currentUser.name)}
-                </div>
-              )}
-              <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#1a4a3a] text-white">
+              <div className="rounded-full p-[2.5px] bg-stone-200">
+                {currentUser.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt="" className="h-12 w-12 rounded-full object-cover border-2 border-white" />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-medium text-white border-2 border-white" style={{ backgroundColor: "#1a4a3a" }}>
+                    {initials(currentUser.name)}
+                  </div>
+                )}
+              </div>
+              <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#1a4a3a] text-white shadow-sm">
                 <Plus className="h-3 w-3" />
               </div>
             </div>
-            <span className="max-w-[60px] truncate text-[10px] text-stone-500">Your Spark</span>
+            <span className="max-w-[56px] truncate text-[10px] text-stone-500">Your Spark</span>
           </button>
 
           {/* Spark groups */}
@@ -395,9 +396,8 @@ export function SparksTray() {
           })}
 
           {groups.length === 0 && (
-            <div className="py-2 px-1">
-              <p className="text-xs font-semibold text-stone-500">No Sparks yet</p>
-              <p className="text-[10px] text-stone-400 mt-0.5">Share a win, insight, or goal — your network will love it</p>
+            <div className="flex items-center gap-2 py-1">
+              <p className="text-xs text-stone-400">No sparks yet — share a win with your network</p>
             </div>
           )}
         </div>
