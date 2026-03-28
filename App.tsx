@@ -86,6 +86,7 @@ const Footer = lazy(() => import('./components/Footer'));
 const SuccessBanner = lazy(() => import('./components/SuccessBanner'));
 const ArenaDiscovery = lazy(() => import('./components/arenas/ArenaDiscovery'));
 const ArenaIndustryView = lazy(() => import('./components/arenas/ArenaIndustryView'));
+const GenerationalFeed = lazy(() => import('./components/GenerationalFeed'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
@@ -833,6 +834,15 @@ ${references || 'Not provided'}`;
           </div>
         );
         break;
+        case View.Bridge:
+  content = (
+    <GenerationalFeed
+      currentUser={currentUser}
+      fbUserUid={fbUser.uid}
+      onViewProfile={setPublicProfileUserId}
+    />
+  );
+  break;
 
       default:
         content = null;
