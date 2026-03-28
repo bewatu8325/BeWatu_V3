@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Home, Users2, User, Briefcase, MessageSquare,
   Hexagon, Zap, Sword, CreditCard, Building2, MoreHorizontal, X,
-  Factory, Trophy,
+  Factory, Trophy, GitMerge,
 } from 'lucide-react';
 import { View } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -26,6 +26,7 @@ const MORE_NAV = [
   { view: View.Companies,        label: 'Companies', icon: Building2  },
   { view: View.Pricing,          label: 'Pricing',   icon: CreditCard },
   { view: View.Factory,          label: 'Factory',   icon: Factory    },
+  { view: View.Bridge,           label: 'Bridge',    icon: GitMerge   },
 ];
 
 interface MobileNavProps {
