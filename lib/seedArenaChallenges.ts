@@ -70,10 +70,8 @@ export async function seedArenaChallenges(
   console.log('🌱 Seeding arena challenges…');
   console.log('Admin UID:', adminUid);
 
-  // Fetch ALL active industries — log what we find
-  const industriesSnap = await getDocs(
-    query(collection(db, 'arena_industries'), where('isActive', '==', true))
-  );
+  // Fetch ALL industries — no where clause to avoid index requirement
+  const industriesSnap = await getDocs(collection(db, 'arena_industries'));
 
   console.log(`Found ${industriesSnap.size} active industries`);
 
@@ -110,13 +108,16 @@ export async function seedArenaChallenges(
 
     if (seeds.length === 0) continue;
 
-    // Check existing
+    // Check existing challenges for this industry
     const existingSnap = await getDocs(
-      query(collection(db, 'arena_challenges'), where('arenaIndustryId', '==', industryDoc.id))
+      collection(db, 'arena_challenges')
+    );
+    const existingForIndustry = existingSnap.docs.filter(
+      d => d.data().arenaIndustryId === industryDoc.id
     );
 
-    if (existingSnap.size >= 2) {
-      console.log(`  ✓ Already has ${existingSnap.size} challenges — skipping`);
+    if (existingForIndustry.length >= 2) {
+      console.log(`  ✓ Already has ${existingForIndustry.length} challenges — skipping`);
       continue;
     }
 
