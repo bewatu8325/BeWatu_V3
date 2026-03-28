@@ -86,6 +86,7 @@ const Footer = lazy(() => import('./components/Footer'));
 const SuccessBanner = lazy(() => import('./components/SuccessBanner'));
 const ArenaDiscovery = lazy(() => import('./components/arenas/ArenaDiscovery'));
 const ArenaIndustryView = lazy(() => import('./components/arenas/ArenaIndustryView'));
+const RecruiterUpgradeBanner = lazy(() => import('./components/recruiter/RecruiterUpgradeBanner'));
 const GenerationalFeed = lazy(() => import('./components/GenerationalFeed'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
@@ -310,26 +311,6 @@ const MainApp: React.FC = () => {
     if (!data || !currentUser || !fbUser) return;
     const newPost = await fbCreatePost(content, currentUser, fbUser.uid, circleId);
     setData({ ...data, posts: [newPost, ...data.posts] });
-  };
-
-  const handlePerspectivePost = async (question: string, context: string, seeking: any[]) => {
-    if (!fbUser || !currentUser) return;
-    const { createPerspectivePost } = await import('./lib/generationalFeatures');
-    await createPerspectivePost(question, context, seeking, {
-      uid: fbUser.uid, numericId: currentUser.id,
-      name: currentUser.name, avatarUrl: currentUser.avatarUrl,
-    });
-  };
-
-  const handleWisdomThread = async (threadData: any) => {
-    if (!fbUser || !currentUser) return;
-    const { createWisdomThread } = await import('./lib/generationalFeatures');
-    await createWisdomThread({
-      ...threadData,
-      authorId:    currentUser.id,
-      authorName:  currentUser.name,
-      authorAvatar: currentUser.avatarUrl,
-    }, fbUser.uid);
   };
 
   const handleAppreciatePost = async (postId: number, appreciationType: AppreciationType) => {
@@ -718,8 +699,6 @@ ${references || 'Not provided'}`;
               onNavigate={handleSetView}
               onSelectCircle={handleSelectCircle}
               addPost={addPost}
-              onPerspective={handlePerspectivePost}
-              onWisdomThread={handleWisdomThread}
               onAppreciatePost={handleAppreciatePost}
               onViewProfile={handleViewProfile}
             />
@@ -762,7 +741,31 @@ ${references || 'Not provided'}`;
         break;
 
       case View.Jobs:
-        content = <Jobs jobs={data.jobs} companies={data.companies} onViewCompany={handleViewCompany} onAnalyzeMatch={handleAnalyzeJobMatch} onApplyForJob={handleApplyForJob} appliedJobIds={appliedJobIds} onReportJob={(id, title) => openReport({ content: { type: 'job_listing', id, preview: title } }, 'content')} />;
+        content = (
+          <div className="space-y-4">
+            {!currentUser.isRecruiter && (
+              <Suspense fallback={<div />}>
+                <RecruiterUpgradeBanner
+                  currentUser={currentUser}
+                  fbUserUid={fbUser!.uid}
+                  onSuccess={() => {
+                    // Reload user data to pick up isRecruiter: true
+                    loadAppData(currentUser);
+                  }}
+                />
+              </Suspense>
+            )}
+            <Jobs
+              jobs={data.jobs}
+              companies={data.companies}
+              onViewCompany={handleViewCompany}
+              onAnalyzeMatch={handleAnalyzeJobMatch}
+              onApplyForJob={handleApplyForJob}
+              appliedJobIds={appliedJobIds}
+              onReportJob={(id, title) => openReport({ content: { type: 'job_listing', id, preview: title } }, 'content')}
+            />
+          </div>
+        );
         break;
 
       case View.Messaging:
