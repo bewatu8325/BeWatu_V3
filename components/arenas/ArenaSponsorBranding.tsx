@@ -1,343 +1,218 @@
-"use client";
-
 /**
  * components/arenas/ArenaSponsorBranding.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Full sponsor experience for branded industry arenas.
- * Three components:
+ * Three sponsor branding components used by ArenaIndustryView:
  *
- *   <ArenaSponsorHero />       — full-width banner at top of industry page
- *   <SponsorChallengeBadge />  — compact logo badge on each challenge card
- *   <SponsorSpotlight />       — "About the sponsor" section below challenge feed
+ *   ArenaSponsorHero       — full-width hero banner at top of industry page
+ *   SponsorChallengeBadge  — compact badge on challenge cards + header
+ *   SponsorSpotlight       — "about the sponsor" section below challenge grid
  *
- * All driven by the arena_industries doc's sponsor fields.
+ * All receive `industry: ArenaIndustry` and read `industry.sponsor` field.
+ * If no sponsor is set (industry.sponsor is null/undefined), renders nothing.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import { useState } from "react";
-import { ExternalLink, Building2, Users, Star, ChevronRight, BadgeCheck } from "lucide-react";
-import type { ArenaIndustry } from "@/lib/arenaService";
+import React, { useState } from 'react';
+import { ExternalLink, Award, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
+import type { ArenaIndustry } from '../../lib/arenaService';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ── Helper ────────────────────────────────────────────────────────────────────
 
-// Extended sponsor fields stored on arena_industries doc
-export interface SponsorBrandingFields {
-  sponsorCompanyId:       string;
-  sponsorCompanyName:     string;
-  sponsorLogoUrl:         string | null;
-  sponsorBannerUrl:       string | null;   // wide banner image
-  sponsorBrandColor:      string | null;   // hex, e.g. "#6772E5" for Stripe
-  sponsorTagline:         string | null;   // short sponsor message
-  sponsorAbout:           string | null;   // 2-3 sentence company description
-  sponsorWebsiteUrl:      string | null;
-  sponsorCareersUrl:      string | null;
-  sponsorEmployeeCount:   string | null;   // "1,000–5,000"
-  sponsorHeadquarters:    string | null;   // "San Francisco, CA"
-  sponsorshipExpiresAt:   string | null;
+function SponsorLogo({
+  name, logoUrl, size = 12, color,
+}: { name: string; logoUrl?: string; size?: number; color: string }) {
+  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  if (logoUrl) return (
+    <img src={logoUrl} alt={name}
+      className={`w-${size} h-${size} rounded-xl object-contain flex-shrink-0`}
+      style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 4 }}
+      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
+  return (
+    <div className={`w-${size} h-${size} rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0`}
+      style={{ backgroundColor: 'rgba(255,255,255,0.25)', color: 'white' }}>
+      {initials}
+    </div>
+  );
 }
 
-// ─── 1. Sponsor hero banner ───────────────────────────────────────────────────
+// ── 1. ArenaSponsorHero ───────────────────────────────────────────────────────
+// Full-width hero banner shown at the top of the industry page, above the arena header.
 
-interface ArenaSponsorHeroProps {
-  industry: ArenaIndustry & Partial<SponsorBrandingFields>;
-}
+export function ArenaSponsorHero({ industry }: { industry: ArenaIndustry }) {
+  const sponsor = (industry as any).sponsor;
+  if (!sponsor?.isActive) return null;
 
-export function ArenaSponsorHero({ industry }: ArenaSponsorHeroProps) {
-  if (!industry.sponsorCompanyId) return null;
-
-  const brandColor  = industry.sponsorBrandColor ?? "#1a6b3c";
-  const hasBanner   = !!industry.sponsorBannerUrl;
-  const hasLogo     = !!industry.sponsorLogoUrl;
+  const bannerColor = sponsor.bannerColor ?? '#1a4a3a';
 
   return (
-    <div
-      className="relative w-full rounded-2xl overflow-hidden mb-6"
-      style={{ minHeight: hasBanner ? 180 : 110 }}
-    >
-      {/* Background — banner image OR brand colour gradient */}
-      {hasBanner ? (
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${industry.sponsorBannerUrl})` }}
-        />
-      ) : (
-        <div
-          className="absolute inset-0"
-          style={{ background: brandColor }}
-        />
-      )}
-
-      {/* Overlay for readability */}
+    <div className="rounded-2xl overflow-hidden mb-6 shadow-sm">
+      {/* Main banner */}
       <div
-        className="absolute inset-0"
+        className="relative px-5 py-5 sm:px-7 sm:py-6 flex items-center gap-4"
         style={{
-          background: hasBanner
-            ? `linear-gradient(135deg, ${brandColor}e6 0%, ${brandColor}99 50%, transparent 100%)`
-            : "rgba(0,0,0,0.15)",
+          background: sponsor.bannerImageUrl
+            ? `linear-gradient(to right, ${bannerColor}f0, ${bannerColor}b0), url(${sponsor.bannerImageUrl}) center/cover no-repeat`
+            : `linear-gradient(135deg, ${bannerColor} 0%, ${bannerColor}cc 60%, ${bannerColor}99 100%)`,
         }}
-      />
-
-      {/* Content */}
-      <div className="relative z-10 p-6 flex items-end justify-between h-full" style={{ minHeight: hasBanner ? 180 : 110 }}>
-        <div className="flex items-center gap-4">
-          {/* Sponsor logo */}
-          {hasLogo ? (
-            <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center shadow-lg flex-shrink-0 p-2">
-              <img
-                src={industry.sponsorLogoUrl!}
-                alt={industry.sponsorCompanyName}
-                className="w-full h-full object-contain"
-              />
-            </div>
-          ) : (
-            <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 border border-white/30">
-              <Building2 size={24} className="text-white" />
-            </div>
-          )}
-
-          <div>
-            {/* Presented by label */}
-            <div className="flex items-center gap-1.5 mb-1">
-              <Star size={11} className="text-white/70" />
-              <span className="text-[10px] font-semibold text-white/70 uppercase tracking-widest">
-                Presented by
-              </span>
-            </div>
-            <p className="text-xl font-bold text-white">{industry.sponsorCompanyName}</p>
-            {industry.sponsorTagline && (
-              <p className="text-sm text-white/80 mt-0.5">{industry.sponsorTagline}</p>
-            )}
-          </div>
+      >
+        {/* Sponsored label */}
+        <div className="absolute top-3 right-4 flex items-center gap-1 opacity-70">
+          <Award size={10} className="text-white" />
+          <span className="text-[10px] font-bold text-white uppercase tracking-widest">Sponsored</span>
         </div>
 
-        {/* CTA buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {industry.sponsorCareersUrl && (
-            <a
-              href={industry.sponsorCareersUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs font-semibold bg-white text-stone-900 rounded-xl px-3.5 py-2 hover:bg-stone-50 transition-colors"
-            >
-              <Users size={12} />
-              We're hiring
-              <ExternalLink size={10} />
-            </a>
-          )}
-          {industry.sponsorWebsiteUrl && (
-            <a
-              href={industry.sponsorWebsiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs font-semibold bg-white/20 backdrop-blur-sm text-white border border-white/30 rounded-xl px-3.5 py-2 hover:bg-white/30 transition-colors"
-            >
-              Visit site
-              <ExternalLink size={10} />
-            </a>
-          )}
+        {/* Logo */}
+        <SponsorLogo name={sponsor.name} logoUrl={sponsor.logoUrl} size={14} color={bannerColor} />
+
+        {/* Text */}
+        <div className="flex-1 min-w-0">
+          <p className="font-black text-white text-lg sm:text-xl leading-tight truncate">
+            {sponsor.name}
+          </p>
+          <p className="text-white/80 text-sm mt-0.5 leading-snug line-clamp-2">
+            {sponsor.tagline}
+          </p>
         </div>
+
+        {/* CTA */}
+        {sponsor.website && (
+          <a
+            href={sponsor.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl transition-opacity hover:opacity-80 hidden sm:flex"
+            style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            Visit <ExternalLink size={11} />
+          </a>
+        )}
       </div>
 
-      {/* Naming rights label — bottom right */}
-      <div className="absolute top-3 right-3 z-10">
-        <span className="text-[9px] font-semibold text-white/60 bg-black/20 rounded-full px-2 py-0.5">
-          Naming rights partner
-        </span>
+      {/* Sub-strip: "Powering the X Arena" */}
+      <div className="px-5 py-2 flex items-center gap-2"
+        style={{ backgroundColor: `${bannerColor}15`, borderTop: `1px solid ${bannerColor}25` }}>
+        <Building2 size={12} style={{ color: bannerColor }} />
+        <p className="text-xs font-semibold" style={{ color: bannerColor }}>
+          {sponsor.name} is powering the {industry.name} Arena — top performers get noticed
+        </p>
       </div>
     </div>
   );
 }
 
-// ─── 2. Sponsor badge on challenge cards ──────────────────────────────────────
+// ── 2. SponsorChallengeBadge ──────────────────────────────────────────────────
+// Compact badge shown on individual challenge cards and in the arena header stats row.
 
-interface SponsorChallengeBadgeProps {
-  industry: ArenaIndustry & Partial<SponsorBrandingFields>;
-  compact?: boolean;
-}
+export function SponsorChallengeBadge({
+  industry, compact = false,
+}: { industry: ArenaIndustry; compact?: boolean }) {
+  const sponsor = (industry as any).sponsor;
+  if (!sponsor?.isActive) return null;
 
-export function SponsorChallengeBadge({ industry, compact = false }: SponsorChallengeBadgeProps) {
-  if (!industry.sponsorCompanyId) return null;
-
-  const brandColor = industry.sponsorBrandColor ?? "#1a6b3c";
+  const bannerColor = sponsor.bannerColor ?? '#1a4a3a';
+  const initials = sponsor.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
 
   if (compact) {
-    // Tiny version for challenge cards
     return (
-      <div
-        className="flex items-center gap-1 rounded-full px-2 py-0.5"
-        style={{ background: brandColor + "15", border: `1px solid ${brandColor}30` }}
-      >
-        {industry.sponsorLogoUrl ? (
-          <img
-            src={industry.sponsorLogoUrl}
-            alt={industry.sponsorCompanyName}
-            className="h-3 w-auto object-contain"
-          />
-        ) : (
-          <Star size={9} style={{ color: brandColor }} />
-        )}
-        <span className="text-[9px] font-semibold" style={{ color: brandColor }}>
-          {industry.sponsorCompanyName} arena
-        </span>
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold rounded-full px-2.5 py-1"
+        style={{ backgroundColor: `${bannerColor}15`, color: bannerColor, border: `1px solid ${bannerColor}30` }}>
+        <Award size={10} />
+        {sponsor.name}
       </div>
     );
   }
 
-  // Full version for arena header
   return (
-    <div
-      className="flex items-center gap-2 rounded-xl px-3 py-2"
-      style={{ background: brandColor + "10", border: `1px solid ${brandColor}25` }}
-    >
-      {industry.sponsorLogoUrl ? (
-        <img
-          src={industry.sponsorLogoUrl}
-          alt={industry.sponsorCompanyName}
-          className="h-5 w-auto object-contain"
+    <div className="flex items-center gap-1.5">
+      {sponsor.logoUrl ? (
+        <img src={sponsor.logoUrl} alt={sponsor.name}
+          className="w-5 h-5 rounded object-contain"
+          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
       ) : (
-        <Star size={13} style={{ color: brandColor }} />
+        <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-black text-white"
+          style={{ backgroundColor: bannerColor }}>
+          {initials}
+        </div>
       )}
-      <span className="text-xs font-semibold" style={{ color: brandColor }}>
-        Presented by {industry.sponsorCompanyName}
+      <span className="text-xs font-semibold text-stone-500">
+        Sponsored by {sponsor.name}
       </span>
-      <BadgeCheck size={13} style={{ color: brandColor }} />
     </div>
   );
 }
 
-// ─── 3. Sponsor spotlight section ────────────────────────────────────────────
+// ── 3. SponsorSpotlight ───────────────────────────────────────────────────────
+// Full "about the sponsor" section shown below the challenge grid.
 
-interface SponsorSpotlightProps {
-  industry: ArenaIndustry & Partial<SponsorBrandingFields>;
-}
-
-export function SponsorSpotlight({ industry }: SponsorSpotlightProps) {
-  if (!industry.sponsorCompanyId || !industry.sponsorAbout) return null;
+export function SponsorSpotlight({ industry }: { industry: ArenaIndustry }) {
+  const sponsor = (industry as any).sponsor;
+  if (!sponsor?.isActive || !sponsor.about) return null;
 
   const [expanded, setExpanded] = useState(false);
-  const brandColor = industry.sponsorBrandColor ?? "#1a6b3c";
+  const bannerColor = sponsor.bannerColor ?? '#1a4a3a';
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden mt-8"
-      style={{ border: `1px solid ${brandColor}25` }}
-    >
+    <div className="mt-8 rounded-2xl border overflow-hidden" style={{ borderColor: '#e7e5e4' }}>
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-5 py-4 cursor-pointer"
-        style={{ background: brandColor + "08" }}
-        onClick={() => setExpanded(e => !e)}
-      >
-        <div className="flex items-center gap-3">
-          {industry.sponsorLogoUrl ? (
-            <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm p-1.5">
-              <img
-                src={industry.sponsorLogoUrl}
-                alt={industry.sponsorCompanyName}
-                className="w-full h-full object-contain"
-              />
-            </div>
-          ) : (
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center"
-              style={{ background: brandColor + "20" }}
-            >
-              <Building2 size={16} style={{ color: brandColor }} />
-            </div>
-          )}
-          <div>
-            <p className="text-sm font-semibold text-stone-900">
-              About {industry.sponsorCompanyName}
-            </p>
-            <p className="text-xs text-stone-500">Arena naming rights sponsor</p>
-          </div>
+      <div className="px-5 py-3 flex items-center gap-3"
+        style={{ backgroundColor: `${bannerColor}0d`, borderBottom: `1px solid ${bannerColor}20` }}>
+        <Award size={14} style={{ color: bannerColor }} />
+        <div className="flex-1">
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: bannerColor }}>
+            Arena sponsor
+          </p>
+          <p className="text-sm font-semibold text-stone-900">{sponsor.name}</p>
         </div>
-        <ChevronRight
-          size={16}
-          className="text-stone-400 transition-transform"
-          style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
-        />
+        {sponsor.logoUrl && (
+          <img src={sponsor.logoUrl} alt={sponsor.name}
+            className="w-10 h-10 rounded-xl object-contain border"
+            style={{ borderColor: `${bannerColor}30`, backgroundColor: `${bannerColor}0d`, padding: 4 }}
+          />
+        )}
       </div>
 
-      {/* Expanded content */}
-      {expanded && (
-        <div className="p-5 border-t" style={{ borderColor: brandColor + "20" }}>
-          {/* About text */}
-          <p className="text-sm text-stone-600 leading-relaxed mb-4">
-            {industry.sponsorAbout}
+      {/* Body */}
+      <div className="bg-white px-5 py-4">
+        <p className="text-sm font-semibold text-stone-800 mb-1.5 italic">"{sponsor.tagline}"</p>
+        <p className="text-sm text-stone-600 leading-relaxed"
+          style={expanded ? {} : {
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          } as React.CSSProperties}>
+          {sponsor.about}
+        </p>
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="flex items-center gap-1 text-xs font-semibold mt-2 transition-colors"
+          style={{ color: bannerColor }}
+        >
+          {expanded ? <><ChevronUp size={11} /> Show less</> : <><ChevronDown size={11} /> Read more</>}
+        </button>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-4 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
+          <p className="text-xs text-stone-400 max-w-xs">
+            {sponsor.name} reviews top submissions and reaches out directly to standout solvers.
           </p>
-
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            {industry.sponsorHeadquarters && (
-              <div className="bg-stone-50 rounded-xl p-3 text-center">
-                <p className="text-xs font-semibold text-stone-900">{industry.sponsorHeadquarters}</p>
-                <p className="text-[10px] text-stone-500 mt-0.5">Headquarters</p>
-              </div>
-            )}
-            {industry.sponsorEmployeeCount && (
-              <div className="bg-stone-50 rounded-xl p-3 text-center">
-                <p className="text-xs font-semibold text-stone-900">{industry.sponsorEmployeeCount}</p>
-                <p className="text-[10px] text-stone-500 mt-0.5">Employees</p>
-              </div>
-            )}
-            <div className="bg-stone-50 rounded-xl p-3 text-center">
-              <p className="text-xs font-semibold text-stone-900">
-                {industry.totalChallengesEver ?? 0}
-              </p>
-              <p className="text-[10px] text-stone-500 mt-0.5">Challenges posted</p>
-            </div>
-          </div>
-
-          {/* CTA links */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {industry.sponsorWebsiteUrl && (
-              <a
-                href={industry.sponsorWebsiteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs font-semibold rounded-xl px-3.5 py-2 border transition-colors"
-                style={{
-                  borderColor: brandColor + "40",
-                  color: brandColor,
-                  background: brandColor + "08",
-                }}
-              >
-                Visit {industry.sponsorCompanyName}
-                <ExternalLink size={10} />
-              </a>
-            )}
-            {industry.sponsorCareersUrl && (
-              <a
-                href={industry.sponsorCareersUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs font-semibold bg-stone-100 text-stone-700 rounded-xl px-3.5 py-2 border border-stone-200 hover:bg-stone-200 transition-colors"
-              >
-                <Users size={11} />
-                Open roles
-                <ExternalLink size={10} />
-              </a>
-            )}
-          </div>
+          {sponsor.website && (
+            <a
+              href={sponsor.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl transition-opacity hover:opacity-80 flex-shrink-0 ml-3"
+              style={{ backgroundColor: bannerColor, color: 'white' }}
+            >
+              Learn more <ExternalLink size={10} />
+            </a>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
-
-// ─── 4. Ops: Sponsor branding form ────────────────────────────────────────────
-// Add this to ArenaSponsorManagement in ops-arena-modules.jsx
-// It extends the existing "Assign sponsor" modal with branding fields.
-
-export const SPONSOR_BRANDING_FIELDS = [
-  { field: "sponsorBannerUrl",     label: "Banner image URL",     placeholder: "https://cdn.company.com/bewatu-banner.jpg", hint: "1200×400px recommended. Used as the hero image on the arena page." },
-  { field: "sponsorBrandColor",    label: "Brand colour (hex)",   placeholder: "#6772E5", hint: "Primary brand colour. Used for accents and the hero background if no banner." },
-  { field: "sponsorTagline",       label: "Sponsor tagline",      placeholder: "Building financial infrastructure for the internet", hint: "Short message shown under the company name in the hero." },
-  { field: "sponsorAbout",         label: "About the company",    placeholder: "2–3 sentences about your company and what you do.", hint: "Shown in the expandable sponsor spotlight section." },
-  { field: "sponsorWebsiteUrl",    label: "Website URL",          placeholder: "https://stripe.com", hint: "Links from the 'Visit site' button." },
-  { field: "sponsorCareersUrl",    label: "Careers page URL",     placeholder: "https://stripe.com/jobs", hint: "Links from the 'We're hiring' button. Leave blank to hide the button." },
-  { field: "sponsorHeadquarters",  label: "Headquarters",         placeholder: "San Francisco, CA", hint: "Shown in the sponsor spotlight stats row." },
-  { field: "sponsorEmployeeCount", label: "Employee count",       placeholder: "1,000–5,000", hint: "Approximate range shown in spotlight." },
-] as const;
