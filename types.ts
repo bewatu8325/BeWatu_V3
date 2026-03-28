@@ -58,6 +58,7 @@ export interface User {
   verifiedSkills: VerifiedSkill[] | null;
   microIntroductionUrl: string | null;
   microIntroductionThumbnail?: string | null;
+  careerArc?: import('./components/CareerArc').CareerInflection[];
   resumeUrl?: string | null;
   experiences?: Experience[];
   privacySettings?: PrivacySettings;
@@ -154,6 +155,11 @@ export interface Job {
   recruiterId: number;
   liveDate: string;
   expiryDate: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency?: string;
+  salaryPeriod?: 'year' | 'month' | 'day' | 'hour';
+  isDirectEmployer?: boolean;
 }
 
 export interface Message {
