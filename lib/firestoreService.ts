@@ -3166,6 +3166,34 @@ export function checkOpportunityUnlock(
 // COMPANIES
 // ─────────────────────────────────────────────────────────────────────────────
 
+export async function fetchCompanyById(firestoreId: string): Promise<Company | null> {
+  try {
+    const snap = await getDoc(doc(db, 'companies', firestoreId));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    return {
+      id:                 d.numericId && d.numericId > 0 ? d.numericId : Math.abs(firestoreId.split('').reduce((a: number, c: string) => (a << 5) - a + c.charCodeAt(0), 0)),
+      _firestoreId:       snap.id,
+      name:               d.name ?? '',
+      description:        d.description ?? '',
+      industry:           d.industry ?? '',
+      logoUrl:            d.logoUrl ?? '',
+      website:            d.website ?? '',
+      domain:             d.domain ?? '',
+      ticker:             d.ticker ?? '',
+      source:             d.source ?? 'user',
+      claimed:            d.claimed ?? false,
+      verified:           d.verified ?? false,
+      adminUid:           d.adminUid ?? undefined,
+      verifiedRecruiters: d.verifiedRecruiters ?? [],
+      verificationStatus: d.verificationStatus ?? 'unverified',
+    } as Company & { domain: string; ticker: string; source: string; claimed: boolean };
+  } catch (err) {
+    console.error('fetchCompanyById failed:', err);
+    return null;
+  }
+}
+
 export async function fetchCompanies(claimedOnly = false): Promise<Company[]> {
   const mapDoc = (d: any) => {
     const data = d.data();
