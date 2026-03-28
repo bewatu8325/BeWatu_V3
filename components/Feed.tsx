@@ -81,7 +81,16 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
       ) : (
         sortedPosts.map(post => {
           const author = findAuthor(post.authorId);
-          return author ? <PostCard key={post.id} post={post} author={author} onAppreciatePost={onAppreciatePost} onViewProfile={onViewProfile} /> : null;
+          return author ? (
+            <div key={post.id} className="min-w-0 w-full overflow-hidden">
+              <PostCard
+                post={post}
+                author={author}
+                onAppreciatePost={onAppreciatePost}
+                onViewProfile={onViewProfile}
+              />
+            </div>
+          ) : null;
         })
       )}
     </div>

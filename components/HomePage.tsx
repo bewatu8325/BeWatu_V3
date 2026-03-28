@@ -65,29 +65,6 @@ const HomePage: React.FC<HomePageProps> = (props) => {
             {/* Main Content */}
             <main className="col-span-12 md:col-span-8 lg:col-span-6 space-y-4 sm:space-y-5">
 
-                {/* Mobile vibe clip */}
-                <div className="md:hidden">
-                    <div className="w-40 mx-auto">
-                        <div
-                            className="relative w-full overflow-hidden rounded-2xl shadow-md cursor-pointer"
-                            style={{ aspectRatio: '9/14', backgroundColor: '#1a4a3a' }}
-                            onClick={() => currentUser.microIntroductionUrl && onPlayVideo(currentUser.microIntroductionUrl)}
-                        >
-                            {currentUser.avatarUrl ? (
-                                <img src={currentUser.avatarUrl} alt={currentUser.name} className="absolute inset-0 w-full h-full object-cover" />
-                            ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-white text-2xl font-black">
-                                    {currentUser.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
-                                </div>
-                            )}
-                            <div className="absolute bottom-0 left-0 right-0 p-3" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)' }}>
-                                <p className="font-bold text-white text-sm truncate">{currentUser.name}</p>
-                                <p className="text-white/70 text-xs truncate">{currentUser.headline}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Reels Strip */}
                 <FeedReelsStrip
                     currentUser={currentUser}
