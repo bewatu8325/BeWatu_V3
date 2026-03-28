@@ -156,11 +156,9 @@ const MainApp: React.FC = () => {
     if (authLoading) return;
     if (currentUser && authState !== 'authenticated') {
       setAuthState('authenticated');
-      // Small delay ensures Firebase auth token is fully propagated to Firestore
-      // before we make queries — prevents silent permission errors on login/logout
-      setTimeout(() => loadAppData(currentUser), 800);
+      loadAppData(currentUser);
     } else if (currentUser && authState === 'authenticated' && !data && !loading) {
-      setTimeout(() => loadAppData(currentUser), 800);
+      loadAppData(currentUser);
     }
   }, [authLoading, currentUser, authState, data, loading]);
 
@@ -415,13 +413,9 @@ const MainApp: React.FC = () => {
 
     // Re-fetch connections from Firestore to ensure consistency
     if (status === 'accepted') {
-      // Force token refresh to ensure Firestore sees latest auth state
-      try { await fbUser.getIdToken(true); } catch (_) {}
-      setTimeout(() => {
-        fetchConnectionRequests(fbUser.uid).then(fresh => {
-          setData(d => d ? { ...d, connectionRequests: fresh } : null);
-        }).catch(console.error);
-      }, 500);
+      fetchConnectionRequests(fbUser.uid).then(fresh => {
+        setData(d => d ? { ...d, connectionRequests: fresh } : null);
+      }).catch(console.error);
     }
   };
 
