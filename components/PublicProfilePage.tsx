@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Experience } from '../types';
 import ExperienceSection from './ExperienceSection';
+import { CareerArc } from './CareerArc';
 
 const GREEN = '#1a4a3a';
 const GREEN_MID = '#1a6b52';
@@ -250,6 +251,14 @@ const PublicProfilePage: React.FC<PublicProfilePageProps> = ({
           experiences={user.experiences ?? []}
           isOwn={false}
           onSave={() => {}}
+        />
+      )}
+
+      {/* Career Arc — read-only on public profile */}
+      {(user as any).careerArc?.length > 0 && (
+        <CareerArc
+          inflections={(user as any).careerArc}
+          isOwn={false}
         />
       )}
 

@@ -3,6 +3,7 @@ import { User, ConnectionRequest, Circle, View, Experience } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import ExperienceSection from './ExperienceSection';
+import { CareerArc, CareerInflection } from './CareerArc';
 import ReputationPanel from './profile/ReputationPanel';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -64,6 +65,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeError, setResumeError] = useState('');
   const [localExperiences, setLocalExperiences] = useState<any[]>((user as any).experiences ?? []);
+  const [localCareerArc, setLocalCareerArc] = useState<CareerInflection[]>((user as any).careerArc ?? []);
 
   const connectionCount = useMemo(() => {
     return connectionRequests.filter(
@@ -339,6 +341,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           experiences={localExperiences}
           isOwn={isCurrentUser}
           onSave={handleSaveExperiences}
+        />
+
+        {/* Career Arc */}
+        <CareerArc
+          inflections={localCareerArc}
+          isOwn={isCurrentUser}
+          onAdd={async (point) => {
+            const updated = [...localCareerArc, point as CareerInflection];
+            setLocalCareerArc(updated);
+            if (fbUser) await updateUserInFirestore(fbUser.uid, { careerArc: updated });
+          }}
+          onDelete={async (id) => {
+            const updated = localCareerArc.filter(p => p.id !== id);
+            setLocalCareerArc(updated);
+            if (fbUser) await updateUserInFirestore(fbUser.uid, { careerArc: updated });
+          }}
         />
 
         <SkillDNA
