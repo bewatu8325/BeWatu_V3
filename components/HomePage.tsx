@@ -15,6 +15,8 @@ interface HomePageProps {
     onNavigate: (view: View) => void;
     onSelectCircle: (circleId: number) => void;
     addPost: (content: string) => void;
+    onPerspective?: (question: string, context: string, seeking: any[]) => Promise<void>;
+    onWisdomThread?: (data: any) => Promise<void>;
     onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
     onViewProfile: (userId: number) => void;
     onViewCompany?: (companyId: number | string) => void;
@@ -23,7 +25,8 @@ interface HomePageProps {
 const HomePage: React.FC<HomePageProps> = (props) => {
     const {
         data, currentUser, onGenerateSkills, onRecordVideo, onPlayVideo,
-        onNavigate, onSelectCircle, addPost, onAppreciatePost, onViewProfile, onViewCompany,
+        onNavigate, onSelectCircle, addPost, onPerspective, onWisdomThread,
+        onAppreciatePost, onViewProfile, onViewCompany,
     } = props;
 
     // IDs of connections + circle members
@@ -94,7 +97,12 @@ const HomePage: React.FC<HomePageProps> = (props) => {
                 />
 
                 {/* Post Composer */}
-                <CreatePost addPost={addPost} currentUser={currentUser} />
+                <CreatePost
+                  addPost={addPost}
+                  onPerspective={onPerspective}
+                  onWisdomThread={onWisdomThread}
+                  currentUser={currentUser}
+                />
 
                 {/* Feed */}
                 <Feed
