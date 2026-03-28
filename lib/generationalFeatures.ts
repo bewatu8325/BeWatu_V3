@@ -294,7 +294,7 @@ export async function seedGenerationalContent(adminUid: string): Promise<void> {
       authorId:    1001,
     },
     {
-      question:    'What's the most important thing you wish someone had told you about managing people for the first time?',
+      question:    "What's the most important thing you wish someone had told you about managing people for the first time?",
       context:     "I just got promoted to lead a team of 6 and I'm realising managing is completely different to doing.",
       seekingFrom: ['Millennials (1981–1996)', 'Gen X (1965–1980)'] as GenerationTag[],
       authorName:  'Priya Nair',
