@@ -173,7 +173,13 @@ const MainApp: React.FC = () => {
           fetchUsers().catch(() => []),
         ]);
 
-      const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
+      // Filter out the current user from allUsers using both id and firestoreUid
+      // to handle cases where numericId was set to Date.now() during registration
+      const currentUid = fbUser?.uid ?? '';
+      const otherUsers = firestoreUsers.filter(u =>
+        u.id !== user.id &&
+        (u as any)._firestoreUid !== currentUid
+      );
 
       const company = await getOrCreateCompanyForRecruiter(
         fbUser?.uid ?? '',
@@ -578,11 +584,6 @@ const MainApp: React.FC = () => {
         </div>
       </div>
     );
-
-    // Guard: only block during mid-login transition (data loaded but still loading new user's data)
-    // Don't block if loading is complete — the current user may simply not be in allUsers yet
-    if (!loading && data && currentUser && data.users.length > 1 &&
-        !data.users.some(u => u.id === currentUser.id)) return <FullPageLoader />;
 
     if (activeProfile === 'admin') {
       return (
