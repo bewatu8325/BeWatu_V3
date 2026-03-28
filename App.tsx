@@ -978,6 +978,10 @@ ${references || 'Not provided'}`;
       currentUser={currentUser}
       fbUserUid={fbUser.uid}
       onViewProfile={setPublicProfileUserId}
+      onSelectCircle={(circleId) => {
+        handleSelectCircle(circleId);
+        handleSetView(View.Circles);
+      }}
     />
   );
   break;
