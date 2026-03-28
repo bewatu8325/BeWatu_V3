@@ -396,28 +396,13 @@ const MainApp: React.FC = () => {
   const handleConnectionRequest = async (requestId: number, status: 'accepted' | 'declined') => {
     if (!data || !fbUser) return;
 
-    // Find by numeric id first, fall back to _firestoreId match
+    // Find by numeric id
     const req = (data.connectionRequests as any[]).find(cr => cr.id === requestId)
       ?? (data.connectionRequests as any[]).find(cr => cr._firestoreId === String(requestId));
 
     if (!req) {
       console.warn('handleConnectionRequest: request not found for id', requestId);
       return;
-    }
-
-    // Write to Firestore first — must succeed before updating local state
-    if (req._firestoreId) {
-      try {
-        await fbRespondToConnection(
-          req._firestoreId,
-          status,
-          req.senderUid ?? req.receiverUid ?? fbUser.uid,
-          fbUser.uid
-        );
-      } catch (err) {
-        console.error('respondToConnection failed:', err);
-        return; // Don't update local state if Firestore write failed
-      }
     }
 
     // Update local state immediately for snappy UI
@@ -432,11 +417,26 @@ const MainApp: React.FC = () => {
       };
     });
 
-    // Re-fetch connections from Firestore to ensure consistency
-    if (status === 'accepted') {
-      fetchConnectionRequests(fbUser.uid).then(fresh => {
-        setData(d => d ? { ...d, connectionRequests: fresh } : null);
-      }).catch(console.error);
+    // Write to Firestore — local state already updated so user sees instant response
+    if (req._firestoreId) {
+      try {
+        await fbRespondToConnection(
+          req._firestoreId,
+          status,
+          req.senderUid ?? fbUser.uid,
+          req.receiverUid ?? fbUser.uid
+        );
+      } catch (err) {
+        console.error('respondToConnection failed:', err);
+        // Revert local state if write failed
+        setData(d => {
+          if (!d) return null;
+          return {
+            ...d,
+            connectionRequests: [...d.connectionRequests, { ...req, status: 'pending' }],
+          };
+        });
+      }
     }
   };
 
