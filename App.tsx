@@ -53,6 +53,7 @@ import {
   fetchUsers,
   getOrCreateCompanyForRecruiter,
   applyToJobWithProfile,
+  fetchCompanyById,
 } from './lib/firestoreService';
 
 // ── Lazy-loaded components ────────────────────────────────────────────────────
@@ -437,8 +438,20 @@ const MainApp: React.FC = () => {
     } : null);
   };
 
-  const handleViewCompany = (companyId: number) => {
-    if (data) setSelectedCompany(data.companies.find(c => c.id === companyId) || null);
+  const handleViewCompany = async (companyId: number | string) => {
+    if (!data) return;
+    // First try local data (fast path)
+    const local = data.companies.find(c =>
+      c.id === companyId ||
+      (c as any)._firestoreId === companyId ||
+      String(c.id) === String(companyId)
+    );
+    if (local) { setSelectedCompany(local); return; }
+    // Not in local state — fetch from Firestore by firestoreId string
+    if (typeof companyId === 'string') {
+      const fetched = await fetchCompanyById(companyId);
+      if (fetched) setSelectedCompany(fetched);
+    }
   };
 
   const handleAnalyzeSynergy = async (otherUser: User) => {
