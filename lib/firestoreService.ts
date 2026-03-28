@@ -234,16 +234,23 @@ export async function respondToConnectionRequest(
   senderUid: string,
   receiverUid: string
 ): Promise<void> {
-  const batch = writeBatch(db);
-  batch.update(doc(db, 'connections', firestoreDocId), {
+  // Update status first — this is the critical write
+  await updateDoc(doc(db, 'connections', firestoreDocId), {
     status: response,
     updatedAt: serverTimestamp(),
   });
-  if (response === 'accepted') {
-    batch.update(doc(db, 'users', senderUid), { connectionCount: increment(1) });
-    batch.update(doc(db, 'users', receiverUid), { connectionCount: increment(1) });
+
+  // Update connection counts separately — non-fatal if they fail
+  if (response === 'accepted' && senderUid && receiverUid) {
+    try {
+      const batch = writeBatch(db);
+      if (senderUid)   batch.update(doc(db, 'users', senderUid),   { connectionCount: increment(1) });
+      if (receiverUid) batch.update(doc(db, 'users', receiverUid), { connectionCount: increment(1) });
+      await batch.commit();
+    } catch (err) {
+      console.warn('Connection count update failed (non-fatal):', err);
+    }
   }
-  await batch.commit();
 }
 
 export async function fetchConnectionRequests(uid: string): Promise<ConnectionRequest[]> {
@@ -572,11 +579,26 @@ export async function createCircle(
 }
 
 export async function fetchCircles(): Promise<Circle[]> {
-  const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
-  });
+  try {
+    const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
+    });
+  } catch (err: any) {
+    // Index not built — fall back to unordered fetch
+    console.warn('fetchCircles ordered query failed, falling back:', err?.message);
+    try {
+      const snap = await getDocs(collection(db, 'circles'));
+      return snap.docs.map((d) => {
+        const data = d.data();
+        return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
+      });
+    } catch (err2) {
+      console.error('fetchCircles fallback failed:', err2);
+      return [];
+    }
+  }
 }
 // ----------------
 //  Fetch Users
