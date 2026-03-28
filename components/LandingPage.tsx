@@ -183,7 +183,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
         <span style={{ color: GREEN }}>authentic careers.</span>
       </h1>
       <p className="mt-6 max-w-xl text-lg text-stone-500 leading-relaxed">
-        BeWatu bridges generations of professionals — connecting decades of hard-won wisdom with the energy of people just starting to build. Demonstrate your capability, not just your credentials.
+        BeWatu bridges professionals across generations, identifying the value everyone brings — connecting decades of hard-won wisdom with the energy of people just starting to build. Demonstrate your capability, not just your credentials.
       </p>
       <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
         <button onClick={onNavigateToRegister}
@@ -316,28 +316,6 @@ const LandingPage: React.FC<LandingPageProps> = ({
           <AICard iconBg="#fef3c7" icon={<IconTrophy color="#d97706" />}
             title="Opportunity fit"
             body="Arena challenges are matched to your skills. You only see the ones where you have a real chance — not every open posting." />
-        </div>
-      </div>
-    </section>
-
-    {/* WHAT WE ARE NOT */}
-    <section className="py-14" style={{ backgroundColor: '#e8f4f0' }}>
-      <div className="mx-auto max-w-3xl px-6 text-center">
-        <h2 className="text-2xl font-extrabold text-stone-900 mb-3">What BeWatu is not</h2>
-        <p className="text-stone-600 text-sm leading-relaxed mb-8">
-          We made deliberate choices about what not to build. We think that matters.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
-          {[
-            { not: 'Not a content farm', is: 'No engagement-optimised feed. Posts are chronological. No algorithm deciding who gets seen.' },
-            { not: 'Not a vanity counter', is: 'No follower counts on profiles. No viral metrics. Connection quality over connection volume.' },
-            { not: 'Not a job application machine', is: 'Opportunities surface through warm circles and arena performance — not cold applications.' },
-          ].map(({ not, is }) => (
-            <div key={not} className="bg-white rounded-2xl p-5 border" style={{ borderColor: '#c7e8d8' }}>
-              <p className="text-xs font-bold text-red-500 mb-1.5">{not}</p>
-              <p className="text-xs text-stone-600 leading-relaxed">{is}</p>
-            </div>
-          ))}
         </div>
       </div>
     </section>
