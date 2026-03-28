@@ -233,8 +233,29 @@ export default function CompaniesPage({ onViewCompany }: CompaniesPageProps) {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-stone-400">
           <Building2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No companies found</p>
-          {search && <p className="text-sm mt-1">Try a different search term</p>}
+          {search || industry !== 'All' ? (
+            <>
+              <p className="font-medium text-stone-500">No companies match your search</p>
+              <button onClick={() => { setSearch(''); setIndustry('All'); }}
+                className="mt-3 text-sm font-semibold underline underline-offset-2"
+                style={{ color: '#1a4a3a' }}>
+                Clear filters
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-stone-500 mb-1">No companies listed yet</p>
+              <p className="text-sm text-stone-400 max-w-sm mx-auto mb-6">
+                Companies appear here when recruiters claim their profile or when companies sponsor arenas.
+                {isRecruiter && ' Switch to Recruiter mode to add your company.'}
+              </p>
+              {!isRecruiter && (
+                <p className="text-xs text-stone-400">
+                  Are you a recruiter? Switch to Recruiter mode from the profile menu to add your company.
+                </p>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <>
