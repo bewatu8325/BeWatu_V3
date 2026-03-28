@@ -473,6 +473,14 @@ const MainApp: React.FC = () => {
     // Not in local state — fetch from Firestore by firestoreId string
     if (typeof companyId === 'string') {
       const fetched = await fetchCompanyById(companyId);
+      if (fetched) {
+        // Add to local companies so the modal has consistent data
+        setData(d => d ? { ...d, companies: [...d.companies, fetched] } : null);
+        setSelectedCompany(fetched);
+      }
+    } else {
+      // Numeric ID not found locally — try as string firestoreId
+      const fetched = await fetchCompanyById(String(companyId));
       if (fetched) setSelectedCompany(fetched);
     }
   };
