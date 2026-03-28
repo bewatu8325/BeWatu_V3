@@ -1,74 +1,191 @@
+/**
+ * components/CreatePost.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Unified post composer with type selector.
+ * Supports: standard post, perspective post, wisdom thread.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 import React, { useState } from 'react';
 import { User } from '../types';
-import { generatePost } from '../services/geminiService';
-import { SparklesIcon, LoadingIcon } from '../constants';
+import { BookOpen, Users, FileText, ChevronDown } from 'lucide-react';
+import { CreatePerspectivePost, GenerationTag } from './PerspectivePost';
+import { CreateWisdomThread }                   from './WisdomThread';
+
+const GREEN    = '#1a4a3a';
+const GREEN_LT = '#e8f4f0';
+
+type PostMode = 'standard' | 'perspective' | 'wisdom';
 
 interface CreatePostProps {
-  addPost: (content: string, circleId?: number) => void;
-  currentUser: User;
-  circleId?: number;
+  addPost:         (content: string) => void;
+  onPerspective?:  (question: string, context: string, seeking: GenerationTag[]) => Promise<void>;
+  onWisdomThread?: (data: any) => Promise<void>;
+  currentUser:     User;
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ addPost, currentUser, circleId }) => {
-  const [content, setContent] = useState('');
-  const [isAIAssistMode, setIsAIAssistMode] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+const POST_TYPES: { mode: PostMode; label: string; icon: React.ReactNode; description: string }[] = [
+  {
+    mode: 'standard',
+    label: 'Post',
+    icon: <FileText size={14} />,
+    description: 'Share a thought, update, or idea',
+  },
+  {
+    mode: 'perspective',
+    label: 'Perspective Post',
+    icon: <Users size={14} />,
+    description: 'Ask for perspectives from different generations',
+  },
+  {
+    mode: 'wisdom',
+    label: 'Wisdom Thread',
+    icon: <BookOpen size={14} />,
+    description: 'Share a hard-won career lesson',
+  },
+];
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const CreatePost: React.FC<CreatePostProps> = ({
+  addPost, onPerspective, onWisdomThread, currentUser,
+}) => {
+  const [mode, setMode]           = useState<PostMode>('standard');
+  const [content, setContent]     = useState('');
+  const [showTypes, setShowTypes] = useState(false);
+  const [focused, setFocused]     = useState(false);
+
+  const initials = currentUser.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const currentType = POST_TYPES.find(t => t.mode === mode)!;
+
+  const handleStandardPost = () => {
     if (!content.trim()) return;
-
-    if (isAIAssistMode) {
-      // AI Generation Logic
-      setIsGenerating(true);
-      try {
-        const generatedContent = await generatePost(content, currentUser);
-        setContent(generatedContent);
-      } catch (error) {
-        console.error("Post generation failed", error);
-        setContent("Sorry, I couldn't generate a post right now. Please try again.");
-      } finally {
-        setIsGenerating(false);
-        setIsAIAssistMode(false);
-      }
-    } else {
-      // Regular Post Logic
-      addPost(content, circleId);
-      setContent('');
-    }
-  };
-  
-  const toggleAIAssist = () => {
-    setIsAIAssistMode(!isAIAssistMode);
+    addPost(content.trim());
+    setContent('');
+    setFocused(false);
   };
 
+  // If a special mode is active, render that form
+  if (mode === 'perspective' && onPerspective) {
+    return (
+      <CreatePerspectivePost
+        onSubmit={onPerspective}
+        onCancel={() => setMode('standard')}
+      />
+    );
+  }
+
+  if (mode === 'wisdom' && onWisdomThread) {
+    return (
+      <CreateWisdomThread
+        onSubmit={onWisdomThread}
+        onCancel={() => setMode('standard')}
+        authorYearsXp={(currentUser as any).yearsExperience ?? 0}
+        authorRole={currentUser.headline ?? ''}
+      />
+    );
+  }
+
+  // Standard post composer
   return (
-    <div className="bg-white p-4 rounded-2xl border shadow-sm" style={{ borderColor: "#e7e5e4" }}>
-      <div className="flex items-start space-x-4">
-        <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-12 h-12 rounded-full object-cover"/>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={isAIAssistMode ? "Enter a topic, and I'll draft a post for you..." : "What's on your mind?"}
-          className="w-full p-3 bg-stone-50 text-stone-800 border rounded-xl focus:outline-none focus:ring-2 resize-none placeholder:text-stone-400" style={{ borderColor: "#e7e5e4" }}
-          rows={3}
-        />
-      </div>
-      <div className="flex justify-end items-center mt-2 space-x-2">
-        <button
-          onClick={toggleAIAssist}
-          className={`p-2 rounded-full transition-colors ${isAIAssistMode ? 'text-white' : 'text-stone-400 hover:bg-stone-100'}`} style={isAIAssistMode ? { backgroundColor: '#1a4a3a' } : {}}
-          title={isAIAssistMode ? "Switch to manual post" : "Generate post with AI"}
-        >
-          <SparklesIcon className="w-5 h-5"/>
-        </button>
-        <button
-          onClick={handleSubmit}
-          className="font-semibold px-6 py-2 rounded-full transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center min-w-[90px] text-white" style={{ backgroundColor: "#1a4a3a" }}
-          disabled={!content.trim() || isGenerating}
-        >
-          {isGenerating ? <LoadingIcon className="w-5 h-5 animate-spin" /> : (isAIAssistMode ? 'Generate' : 'Post')}
-        </button>
+    <div className="bg-white rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: '#e7e5e4' }}>
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Avatar */}
+          <div className="flex-shrink-0">
+            {currentUser.avatarUrl ? (
+              <img src={currentUser.avatarUrl} alt={currentUser.name}
+                className="w-9 h-9 rounded-full object-cover"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            ) : (
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                style={{ backgroundColor: GREEN }}>
+                {initials}
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div className="flex-1 min-w-0">
+            <textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              onFocus={() => setFocused(true)}
+              placeholder={`What's on your mind, ${currentUser.name.split(' ')[0]}?`}
+              rows={focused ? 3 : 1}
+              className="w-full resize-none text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none bg-transparent"
+              style={{ lineHeight: 1.6 }}
+            />
+          </div>
+        </div>
+
+        {/* Actions row */}
+        {(focused || content.trim()) && (
+          <div className="flex items-center justify-between mt-3 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
+            {/* Post type selector */}
+            <div className="relative">
+              <button
+                onClick={() => setShowTypes(t => !t)}
+                className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border transition-colors hover:bg-stone-50"
+                style={{ borderColor: '#e7e5e4', color: mode === 'standard' ? '#6b7280' : GREEN }}
+              >
+                {currentType.icon}
+                {currentType.label}
+                <ChevronDown size={11} />
+              </button>
+
+              {showTypes && (
+                <div className="absolute top-full left-0 mt-1 bg-white rounded-xl border shadow-lg z-20 min-w-[220px]"
+                  style={{ borderColor: '#e7e5e4' }}>
+                  {POST_TYPES.map(t => (
+                    <button key={t.mode}
+                      onClick={() => { setMode(t.mode); setShowTypes(false); }}
+                      className="w-full flex items-start gap-3 px-3.5 py-3 hover:bg-stone-50 transition-colors text-left first:rounded-t-xl last:rounded-b-xl"
+                    >
+                      <span className="mt-0.5" style={{ color: t.mode === mode ? GREEN : '#9ca3af' }}>
+                        {t.icon}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-stone-800">{t.label}</p>
+                        <p className="text-xs text-stone-400 mt-0.5">{t.description}</p>
+                      </div>
+                      {t.mode === mode && (
+                        <span className="ml-auto text-xs font-bold" style={{ color: GREEN }}>✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Post button */}
+            <button
+              onClick={handleStandardPost}
+              disabled={!content.trim()}
+              className="px-4 py-1.5 rounded-lg text-sm font-bold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: GREEN }}
+            >
+              Post
+            </button>
+          </div>
+        )}
+
+        {/* Post type quick buttons when not focused */}
+        {!focused && !content.trim() && (onPerspective || onWisdomThread) && (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
+            {onPerspective && (
+              <button onClick={() => setMode('perspective')}
+                className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 border transition-colors hover:opacity-80"
+                style={{ backgroundColor: GREEN_LT, color: GREEN, borderColor: '#c7e8d8' }}>
+                <Users size={12} /> Perspective Post
+              </button>
+            )}
+            {onWisdomThread && (
+              <button onClick={() => setMode('wisdom')}
+                className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 border transition-colors hover:opacity-80"
+                style={{ backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }}>
+                <BookOpen size={12} /> Wisdom Thread
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
