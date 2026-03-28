@@ -257,17 +257,21 @@ export async function fetchConnectionRequests(uid: string): Promise<ConnectionRe
     if (seen.has(d.id)) continue;
     seen.add(d.id);
     const data = d.data();
-    // Skip expired (> 30 days old) declined/cancelled requests
+    // Skip declined/cancelled — but keep accepted and pending
     if (data.status === 'declined' || data.status === 'cancelled') continue;
+    // Compute a stable numeric id — fall back if numericIds are missing
+    const stableId = (data.senderNumericId && data.receiverNumericId)
+      ? data.senderNumericId * 100000 + data.receiverNumericId
+      : parseInt(d.id.replace(/\D/g, '').slice(0, 12), 10) || Date.now();
     results.push({
-      id: data.senderNumericId * 100000 + data.receiverNumericId,
-      fromUserId: data.senderNumericId,
-      toUserId: data.receiverNumericId,
+      id: stableId,
+      fromUserId: data.senderNumericId ?? 0,
+      toUserId: data.receiverNumericId ?? 0,
       status: data.status,
       _firestoreId: d.id,
       senderUid: data.senderUid,
       receiverUid: data.receiverUid,
-      createdAt: data.createdAt, // needed for expiry calculation
+      createdAt: data.createdAt,
     } as any);
   }
   return results;
