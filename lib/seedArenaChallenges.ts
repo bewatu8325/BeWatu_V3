@@ -15,7 +15,7 @@ import {
   collection, addDoc, getDocs, query, where,
   serverTimestamp, Timestamp,
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db } from './firebase';
 
 interface ChallengeSeed {
   industryId:   string;
@@ -334,22 +334,7 @@ export async function seedArenaChallenges(
       challengesCreated++;
       console.log(`  ✅ Created: "${seed.title}" (${industry.name})`);
     }
-
-    // Add sponsor data to the industry document
-    const sponsorData = SPONSOR_DATA[industryKey];
-    if (sponsorData) {
-      const { updateDoc, doc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'arena_industries', industryDoc.id), {
-        sponsor: {
-          ...sponsorData,
-          isActive:  true,
-          updatedAt: serverTimestamp(),
-        },
-      });
-      sponsorsUpdated++;
-      console.log(`  🏢 Sponsor added: ${sponsorData.name} → ${industry.name}`);
-    }
   }
 
-  console.log(`\n✅ Done — ${challengesCreated} challenges created, ${sponsorsUpdated} sponsors added`);
+  console.log(`\n✅ Done — ${challengesCreated} challenges created`);
 }
