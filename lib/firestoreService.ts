@@ -3167,15 +3167,10 @@ export function checkOpportunityUnlock(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function fetchCompanies(claimedOnly = false): Promise<Company[]> {
-  const q = claimedOnly
-    ? query(collection(db, 'companies'), where('claimed', '==', true), orderBy('name'), limit(200))
-    : query(collection(db, 'companies'), orderBy('name'), limit(200));
-
-  const snap = await getDocs(q);
-  return snap.docs.map(d => {
+  const mapDoc = (d: any) => {
     const data = d.data();
     return {
-      id:                 data.numericId && data.numericId > 0 ? data.numericId : Math.abs(d.id.split('').reduce((a, c) => (a << 5) - a + c.charCodeAt(0), 0)),
+      id:                 data.numericId && data.numericId > 0 ? data.numericId : Math.abs(d.id.split('').reduce((a: number, c: string) => (a << 5) - a + c.charCodeAt(0), 0)),
       _firestoreId:       d.id,
       name:               data.name ?? '',
       description:        data.description ?? '',
@@ -3191,7 +3186,30 @@ export async function fetchCompanies(claimedOnly = false): Promise<Company[]> {
       verifiedRecruiters: data.verifiedRecruiters ?? [],
       verificationStatus: data.verificationStatus ?? 'unverified',
     } as Company & { domain: string; ticker: string; source: string; claimed: boolean };
-  });
+  };
+
+  try {
+    // Try ordered query first (requires index)
+    const q = claimedOnly
+      ? query(collection(db, 'companies'), where('claimed', '==', true), orderBy('name'), limit(200))
+      : query(collection(db, 'companies'), orderBy('name'), limit(200));
+    const snap = await getDocs(q);
+    return snap.docs.map(mapDoc);
+  } catch (err: any) {
+    // Index not built yet — fall back to unordered fetch
+    console.warn('fetchCompanies ordered query failed, falling back:', err?.message);
+    try {
+      const q2 = claimedOnly
+        ? query(collection(db, 'companies'), where('claimed', '==', true), limit(200))
+        : query(collection(db, 'companies'), limit(200));
+      const snap2 = await getDocs(q2);
+      const results = snap2.docs.map(mapDoc);
+      return results.sort((a, b) => a.name.localeCompare(b.name));
+    } catch (err2) {
+      console.error('fetchCompanies fallback also failed:', err2);
+      return [];
+    }
+  }
 }
 
 export async function claimCompany(
