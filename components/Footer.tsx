@@ -2,15 +2,21 @@ import React from 'react';
 
 interface FooterProps {
   onNavigateToConnect?: () => void;
+  onNavigateToAbout?: () => void;
   onReportConcern?: () => void;
 }
 
-const Footer: React.FC<FooterProps> = ({ onNavigateToConnect, onReportConcern }) => {
+const Footer: React.FC<FooterProps> = ({ onNavigateToConnect, onNavigateToAbout, onReportConcern }) => {
   return (
     <footer className="border-t mt-12" style={{ borderColor: '#e7e5e4', backgroundColor: '#ffffff' }}>
       <div className="container mx-auto px-4 sm:px-6 py-5">
         <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm">
           <a href="#" className="text-stone-400 hover:text-stone-700 transition-colors">User Agreement</a>
+          {onNavigateToAbout && (
+            <button onClick={onNavigateToAbout} className="text-stone-400 hover:text-stone-700 transition-colors">
+              Our story
+            </button>
+          )}
           {onNavigateToConnect && (
             <button onClick={onNavigateToConnect} className="text-stone-400 hover:text-stone-700 transition-colors">
               Connect with us
