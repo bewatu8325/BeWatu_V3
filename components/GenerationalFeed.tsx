@@ -43,13 +43,14 @@ function inferCareerStage(user: User): CareerStage {
 }
 
 interface GenerationalFeedProps {
-  currentUser:   User;
-  fbUserUid:     string;
-  onViewProfile: (userId: number) => void;
+  currentUser:    User;
+  fbUserUid:      string;
+  onViewProfile:  (userId: number) => void;
+  onSelectCircle?: (circleId: number) => void;
 }
 
 const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
-  currentUser, fbUserUid, onViewProfile,
+  currentUser, fbUserUid, onViewProfile, onSelectCircle,
 }) => {
   const [tab, setTab]                     = useState<FeedTab>('all');
   const [creating, setCreating]           = useState<'perspective' | 'wisdom' | 'pod' | null>(null);
@@ -287,7 +288,12 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
                 pod={item.data}
                 currentStage={myStage}
                 onJoin={handleJoinPod}
-                onClick={() => {}} // wire to pod detail page later
+                onClick={() => {
+                  // Navigate to circle detail — pod id is the Firestore circle doc id
+                  // We use the numeric id stored in the pod data if available
+                  const numericId = (item.data as any).numericId;
+                  if (numericId && onSelectCircle) onSelectCircle(numericId);
+                }}
                 isMember={item.data.members.some(m => m.userId === currentUser.id)}
               />
             );
