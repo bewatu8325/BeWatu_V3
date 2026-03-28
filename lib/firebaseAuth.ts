@@ -77,7 +77,9 @@ function docToUser(data: Record<string, any>): User {
     verifiedSkills: data.verifiedSkills ?? null,
     microIntroductionUrl: data.microIntroductionUrl ?? null,
     microIntroductionThumbnail: data.microIntroductionThumbnail ?? null,
-  };
+    careerArc: data.careerArc ?? [],
+    recruiterProfile: data.recruiterProfile ?? null,
+  } as any;
 }
 
 // ── Build default Firestore doc from registration inputs ──────────────────────
@@ -259,6 +261,9 @@ export async function updateUserInFirestore(
     ...(updates.workStyle !== undefined && { workStyle: updates.workStyle }),
     ...(updates.reputation !== undefined && { reputation: updates.reputation }),
     ...(updates.credits !== undefined && { credits: updates.credits }),
+    ...((updates as any).careerArc !== undefined && { careerArc: (updates as any).careerArc }),
+    ...((updates as any).isRecruiter !== undefined && { isRecruiter: (updates as any).isRecruiter }),
+    ...((updates as any).recruiterProfile !== undefined && { recruiterProfile: (updates as any).recruiterProfile }),
     ...(updates.subscriptionTier !== undefined && { subscriptionTier: updates.subscriptionTier }),
     ...(updates.subscriptionStatus !== undefined && { subscriptionStatus: updates.subscriptionStatus }),
     ...(updates.subscriptionId !== undefined && { subscriptionId: updates.subscriptionId }),
