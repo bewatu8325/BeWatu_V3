@@ -156,9 +156,11 @@ const MainApp: React.FC = () => {
     if (authLoading) return;
     if (currentUser && authState !== 'authenticated') {
       setAuthState('authenticated');
-      loadAppData(currentUser);
+      // Small delay ensures Firebase auth token is fully propagated to Firestore
+      // before we make queries — prevents silent permission errors on login/logout
+      setTimeout(() => loadAppData(currentUser), 800);
     } else if (currentUser && authState === 'authenticated' && !data && !loading) {
-      loadAppData(currentUser);
+      setTimeout(() => loadAppData(currentUser), 800);
     }
   }, [authLoading, currentUser, authState, data, loading]);
 
@@ -413,9 +415,13 @@ const MainApp: React.FC = () => {
 
     // Re-fetch connections from Firestore to ensure consistency
     if (status === 'accepted') {
-      fetchConnectionRequests(fbUser.uid).then(fresh => {
-        setData(d => d ? { ...d, connectionRequests: fresh } : null);
-      }).catch(console.error);
+      // Force token refresh to ensure Firestore sees latest auth state
+      try { await fbUser.getIdToken(true); } catch (_) {}
+      setTimeout(() => {
+        fetchConnectionRequests(fbUser.uid).then(fresh => {
+          setData(d => d ? { ...d, connectionRequests: fresh } : null);
+        }).catch(console.error);
+      }, 500);
     }
   };
 
@@ -728,8 +734,11 @@ ${references || 'Not provided'}`;
               onNavigate={handleSetView}
               onSelectCircle={handleSelectCircle}
               addPost={addPost}
+              onPerspective={handlePerspectivePost}
+              onWisdomThread={handleWisdomThread}
               onAppreciatePost={handleAppreciatePost}
               onViewProfile={handleViewProfile}
+              onViewCompany={handleViewCompany}
             />
           </div>
         );
