@@ -817,7 +817,7 @@ ${references || 'Not provided'}`;
 
         {/* Connect with us overlay */}
         {showConnectPage && (
-          <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f0ede6' }}>
+          <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ backgroundColor: '#f0ede6' }}>
             <Suspense fallback={<div />}>
               <ConnectPage onNavigateBack={() => setShowConnectPage(false)} />
             </Suspense>
@@ -826,7 +826,7 @@ ${references || 'Not provided'}`;
 
         {/* Our story overlay */}
         {showAboutPage && (
-          <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f0ede6' }}>
+          <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ backgroundColor: '#f0ede6' }}>
             <Suspense fallback={<div />}>
               <AboutPage
                 onNavigateBack={() => setShowAboutPage(false)}
