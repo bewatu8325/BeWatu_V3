@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { view: View.AIChat as any, label: 'Lens',         icon: Zap           },
   { view: View.Pricing,     label: 'Pricing',        icon: CreditCard    },
   { view: View.Companies,   label: 'Companies',      icon: Building2     },
+  { view: View.Bridge as any, label: 'Bridge', icon: Zap },
 ];
 
 interface HeaderProps {
