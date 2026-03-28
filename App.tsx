@@ -624,9 +624,14 @@ ${references || 'Not provided'}`;
     setData(d => d ? { ...d, jobs: d.jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j) } : null);
   };
 
-  const handleCreateCircle = async (name: string, description: string) => {
+  const handleCreateCircle = async (name: string, description: string, extra?: Partial<import('./types').Circle>) => {
     if (!currentUser || !fbUser) return;
-    const newCircle = await createCircle({ name, description, members: [currentUser.id], adminId: currentUser.id }, fbUser.uid);
+    const newCircle = await createCircle({
+      name, description,
+      members: [currentUser.id],
+      adminId: currentUser.id,
+      ...extra,
+    }, fbUser.uid);
     setData(d => d ? { ...d, circles: [newCircle, ...d.circles] } : null);
   };
 
@@ -898,7 +903,25 @@ ${references || 'Not provided'}`;
             ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onViewProfile={handleViewProfile} />
             : <div>Circle not found</div>;
         } else {
-          content = <Circles circles={data.circles} onSelectCircle={handleSelectCircle} onCreateCircle={handleCreateCircle} currentUserId={currentUser.id} />;
+          content = <Circles
+            circles={data.circles}
+            onSelectCircle={handleSelectCircle}
+            onCreateCircle={handleCreateCircle}
+            onJoinCircle={async (circleId) => {
+              if (!fbUser || !currentUser) return;
+              handleAddMemberToCircle(circleId, currentUser.id);
+            }}
+            onApplyToCircle={async (circleId) => {
+              if (!data || !currentUser) return;
+              setData(d => d ? {
+                ...d,
+                circles: d.circles.map(c => c.id === circleId
+                  ? { ...c, pendingMembers: [...(c.pendingMembers ?? []), currentUser.id] }
+                  : c)
+              } : null);
+            }}
+            currentUserId={currentUser.id}
+          />;
         }
         break;
       }

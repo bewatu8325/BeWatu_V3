@@ -190,12 +190,32 @@ export interface ConnectionRequest {
   status: 'pending' | 'accepted' | 'declined';
 }
 
+export type PodType = 'community' | 'innovation' | 'challenge' | 'generational';
+export type PodStage = 'Idea' | 'Exploring' | 'Building' | 'Pitching';
+export type PodVisibility = 'invite' | 'apply' | 'open';
+
 export interface Circle {
-  id: number;
-  name: string;
-  description: string;
-  members: number[];
-  adminId: number;
+  id:                number;
+  name:              string;
+  description:       string;
+  members:           number[];
+  adminId:           number;
+  podType?:          PodType;
+  visibility?:       PodVisibility;
+  // Innovation pod fields
+  problemStatement?: string;
+  stage?:            PodStage;
+  rolesNeeded?:      string[];
+  pendingMembers?:   number[];
+  // Challenge pod fields
+  challengeId?:      string;
+  challengeTitle?:   string;
+  arenaIndustry?:    string;
+  // Generational pod fields
+  minExperienceYears?: number;
+  maxExperienceYears?: number;
+  // Meta
+  _firestoreId?:     string;
 }
 
 export interface Article {
