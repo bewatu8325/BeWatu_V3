@@ -1,6 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { User, ConnectionRequest, Circle, View } from '../types';
-import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon } from '../constants';
+import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, UsersIcon } from '../constants';
 
 interface ProfileSidebarProps {
   user: User;
@@ -209,14 +209,17 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         </div>
       </div>
 
-      {/* ── AI chat button ── */}
+      {/* ── Lens — Career Intelligence ── */}
       <button
         onClick={() => onNavigate(View.AIChat)}
-        className="w-full font-semibold px-4 py-2.5 rounded-xl transition text-sm flex items-center justify-center text-white hover:opacity-90 shadow-sm"
-        style={{ backgroundColor: '#1a4a3a' }}
+        className="w-full font-semibold px-4 py-2.5 rounded-xl transition text-sm flex items-center justify-center border hover:opacity-90 shadow-sm"
+        style={{ backgroundColor: '#e8f4f0', color: '#1a4a3a', borderColor: '#1a6b52' }}
       >
-        <BotIcon className="w-5 h-5 mr-2" />
-        Chat with Be
+        <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          <path d="M11 8v6M8 11h6"/>
+        </svg>
+        Lens — Career Intelligence
       </button>
 
       {/* ── Skills ── */}
