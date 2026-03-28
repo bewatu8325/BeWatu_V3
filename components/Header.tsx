@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Home, Users, Users2, Hexagon, Briefcase, MessageSquare, Building2,
-  Bell, LogOut, User, ChevronDown, Settings, Sword, Search, Shield, Zap, CreditCard, Trophy,
+  Bell, LogOut, User, ChevronDown, Settings, Sword, Search, Shield, Zap, CreditCard, Trophy, GitMerge,
 } from 'lucide-react';
 import { LogoIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { view: View.AIChat as any, label: 'Lens',         icon: Zap           },
   { view: View.Pricing,     label: 'Pricing',        icon: CreditCard    },
   { view: View.Companies,   label: 'Companies',      icon: Building2     },
-  { view: View.Bridge as any, label: 'Bridge', icon: Zap },
+  { view: View.Bridge as any, label: 'Bridge', icon:  GitMerge },
 ];
 
 interface HeaderProps {
