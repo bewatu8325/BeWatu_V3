@@ -108,6 +108,7 @@ const MainApp: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeChatUserId, setActiveChatUserId] = useState<number | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [peopleSearch, setPeopleSearch] = useState('');
   const [showUpgradeModal, setShowUpgradeModal] = useState<SubscriptionTier | null>(null);
   const [showPricing, setShowPricing] = useState(false);
 
@@ -761,7 +762,13 @@ ${references || 'Not provided'}`;
       case View.People:
         content = (
           <People
-            users={data.users.filter(u => u.id !== currentUser.id)}
+            users={data.users
+              .filter(u => u.id !== currentUser.id)
+              .filter(u => !peopleSearch || 
+                u.name.toLowerCase().includes(peopleSearch.toLowerCase()) ||
+                u.headline?.toLowerCase().includes(peopleSearch.toLowerCase()) ||
+                u.industry?.toLowerCase().includes(peopleSearch.toLowerCase())
+              )}
             onEndorseSkill={endorseSkill}
             onStartMessage={startMessage}
             onAnalyzeSynergy={handleAnalyzeSynergy}
@@ -769,6 +776,7 @@ ${references || 'Not provided'}`;
             onConnect={handleSendConnection}
             connectionRequests={data.connectionRequests}
             currentUserId={currentUser.id}
+            searchQuery={peopleSearch}
           />
         );
         break;
@@ -1012,6 +1020,10 @@ ${references || 'Not provided'}`;
             onSwitchToRecruiter={handleSwitchProfile}
             notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
             pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length}
+            onSearch={(q) => {
+              setPeopleSearch(q);
+              handleSetView(View.People);
+            }}
           />
           <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">{content}</main>
           {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
