@@ -564,6 +564,20 @@ export async function applyToJob(firestoreId: string, applicantUid: string): Pro
 // CIRCLES
 // ─────────────────────────────────────────────────────────────────────────────
 
+export async function leaveCircle(
+  firestoreId: string,
+  userNumericId: number
+): Promise<void> {
+  const ref = doc(db, 'circles', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const members: number[] = snap.data().members ?? [];
+  await updateDoc(ref, {
+    members: members.filter(m => m !== userNumericId),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function createCircle(
   circle: Omit<Circle, 'id'>,
   creatorUid: string
