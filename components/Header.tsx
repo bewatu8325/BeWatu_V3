@@ -31,9 +31,10 @@ interface HeaderProps {
   onEnterAdminPanel?: () => void;
   notificationCount?: number;
   pendingConnectionCount?: number;
+  onSearch?: (query: string) => void;
 }
 
-export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0 }: HeaderProps) {
+export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch }: HeaderProps) {
   const { currentUser } = useFirebase();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,6 +55,17 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    if (!searchQuery.trim()) return;
+    onSearch?.(searchQuery.trim());
+    onNavigate(View.People);
+  }
+
+  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setSearchQuery(e.target.value);
+    // Live search as user types
+    if (e.target.value.trim()) {
+      onSearch?.(e.target.value.trim());
+    }
   }
   async function handleGoToFactory() {
   setFactoryLoading(true);
@@ -78,10 +90,11 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
           <input
             type="search"
-            placeholder="Search people, posts, jobs..."
+            placeholder="Search people..."
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="h-9 w-full rounded-full border bg-stone-100 pl-9 pr-4 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:border-stone-400" style={{ borderColor: "#e7e5e4" }}
+            onChange={handleSearchChange}
+            className="h-9 w-full rounded-full border bg-stone-100 pl-9 pr-4 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:border-stone-400"
+            style={{ borderColor: "#e7e5e4" }}
           />
         </form>
 
