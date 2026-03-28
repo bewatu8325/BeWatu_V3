@@ -334,14 +334,17 @@ const MainApp: React.FC = () => {
     setSeedLog([]);
     const log = (msg: string) => setSeedLog(prev => [...prev, msg]);
     try {
+      if (which === 'arena' || which === 'both') {
+        log('🏟️ Starting arena challenges seed…');
+        const { seedArenaChallenges } = await import('./lib/seedArenaChallenges');
+        await seedArenaChallenges(fbUser.uid, fbUser.email ?? '');
+        log('✅ Arena challenges seeded');
+      }
       if (which === 'generational' || which === 'both') {
         log('🌱 Starting generational content seed…');
         const { seedGenerationalContent } = await import('./lib/generationalFeatures');
         await seedGenerationalContent(fbUser.uid);
         log('✅ Generational content seeded');
-      }
-      if (which === 'arena' || which === 'both') {
-        log('🏟️ Arena seed — commit seedArenaChallenges.ts to src/lib/ first, then re-run');
       }
       log('🎉 Done! Refresh to see new data.');
     } catch (err: any) {
