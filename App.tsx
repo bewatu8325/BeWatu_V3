@@ -624,7 +624,7 @@ ${references || 'Not provided'}`;
     setData(d => d ? { ...d, jobs: d.jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j) } : null);
   };
 
-  const handleCreateCircle = async (name: string, description: string, extra?: Partial<import('./types').Circle>) => {
+  const handleCreateCircle = async (name: string, description: string, extra?: Partial<Circle>) => {
     if (!currentUser || !fbUser) return;
     const newCircle = await createCircle({
       name, description,
