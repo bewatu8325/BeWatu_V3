@@ -182,14 +182,13 @@ Missing from profile: ${profile.missing.slice(0, 2).join(', ') || 'nothing'}
 
 Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
 
-    fetch('/api/gemini', {
+    fetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
-        contents: { history: [], systemInstruction: '', generationConfig: { candidateCount: 1 } },
-        isChat: true,
-        userMessage: prompt,
+        system: 'You are a concise career intelligence assistant for BeWatu, a professional network that bridges generations of professionals. Give warm, direct, specific advice. Never be generic.',
+        prompt,
+        maxTokens: 120,
       }),
     })
       .then(r => r.json())
