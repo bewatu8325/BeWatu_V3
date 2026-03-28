@@ -1189,12 +1189,19 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
 }) => {
   const [tab, setTab] = useState<Tab>('pending');
 
-  const incoming = connectionRequests.filter(
-    r => r.toUserId === currentUser.id && r.status === 'pending'
-  );
-  const outgoing = connectionRequests.filter(
-    r => r.fromUserId === currentUser.id && r.status === 'pending'
-  );
+  // Use both numeric id AND firestoreUid for matching to handle Date.now() id edge cases
+  const currentUid = (currentUser as any)._firestoreUid ?? String(currentUser.id);
+
+  const incoming = connectionRequests.filter(r => {
+    const matches = r.toUserId === currentUser.id ||
+      (r as any).receiverUid === currentUid;
+    return matches && r.status === 'pending';
+  });
+  const outgoing = connectionRequests.filter(r => {
+    const matches = r.fromUserId === currentUser.id ||
+      (r as any).senderUid === currentUid;
+    return matches && r.status === 'pending';
+  });
   const incomingFollows = followRequests.filter(
     r => r.toUserId === currentUser.id && r.status === 'pending'
   );
@@ -1205,7 +1212,9 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
   const connections = allUsers.filter(u =>
     accepted.some(r =>
       (r.fromUserId === currentUser.id && r.toUserId === u.id) ||
-      (r.toUserId === currentUser.id && r.fromUserId === u.id)
+      (r.toUserId === currentUser.id && r.fromUserId === u.id) ||
+      ((r as any).senderUid === currentUid && r.toUserId === u.id) ||
+      ((r as any).receiverUid === currentUid && r.fromUserId === u.id)
     )
   );
 
