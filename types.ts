@@ -335,7 +335,8 @@ export enum View {
   Pricing = 'PRICING',
   Factory = 'FACTORY',
   Companies = 'COMPANIES',
-  Arenas = 'ARENAS'
+  Arenas = 'ARENAS',
+  Bridge = 'BRIDGE',
 }
 
 export type Language = 'en' | 'es';
