@@ -179,7 +179,10 @@ const MainApp: React.FC = () => {
           fetchUsers().catch(() => []),
         ]);
 
-      const otherUsers = firestoreUsers.filter(u => u.id !== user.id);
+      const currentUid = fbUser?.uid ?? '';
+      const otherUsers = firestoreUsers.filter(u =>
+        u.id !== user.id && (u as any)._firestoreUid !== currentUid
+      );
 
       const company = await getOrCreateCompanyForRecruiter(
         fbUser?.uid ?? '',
@@ -188,6 +191,23 @@ const MainApp: React.FC = () => {
       ).catch(() => ({
         id: 1, _firestoreId: '', name: user.headline || user.name,
         description: '', industry: '', logoUrl: '', website: ''
+      }));
+
+      // Normalize circle members — Firestore stores Firebase UIDs but components
+      // check membership using numeric user IDs. Map UIDs → numeric IDs.
+      const uidToNumericId: Record<string, number> = {};
+      uidToNumericId[fbUser?.uid ?? ''] = user.id;
+      firestoreUsers.forEach(u => {
+        if ((u as any)._firestoreUid) uidToNumericId[(u as any)._firestoreUid] = u.id;
+      });
+
+      const normalizedCircles = firestoreCircles.map(circle => ({
+        ...circle,
+        members: (circle.members ?? []).map((m: any) => {
+          if (typeof m === 'number') return m;
+          if (typeof m === 'string') return uidToNumericId[m] ?? m;
+          return m;
+        }),
       }));
 
       setData({
@@ -199,7 +219,7 @@ const MainApp: React.FC = () => {
         notifications: [],
         connectionRequests: firestoreConnections,
         followRequests: firestoreFollowRequests,
-        circles: firestoreCircles,
+        circles: normalizedCircles,
         articles: [],
       });
     } catch (err) {
