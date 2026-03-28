@@ -50,6 +50,7 @@ import {
   applyToJob as fbApplyToJob,
   fetchCircles,
   createCircle,
+  leaveCircle,
   fetchUsers,
   getOrCreateCompanyForRecruiter,
   applyToJobWithProfile,
@@ -645,6 +646,33 @@ ${references || 'Not provided'}`;
     setData({ ...data, circles: data.circles.map(c => c.id === circleId && c.adminId !== userId ? { ...c, members: c.members.filter(id => id !== userId) } : c) });
   };
 
+  const handleLeaveCircle = async (circleId: number) => {
+    if (!data || !currentUser || !fbUser) return;
+    // Optimistic update
+    setData(d => d ? {
+      ...d,
+      circles: d.circles.map(c => c.id === circleId
+        ? { ...c, members: c.members.filter(id => id !== currentUser.id) }
+        : c)
+    } : null);
+    // Persist to Firestore
+    const circle = data.circles.find(c => c.id === circleId) as any;
+    if (circle?._firestoreId) {
+      try {
+        await leaveCircle(circle._firestoreId, currentUser.id);
+      } catch (err) {
+        console.error('leaveCircle failed:', err);
+        // Revert on failure
+        setData(d => d ? {
+          ...d,
+          circles: d.circles.map(c => c.id === circleId
+            ? { ...c, members: [...c.members, currentUser.id] }
+            : c)
+        } : null);
+      }
+    }
+  };
+
   const handleViewProfile = (userId: number) => {
     if (currentUser && userId !== currentUser.id) {
       setPublicProfileUserId(userId);
@@ -920,7 +948,9 @@ ${references || 'Not provided'}`;
                   : c)
               } : null);
             }}
+            onLeaveCircle={handleLeaveCircle}
             currentUserId={currentUser.id}
+            currentUserFirestoreUid={fbUser?.uid}
           />;
         }
         break;
