@@ -21,6 +21,8 @@ import {
   type ArenaIndustry,
   type IndustrySlug,
 } from "../../lib/arenaService";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 // ─── Icon map ─────────────────────────────────────────────────────────────────
 
@@ -39,14 +41,17 @@ const ICON_MAP: Record<string, React.FC<{ size?: number; color?: string }>> = {
 
 function IndustryCard({
   industry,
+  liveCount,
+  prizePool,
   onClick,
 }: {
-  industry: ArenaIndustry;
-  onClick: () => void;
+  industry:  ArenaIndustry;
+  liveCount: number;
+  prizePool: number;
+  onClick:   () => void;
 }) {
-  const IconComp = ICON_MAP[industry.icon] ?? ICON_MAP.CreditCard;
+  const IconComp   = ICON_MAP[industry.icon] ?? ICON_MAP.CreditCard;
   const isSponsored = !!industry.sponsorCompanyId;
-  const prizePool = industry.totalPrizePool;
 
   function formatPrize(n: number) {
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -100,7 +105,7 @@ function IndustryCard({
           <div className="flex items-center gap-1.5">
             <Trophy size={12} className="text-stone-400" />
             <span className="text-xs font-medium text-stone-700">
-              {industry.activeChallengeCount} live
+              {liveCount} live
             </span>
           </div>
           {prizePool > 0 && (
@@ -169,19 +174,42 @@ export default function ArenaDiscovery({
   onPostChallenge,
   currentUserCompany,
 }: ArenaDiscoveryProps) {
-  const [industries, setIndustries] = useState<ArenaIndustry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [industries,      setIndustries]      = useState<ArenaIndustry[]>([]);
+  const [challengeCounts, setChallengeCounts] = useState<Record<string, number>>({});
+  const [prizeTotals,     setPrizeTotals]     = useState<Record<string, number>>({});
+  const [loading,         setLoading]         = useState(true);
 
   useEffect(() => {
     getArenaIndustries()
       .then(setIndustries)
       .catch(console.error)
       .finally(() => setLoading(false));
+
+    // Fetch live challenge counts and prize totals directly from arena_challenges
+    getDocs(
+      query(collection(db, 'arena_challenges'), where('verificationStatus', '==', 'live'))
+    ).then(snap => {
+      const counts: Record<string, number> = {};
+      const prizes: Record<string, number> = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const id   = data.arenaIndustryId;
+        if (!id) return;
+        counts[id] = (counts[id] ?? 0) + 1;
+        // Parse prize — try prizeAmount number first, fall back to string like "$2,500"
+        const amount = data.prizeAmount
+          ? Number(data.prizeAmount)
+          : parseInt((data.prize ?? '').replace(/[^0-9]/g, '')) || 0;
+        prizes[id] = (prizes[id] ?? 0) + amount;
+      });
+      setChallengeCounts(counts);
+      setPrizeTotals(prizes);
+    }).catch(console.error);
   }, []);
 
-  const totalLive    = industries.reduce((s, i) => s + i.activeChallengeCount, 0);
-  const totalPrize   = industries.reduce((s, i) => s + i.totalPrizePool, 0);
-  const sponsored    = industries.filter((i) => i.sponsorCompanyId).length;
+  const totalLive  = Object.values(challengeCounts).reduce((s, n) => s + n, 0);
+  const totalPrize = Object.values(prizeTotals).reduce((s, n) => s + n, 0);
+  const sponsored  = industries.filter((i) => i.sponsorCompanyId).length;
 
   function formatPrize(n: number) {
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -273,6 +301,8 @@ export default function ArenaDiscovery({
           <IndustryCard
             key={industry.id}
             industry={industry}
+            liveCount={challengeCounts[industry.id] ?? 0}
+            prizePool={prizeTotals[industry.id] ?? 0}
             onClick={() => onSelectIndustry(industry.id as IndustrySlug)}
           />
         ))}
