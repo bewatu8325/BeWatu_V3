@@ -653,6 +653,8 @@ export async function fetchUsers(): Promise<User[]> {
       skills: data.skills ?? [],
       verifiedSkills: data.verifiedSkills ?? null,
       microIntroductionUrl: data.microIntroductionUrl ?? null,
+      agreedToTermsVersion: data.agreedToTermsVersion ?? null,
+      agreedToTermsAt: data.agreedToTermsAt ?? null,
       _firestoreUid: d.id,
     } as User & { _firestoreUid: string };
   });
@@ -3314,4 +3316,21 @@ export async function claimCompany(
   });
 
   return { success: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TERMS AGREEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function recordTermsAgreement(
+  uid:          string,
+  version:      string,
+  ipAddress?:   string
+): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), {
+    agreedToTermsVersion: version,
+    agreedToTermsAt:      serverTimestamp(),
+    agreedToTermsIp:      ipAddress ?? null,
+    updatedAt:            serverTimestamp(),
+  });
 }
