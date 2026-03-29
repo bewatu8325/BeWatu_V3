@@ -44,17 +44,25 @@ function ChallengeCard({
   arenaData:  ArenaIndustry | null;
   onClick:    () => void;
 }) {
-  const daysLeft = Math.max(
-    0,
-    Math.ceil((new Date(challenge.deadline).getTime() - Date.now()) / 86400000)
-  );
+  // Defensive defaults — handles both seeded data and full challenge docs
+  const tier        = (challenge.tier ?? 'standard') as ChallengeTier;
+  const companyName = challenge.companyName ?? 'BeWatu';
+  const description = challenge.description ?? (challenge as any).brief ?? '';
+  const prizeAmount = challenge.prizeAmount ?? 0;
+  const prizeLabel  = (challenge as any).prize ?? (prizeAmount > 0 ? `$${prizeAmount >= 1000 ? (prizeAmount/1000).toFixed(0)+'K' : prizeAmount}` : 'Prize TBC');
+
+  const deadlineRaw = (challenge.deadline as any);
+  const deadlineMs  = deadlineRaw?.seconds
+    ? deadlineRaw.seconds * 1000
+    : new Date(challenge.deadline).getTime();
+  const daysLeft    = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 86400000));
 
   const tierStyle: Record<ChallengeTier, { bg: string; text: string; label: string }> = {
     standard:  { bg: "#f1f5f9", text: "#475569", label: "Standard"  },
     featured:  { bg: "#fef3c7", text: "#92400e", label: "Featured"  },
     exclusive: { bg: "#ede9fe", text: "#6d28d9", label: "Exclusive" },
   };
-  const tier = tierStyle[challenge.tier];
+  const tierCfg = tierStyle[tier] ?? tierStyle.standard;
 
   function formatPrize(n: number) {
     if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`;
@@ -67,14 +75,14 @@ function ChallengeCard({
       className="group w-full text-left bg-white border border-stone-200 rounded-2xl hover:border-stone-300 hover:shadow-sm transition-all duration-200 overflow-hidden"
     >
       {/* Featured/Exclusive banner */}
-      {challenge.tier !== "standard" && (
+      {tier !== "standard" && (
         <div
           className="px-4 py-1.5 flex items-center gap-1.5"
-          style={{ background: tier.bg }}
+          style={{ background: tierCfg.bg }}
         >
-          <Star size={11} style={{ color: tier.text }} />
-          <span className="text-xs font-semibold" style={{ color: tier.text }}>
-            {tier.label}
+          <Star size={11} style={{ color: tierCfg.text }} />
+          <span className="text-xs font-semibold" style={{ color: tierCfg.text }}>
+            {tierCfg.label}
           </span>
         </div>
       )}
@@ -85,7 +93,7 @@ function ChallengeCard({
           {challenge.companyLogoUrl ? (
             <img
               src={challenge.companyLogoUrl}
-              alt={challenge.companyName}
+              alt={companyName}
               className="h-7 w-7 rounded-lg object-contain border border-stone-100"
             />
           ) : (
@@ -93,7 +101,7 @@ function ChallengeCard({
               <Building2 size={14} className="text-stone-400" />
             </div>
           )}
-          <span className="text-xs font-medium text-stone-600">{challenge.companyName}</span>
+          <span className="text-xs font-medium text-stone-600">{companyName}</span>
           {challenge.isVerifiedPoster && (
             <BadgeCheck size={13} className="text-blue-500" />
           )}
@@ -116,13 +124,13 @@ function ChallengeCard({
           {challenge.title}
         </h3>
         <p className="text-stone-500 text-xs leading-relaxed mb-4 line-clamp-2">
-          {challenge.description}
+          {description}
         </p>
 
         {/* Skills */}
-        {challenge.skills.length > 0 && (
+        {(challenge.skills ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-4">
-            {challenge.skills.slice(0, 3).map((skill) => (
+            {(challenge.skills ?? []).slice(0, 3).map((skill) => (
               <span
                 key={skill}
                 className="text-xs bg-stone-100 text-stone-600 rounded-full px-2.5 py-0.5"
@@ -142,13 +150,12 @@ function ChallengeCard({
             <div className="flex items-center gap-1">
               <Trophy size={12} className="text-amber-500" />
               <span className="text-sm font-bold text-stone-900">
-                {formatPrize(challenge.prizeAmount)}
+                {prizeAmount > 0 ? formatPrize(prizeAmount) : prizeLabel}
               </span>
-              <span className="text-xs text-stone-400 capitalize">{challenge.prizeType}</span>
             </div>
             <div className="flex items-center gap-1">
               <Users size={11} className="text-stone-400" />
-              <span className="text-xs text-stone-500">{challenge.submissionCount}</span>
+              <span className="text-xs text-stone-500">{challenge.submissionCount ?? 0}</span>
             </div>
           </div>
           <ChevronRight
