@@ -211,27 +211,27 @@ export default function ArenaIndustryView({
       const q = search.toLowerCase();
       result = result.filter(
         (c) =>
-          c.title.toLowerCase().includes(q) ||
-          c.description.toLowerCase().includes(q) ||
-          c.companyName.toLowerCase().includes(q) ||
-          c.skills.some((s) => s.toLowerCase().includes(q))
+          (c.title ?? '').toLowerCase().includes(q) ||
+          (c.description ?? (c as any).brief ?? '').toLowerCase().includes(q) ||
+          (c.companyName ?? '').toLowerCase().includes(q) ||
+          (c.skills ?? []).some((s) => s.toLowerCase().includes(q))
       );
     }
-    if (tierFilter !== "all") result = result.filter((c) => c.tier === tierFilter);
+    if (tierFilter !== "all") result = result.filter((c) => (c.tier ?? 'standard') === tierFilter);
     switch (sortBy) {
-      case "prize":    result.sort((a, b) => b.prizeAmount - a.prizeAmount); break;
+      case "prize":    result.sort((a, b) => (b.prizeAmount ?? 0) - (a.prizeAmount ?? 0)); break;
       case "deadline": result.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()); break;
       default:         result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
     // Featured + Exclusive float to top
     return [
-      ...result.filter((c) => c.tier === "exclusive"),
-      ...result.filter((c) => c.tier === "featured"),
-      ...result.filter((c) => c.tier === "standard"),
+      ...result.filter((c) => (c.tier ?? 'standard') === "exclusive"),
+      ...result.filter((c) => (c.tier ?? 'standard') === "featured"),
+      ...result.filter((c) => (c.tier ?? 'standard') === "standard"),
     ];
   }, [challenges, search, tierFilter, sortBy]);
 
-  const totalPrize = challenges.reduce((s, c) => s + c.prizeAmount, 0);
+  const totalPrize = challenges.reduce((s, c) => s + (c.prizeAmount ?? 0), 0);
 
   if (!arenaData && !loading) {
     return (
