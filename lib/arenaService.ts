@@ -422,7 +422,7 @@ export function subscribeToIndustryChallenges(
 ) {
   const q = query(
     collection(db, "arena_challenges"),
-    where("arenaIndustry", "==", industry),
+    where("arenaIndustryId", "==", industry),
     where("verificationStatus", "==", "live"),
     orderBy("createdAt", "desc"),
     limit(50)
