@@ -103,7 +103,16 @@ const MainApp: React.FC = () => {
   const [authState, setAuthState] = useState<AuthState>('landing');
   const [activeProfile, setActiveProfile] = useState<ActiveProfile>('user');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
-  const [currentView, setCurrentView] = useState<View>(View.Feed);
+  const [currentView, setCurrentView] = useState<View>(() => {
+    // Restore last view from sessionStorage on refresh
+    const saved = sessionStorage.getItem('beWatuView');
+    return (saved && Object.values(View).includes(saved as View))
+      ? saved as View
+      : View.Feed;
+  });
+  const [activeArenaIndustry, setActiveArenaIndustry] = useState<string | null>(
+    () => sessionStorage.getItem('beWatuArenaIndustry') ?? null
+  );
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +143,6 @@ const MainApp: React.FC = () => {
   };
 
   const [activeCircleId, setActiveCircleId] = useState<number | null>(null);
-  const [activeArenaIndustry, setActiveArenaIndustry] = useState<string | null>(null);
   const [profileUserId, setProfileUserId] = useState<number | null>(null);
   const [showSecurityPage, setShowSecurityPage] = useState(false);
   const [showConnectPage, setShowConnectPage] = useState(false);
@@ -320,6 +328,8 @@ const MainApp: React.FC = () => {
     setShowConnectPage(false);
     setShowAboutPage(false);
     sessionStorage.removeItem('beWatuData');
+    sessionStorage.removeItem('beWatuView');
+    sessionStorage.removeItem('beWatuArenaIndustry');
     setAuthState('landing');
   };
 
@@ -685,6 +695,7 @@ ${references || 'Not provided'}`;
 
   const handleSetView = (view: View) => {
     setCurrentView(view);
+    sessionStorage.setItem('beWatuView', view);
     if (view === View.Profile && currentUser) setProfileUserId(currentUser.id);
     else if (view !== View.Profile) setProfileUserId(null);
     if (view !== View.Circles) setActiveCircleId(null);
@@ -884,7 +895,24 @@ ${references || 'Not provided'}`;
         break;
       }
 
-      case View.Prove:
+      case View.Prove: {
+        // Build social graph UIDs — connections + circle/pod members
+        const connectedUids = new Set<string>();
+        data.connectionRequests
+          .filter(r => r.status === 'accepted')
+          .forEach(r => {
+            if (r.senderUid && r.senderUid !== fbUser?.uid) connectedUids.add(r.senderUid);
+            if (r.receiverUid && r.receiverUid !== fbUser?.uid) connectedUids.add(r.receiverUid);
+          });
+        // Add circle/pod member Firestore UIDs
+        data.circles
+          .filter(c => currentUser && c.members.includes(currentUser.id))
+          .forEach(c => {
+            data.users
+              .filter(u => c.members.includes(u.id) && u.id !== currentUser?.id)
+              .forEach(u => { if ((u as any)._firestoreUid) connectedUids.add((u as any)._firestoreUid); });
+          });
+
         content = (
           <ProveView
             currentUser={currentUser}
@@ -892,9 +920,11 @@ ${references || 'Not provided'}`;
             onStartMessage={startMessage}
             onConnect={handleSendConnection}
             allJobs={data.jobs}
+            socialGraphUids={connectedUids}
           />
         );
         break;
+      }
 
       case View.Arenas as any:
         content = (
@@ -902,7 +932,9 @@ ${references || 'Not provided'}`;
             <ArenaDiscovery
               onSelectIndustry={(slug: string) => {
                 setActiveArenaIndustry(slug);
+                sessionStorage.setItem('beWatuArenaIndustry', slug);
                 setCurrentView('ARENA_INDUSTRY' as any);
+                sessionStorage.setItem('beWatuView', 'ARENA_INDUSTRY');
               }}
               onPostChallenge={() => {}}
               currentUserCompany={selectedCompany}
