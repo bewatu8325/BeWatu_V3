@@ -956,6 +956,7 @@ ${references || 'Not provided'}`;
           <Suspense fallback={<div />}>
             <ArenaDiscovery
               onSelectIndustry={(slug: string) => {
+                console.log('🏟️ Selected industry slug:', slug, typeof slug);
                 setActiveArenaIndustry(slug);
                 setCurrentView('ARENA_INDUSTRY' as any);
               }}
@@ -969,6 +970,7 @@ ${references || 'Not provided'}`;
       case 'ARENA_INDUSTRY' as any:
         content = activeArenaIndustry ? (
           <Suspense fallback={<div />}>
+            {(() => { console.log('🏟️ Rendering ArenaIndustryView with industry:', activeArenaIndustry); return null; })()}
             <ArenaIndustryView
               industry={activeArenaIndustry as any}
               onBack={() => setCurrentView(View.Arenas as any)}
