@@ -56,6 +56,8 @@ import {
   applyToJobWithProfile,
   fetchCompanyById,
 } from './lib/firestoreService';
+import { recordTermsAgreement } from './lib/firestoreService';
+import TermsConsentModal, { TERMS_VERSION } from './components/TermsConsentModal';
 
 // ── Lazy-loaded components ────────────────────────────────────────────────────
 const ProfilePage = lazy(() => import('./components/ProfilePage'));
@@ -103,6 +105,7 @@ const MainApp: React.FC = () => {
   const [authState, setAuthState] = useState<AuthState>('landing');
   const [activeProfile, setActiveProfile] = useState<ActiveProfile>('user');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [showTermsWall, setShowTermsWall] = useState(false);
   const [currentView, setCurrentView] = useState<View>(() => {
     // Restore last view from sessionStorage on refresh
     const saved = sessionStorage.getItem('beWatuView');
@@ -171,6 +174,15 @@ const MainApp: React.FC = () => {
       loadAppData(currentUser);
     }
   }, [authLoading, currentUser, authState, data, loading]);
+
+  // ── Terms wall check — fires when user data is loaded ────────────────────
+  useEffect(() => {
+    if (authState !== 'authenticated' || !currentUser || !data) return;
+    const agreedVersion = (currentUser as any).agreedToTermsVersion;
+    if (!agreedVersion || agreedVersion !== TERMS_VERSION) {
+      setShowTermsWall(true);
+    }
+  }, [authState, currentUser?.id, !!data]);
 
   // ── Load app data ─────────────────────────────────────────────────────────
   const loadAppData = useCallback(async (user: User) => {
@@ -305,6 +317,8 @@ const MainApp: React.FC = () => {
         skills: [], verifiedSkills: null, microIntroductionUrl: null,
       };
       await loadAppData(userToLoad);
+      // Always show terms wall for new registrations
+      setShowTermsWall(true);
     } finally {
       setLoading(false);
     }
@@ -331,6 +345,12 @@ const MainApp: React.FC = () => {
     sessionStorage.removeItem('beWatuView');
     sessionStorage.removeItem('beWatuArenaIndustry');
     setAuthState('landing');
+  };
+
+  const handleTermsAgree = async () => {
+    if (!fbUser) return;
+    await recordTermsAgreement(fbUser.uid, TERMS_VERSION);
+    setShowTermsWall(false);
   };
 
   const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
@@ -1192,6 +1212,13 @@ ${references || 'Not provided'}`;
   return (
     <Suspense fallback={<FullPageLoader />}>
       {authState === 'authenticated' ? renderContent() : renderAuthFlow()}
+      {showTermsWall && currentUser && fbUser && (
+        <TermsConsentModal
+          userName={currentUser.name}
+          isNewUser={!(currentUser as any).agreedToTermsVersion}
+          onAgree={handleTermsAgree}
+        />
+      )}
     </Suspense>
   );
 };
