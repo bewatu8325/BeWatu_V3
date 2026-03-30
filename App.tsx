@@ -178,11 +178,13 @@ const MainApp: React.FC = () => {
   // ── Terms wall check — fires when user data is loaded ────────────────────
   useEffect(() => {
     if (authState !== 'authenticated' || !currentUser || !data) return;
+    if (showTermsWall) return; // already showing
     const agreedVersion = (currentUser as any).agreedToTermsVersion;
     if (!agreedVersion || agreedVersion !== TERMS_VERSION) {
       setShowTermsWall(true);
     }
-  }, [authState, currentUser?.id, !!data]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authState, data]);
 
   // ── Load app data ─────────────────────────────────────────────────────────
   const loadAppData = useCallback(async (user: User) => {
