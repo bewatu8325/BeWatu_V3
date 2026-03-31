@@ -175,28 +175,18 @@ const MainApp: React.FC = () => {
     }
   }, [authLoading, currentUser, authState, data, loading]);
 
-  // ── Factory navigation — handles both View.Factory and ?returnTo=factory ───
-  // Uses useEffect so the redirect never fires during render/switch evaluation.
-  // Waits until auth and data are fully settled before navigating.
+  // ── returnTo=factory — bounce authenticated users back to Factory ─────────
+  // Factory redirects unauthenticated users here with ?returnTo=factory.
+  // Once bewatu confirms the session is live, send them straight to Factory.
   useEffect(() => {
-    if (authLoading || loading || !currentUser || !data) return;
-    // Case 1: user clicked Factory nav item
-    if (currentView === View.Factory) {
-      // Clear Factory from sessionStorage BEFORE redirecting — prevents loop
-      // where bewatu reloads, restores View.Factory, and redirects again
-      sessionStorage.removeItem('beWatuView');
-      setCurrentView(View.Feed);
-      window.location.href = 'https://factory.bewatu.com';
-      return;
-    }
-    // Case 2: Factory sent user here with ?returnTo=factory after auth redirect
+    if (authLoading) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get('returnTo') === 'factory') {
+    if (params.get('returnTo') === 'factory' && currentUser) {
+      // Clean the URL param then redirect
       window.history.replaceState({}, '', window.location.pathname);
-      sessionStorage.removeItem('beWatuView');
       window.location.href = 'https://factory.bewatu.com';
     }
-  }, [authLoading, loading, currentUser, data, currentView]);
+  }, [authLoading, currentUser]);
 
   // ── Terms wall check — fires when user data is loaded ────────────────────
   useEffect(() => {
@@ -740,11 +730,7 @@ ${references || 'Not provided'}`;
 
   const handleSetView = (view: View) => {
     setCurrentView(view);
-    // Don't persist Factory to sessionStorage — it would cause a redirect loop
-    // on next load since the useEffect would immediately fire and redirect again
-    if (view !== View.Factory) {
-      sessionStorage.setItem('beWatuView', view);
-    }
+    sessionStorage.setItem('beWatuView', view);
     if (view === View.Profile && currentUser) setProfileUserId(currentUser.id);
     else if (view !== View.Profile) setProfileUserId(null);
     if (view !== View.Circles) setActiveCircleId(null);
@@ -812,8 +798,8 @@ ${references || 'Not provided'}`;
       </div>
     );
 
-    // Guard: if data belongs to a different user (mid-login transition), show loader
-    if (data && currentUser && !data.users.some(u => u.id === currentUser.id)) return <FullPageLoader />;
+    // Guard: only block if data is fully loaded AND user is missing — not during load
+    if (data && !loading && currentUser && !data.users.some(u => u.id === currentUser.id)) return <FullPageLoader />;
 
     if (activeProfile === 'admin') {
       return (
@@ -1048,7 +1034,8 @@ ${references || 'Not provided'}`;
         break;
 
       case View.Factory:
-        // Redirect happens in a useEffect above — render a brief spinner here
+        // Redirect to factory.bewatu.com — same Firebase project, session carries over
+        window.location.href = "https://factory.bewatu.com";
         content = (
           <div className="flex items-center justify-center h-64">
             <div className="flex flex-col items-center gap-3">
