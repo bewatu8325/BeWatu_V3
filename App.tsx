@@ -182,6 +182,10 @@ const MainApp: React.FC = () => {
     if (authLoading || loading || !currentUser || !data) return;
     // Case 1: user clicked Factory nav item
     if (currentView === View.Factory) {
+      // Clear Factory from sessionStorage BEFORE redirecting — prevents loop
+      // where bewatu reloads, restores View.Factory, and redirects again
+      sessionStorage.removeItem('beWatuView');
+      setCurrentView(View.Feed);
       window.location.href = 'https://factory.bewatu.com';
       return;
     }
@@ -189,6 +193,7 @@ const MainApp: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('returnTo') === 'factory') {
       window.history.replaceState({}, '', window.location.pathname);
+      sessionStorage.removeItem('beWatuView');
       window.location.href = 'https://factory.bewatu.com';
     }
   }, [authLoading, loading, currentUser, data, currentView]);
@@ -735,7 +740,11 @@ ${references || 'Not provided'}`;
 
   const handleSetView = (view: View) => {
     setCurrentView(view);
-    sessionStorage.setItem('beWatuView', view);
+    // Don't persist Factory to sessionStorage — it would cause a redirect loop
+    // on next load since the useEffect would immediately fire and redirect again
+    if (view !== View.Factory) {
+      sessionStorage.setItem('beWatuView', view);
+    }
     if (view === View.Profile && currentUser) setProfileUserId(currentUser.id);
     else if (view !== View.Profile) setProfileUserId(null);
     if (view !== View.Circles) setActiveCircleId(null);
