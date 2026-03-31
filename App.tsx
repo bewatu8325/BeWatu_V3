@@ -175,18 +175,23 @@ const MainApp: React.FC = () => {
     }
   }, [authLoading, currentUser, authState, data, loading]);
 
-  // ── returnTo=factory — bounce authenticated users back to Factory ─────────
-  // Factory redirects unauthenticated users here with ?returnTo=factory.
-  // Only fires after auth AND app data are fully loaded to avoid interfering
-  // with the normal bewatu loading sequence.
+  // ── Factory navigation — handles both View.Factory and ?returnTo=factory ───
+  // Uses useEffect so the redirect never fires during render/switch evaluation.
+  // Waits until auth and data are fully settled before navigating.
   useEffect(() => {
     if (authLoading || loading || !currentUser || !data) return;
+    // Case 1: user clicked Factory nav item
+    if (currentView === View.Factory) {
+      window.location.href = 'https://factory.bewatu.com';
+      return;
+    }
+    // Case 2: Factory sent user here with ?returnTo=factory after auth redirect
     const params = new URLSearchParams(window.location.search);
     if (params.get('returnTo') === 'factory') {
       window.history.replaceState({}, '', window.location.pathname);
       window.location.href = 'https://factory.bewatu.com';
     }
-  }, [authLoading, loading, currentUser, data]);
+  }, [authLoading, loading, currentUser, data, currentView]);
 
   // ── Terms wall check — fires when user data is loaded ────────────────────
   useEffect(() => {
@@ -1034,8 +1039,7 @@ ${references || 'Not provided'}`;
         break;
 
       case View.Factory:
-        // Redirect to factory.bewatu.com — same Firebase project, session carries over
-        window.location.href = "https://factory.bewatu.com";
+        // Redirect happens in a useEffect above — render a brief spinner here
         content = (
           <div className="flex items-center justify-center h-64">
             <div className="flex flex-col items-center gap-3">
