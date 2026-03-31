@@ -175,6 +175,19 @@ const MainApp: React.FC = () => {
     }
   }, [authLoading, currentUser, authState, data, loading]);
 
+  // ── returnTo=factory — bounce authenticated users back to Factory ─────────
+  // Factory redirects unauthenticated users here with ?returnTo=factory.
+  // Once bewatu confirms the session is live, send them straight to Factory.
+  useEffect(() => {
+    if (authLoading) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('returnTo') === 'factory' && currentUser) {
+      // Clean the URL param then redirect
+      window.history.replaceState({}, '', window.location.pathname);
+      window.location.href = 'https://factory.bewatu.com';
+    }
+  }, [authLoading, currentUser]);
+
   // ── Terms wall check — fires when user data is loaded ────────────────────
   useEffect(() => {
     if (authState !== 'authenticated' || !currentUser || !data) return;
@@ -785,8 +798,8 @@ ${references || 'Not provided'}`;
       </div>
     );
 
-    // Guard: if data belongs to a different user (mid-login transition), show loader
-    if (data && currentUser && !data.users.some(u => u.id === currentUser.id)) return <FullPageLoader />;
+    // Guard: only block if data is fully loaded AND user is missing — not during load
+    if (data && !loading && currentUser && !data.users.some(u => u.id === currentUser.id)) return <FullPageLoader />;
 
     if (activeProfile === 'admin') {
       return (
@@ -1021,9 +1034,14 @@ ${references || 'Not provided'}`;
         break;
 
       case View.Factory:
+        // Redirect to factory.bewatu.com — same Firebase project, session carries over
+        window.location.href = "https://factory.bewatu.com";
         content = (
-          <div className="p-8 text-center text-stone-500">
-            Factory workspace coming soon.
+          <div className="flex items-center justify-center h-64">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#1a4a3a', borderTopColor: 'transparent' }} />
+              <p className="text-sm text-stone-500">Opening Factory…</p>
+            </div>
           </div>
         );
         break;
