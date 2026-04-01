@@ -46,7 +46,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             <h2 className="text-base font-semibold text-stone-900">1. Information We Collect</h2>
             <p><strong className="font-medium text-stone-800">Information you provide directly:</strong> When you create an account, you provide us with your name, email address, and profile information including your headline, bio, skills, industry, and professional goals. You may also provide optional information such as your location, portfolio links, and work experience.</p>
             <p><strong className="font-medium text-stone-800">Content you create:</strong> We collect the content you post on the Platform, including posts, sparks, reels, messages, job applications, circle activity, arena submissions, and Factory pipeline contributions.</p>
-            <p><strong className="font-medium text-stone-800">Payment information:</strong> If you subscribe to a paid plan, payment is processed by Stripe. We receive confirmation of payment and your subscription status, but we do not store your full card details.</p>
+            <p><strong className="font-medium text-stone-800">Payment information:</strong> If you subscribe to a paid plan, payments are processed by a PCI-compliant third-party payment processor. We receive confirmation of payment and your subscription status, but we do not store your full payment card details.</p>
             <p><strong className="font-medium text-stone-800">Usage data:</strong> We collect information about how you use the Platform, including pages visited, features used, and interactions with content. This helps us improve the service.</p>
             <p><strong className="font-medium text-stone-800">Device information:</strong> We collect basic device and browser information including IP address, browser type, and operating system to maintain security and improve performance.</p>
           </section>
@@ -69,7 +69,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-stone-900">3. How We Share Your Information</h2>
             <p><strong className="font-medium text-stone-800">With other users:</strong> Your public profile information, posts, and activity are visible to other authenticated users of the Platform in accordance with your privacy settings. In BeWatu Factory, your startup information may be visible to verified investors.</p>
-            <p><strong className="font-medium text-stone-800">With service providers:</strong> We share information with third-party providers who help us operate the Platform, including Firebase (Google) for authentication and database services, Stripe for payment processing, and Vercel for hosting. These providers are contractually obligated to protect your data.</p>
+            <p><strong className="font-medium text-stone-800">With service providers:</strong> We share information with carefully selected third-party providers who help us operate the Platform. These include providers of authentication and identity services, cloud database and storage services, payment processing services, and hosting and infrastructure services. All third-party providers are bound by contractual obligations to protect your data and may only use it for the specific purposes for which it was shared.</p>
             <p><strong className="font-medium text-stone-800">For legal reasons:</strong> We may disclose your information if required by law, legal process, or to protect the rights, property, or safety of BeWatu, our users, or the public.</p>
             <p><strong className="font-medium text-stone-800">Business transfers:</strong> If BeWatu is involved in a merger, acquisition, or sale of assets, your information may be transferred as part of that transaction. We will notify you before your information is transferred and becomes subject to a different privacy policy.</p>
           </section>
@@ -86,7 +86,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             <ul className="list-disc list-inside space-y-1 pl-2 text-stone-600">
               <li><strong className="font-medium text-stone-700">Essential cookies:</strong> Required for authentication, security, and basic Platform functionality. These cannot be disabled.</li>
               <li><strong className="font-medium text-stone-700">Analytics cookies:</strong> Help us understand how the Platform is used so we can improve it. These are only set with your consent.</li>
-              <li><strong className="font-medium text-stone-700">Payment cookies:</strong> Set by Stripe to process payments securely. Subject to Stripe's cookie policy.</li>
+              <li><strong className="font-medium text-stone-700">Payment cookies:</strong> Required for secure payment processing. Governed by our payment processor's privacy policy.</li>
             </ul>
             <p>You can manage your cookie preferences through the cookie banner when you first visit the Platform, or at any time through your browser settings.</p>
           </section>
@@ -117,7 +117,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-stone-900">9. Security</h2>
-            <p>We implement industry-standard security measures to protect your information, including encrypted data transmission (HTTPS), secure authentication via Firebase, and access controls limiting who within our organisation can access user data. However, no system is completely secure, and we cannot guarantee the absolute security of your information.</p>
+            <p>We implement industry-standard security measures to protect your information, including encrypted data transmission, secure authentication protocols, and strict access controls limiting who within our organisation can access user data. We regularly review our security practices to ensure they remain appropriate. However, no system is completely secure, and we cannot guarantee the absolute security of your information.</p>
           </section>
 
           <section className="space-y-3">

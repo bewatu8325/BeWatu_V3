@@ -91,7 +91,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-stone-900">8. Subscriptions and Payments</h2>
-            <p>Some features of BeWatu require a paid subscription. Subscriptions are billed in advance and are non-refundable except as required by applicable law. We use Stripe to process payments — your payment information is handled directly by Stripe and is subject to their terms and privacy policy. BeWatu does not store your full payment card details.</p>
+            <p>Some features of BeWatu require a paid subscription. Subscriptions are billed in advance and are non-refundable except as required by applicable law. Payments are processed by a PCI-compliant third-party payment processor — your full payment card details are handled directly by that processor and are never stored by BeWatu.</p>
             <p>We may change subscription pricing with 30 days' notice. If you do not agree to a price change, you may cancel your subscription before the change takes effect.</p>
           </section>
 
