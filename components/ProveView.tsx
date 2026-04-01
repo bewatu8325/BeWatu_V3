@@ -542,6 +542,7 @@ interface ProveViewProps {
   onStartMessage: (id: number) => void;
   onConnect:      (id: number) => void;
   allJobs?:       any[];
+  socialGraphUids?: Set<string>;
 }
 
 export default function ProveView({
@@ -550,6 +551,7 @@ export default function ProveView({
   onStartMessage,
   onConnect,
   allJobs = [],
+  socialGraphUids,
 }: ProveViewProps) {
   const { fbUser } = useFirebase();
   const [reels, setReels]         = useState<Reel[]>([]);

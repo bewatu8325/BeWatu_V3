@@ -66,12 +66,9 @@ const Footer: React.FC<FooterProps> = ({
           {onReportConcern && (
             <button
               onClick={onReportConcern}
-              className="transition-colors"
-              style={{ color: '#dc2626', fontWeight: 600 }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#b91c1c')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#dc2626')}
+              className="text-stone-400 hover:text-stone-700 transition-colors"
             >
-              🚩 Report a concern
+              Report a concern
             </button>
           )}
 
