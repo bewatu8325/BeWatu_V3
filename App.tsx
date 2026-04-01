@@ -58,6 +58,7 @@ import {
 } from './lib/firestoreService';
 import { recordTermsAgreement } from './lib/firestoreService';
 import TermsConsentModal, { TERMS_VERSION } from './components/TermsConsentModal';
+import { goToFactory } from './utils/factoryHandoff';
 
 // ── Lazy-loaded components ────────────────────────────────────────────────────
 const ProfilePage = lazy(() => import('./components/ProfilePage'));
@@ -175,7 +176,12 @@ const MainApp: React.FC = () => {
     }
   }, [authLoading, currentUser, authState, data, loading]);
 
-  // ── Terms wall check — fires when user data is loaded ────────────────────
+  // ── Factory handoff — navigate to factory.bewatu.com with auth ───────────
+  useEffect(() => {
+    if (currentView === View.Factory && fbUser) {
+      goToFactory(fbUser);
+    }
+  }, [currentView, fbUser]);
   // Uses a session-level flag so it never re-fires once dismissed this session
   useEffect(() => {
     if (authState !== 'authenticated' || !currentUser || !data) return;
@@ -1032,9 +1038,11 @@ ${references || 'Not provided'}`;
         break;
 
       case View.Factory:
+        // goToFactory is triggered via useEffect below when view changes to Factory
         content = (
-          <div className="p-8 text-center text-stone-500">
-            Factory workspace coming soon.
+          <div className="flex flex-col items-center justify-center h-64 gap-3">
+            <LoadingIcon className="w-8 h-8 animate-spin" style={{ color: '#1a4a3a' }} />
+            <p className="text-sm text-stone-500">Opening Factory...</p>
           </div>
         );
         break;
@@ -1172,7 +1180,7 @@ ${references || 'Not provided'}`;
               onClose={() => setShowUpgradeModal(null)}
               onSuccess={(tier) => {
                 setShowUpgradeModal(null);
-                if (tier === 'factory') setCurrentView(View.Factory);
+                if (tier === 'factory') goToFactory(fbUser ?? null);
               }}
             />
           )}
