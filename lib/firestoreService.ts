@@ -3341,3 +3341,19 @@ export async function claimCompany(
 
   return { success: true };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TERMS AGREEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+export async function recordTermsAgreement(
+  uid:        string,
+  version:    string,
+  ipAddress?: string
+): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), {
+    agreedToTermsVersion: version,
+    agreedToTermsAt:      serverTimestamp(),
+    agreedToTermsIp:      ipAddress ?? null,
+    updatedAt:            serverTimestamp(),
+  });
+}
