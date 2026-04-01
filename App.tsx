@@ -59,6 +59,10 @@ import {
 import { recordTermsAgreement } from './lib/firestoreService';
 import TermsConsentModal, { TERMS_VERSION } from './components/TermsConsentModal';
 import { goToFactory } from './utils/factoryHandoff';
+import CookieBanner from './components/CookieBanner';
+const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
+const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
+const CommunityGuidelines = lazy(() => import('./components/legal/CommunityGuidelines'));
 
 // ── Lazy-loaded components ────────────────────────────────────────────────────
 const ProfilePage = lazy(() => import('./components/ProfilePage'));
@@ -107,6 +111,7 @@ const MainApp: React.FC = () => {
   const [activeProfile, setActiveProfile] = useState<ActiveProfile>('user');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [showTermsWall, setShowTermsWall] = useState(false);
+  const [showCommunityWall, setShowCommunityWall] = useState(false);
   const [currentView, setCurrentView] = useState<View>(() => {
     // Restore last view from sessionStorage on refresh
     const saved = sessionStorage.getItem('beWatuView');
@@ -151,6 +156,9 @@ const MainApp: React.FC = () => {
   const [showSecurityPage, setShowSecurityPage] = useState(false);
   const [showConnectPage, setShowConnectPage] = useState(false);
   const [showAboutPage, setShowAboutPage]   = useState(false);
+  const [showTermsPage, setShowTermsPage] = useState(false);
+  const [showPrivacyPage, setShowPrivacyPage] = useState(false);
+  const [showCommunityPage, setShowCommunityPage] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<number | null>(null);
   const [followedUserIds, setFollowedUserIds] = useState<Set<number>>(new Set());
 
@@ -179,13 +187,28 @@ const MainApp: React.FC = () => {
   // Uses a session-level flag so it never re-fires once dismissed this session
   useEffect(() => {
     if (authState !== 'authenticated' || !currentUser || !data) return;
-    if (showTermsWall) return; // already showing
-    // Check session storage first — if agreed this session, never show again
-    const sessionAgreed = sessionStorage.getItem('termsAgreedThisSession');
-    if (sessionAgreed === TERMS_VERSION) return;
-    const agreedVersion = (currentUser as any).agreedToTermsVersion;
-    if (!agreedVersion || agreedVersion !== TERMS_VERSION) {
-      setShowTermsWall(true);
+
+    // Step 1 — check Terms of Service
+    if (!showTermsWall) {
+      const sessionAgreed = sessionStorage.getItem('termsAgreedThisSession');
+      if (sessionAgreed !== TERMS_VERSION) {
+        const agreedVersion = (currentUser as any).agreedToTermsVersion;
+        if (!agreedVersion || agreedVersion !== TERMS_VERSION) {
+          setShowTermsWall(true);
+          return; // Show terms first — community wall shown after terms accepted
+        }
+      }
+    }
+
+    // Step 2 — check Community Guidelines (required to use platform)
+    if (!showCommunityWall) {
+      const communitySession = sessionStorage.getItem('communityAgreedThisSession');
+      if (!communitySession) {
+        const agreedCommunity = (currentUser as any).agreedToCommunityVersion;
+        if (!agreedCommunity || agreedCommunity !== '1.0') {
+          setShowCommunityWall(true);
+        }
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState, currentUser?.id]);
@@ -355,15 +378,35 @@ const MainApp: React.FC = () => {
     sessionStorage.removeItem('beWatuView');
     sessionStorage.removeItem('beWatuArenaIndustry');
     sessionStorage.removeItem('termsAgreedThisSession');
+    sessionStorage.removeItem('communityAgreedThisSession');
     setAuthState('landing');
   };
 
   const handleTermsAgree = async () => {
     if (!fbUser) return;
     await recordTermsAgreement(fbUser.uid, TERMS_VERSION);
-    // Store in session so the wall never re-fires during this browser session
     sessionStorage.setItem('termsAgreedThisSession', TERMS_VERSION);
     setShowTermsWall(false);
+    // Check if community guidelines also need agreement
+    const communitySession = sessionStorage.getItem('communityAgreedThisSession');
+    if (!communitySession) {
+      const agreedCommunity = (currentUser as any)?.agreedToCommunityVersion;
+      if (!agreedCommunity || agreedCommunity !== '1.0') {
+        setShowCommunityWall(true);
+      }
+    }
+  };
+
+  const handleCommunityAgree = async () => {
+    if (!fbUser) return;
+    // Write to Firestore
+    const { updateUserInFirestore } = await import('./lib/firebaseAuth');
+    await updateUserInFirestore(fbUser.uid, {
+      agreedToCommunityVersion: '1.0',
+      agreedToCommunityAt: new Date().toISOString(),
+    });
+    sessionStorage.setItem('communityAgreedThisSession', '1.0');
+    setShowCommunityWall(false);
   };
 
   const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
@@ -1157,7 +1200,14 @@ ${references || 'Not provided'}`;
           />
           <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">{content}</main>
           {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
-          <Footer onNavigateToConnect={handleNavigateToConnect} onNavigateToAbout={() => setShowAboutPage(true)} onReportConcern={() => openReport(undefined, undefined)} />
+          <Footer
+            onNavigateToConnect={handleNavigateToConnect}
+            onNavigateToAbout={() => setShowAboutPage(true)}
+            onReportConcern={() => openReport(undefined, undefined)}
+            onNavigateToTerms={() => setShowTermsPage(true)}
+            onNavigateToPrivacy={() => setShowPrivacyPage(true)}
+            onNavigateToCommunity={() => setShowCommunityPage(true)}
+          />
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
           {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
@@ -1185,6 +1235,32 @@ ${references || 'Not provided'}`;
           )}
           <MobileNav currentView={currentView} onNavigate={handleSetView} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />
         </div>
+
+        {/* ── Legal page overlays ────────────────────────────────────────── */}
+        {showTermsPage && (
+          <div className="fixed inset-0 z-[70] overflow-y-auto">
+            <Suspense fallback={<FullPageLoader />}>
+              <TermsOfService onBack={() => setShowTermsPage(false)} />
+            </Suspense>
+          </div>
+        )}
+        {showPrivacyPage && (
+          <div className="fixed inset-0 z-[70] overflow-y-auto">
+            <Suspense fallback={<FullPageLoader />}>
+              <PrivacyPolicy onBack={() => setShowPrivacyPage(false)} />
+            </Suspense>
+          </div>
+        )}
+        {showCommunityPage && (
+          <div className="fixed inset-0 z-[70] overflow-y-auto">
+            <Suspense fallback={<FullPageLoader />}>
+              <CommunityGuidelines onBack={() => setShowCommunityPage(false)} />
+            </Suspense>
+          </div>
+        )}
+
+        {/* ── Cookie banner ──────────────────────────────────────────────── */}
+        <CookieBanner onShowPrivacy={() => setShowPrivacyPage(true)} />
       </>
     );
   };
@@ -1239,6 +1315,74 @@ ${references || 'Not provided'}`;
           onAgree={handleTermsAgree}
         />
       )}
+      {/* Community Guidelines wall — required, blocks app until agreed */}
+      {showCommunityWall && !showTermsWall && currentUser && fbUser && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-2xl w-full max-w-md p-6 sm:p-8 space-y-5">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto text-2xl"
+                style={{ backgroundColor: '#e8f4f0' }}>
+                🤝
+              </div>
+              <h2 className="text-lg font-bold text-stone-900">Community Guidelines</h2>
+              <p className="text-sm text-stone-500 leading-relaxed">
+                Before you continue, please review and agree to our Community Guidelines. These are required to use BeWatu.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-stone-200 p-4 space-y-2.5 text-xs text-stone-600 leading-relaxed max-h-48 overflow-y-auto">
+              <p><strong className="text-stone-800">Be Respectful</strong> — No harassment, hate speech, or personal attacks. Critique ideas, not people.</p>
+              <p><strong className="text-stone-800">Be Honest</strong> — Represent yourself accurately. No fake profiles, impersonation, or fabricated credentials.</p>
+              <p><strong className="text-stone-800">Keep It Professional</strong> — Content should be relevant to careers, skills, and innovation. No spam or explicit material.</p>
+              <p><strong className="text-stone-800">Protect IP</strong> — Respect others' work and ideas. No misappropriating content from other members, especially in Factory.</p>
+              <p><strong className="text-stone-800">Recruiters</strong> — Direct employees only, no agencies. Postings must be genuine and accurate.</p>
+            </div>
+
+            <div className="space-y-2.5">
+              <button onClick={handleCommunityAgree}
+                className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#1a4a3a' }}>
+                I agree to the Community Guidelines
+              </button>
+              <button onClick={() => setShowCommunityPage(true)}
+                className="w-full py-2 text-xs text-stone-500 hover:text-stone-700 transition-colors">
+                Read full Community Guidelines →
+              </button>
+            </div>
+
+            <p className="text-[11px] text-stone-400 text-center">
+              By continuing, you also agree to our{' '}
+              <button onClick={() => setShowTermsPage(true)} className="underline hover:no-underline">Terms</button>
+              {' '}and{' '}
+              <button onClick={() => setShowPrivacyPage(true)} className="underline hover:no-underline">Privacy Policy</button>.
+            </p>
+          </div>
+        </div>
+      )}
+      {/* Legal pages accessible from landing/auth flow too */}
+      {showTermsPage && (
+        <div className="fixed inset-0 z-[70] overflow-y-auto">
+          <Suspense fallback={<FullPageLoader />}>
+            <TermsOfService onBack={() => setShowTermsPage(false)} />
+          </Suspense>
+        </div>
+      )}
+      {showPrivacyPage && (
+        <div className="fixed inset-0 z-[70] overflow-y-auto">
+          <Suspense fallback={<FullPageLoader />}>
+            <PrivacyPolicy onBack={() => setShowPrivacyPage(false)} />
+          </Suspense>
+        </div>
+      )}
+      {showCommunityPage && (
+        <div className="fixed inset-0 z-[70] overflow-y-auto">
+          <Suspense fallback={<FullPageLoader />}>
+            <CommunityGuidelines onBack={() => setShowCommunityPage(false)} />
+          </Suspense>
+        </div>
+      )}
+      <CookieBanner onShowPrivacy={() => setShowPrivacyPage(true)} />
     </Suspense>
   );
 };
