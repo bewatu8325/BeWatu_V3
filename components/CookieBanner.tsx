@@ -202,16 +202,12 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
                 </div>
               </div>
 
-              {/* Stripe — info only */}
+              {/* Payment processing cookies — info only */}
               <div className="flex items-start justify-between gap-4 pb-1">
                 <div className="space-y-0.5 flex-1">
-                  <p className="text-xs font-semibold text-stone-800">Payment (Stripe)</p>
+                  <p className="text-xs font-semibold text-stone-800">Payment processing</p>
                   <p className="text-xs text-stone-500 leading-relaxed">
-                    Required for subscriptions. Governed by{' '}
-                    <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer"
-                      className="text-[#1a4a3a] underline underline-offset-2">
-                      Stripe's policy
-                    </a>.
+                    Required for subscription and payment functionality. Governed by our payment processor's privacy policy.
                   </p>
                 </div>
                 <div className="flex-shrink-0 pt-0.5">
