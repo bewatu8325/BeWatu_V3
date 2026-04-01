@@ -176,12 +176,6 @@ const MainApp: React.FC = () => {
     }
   }, [authLoading, currentUser, authState, data, loading]);
 
-  // ── Factory handoff — navigate to factory.bewatu.com with auth ───────────
-  useEffect(() => {
-    if (currentView === View.Factory && fbUser) {
-      goToFactory(fbUser);
-    }
-  }, [currentView, fbUser]);
   // Uses a session-level flag so it never re-fires once dismissed this session
   useEffect(() => {
     if (authState !== 'authenticated' || !currentUser || !data) return;
@@ -733,6 +727,11 @@ ${references || 'Not provided'}`;
   };
 
   const handleSetView = (view: View) => {
+    // Factory is a separate domain — navigate there directly, don't set view
+    if (view === View.Factory) {
+      goToFactory(fbUser ?? null);
+      return;
+    }
     setCurrentView(view);
     sessionStorage.setItem('beWatuView', view);
     if (view === View.Profile && currentUser) setProfileUserId(currentUser.id);
