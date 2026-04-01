@@ -1,0 +1,72 @@
+# .semgrep/bewatu-firebase.yml
+# Firebase-specific security patterns for BeWatu serverless functions.
+
+rules:
+
+  - id: bewatu-firestore-missing-request-auth
+    patterns:
+      - pattern: |
+          allow $ACTION: if true;
+    message: >
+      Firestore rule allows $ACTION without authentication check.
+      This is almost certainly a misconfiguration. Restrict to authenticated
+      users at minimum: `allow $ACTION: if request.auth != null;`
+    severity: ERROR
+    languages: [generic]
+    paths:
+      include: ['firestore.rules', '*.rules']
+
+  - id: bewatu-admin-sdk-in-edge-function
+    patterns:
+      - pattern: |
+          import admin from 'firebase-admin'
+    paths:
+      include: ['middleware.ts', 'middleware.js']
+    message: >
+      Firebase Admin SDK used in Next.js middleware (edge runtime).
+      Admin SDK is not compatible with the edge runtime. Move this logic
+      to a serverless function (api/ route).
+    severity: ERROR
+    languages: [typescript]
+
+  - id: bewatu-unchecked-user-input-to-firestore
+    patterns:
+      - pattern: |
+          db.collection($COL).doc($ID).set(req.body)
+      - pattern: |
+          db.collection($COL).doc($ID).update(req.body)
+    message: >
+      Raw req.body written directly to Firestore without validation.
+      Validate and sanitize all user input before writing to Firestore.
+      Use zod or a similar schema validator.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include: ['api/']
+
+  - id: bewatu-custom-token-no-expiry
+    pattern: |
+      admin.auth().createCustomToken($UID)
+    paths:
+      include: ['api/']
+    message: >
+      Custom token created without additional claims review.
+      Ensure that custom tokens for factory-token handoff are
+      single-use and consumed immediately by the client.
+    severity: WARNING
+    languages: [typescript]
+
+  - id: bewatu-no-rate-limit-on-auth-endpoint
+    patterns:
+      - pattern: |
+          export default async function handler(req: VercelRequest, res: VercelResponse) { ... }
+      - pattern-not-inside: |
+          const $RATE = rateLimit(...);
+    paths:
+      include: ['api/auth/', 'api/factory-token.ts', 'api/send-recruiter-otp.ts']
+    message: >
+      Auth endpoint without apparent rate limiting.
+      Add rate limiting to prevent brute force and token abuse.
+      Use upstash/ratelimit or a similar library.
+    severity: WARNING
+    languages: [typescript]

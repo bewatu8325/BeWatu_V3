@@ -1,0 +1,114 @@
+# .semgrep/bewatu-react.yml
+# BeWatu-specific Semgrep rules for React + Firebase patterns.
+# These run in addition to `semgrep --config=auto` in CI.
+
+rules:
+
+  - id: bewatu-dangerouslySetInnerHTML
+    patterns:
+      - pattern: <$EL dangerouslySetInnerHTML={{__html: $X}} ... />
+      - pattern-not: <$EL dangerouslySetInnerHTML={{__html: DOMPurify.sanitize($X)}} ... />
+    message: >
+      dangerouslySetInnerHTML without DOMPurify sanitization.
+      XSS risk. Sanitize with DOMPurify.sanitize() before use.
+    severity: ERROR
+    languages: [typescript, tsx]
+    metadata:
+      cwe: CWE-79
+      owasp: A03:2021
+
+  - id: bewatu-firebase-client-admin
+    pattern: |
+      import { ... } from 'firebase-admin'
+    paths:
+      include: ['src/']
+    message: >
+      Firebase Admin SDK imported in client-side code (src/).
+      Admin SDK must only be used in api/ serverless functions.
+      This exposes service account credentials to the browser.
+    severity: ERROR
+    languages: [typescript]
+    metadata:
+      cwe: CWE-798
+
+  - id: bewatu-hardcoded-firebase-config
+    pattern: |
+      apiKey: "..."
+    paths:
+      exclude: ['src/lib/firebase.ts', 'src/lib/firebase/config.ts']
+    message: >
+      Firebase config appears hardcoded outside the designated config file.
+      Use environment variables or the central firebase config module.
+    severity: WARNING
+    languages: [typescript]
+
+  - id: bewatu-eval-usage
+    pattern: eval($X)
+    message: eval() usage detected. Extremely high XSS risk. Remove immediately.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      cwe: CWE-95
+
+  - id: bewatu-localStorage-sensitive
+    patterns:
+      - pattern: localStorage.setItem($KEY, $VAL)
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: '.*(token|key|secret|password|auth|session).*'
+    message: >
+      Sensitive data stored in localStorage. localStorage is accessible
+      to any JavaScript on the page. Use httpOnly cookies or
+      sessionStorage with short TTL for sensitive values.
+    severity: WARNING
+    languages: [typescript]
+    metadata:
+      cwe: CWE-312
+
+  - id: bewatu-console-log-sensitive
+    patterns:
+      - pattern: console.log(..., $X, ...)
+      - metavariable-regex:
+          metavariable: $X
+          regex: '.*(password|token|secret|key|auth|credential).*'
+    message: Possible sensitive value logged to console. Remove before production.
+    severity: WARNING
+    languages: [typescript]
+
+  - id: bewatu-firestore-no-auth-check
+    patterns:
+      - pattern: |
+          const $DOC = await getDoc(doc(db, $COLLECTION, $ID));
+      - pattern-not-inside: |
+          if (!$USER) { ... }
+    paths:
+      include: ['src/']
+    message: >
+      Firestore read without preceding auth check. Confirm that
+      authentication is verified before this read, and that
+      Firestore rules enforce access control server-side.
+    severity: WARNING
+    languages: [typescript]
+
+  - id: bewatu-cors-wildcard
+    pattern: |
+      res.setHeader('Access-Control-Allow-Origin', '*')
+    paths:
+      include: ['api/']
+    message: >
+      CORS wildcard in API route. All BeWatu API routes should restrict
+      to known origins (bewatu.com, factory.bewatu.com, ops.bewatu.com).
+      Wildcard allows any origin to call this endpoint.
+    severity: WARNING
+    languages: [typescript]
+
+  - id: bewatu-unvalidated-redirect
+    patterns:
+      - pattern: window.location.href = $URL
+      - pattern-not: window.location.href = "https://..."
+      - pattern-not: window.location.href = `https://...`
+    message: >
+      Open redirect risk. Dynamic URL used in window.location.href.
+      Validate that the destination is an allowed BeWatu domain before redirecting.
+    severity: WARNING
+    languages: [typescript]

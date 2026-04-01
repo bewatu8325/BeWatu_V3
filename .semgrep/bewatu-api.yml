@@ -1,1 +1,66 @@
-//
+# .semgrep/bewatu-api.yml
+# API security patterns for BeWatu Vercel serverless functions.
+
+rules:
+
+  - id: bewatu-missing-auth-check
+    patterns:
+      - pattern: |
+          export default async function handler(req: VercelRequest, res: VercelResponse) {
+            ...
+          }
+      - pattern-not-inside: |
+          const $AGENT = await verifyOpsAgent(req);
+      - pattern-not-inside: |
+          const $USER = await verifyIdToken(req);
+      - pattern-not-inside: |
+          const $TOKEN = req.headers.authorization;
+    paths:
+      include: ['api/security/']
+    message: >
+      Security API endpoint missing auth check. All /api/security/ routes
+      must call verifyOpsAgent(req) before processing the request.
+    severity: ERROR
+    languages: [typescript]
+
+  - id: bewatu-http-method-not-checked
+    patterns:
+      - pattern: |
+          export default async function handler(req: VercelRequest, res: VercelResponse) {
+            ...
+          }
+      - pattern-not-inside: |
+          if (req.method !== ...) { ... }
+    paths:
+      include: ['api/']
+    message: >
+      API handler does not check HTTP method. Add method validation:
+      `if (req.method !== 'POST') return res.status(405).end();`
+    severity: WARNING
+    languages: [typescript]
+
+  - id: bewatu-error-exposes-stack
+    patterns:
+      - pattern: res.status(500).json({ error: $E.message })
+      - pattern: res.status(500).json({ error: $E.stack })
+    paths:
+      include: ['api/']
+    message: >
+      Error response may expose internal stack trace or error message.
+      Return a generic error message to clients and log the full error server-side.
+    severity: WARNING
+    languages: [typescript]
+
+  - id: bewatu-next-public-secret
+    patterns:
+      - pattern: |
+          process.env.NEXT_PUBLIC_$SECRET
+      - metavariable-regex:
+          metavariable: $SECRET
+          regex: '.*(KEY|SECRET|TOKEN|PASSWORD|SA|ACCOUNT).*'
+    message: >
+      Secret stored in NEXT_PUBLIC_ environment variable.
+      Variables prefixed with NEXT_PUBLIC_ are bundled into the client-side
+      JavaScript and visible to all users. Move to a server-only variable.
+    severity: ERROR
+    languages: [typescript]
