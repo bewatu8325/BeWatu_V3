@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Job, Company } from '../types';
-import { generateJobDescription } from '../services/geminiService';
+import { generateJobDescription } from '../services/claudeService';
 import { LoadingIcon, SparklesIcon } from '../constants';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFirebase } from '../contexts/FirebaseContext';
