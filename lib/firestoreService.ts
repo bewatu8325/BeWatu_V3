@@ -95,6 +95,58 @@ function toNotification(d: QueryDocumentSnapshot): Notification {
     _firestoreId: d.id,
   } as Notification & { _firestoreId: string };
 }
+/**
+ * Real-time subscription to posts in a specific circle.
+ *
+ * Scalability notes:
+ * - Only subscribes to ONE circle at a time per user — not all posts
+ * - Capped at 30 most recent posts — prevents large reads
+ * - Uses Firestore compound index: circleId ASC + createdAt DESC
+ *   (create this index in Firebase Console if not already present)
+ * - Automatically unsubscribes when caller unmounts (returned function)
+ *
+ * @param circleFirestoreId  The Firestore document ID of the circle
+ * @param callback           Called with the updated post array on every change
+ * @returns                  Unsubscribe function — call on component unmount
+ */
+export function subscribeToCirclePosts(
+  circleFirestoreId: string,
+  callback: (posts: Post[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, 'posts'),
+    where('circleId', '==', circleFirestoreId),
+    orderBy('createdAt', 'desc'),
+    limit(30)
+  );
+
+  return onSnapshot(
+    q,
+    { includeMetadataChanges: false }, // don't fire on local cache writes
+    (snap) => {
+      const posts: Post[] = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id:           data.numericId ?? Date.now(),
+          _firestoreId: d.id,
+          authorId:     data.authorNumericId ?? 0,
+          authorUid:    data.authorUid ?? '',
+          content:      data.content ?? '',
+          timestamp:    data.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+          appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
+          comments:     data.comments ?? 0,
+          shares:       data.shares ?? 0,
+          circleId:     data.circleId,
+          isRead:       true,
+        } as Post;
+      });
+      callback(posts);
+    },
+    (err) => {
+      console.error('subscribeToCirclePosts error:', err);
+    }
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POSTS
