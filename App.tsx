@@ -4,7 +4,7 @@ import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
-import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/claudeService';
+import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/geminiService';
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
@@ -61,7 +61,6 @@ import TermsConsentModal, { TERMS_VERSION } from './components/TermsConsentModal
 import { goToFactory } from './utils/factoryHandoff';
 import CookieBanner from './components/CookieBanner';
 import AccountDeletionModal from './components/AccountDeletionModal';
-const RecruiterRegistrationFlow = lazy(() => import('./components/recruiter/RecruiterRegistrationFlow'));
 const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
 const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
 const CommunityGuidelines = lazy(() => import('./components/legal/CommunityGuidelines'));
@@ -162,7 +161,6 @@ const MainApp: React.FC = () => {
   const [showPrivacyPage, setShowPrivacyPage] = useState(false);
   const [showCommunityPage, setShowCommunityPage] = useState(false);
   const [showDeletionModal, setShowDeletionModal] = useState(false);
-  const [showRecruiterRegistration, setShowRecruiterRegistration] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<number | null>(null);
   const [followedUserIds, setFollowedUserIds] = useState<Set<number>>(new Set());
 
@@ -285,7 +283,34 @@ const MainApp: React.FC = () => {
     }
   }, [fbUser]);
 
-  // ── Platform admin check ─────────────────────────────────────────────────
+  // ── Real-time circle posts subscription ──────────────────────────────────
+  // Subscribes only to the active circle's posts — not all posts globally.
+  // This scales correctly: each user only listens to one circle at a time.
+  // Unsubscribes automatically when they leave the circle.
+  useEffect(() => {
+    if (!activeCircleId || !fbUser || authState !== 'authenticated') return;
+
+    // Find the Firestore ID for this circle
+    const circle = data?.circles?.find(c => c.id === activeCircleId) as any;
+    const firestoreCircleId = circle?._firestoreId ?? String(activeCircleId);
+
+    let unsub: (() => void) | null = null;
+
+    import('./lib/firestoreService').then(({ subscribeToCirclePosts }) => {
+      if (typeof subscribeToCirclePosts !== 'function') return;
+      unsub = subscribeToCirclePosts(firestoreCircleId, (newPosts: any[]) => {
+        setData(d => {
+          if (!d) return null;
+          // Merge new circle posts with existing posts, deduplicate by id
+          const nonCirclePosts = d.posts.filter((p: any) => p.circleId !== activeCircleId);
+          return { ...d, posts: [...nonCirclePosts, ...newPosts] };
+        });
+      });
+    }).catch(() => {});
+
+    return () => { unsub?.(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCircleId, authState]);
   useEffect(() => {
     if (!fbUser) { setIsPlatformAdmin(false); return; }
     import('./lib/firestoreService').then(({ isPlatformAdmin: checkAdmin }) => {
@@ -591,25 +616,23 @@ const MainApp: React.FC = () => {
 
   const handleViewCompany = async (companyId: number | string) => {
     if (!data) return;
-    // First try local data (fast path)
+    // Fast path — check local state first (covers recruiter's own company)
     const local = data.companies.find(c =>
-      c.id === companyId ||
       (c as any)._firestoreId === companyId ||
+      c.id === companyId ||
       String(c.id) === String(companyId)
     );
     if (local) { setSelectedCompany(local); return; }
-    // Not in local state — fetch from Firestore by firestoreId string
-    if (typeof companyId === 'string') {
-      const fetched = await fetchCompanyById(companyId);
+    // Fetch from Firestore — always use string firestoreId
+    try {
+      const fetched = await fetchCompanyById(String(companyId));
       if (fetched) {
-        // Add to local companies so the modal has consistent data
+        // Cache in local state so repeat clicks are instant
         setData(d => d ? { ...d, companies: [...d.companies, fetched] } : null);
         setSelectedCompany(fetched);
       }
-    } else {
-      // Numeric ID not found locally — try as string firestoreId
-      const fetched = await fetchCompanyById(String(companyId));
-      if (fetched) setSelectedCompany(fetched);
+    } catch (err) {
+      console.error('handleViewCompany failed:', err);
     }
   };
 
@@ -949,18 +972,16 @@ ${references || 'Not provided'}`;
         content = (
           <div className="space-y-4">
             {!currentUser.isRecruiter && (
-              <div className="rounded-2xl border border-stone-200 bg-white p-4 flex items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-semibold text-stone-900">Post jobs on BeWatu</p>
-                  <p className="text-xs text-stone-500">Become a verified recruiter to post opportunities and reach candidates.</p>
-                </div>
-                <button
-                  onClick={() => setShowRecruiterRegistration(true)}
-                  className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: '#1a4a3a' }}>
-                  Apply to recruit
-                </button>
-              </div>
+              <Suspense fallback={<div />}>
+                <RecruiterUpgradeBanner
+                  currentUser={currentUser}
+                  fbUserUid={fbUser!.uid}
+                  onSuccess={() => {
+                    // Reload user data to pick up isRecruiter: true
+                    loadAppData(currentUser);
+                  }}
+                />
+              </Suspense>
             )}
             <Jobs
               jobs={data.jobs}
@@ -1416,24 +1437,6 @@ ${references || 'Not provided'}`;
           onConfirm={handleDeleteAccount}
           onClose={() => setShowDeletionModal(false)}
         />
-      )}
-
-      {/* Recruiter registration flow */}
-      {showRecruiterRegistration && currentUser && fbUser && (
-        <div className="fixed inset-0 z-[70] overflow-y-auto">
-          <Suspense fallback={<FullPageLoader />}>
-            <RecruiterRegistrationFlow
-              user={currentUser}
-              fbUserUid={fbUser.uid}
-              fbUserEmail={fbUser.email ?? ''}
-              onSuccess={() => {
-                setShowRecruiterRegistration(false);
-                loadAppData(currentUser);
-              }}
-              onCancel={() => setShowRecruiterRegistration(false)}
-            />
-          </Suspense>
-        </div>
       )}
     </Suspense>
   );
