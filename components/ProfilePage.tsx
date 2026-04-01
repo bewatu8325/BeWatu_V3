@@ -3,7 +3,6 @@ import { User, ConnectionRequest, Circle, View, Experience } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import ExperienceSection from './ExperienceSection';
-import { CareerArc, CareerInflection } from './CareerArc';
 import ReputationPanel from './profile/ReputationPanel';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -65,7 +64,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeError, setResumeError] = useState('');
   const [localExperiences, setLocalExperiences] = useState<any[]>((user as any).experiences ?? []);
-  const [localCareerArc, setLocalCareerArc] = useState<CareerInflection[]>((user as any).careerArc ?? []);
 
   const connectionCount = useMemo(() => {
     return connectionRequests.filter(
@@ -223,11 +221,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           {!isCurrentUser && onReportUser && (
             <button
               onClick={() => onReportUser(user._firestoreUid ?? String(user.id), user.name)}
-              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; }}
+              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, border: '1px solid #e7e5e4', background: '#f5f5f4', color: '#78716c', fontSize: 12, fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#e7e5e4'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#f5f5f4'; }}
             >
-              🚩 Report this user
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Report this user
             </button>
           )}
         </div>
@@ -341,22 +340,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           experiences={localExperiences}
           isOwn={isCurrentUser}
           onSave={handleSaveExperiences}
-        />
-
-        {/* Career Arc */}
-        <CareerArc
-          inflections={localCareerArc}
-          isOwn={isCurrentUser}
-          onAdd={async (point) => {
-            const updated = [...localCareerArc, point as CareerInflection];
-            setLocalCareerArc(updated);
-            if (fbUser) await updateUserInFirestore(fbUser.uid, { careerArc: updated });
-          }}
-          onDelete={async (id) => {
-            const updated = localCareerArc.filter(p => p.id !== id);
-            setLocalCareerArc(updated);
-            if (fbUser) await updateUserInFirestore(fbUser.uid, { careerArc: updated });
-          }}
         />
 
         <SkillDNA

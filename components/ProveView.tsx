@@ -542,7 +542,6 @@ interface ProveViewProps {
   onStartMessage: (id: number) => void;
   onConnect:      (id: number) => void;
   allJobs?:       any[];
-  socialGraphUids?: Set<string>;
 }
 
 export default function ProveView({
@@ -551,16 +550,15 @@ export default function ProveView({
   onStartMessage,
   onConnect,
   allJobs = [],
-  socialGraphUids = new Set(),
 }: ProveViewProps) {
   const { fbUser } = useFirebase();
-  const [reels, setReels]             = useState<Reel[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [showUpload, setShowUpload]   = useState(false);
-  const [search, setSearch]           = useState('');
+  const [reels, setReels]         = useState<Reel[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
+  const [search, setSearch]       = useState('');
   const [filterSkill, setFilterSkill] = useState<string | null>(null);
   const [filterIndustry, setFilterIndustry] = useState<string | null>(null);
-  const [activeTab, setActiveTab]     = useState<'network' | 'mine' | 'discover'>('network');
+  const [activeTab, setActiveTab] = useState<'network' | 'mine' | 'discover'>('network');
 
   const currentUid = fbUser?.uid ?? String(currentUser?.id ?? '');
 
@@ -586,28 +584,75 @@ export default function ProveView({
     });
   };
 
+  // Match reels against user's skills from their profile
   const userSkills = (currentUser?.skills ?? []).map((s: any) =>
     typeof s === 'string' ? s.toLowerCase() : s.name?.toLowerCase()
   );
+  const userIndustry = (currentUser?.industry ?? '').toLowerCase();
 
-  const filtered = reels.filter(r => {
-    // Tab filtering
+  // Score a reel by skills/industry match — used for Discover ranking
+  function matchScore(reel: Reel): number {
+    const reelSkills = (reel.skills ?? []).map((s: string) => s.toLowerCase());
+    const reelIndustries = (reel.industries ?? []).map((i: string) => i.toLowerCase());
+    const skillOverlap    = reelSkills.filter(s => userSkills.includes(s)).length;
+    const industryMatch   = userIndustry && reelIndustries.includes(userIndustry) ? 2 : 0;
+    return skillOverlap + industryMatch;
+  }
+
+  const filtered = (() => {
+    let results = reels;
+
+    if (activeTab === 'mine') {
+      return results.filter(r => r.authorUid === currentUid);
+    }
+
     if (activeTab === 'network') {
-      if (r.authorUid !== currentUid && !socialGraphUids.has(r.authorUid)) return false;
+      // Show reels from social graph (connections + circle members)
+      results = results.filter(r =>
+        r.authorUid !== currentUid &&
+        (socialGraphUids?.has(r.authorUid))
+      );
+      // Apply search/filter on top
+      if (filterSkill)    results = results.filter(r => r.skills?.some(s => s.toLowerCase().includes(filterSkill.toLowerCase())));
+      if (filterIndustry) results = results.filter(r => r.industries?.includes(filterIndustry));
+      if (search) {
+        const q = search.toLowerCase();
+        results = results.filter(r =>
+          r.authorName?.toLowerCase().includes(q) ||
+          r.pitch?.toLowerCase().includes(q) ||
+          r.skills?.some(s => s.toLowerCase().includes(q))
+        );
+      }
+      // Network: sort by recency (you want to see what your network is doing recently)
+      return results.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() ?? 0;
+        const bTime = b.createdAt?.toMillis?.() ?? 0;
+        return bTime - aTime;
+      });
     }
-    if (activeTab === 'mine')     { if (r.authorUid !== currentUid) return false; }
-    if (activeTab === 'discover') { if (r.authorUid === currentUid || socialGraphUids.has(r.authorUid)) return false; }
-    // Search / skill / industry filters
-    if (filterSkill)    return r.skills?.some(s => s.toLowerCase().includes(filterSkill.toLowerCase()));
-    if (filterIndustry) return r.industries?.includes(filterIndustry);
-    if (search) {
-      const q = search.toLowerCase();
-      return r.authorName?.toLowerCase().includes(q) ||
-             r.pitch?.toLowerCase().includes(q) ||
-             r.skills?.some(s => s.toLowerCase().includes(q));
+
+    if (activeTab === 'discover') {
+      // Show reels OUTSIDE network — ranked by skills/industry match, NOT recency
+      results = results.filter(r =>
+        r.authorUid !== currentUid &&
+        !socialGraphUids?.has(r.authorUid)
+      );
+      if (filterSkill)    results = results.filter(r => r.skills?.some(s => s.toLowerCase().includes(filterSkill.toLowerCase())));
+      if (filterIndustry) results = results.filter(r => r.industries?.includes(filterIndustry));
+      if (search) {
+        const q = search.toLowerCase();
+        results = results.filter(r =>
+          r.authorName?.toLowerCase().includes(q) ||
+          r.pitch?.toLowerCase().includes(q) ||
+          r.skills?.some(s => s.toLowerCase().includes(q))
+        );
+      }
+      // Rank by skills/industry match — this is the key liability protection
+      return results.sort((a, b) => matchScore(b) - matchScore(a));
     }
-    return true;
-  });
+
+    return results;
+  })();
 
   // Jobs that match reel skills in user's reels
   const mySkills = reels
@@ -651,9 +696,9 @@ export default function ProveView({
           {/* Tabs */}
           <div className="flex items-center gap-1 mb-5 bg-stone-100 rounded-xl p-1">
             {([
-              { id: 'network',  label: 'My Network' },
-              { id: 'mine',     label: 'My Reels' },
+              { id: 'network', label: 'Network' },
               { id: 'discover', label: 'Discover' },
+              { id: 'mine',    label: 'My reels' },
             ] as const).map(tab => (
               <button
                 key={tab.id}
@@ -669,16 +714,7 @@ export default function ProveView({
             ))}
           </div>
 
-          {/* Discover notice */}
-          {activeTab === 'discover' && (
-            <div className="flex items-center gap-2 mb-4 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
-              <span className="text-xs text-amber-700">
-                👀 Showing reels from outside your network. Connect or join pods to grow your feed.
-              </span>
-            </div>
-          )}
-
-          {/* Search + filters — show on network and discover tabs */}
+          {/* Search + filters */}
           {activeTab !== 'mine' && (
             <div className="flex gap-2 mb-5 flex-wrap">
               <div className="relative flex-1 min-w-40">
@@ -709,6 +745,15 @@ export default function ProveView({
             </div>
           )}
 
+          {/* Discover tab notice */}
+          {activeTab === 'discover' && (
+            <div className="mb-4 px-3 py-2 rounded-xl bg-[#e8f4f0] border border-[#c7e8d8]">
+              <p className="text-xs text-[#1a4a3a]">
+                Ranked by skills and industry match — not engagement or recency.
+              </p>
+            </div>
+          )}
+
           {/* Reel grid */}
           {loading ? (
             <div className="grid sm:grid-cols-2 gap-4">
@@ -722,9 +767,9 @@ export default function ProveView({
               <p className="text-stone-500 text-sm mb-1">
                 {activeTab === 'mine'
                   ? "You haven't uploaded a reel yet."
-                  : activeTab === 'network'
-                  ? "No reels from your network yet. Connect with people or join pods to see their reels here."
-                  : "No reels to discover right now."}
+                  : activeTab === 'matches'
+                  ? "No matching reels found. Update your profile skills to improve matches."
+                  : "No reels match your search."}
               </p>
               {activeTab === 'mine' && (
                 <button onClick={() => setShowUpload(true)}
