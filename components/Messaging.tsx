@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Message } from '../types';
-import { analyzeMessageTone } from '../services/geminiService';
+import { analyzeMessageTone } from '../services/claudeService';
 import { SparklesIcon, LoadingIcon } from '../constants';
 import { Search, Plus, X, Edit } from 'lucide-react';
 
