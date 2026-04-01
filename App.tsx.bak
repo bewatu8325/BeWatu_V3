@@ -4,7 +4,7 @@ import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
-import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/geminiService';
+import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/claudeService';
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
