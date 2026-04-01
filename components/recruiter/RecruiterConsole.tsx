@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppData, CandidateSearchResult, User, Job, Company } from '../../types';
-import { generateProfessionalNetworkData, searchCandidates } from '../../services/geminiService';
+import { generateProfessionalNetworkData, searchCandidates } from '../../services/claudeService';
 import { LogoIcon, SearchIcon, LoadingIcon, LogoutIcon } from '../../constants';
 import { useFirebase } from '../../contexts/FirebaseContext';
 import SubscriptionModal from './SubscriptionModal';
