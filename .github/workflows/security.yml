@@ -1,1 +1,154 @@
-//security
+# .github/workflows/security.yml
+# Apply to ALL THREE repos: BeWatu_V3, bewatu-factory-main-3, bewatu-ops
+#
+# Required GitHub Secrets (add to each repo):
+#   BEWATU_SECURITY_TOKEN   — ops agent token for posting findings
+#   FIREBASE_TOKEN          — for rules emulator tests
+#   VERCEL_TOKEN            — for posture checks
+#   GITLEAKS_LICENSE        — optional, free for OSS repos
+#   SEMGREP_APP_TOKEN       — optional, for Semgrep dashboard
+
+name: Security scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'   # Weekly Monday 06:00 UTC
+
+jobs:
+
+  # ── 1. Secrets scan — runs FIRST, blocks everything else ──────────────────
+  secrets:
+    name: Secret detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # Full history for first run
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+      # If Gitleaks finds a secret, it fails the job and nothing else runs
+
+  # ── 2. Code analysis ───────────────────────────────────────────────────────
+  code-analysis:
+    name: Semgrep
+    needs: secrets
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --config=auto \
+            --config=.semgrep/ \
+            --sarif \
+            --output=semgrep.sarif \
+            --error
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true   # Post findings, don't hard-block on warnings
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+      - name: Send findings to BeWatu security API
+        if: always()
+        run: |
+          node scripts/security/send-findings.js \
+            --source=semgrep \
+            --file=semgrep.sarif \
+            --repo=${{ github.repository }}
+        env:
+          BEWATU_SECURITY_TOKEN: ${{ secrets.BEWATU_SECURITY_TOKEN }}
+          BEWATU_SECURITY_URL: https://www.bewatu.com/api/security/finding
+
+  # ── 3. Dependency audit ────────────────────────────────────────────────────
+  dependencies:
+    name: Dependency risk
+    needs: secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - name: npm audit
+        id: npm-audit
+        run: npm audit --json > npm-audit.json || true
+      - name: OSV scan
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json
+            --json
+            --output=osv-results.json
+        continue-on-error: true
+      - name: Block on CRITICAL CVEs
+        run: |
+          CRITICAL=$(node -e "
+            const r = require('./npm-audit.json');
+            const vulns = r.vulnerabilities || {};
+            const crits = Object.values(vulns).filter(v => v.severity === 'critical');
+            console.log(crits.length);
+          ")
+          if [ "$CRITICAL" -gt "0" ]; then
+            echo "::error::$CRITICAL critical CVE(s) found. Merge blocked."
+            exit 1
+          fi
+      - name: Send dependency findings
+        if: always()
+        run: |
+          node scripts/security/send-findings.js \
+            --source=dependencies \
+            --file=npm-audit.json \
+            --repo=${{ github.repository }}
+        env:
+          BEWATU_SECURITY_TOKEN: ${{ secrets.BEWATU_SECURITY_TOKEN }}
+          BEWATU_SECURITY_URL: https://www.bewatu.com/api/security/finding
+
+  # ── 4. Firestore rules lint ────────────────────────────────────────────────
+  firestore-rules:
+    name: Firestore rules lint
+    needs: secrets
+    runs-on: ubuntu-latest
+    # Only run if firestore.rules changed
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm install -g firebase-tools
+      - name: Lint rules file
+        run: node scripts/security/lint-firestore-rules.js firestore.rules
+      - name: Test rules with emulator
+        run: |
+          firebase emulators:exec \
+            --only firestore \
+            "npm run test:security:rules" \
+            --project bewatu-2d04e
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+  # ── 5. Cloud posture check ─────────────────────────────────────────────────
+  posture:
+    name: Cloud posture
+    needs: [code-analysis, dependencies]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - name: Check Vercel env vars for misconfig
+        run: node scripts/security/check-posture.js
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          BEWATU_SECURITY_TOKEN: ${{ secrets.BEWATU_SECURITY_TOKEN }}
+          BEWATU_SECURITY_URL: https://www.bewatu.com/api/security/finding
