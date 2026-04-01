@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LogoIcon, SparklesIcon, LoadingIcon } from '../constants';
 import Footer from './Footer';
-import { polishMessage } from '../services/geminiService';
+import { polishMessage } from '../services/claudeService';
 
 const ConnectHeader: React.FC<{ onNavigateBack: () => void }> = ({ onNavigateBack }) => (
   <header className="absolute top-0 left-0 right-0 p-6 z-10">
