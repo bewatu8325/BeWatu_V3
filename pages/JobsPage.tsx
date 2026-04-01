@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 // FIX: Import Company type and change generateJobPostings to a named import
 import type { Job, Company } from '../types';
-import { generateJobPostings } from '../services/geminiService';
+import { generateJobPostings } from '../services/claudeService';
 import { BriefcaseIcon } from '../components/IconComponents';
 
 // FIX: Added mock company data to resolve errors where components expected a company name.
