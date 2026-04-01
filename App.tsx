@@ -265,7 +265,10 @@ const MainApp: React.FC = () => {
 
       setData({
         users: [user, ...otherUsers],
-        posts: firestorePosts.posts,
+        // Exclude circle posts from the main feed — they load per-circle via
+        // subscribeToCirclePosts. This prevents circle conversations leaking
+        // into the global feed for all users.
+        posts: firestorePosts.posts.filter((p: any) => !p.circleId),
         jobs: firestoreJobs,
         companies: [company],
         messages: firestoreMessages,
@@ -301,8 +304,13 @@ const MainApp: React.FC = () => {
       unsub = subscribeToCirclePosts(firestoreCircleId, (newPosts: any[]) => {
         setData(d => {
           if (!d) return null;
-          // Merge new circle posts with existing posts, deduplicate by id
-          const nonCirclePosts = d.posts.filter((p: any) => p.circleId !== activeCircleId);
+          // Remove any existing posts for this circle (by firestoreCircleId or
+          // numeric activeCircleId) then add the fresh real-time batch.
+          // Non-circle posts (circleId is null/undefined) are untouched.
+          const nonCirclePosts = d.posts.filter((p: any) =>
+            !p.circleId ||
+            (p.circleId !== activeCircleId && p.circleId !== firestoreCircleId)
+          );
           return { ...d, posts: [...nonCirclePosts, ...newPosts] };
         });
       });
@@ -464,6 +472,10 @@ const MainApp: React.FC = () => {
   const addPost = async (content: string, circleId?: number) => {
     if (!data || !currentUser || !fbUser) return;
     const newPost = await fbCreatePost(content, currentUser, fbUser.uid, circleId);
+    // Circle posts must NOT enter the global feed — they live only inside
+    // their circle and arrive via the subscribeToCirclePosts real-time listener.
+    // Non-circle posts go into the main feed immediately (optimistic update).
+    if (circleId !== undefined && circleId !== null) return;
     setData({ ...data, posts: [newPost, ...data.posts] });
   };
 
