@@ -60,6 +60,7 @@ import { recordTermsAgreement } from './lib/firestoreService';
 import TermsConsentModal, { TERMS_VERSION } from './components/TermsConsentModal';
 import { goToFactory } from './utils/factoryHandoff';
 import CookieBanner from './components/CookieBanner';
+import AccountDeletionModal from './components/AccountDeletionModal';
 const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
 const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
 const CommunityGuidelines = lazy(() => import('./components/legal/CommunityGuidelines'));
@@ -159,6 +160,7 @@ const MainApp: React.FC = () => {
   const [showTermsPage, setShowTermsPage] = useState(false);
   const [showPrivacyPage, setShowPrivacyPage] = useState(false);
   const [showCommunityPage, setShowCommunityPage] = useState(false);
+  const [showDeletionModal, setShowDeletionModal] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<number | null>(null);
   const [followedUserIds, setFollowedUserIds] = useState<Set<number>>(new Set());
 
@@ -410,6 +412,21 @@ const MainApp: React.FC = () => {
   };
 
   const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
+
+  const handleDeleteAccount = async () => {
+    if (!fbUser || !currentUser) return;
+    const { softDeleteAccount } = await import('./lib/accountService');
+    await softDeleteAccount(fbUser.uid);
+    // Sign out and reset state
+    await handleLogout();
+  };
+
+  const handleExportData = async () => {
+    if (!fbUser || !currentUser) return;
+    const { exportUserData, downloadDataAsJson } = await import('./lib/accountService');
+    const data = await exportUserData(fbUser.uid, currentUser.id);
+    downloadDataAsJson(data);
+  };
   const handleEnterAdminPanel = () => setActiveProfile('admin');
 
   const handleChangePassword = async (currentPassword: string, newPassword: string) => changePassword(currentPassword, newPassword);
@@ -1123,7 +1140,13 @@ ${references || 'Not provided'}`;
               <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={0} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
-                  <SecurityPrivacyPage user={currentUser} onBack={() => setShowSecurityPage(false)} onChangePassword={() => handleChangePassword('' as any, '' as any)} />
+                  <SecurityPrivacyPage
+                    user={currentUser}
+                    onBack={() => setShowSecurityPage(false)}
+                    onChangePassword={() => handleChangePassword('' as any, '' as any)}
+                    onDeleteAccount={() => setShowDeletionModal(true)}
+                    onExportData={handleExportData}
+                  />
                 </Suspense>
               </main>
             </div>
@@ -1383,6 +1406,13 @@ ${references || 'Not provided'}`;
         </div>
       )}
       <CookieBanner onShowPrivacy={() => setShowPrivacyPage(true)} />
+      {showDeletionModal && currentUser && (
+        <AccountDeletionModal
+          userName={currentUser.name}
+          onConfirm={handleDeleteAccount}
+          onClose={() => setShowDeletionModal(false)}
+        />
+      )}
     </Suspense>
   );
 };
