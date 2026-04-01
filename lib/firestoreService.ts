@@ -95,58 +95,6 @@ function toNotification(d: QueryDocumentSnapshot): Notification {
     _firestoreId: d.id,
   } as Notification & { _firestoreId: string };
 }
-/**
- * Real-time subscription to posts in a specific circle.
- *
- * Scalability notes:
- * - Only subscribes to ONE circle at a time per user — not all posts
- * - Capped at 30 most recent posts — prevents large reads
- * - Uses Firestore compound index: circleId ASC + createdAt DESC
- *   (create this index in Firebase Console if not already present)
- * - Automatically unsubscribes when caller unmounts (returned function)
- *
- * @param circleFirestoreId  The Firestore document ID of the circle
- * @param callback           Called with the updated post array on every change
- * @returns                  Unsubscribe function — call on component unmount
- */
-export function subscribeToCirclePosts(
-  circleFirestoreId: string,
-  callback: (posts: Post[]) => void
-): Unsubscribe {
-  const q = query(
-    collection(db, 'posts'),
-    where('circleId', '==', circleFirestoreId),
-    orderBy('createdAt', 'desc'),
-    limit(30)
-  );
-
-  return onSnapshot(
-    q,
-    { includeMetadataChanges: false }, // don't fire on local cache writes
-    (snap) => {
-      const posts: Post[] = snap.docs.map(d => {
-        const data = d.data();
-        return {
-          id:           data.numericId ?? Date.now(),
-          _firestoreId: d.id,
-          authorId:     data.authorNumericId ?? 0,
-          authorUid:    data.authorUid ?? '',
-          content:      data.content ?? '',
-          timestamp:    data.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
-          appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
-          comments:     data.comments ?? 0,
-          shares:       data.shares ?? 0,
-          circleId:     data.circleId,
-          isRead:       true,
-        } as Post;
-      });
-      callback(posts);
-    },
-    (err) => {
-      console.error('subscribeToCirclePosts error:', err);
-    }
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POSTS
@@ -169,7 +117,10 @@ export async function createPost(
     commentCount: 0,
     shares: 0,
     timestamp: 'Just now',
-    ...(circleId !== undefined && { circleId }),
+    // Always write circleId explicitly — null for non-circle posts.
+    // This allows Firestore to filter with where('circleId', '==', null)
+    // so circle posts never surface in the main feed.
+    circleId: circleId ?? null,
     numericId: Date.now(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -189,13 +140,36 @@ export async function createPost(
 }
 
 export async function fetchPosts(pageSize = 30, after?: QueryDocumentSnapshot) {
-  const constraints: any[] = [orderBy('createdAt', 'desc'), limit(pageSize)];
+  // Exclude circle posts from the main feed — they load per-circle via
+  // subscribeToCirclePosts. where('circleId', '==', null) requires a composite
+  // index: posts — circleId ASC + createdAt DESC (create in Firebase Console).
+  const constraints: any[] = [
+    where('circleId', '==', null),
+    orderBy('createdAt', 'desc'),
+    limit(pageSize),
+  ];
   if (after) constraints.push(startAfter(after));
-  const snap = await getDocs(query(collection(db, 'posts'), ...constraints));
-  return {
-    posts: snap.docs.map(toPost),
-    lastDoc: snap.docs[snap.docs.length - 1] ?? null,
-  };
+  try {
+    const snap = await getDocs(query(collection(db, 'posts'), ...constraints));
+    return {
+      posts: snap.docs.map(toPost),
+      lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+    };
+  } catch (err: any) {
+    // Index not built yet — fall back to unfiltered fetch with client-side exclusion.
+    // Remove the where() clause and filter client-side until the index is live.
+    console.warn('fetchPosts: index not ready, falling back to client-side filter:', err?.code);
+    const fallbackSnap = await getDocs(
+      query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(pageSize * 3))
+    );
+    const filtered = fallbackSnap.docs
+      .filter(d => !d.data().circleId)
+      .slice(0, pageSize);
+    return {
+      posts: filtered.map(toPost),
+      lastDoc: filtered[filtered.length - 1] ?? null,
+    };
+  }
 }
 
 export async function appreciatePost(
@@ -705,8 +679,6 @@ export async function fetchUsers(): Promise<User[]> {
       skills: data.skills ?? [],
       verifiedSkills: data.verifiedSkills ?? null,
       microIntroductionUrl: data.microIntroductionUrl ?? null,
-      agreedToTermsVersion: data.agreedToTermsVersion ?? null,
-      agreedToTermsAt: data.agreedToTermsAt ?? null,
       _firestoreUid: d.id,
     } as User & { _firestoreUid: string };
   });
@@ -3368,21 +3340,4 @@ export async function claimCompany(
   });
 
   return { success: true };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TERMS AGREEMENT
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function recordTermsAgreement(
-  uid:          string,
-  version:      string,
-  ipAddress?:   string
-): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
-    agreedToTermsVersion: version,
-    agreedToTermsAt:      serverTimestamp(),
-    agreedToTermsIp:      ipAddress ?? null,
-    updatedAt:            serverTimestamp(),
-  });
 }
