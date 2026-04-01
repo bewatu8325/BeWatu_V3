@@ -61,6 +61,7 @@ import TermsConsentModal, { TERMS_VERSION } from './components/TermsConsentModal
 import { goToFactory } from './utils/factoryHandoff';
 import CookieBanner from './components/CookieBanner';
 import AccountDeletionModal from './components/AccountDeletionModal';
+const RecruiterRegistrationFlow = lazy(() => import('./components/recruiter/RecruiterRegistrationFlow'));
 const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
 const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
 const CommunityGuidelines = lazy(() => import('./components/legal/CommunityGuidelines'));
@@ -161,6 +162,7 @@ const MainApp: React.FC = () => {
   const [showPrivacyPage, setShowPrivacyPage] = useState(false);
   const [showCommunityPage, setShowCommunityPage] = useState(false);
   const [showDeletionModal, setShowDeletionModal] = useState(false);
+  const [showRecruiterRegistration, setShowRecruiterRegistration] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<number | null>(null);
   const [followedUserIds, setFollowedUserIds] = useState<Set<number>>(new Set());
 
@@ -947,16 +949,18 @@ ${references || 'Not provided'}`;
         content = (
           <div className="space-y-4">
             {!currentUser.isRecruiter && (
-              <Suspense fallback={<div />}>
-                <RecruiterUpgradeBanner
-                  currentUser={currentUser}
-                  fbUserUid={fbUser!.uid}
-                  onSuccess={() => {
-                    // Reload user data to pick up isRecruiter: true
-                    loadAppData(currentUser);
-                  }}
-                />
-              </Suspense>
+              <div className="rounded-2xl border border-stone-200 bg-white p-4 flex items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold text-stone-900">Post jobs on BeWatu</p>
+                  <p className="text-xs text-stone-500">Become a verified recruiter to post opportunities and reach candidates.</p>
+                </div>
+                <button
+                  onClick={() => setShowRecruiterRegistration(true)}
+                  className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: '#1a4a3a' }}>
+                  Apply to recruit
+                </button>
+              </div>
             )}
             <Jobs
               jobs={data.jobs}
@@ -1412,6 +1416,24 @@ ${references || 'Not provided'}`;
           onConfirm={handleDeleteAccount}
           onClose={() => setShowDeletionModal(false)}
         />
+      )}
+
+      {/* Recruiter registration flow */}
+      {showRecruiterRegistration && currentUser && fbUser && (
+        <div className="fixed inset-0 z-[70] overflow-y-auto">
+          <Suspense fallback={<FullPageLoader />}>
+            <RecruiterRegistrationFlow
+              user={currentUser}
+              fbUserUid={fbUser.uid}
+              fbUserEmail={fbUser.email ?? ''}
+              onSuccess={() => {
+                setShowRecruiterRegistration(false);
+                loadAppData(currentUser);
+              }}
+              onCancel={() => setShowRecruiterRegistration(false)}
+            />
+          </Suspense>
+        </div>
       )}
     </Suspense>
   );
