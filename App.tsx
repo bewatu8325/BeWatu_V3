@@ -176,15 +176,19 @@ const MainApp: React.FC = () => {
   }, [authLoading, currentUser, authState, data, loading]);
 
   // ── Terms wall check — fires when user data is loaded ────────────────────
+  // Uses a session-level flag so it never re-fires once dismissed this session
   useEffect(() => {
     if (authState !== 'authenticated' || !currentUser || !data) return;
     if (showTermsWall) return; // already showing
+    // Check session storage first — if agreed this session, never show again
+    const sessionAgreed = sessionStorage.getItem('termsAgreedThisSession');
+    if (sessionAgreed === TERMS_VERSION) return;
     const agreedVersion = (currentUser as any).agreedToTermsVersion;
     if (!agreedVersion || agreedVersion !== TERMS_VERSION) {
       setShowTermsWall(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authState, data]);
+  }, [authState, currentUser?.id]);
 
   // ── Load app data ─────────────────────────────────────────────────────────
   const loadAppData = useCallback(async (user: User) => {
@@ -319,8 +323,12 @@ const MainApp: React.FC = () => {
         skills: [], verifiedSkills: null, microIntroductionUrl: null,
       };
       await loadAppData(userToLoad);
-      // Always show terms wall for new registrations
-      setShowTermsWall(true);
+      // Only show terms wall if user hasn't agreed to current version
+      const sessionAgreed = sessionStorage.getItem('termsAgreedThisSession');
+      if (sessionAgreed !== TERMS_VERSION) {
+        // Will be evaluated by the useEffect once currentUser loads
+        // Don't force-show here — let the useEffect handle it
+      }
     } finally {
       setLoading(false);
     }
@@ -346,12 +354,15 @@ const MainApp: React.FC = () => {
     sessionStorage.removeItem('beWatuData');
     sessionStorage.removeItem('beWatuView');
     sessionStorage.removeItem('beWatuArenaIndustry');
+    sessionStorage.removeItem('termsAgreedThisSession');
     setAuthState('landing');
   };
 
   const handleTermsAgree = async () => {
     if (!fbUser) return;
     await recordTermsAgreement(fbUser.uid, TERMS_VERSION);
+    // Store in session so the wall never re-fires during this browser session
+    sessionStorage.setItem('termsAgreedThisSession', TERMS_VERSION);
     setShowTermsWall(false);
   };
 
@@ -1021,13 +1032,9 @@ ${references || 'Not provided'}`;
         break;
 
       case View.Factory:
-        // redirectToFactory() in Header handles this — spinner shown while redirect fires
         content = (
-          <div className="flex items-center justify-center h-64">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#1a4a3a', borderTopColor: 'transparent' }} />
-              <p className="text-sm text-stone-500">Opening Factory…</p>
-            </div>
+          <div className="p-8 text-center text-stone-500">
+            Factory workspace coming soon.
           </div>
         );
         break;
