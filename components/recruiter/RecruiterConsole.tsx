@@ -5,7 +5,7 @@ import { LogoIcon, SearchIcon, LoadingIcon, LogoutIcon } from '../../constants';
 import { useFirebase } from '../../contexts/FirebaseContext';
 import SubscriptionModal from './SubscriptionModal';
 import CandidateDetailView from './CandidateDetailView';
-import DEIDashboard from '../DEIDashboard';
+import RecruiterAnalyticsDashboard from './RecruiterAnalyticsDashboard';
 import { TalentPipeline, DEFAULT_PIPELINE_STAGES, PipelineCandidate } from './TalentPipeline';
 import {
   getPipelineCandidates,
@@ -362,7 +362,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
         return <TalentPool onViewProfile={onViewProfile} />;
 
       case 'analytics':
-        return <DEIDashboard />;
+        return <RecruiterAnalyticsDashboard />;
 
       case 'manage_jobs':
         return (
