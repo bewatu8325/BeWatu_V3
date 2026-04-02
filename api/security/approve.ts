@@ -75,19 +75,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (decision === 'approved') {
-      const planDoc = await db.collection('remediation_plans').doc(planId).get();
-      if (planDoc.data()?.automatable) {
-        fetch('https://www.bewatu.com/api/security/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.BEWATU_SECURITY_TOKEN}` },
-          body: JSON.stringify({ planId, approvedBy: agent.uid }),
-        }).catch(e => console.error('Execute trigger error:', e));
-      } else {
-        await db.collection('remediation_plans').doc(planId).update({
-          status: 'approved', approvedBy: agent.uid,
-          approvedAt: FieldValue.serverTimestamp(),
-        });
-      }
+      // Always update plan to approved first
+      await db.collection('remediation_plans').doc(planId).update({
+        status: 'approved', approvedBy: agent.uid,
+        approvedAt: FieldValue.serverTimestamp(),
+      });
+      // Always trigger execute — creates a PR (draft if manual, ready if automatable)
+      fetch('https://www.bewatu.com/api/security/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.BEWATU_SECURITY_TOKEN}` },
+        body: JSON.stringify({ planId, approvedBy: agent.uid }),
+      }).catch(e => console.error('Execute trigger error:', e));
     } else {
       await db.collection('remediation_plans').doc(planId).update({ status: 'failed' });
       await db.collection('security_findings').doc(findingId).update({

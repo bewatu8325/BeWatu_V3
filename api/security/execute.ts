@@ -62,8 +62,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const planDoc = await db.collection('remediation_plans').doc(planId).get();
     if (!planDoc.exists) return res.status(404).json({ error: 'Plan not found' });
     const plan = planDoc.data()!;
-    if (!plan.automatable) return res.status(400).json({ error: 'Plan is not automatable' });
-
     const findingDoc = await db.collection('security_findings').doc(plan.findingId).get();
     const finding    = findingDoc.data()!;
 
