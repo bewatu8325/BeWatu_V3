@@ -126,6 +126,62 @@ function generateRollbackPlan(actions: string[]): string {
   return 'Revert the config change via Vercel dashboard.';
 }
 
+async function generateAIExplanation(finding: any, riskScore: number, actions: string[]): Promise<string> {
+  try {
+    const prompt = `You are a security advisor explaining a software vulnerability to a non-technical operations manager who needs to decide whether to approve a fix.
+
+Finding details:
+- Title: ${finding.title}
+- Category: ${finding.category?.replace(/_/g, ' ')}
+- Severity: ${finding.severity}
+- Risk Score: ${riskScore}/100
+- Description: ${finding.description}
+- Affected assets: ${(finding.affectedAssets || []).join(', ') || 'unknown'}
+- Fix actions required: ${actions.map((a: string) => a.replace(/_/g, ' ')).join(', ')}
+${finding.evidence?.filePath ? `- File: ${finding.evidence.filePath}${finding.evidence.lineNumber ? ` line ${finding.evidence.lineNumber}` : ''}` : ''}
+${finding.evidence?.snippet ? `- Code snippet: ${finding.evidence.snippet}` : ''}
+
+Write a clear, jargon-free explanation with exactly these four sections. Keep each section to 2-3 sentences maximum. Use plain English — no technical jargon unless absolutely necessary, and if you must use a technical term, explain it immediately.
+
+**What happened**
+[Explain what this vulnerability or issue actually is, as if explaining to someone with no coding background]
+
+**What could go wrong**
+[Explain the real-world risk — what an attacker could do, what data could be exposed, what could break]
+
+**What the fix does**
+[Explain what the proposed fix will actually change, and why that makes things safer]
+
+**Should you approve?**
+[Give a clear recommendation — approve confidently, approve with caution, or investigate further first — and why]`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('AI explanation failed:', response.status);
+      return '';
+    }
+
+    const data = await response.json() as any;
+    return data.content?.[0]?.text || '';
+  } catch (e) {
+    console.error('AI explanation error:', e);
+    return '';
+  }
+}
+
 async function createRemediationPlan(
   db: ReturnType<typeof getFirestore>,
   findingId: string,
@@ -157,6 +213,8 @@ async function createRemediationPlan(
   expiresAt.setDate(expiresAt.getDate() + APPROVAL_EXPIRY_DAYS);
 
   const approvalRef = db.collection('approval_requests').doc();
+  const aiExplanation = await generateAIExplanation(finding, riskScore, actions);
+
   await approvalRef.set({
     id:                approvalRef.id,
     remediationPlanId: planRef.id,
@@ -165,6 +223,7 @@ async function createRemediationPlan(
     riskScore,
     title:             finding.title,
     summary,
+    aiExplanation,
     rollbackPlan:      generateRollbackPlan(actions),
     affectedAssets:    finding.affectedAssets || [],
     estimatedEffort:   estimateEffort(actions),
