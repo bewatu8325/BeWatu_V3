@@ -6,6 +6,16 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
+const ALLOWED_ORIGINS = ['https://ops.bewatu.com', 'https://www.bewatu.com'];
+
+function setCors(req: VercelRequest, res: VercelResponse) {
+  const origin = req.headers.origin as string | undefined;
+  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  res.setHeader('Access-Control-Allow-Origin', allowed);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
 function initAdmin() {
   if (!getApps().length) {
     const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -27,6 +37,8 @@ async function verifyOpsAgent(req: VercelRequest, db: ReturnType<typeof getFires
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
