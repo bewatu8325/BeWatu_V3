@@ -111,22 +111,60 @@ async function createSecurityPR(
     // For non-automatable fixes, add an empty commit so GitHub allows PR creation
     const isAutomatable = plan.automatable === true;
     if (!isAutomatable) {
-      // Get the tree SHA from main
-      const mainCommit = await octokit.git.getCommit({
-        owner, repo, commit_sha: mainRef.data.object.sha,
-      });
-      // Create an empty commit on the branch
-      const emptyCommit = await octokit.git.createCommit({
-        owner, repo,
-        message: `[SECURITY] Tracking fix for: ${finding.title}`,
-        tree:    mainCommit.data.tree.sha,
-        parents: [mainRef.data.object.sha],
-      });
-      await octokit.git.updateRef({
-        owner, repo,
-        ref: `heads/${branchName}`,
-        sha: emptyCommit.data.sha,
-      });
+      try {
+        // Get the tree SHA from main
+        const mainCommit = await octokit.git.getCommit({
+          owner, repo, commit_sha: mainRef.data.object.sha,
+        });
+        console.log('mainCommit tree:', mainCommit.data.tree.sha);
+
+        // Create a blob with a placeholder file
+        const blob = await octokit.git.createBlob({
+          owner, repo,
+          content: Buffer.from(`# Security Fix Tracking
+
+Finding: ${finding.findingId}
+Title: ${finding.title}
+Approved: ${new Date().toISOString()}
+`).toString('base64'),
+          encoding: 'base64',
+        });
+        console.log('blob sha:', blob.data.sha);
+
+        // Create a new tree with the placeholder file
+        const newTree = await octokit.git.createTree({
+          owner, repo,
+          base_tree: mainCommit.data.tree.sha,
+          tree: [{
+            path:    '.security-fixes/tracking.md',
+            mode:    '100644',
+            type:    'blob',
+            sha:     blob.data.sha,
+          }],
+        });
+        console.log('newTree sha:', newTree.data.sha);
+
+        // Create commit on the branch
+        const newCommit = await octokit.git.createCommit({
+          owner, repo,
+          message: `[SECURITY] Track fix for ${finding.findingId}: ${finding.title}`,
+          tree:    newTree.data.sha,
+          parents: [mainRef.data.object.sha],
+        });
+        console.log('newCommit sha:', newCommit.data.sha);
+
+        // Update branch ref to point to new commit
+        await octokit.git.updateRef({
+          owner, repo,
+          ref:   `heads/${branchName}`,
+          sha:   newCommit.data.sha,
+          force: false,
+        });
+        console.log('Branch updated successfully');
+      } catch (commitErr: any) {
+        console.error('Empty commit creation failed:', commitErr.message);
+        throw commitErr;
+      }
     }
 
     // Create PR (draft for manual fixes, ready for automatable)
