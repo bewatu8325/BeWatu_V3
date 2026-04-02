@@ -98,14 +98,17 @@ async function createSecurityPR(
     // Get main branch SHA
     const mainRef = await octokit.git.getRef({ owner, repo, ref: 'heads/main' });
 
-    // Create security branch
+    // Delete branch if it already exists (stale from previous attempt)
+    await octokit.git.deleteRef({
+      owner, repo,
+      ref: `heads/${branchName}`,
+    }).catch(() => {}); // ignore if doesn't exist
+
+    // Create fresh security branch from main
     await octokit.git.createRef({
       owner, repo,
       ref: `refs/heads/${branchName}`,
       sha: mainRef.data.object.sha,
-    }).catch(e => {
-      // Branch may already exist — that's fine
-      if (!e.message?.includes('already exists')) throw e;
     });
 
     // For non-automatable fixes, add an empty commit so GitHub allows PR creation
