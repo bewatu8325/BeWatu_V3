@@ -2,6 +2,7 @@
 // ONE-TIME USE — delete after seeding is confirmed in Firestore.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import * as admin from 'firebase-admin';
 
 const ALLOWED_ORIGINS = [
   'https://ops.bewatu.com',
@@ -17,6 +18,20 @@ function setCors(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '86400');
+}
+
+// Init outside handler but wrapped in try/catch
+let db: admin.firestore.Firestore;
+try {
+  if (!admin.apps.length) {
+    const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (sa) {
+      admin.initializeApp({ credential: admin.credential.cert(JSON.parse(sa)) });
+    }
+  }
+  db = admin.firestore();
+} catch (e) {
+  console.error('Firebase init error:', e);
 }
 
 const BEWATU_ASSETS = [
@@ -70,76 +85,60 @@ const BEWATU_EDGES = [
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS first — before anything else, so even crashes return correct headers
   setCors(req, res);
-
-  // Handle preflight immediately
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Import and init Admin SDK inside the handler so startup crashes don't block CORS
-    const admin = await import('firebase-admin');
+    // Check env var first
+    const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!sa) return res.status(500).json({ error: 'FIREBASE_SERVICE_ACCOUNT env var not set' });
 
+    // Safe init
     if (!admin.apps.length) {
-      const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
-      if (!sa) return res.status(500).json({ error: 'FIREBASE_SERVICE_ACCOUNT env var not set' });
       admin.initializeApp({ credential: admin.credential.cert(JSON.parse(sa)) });
     }
-
-    const db = admin.firestore();
+    const firestore = admin.firestore();
 
     // Verify platform admin
     const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(403).json({ error: 'No auth token' });
-    }
-    const decoded = await admin.auth().verifyIdToken(authHeader.slice(7));
-    const userDoc = await db.collection('users').doc(decoded.uid).get();
-    if (!userDoc.data()?.isPlatformAdmin) {
-      return res.status(403).json({ error: 'Platform admin required' });
-    }
+    if (!authHeader?.startsWith('Bearer ')) return res.status(403).json({ error: 'No auth token' });
 
-    if (!req.body?.confirm) {
-      return res.status(400).json({ error: 'Pass { confirm: true } in body' });
-    }
+    const decoded  = await admin.auth().verifyIdToken(authHeader.slice(7));
+    const userDoc  = await firestore.collection('users').doc(decoded.uid).get();
+    if (!userDoc.data()?.isPlatformAdmin) return res.status(403).json({ error: 'Platform admin required' });
 
-    // Write assets and edges
-    const batch = db.batch();
+    if (!req.body?.confirm) return res.status(400).json({ error: 'Pass { confirm: true } in body' });
+
+    // Seed
+    const batch = firestore.batch();
 
     for (const asset of BEWATU_ASSETS) {
-      batch.set(db.collection('asset_graph').doc(asset.id), {
-        ...asset,
-        dependencies: [],
-        dependents:   [],
-        secrets:      [],
-        tags:         [],
-        lastScanned:  admin.firestore.FieldValue.serverTimestamp(),
+      batch.set(firestore.collection('asset_graph').doc(asset.id), {
+        ...asset, dependencies: [], dependents: [], secrets: [], tags: [],
+        lastScanned: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
     }
 
     for (const edge of BEWATU_EDGES) {
       const edgeId = `${edge.fromId}__${edge.relationship}__${edge.toId}`;
-      batch.set(db.collection('asset_edges').doc(edgeId), { id: edgeId, ...edge }, { merge: true });
+      batch.set(firestore.collection('asset_edges').doc(edgeId), { id: edgeId, ...edge }, { merge: true });
     }
 
     await batch.commit();
 
-    await db.collection('security_config').doc('rules').set({
+    await firestore.collection('security_config').doc('rules').set({
       semgrepEnabled: true, gitleaksEnabled: true, dependencyAuditEnabled: true,
       firestoreRulesLintEnabled: true, postureCheckEnabled: true, runtimeAnomalyEnabled: true,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    await db.collection('security_config').doc('suppression').set({
-      suppressions: [],
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    await firestore.collection('security_config').doc('suppression').set({
+      suppressions: [], updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     return res.status(200).json({
-      success: true,
-      assets:  BEWATU_ASSETS.length,
-      edges:   BEWATU_EDGES.length,
+      success: true, assets: BEWATU_ASSETS.length, edges: BEWATU_EDGES.length,
       message: 'Seeded. Delete api/security/seed.ts now.',
     });
 
