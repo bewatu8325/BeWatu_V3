@@ -2,7 +2,6 @@
 // ONE-TIME USE — delete after seeding is confirmed in Firestore.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import * as admin from 'firebase-admin';
 
 const ALLOWED_ORIGINS = [
   'https://ops.bewatu.com',
@@ -18,20 +17,6 @@ function setCors(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '86400');
-}
-
-// Init outside handler but wrapped in try/catch
-let db: admin.firestore.Firestore;
-try {
-  if (!admin.apps.length) {
-    const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (sa) {
-      admin.initializeApp({ credential: admin.credential.cert(JSON.parse(sa)) });
-    }
-  }
-  db = admin.firestore();
-} catch (e) {
-  console.error('Firebase init error:', e);
 }
 
 const BEWATU_ASSETS = [
@@ -90,22 +75,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Check env var first
     const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!sa) return res.status(500).json({ error: 'FIREBASE_SERVICE_ACCOUNT env var not set' });
 
-    // Safe init
-    if (!admin.apps.length) {
-      admin.initializeApp({ credential: admin.credential.cert(JSON.parse(sa)) });
+    // Use require to avoid ESM/CJS issues with firebase-admin
+    const admin = require('firebase-admin');
+
+    // Safe init — getApps() is more reliable than admin.apps across versions
+    const { getApps, initializeApp, cert } = require('firebase-admin/app');
+    const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+    const { getAuth } = require('firebase-admin/auth');
+
+    if (!getApps().length) {
+      initializeApp({ credential: cert(JSON.parse(sa)) });
     }
-    const firestore = admin.firestore();
+
+    const firestore = getFirestore();
+    const auth      = getAuth();
 
     // Verify platform admin
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) return res.status(403).json({ error: 'No auth token' });
 
-    const decoded  = await admin.auth().verifyIdToken(authHeader.slice(7));
-    const userDoc  = await firestore.collection('users').doc(decoded.uid).get();
+    const decoded = await auth.verifyIdToken(authHeader.slice(7));
+    const userDoc = await firestore.collection('users').doc(decoded.uid).get();
     if (!userDoc.data()?.isPlatformAdmin) return res.status(403).json({ error: 'Platform admin required' });
 
     if (!req.body?.confirm) return res.status(400).json({ error: 'Pass { confirm: true } in body' });
@@ -116,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const asset of BEWATU_ASSETS) {
       batch.set(firestore.collection('asset_graph').doc(asset.id), {
         ...asset, dependencies: [], dependents: [], secrets: [], tags: [],
-        lastScanned: admin.firestore.FieldValue.serverTimestamp(),
+        lastScanned: FieldValue.serverTimestamp(),
       }, { merge: true });
     }
 
@@ -130,11 +123,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await firestore.collection('security_config').doc('rules').set({
       semgrepEnabled: true, gitleaksEnabled: true, dependencyAuditEnabled: true,
       firestoreRulesLintEnabled: true, postureCheckEnabled: true, runtimeAnomalyEnabled: true,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     await firestore.collection('security_config').doc('suppression').set({
-      suppressions: [], updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      suppressions: [], updatedAt: FieldValue.serverTimestamp(),
     });
 
     return res.status(200).json({
