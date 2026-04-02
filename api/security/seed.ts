@@ -2,6 +2,9 @@
 // ONE-TIME USE — delete after seeding is confirmed in Firestore.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
 const ALLOWED_ORIGINS = [
   'https://ops.bewatu.com',
@@ -78,14 +81,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!sa) return res.status(500).json({ error: 'FIREBASE_SERVICE_ACCOUNT env var not set' });
 
-    // Use require to avoid ESM/CJS issues with firebase-admin
-    const admin = require('firebase-admin');
-
-    // Safe init — getApps() is more reliable than admin.apps across versions
-    const { getApps, initializeApp, cert } = require('firebase-admin/app');
-    const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-    const { getAuth } = require('firebase-admin/auth');
-
     if (!getApps().length) {
       initializeApp({ credential: cert(JSON.parse(sa)) });
     }
@@ -103,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!req.body?.confirm) return res.status(400).json({ error: 'Pass { confirm: true } in body' });
 
-    // Seed
+    // Seed assets and edges
     const batch = firestore.batch();
 
     for (const asset of BEWATU_ASSETS) {
