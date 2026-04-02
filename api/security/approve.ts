@@ -108,8 +108,28 @@ async function createSecurityPR(
       if (!e.message?.includes('already exists')) throw e;
     });
 
-    // Create PR (draft for manual fixes, ready for automatable)
+    // For non-automatable fixes, add an empty commit so GitHub allows PR creation
     const isAutomatable = plan.automatable === true;
+    if (!isAutomatable) {
+      // Get the tree SHA from main
+      const mainCommit = await octokit.git.getCommit({
+        owner, repo, commit_sha: mainRef.data.object.sha,
+      });
+      // Create an empty commit on the branch
+      const emptyCommit = await octokit.git.createCommit({
+        owner, repo,
+        message: `[SECURITY] Tracking fix for: ${finding.title}`,
+        tree:    mainCommit.data.tree.sha,
+        parents: [mainRef.data.object.sha],
+      });
+      await octokit.git.updateRef({
+        owner, repo,
+        ref: `heads/${branchName}`,
+        sha: emptyCommit.data.sha,
+      });
+    }
+
+    // Create PR (draft for manual fixes, ready for automatable)
     const pr = await octokit.pulls.create({
       owner, repo,
       title: `[SECURITY] ${finding.severity?.toUpperCase() || 'MEDIUM'}: ${finding.title}`,
