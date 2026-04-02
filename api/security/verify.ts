@@ -1,21 +1,19 @@
 // api/security/verify.ts
 // POST /api/security/verify
-// Post-execution verification — checks that the fix was merged and
-// re-queues a scan to confirm the finding is resolved.
-//
-// Body: { planId: string, prNumber?: number, repo?: string }
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { Octokit } from '@octokit/rest';
 
-if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.cert(
-    JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!)
-  )});
+function initAdmin() {
+  if (!getApps().length) {
+    const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!sa) throw new Error('FIREBASE_SERVICE_ACCOUNT not set');
+    initializeApp({ credential: cert(JSON.parse(sa)) });
+  }
+  return { db: getFirestore() };
 }
-
-const db = admin.firestore();
 
 function validateServiceToken(req: VercelRequest): boolean {
   const auth = req.headers.authorization;
@@ -36,67 +34,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!validateServiceToken(req)) return res.status(403).json({ error: 'Unauthorised' });
 
-  const { planId, prNumber, repo } = req.body;
-  if (!planId) return res.status(400).json({ error: 'planId required' });
-
   try {
+    const { db } = initAdmin();
+    const { planId, prNumber, repo } = req.body;
+    if (!planId) return res.status(400).json({ error: 'planId required' });
+
     const planDoc = await db.collection('remediation_plans').doc(planId).get();
     if (!planDoc.exists) return res.status(404).json({ error: 'Plan not found' });
-
-    const plan    = planDoc.data()!;
-    const finding = (await db.collection('security_findings').doc(plan.findingId).get()).data();
+    const plan = planDoc.data()!;
 
     let prMerged = false;
-
-    // Check GitHub PR status if we have a PR number
     if (prNumber && repo && process.env.GITHUB_TOKEN) {
-      const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-      const { owner, repo: repoName } = getGHRepo(repo);
-
       try {
+        const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+        const { owner, repo: repoName } = getGHRepo(repo);
         const pr = await octokit.pulls.get({ owner, repo: repoName, pull_number: prNumber });
         prMerged = pr.data.merged;
-      } catch (e) {
-        console.warn('Could not fetch PR status:', e);
-      }
+      } catch (e) { console.warn('Could not fetch PR status:', e); }
     }
 
     if (prMerged) {
-      // PR merged — mark as verified
-      await planDoc.ref.update({
-        status:     'completed',
-        verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
+      await planDoc.ref.update({ status: 'completed', verifiedAt: FieldValue.serverTimestamp() });
       await db.collection('security_findings').doc(plan.findingId).update({
-        status:     'verified',
-        resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt:  admin.firestore.FieldValue.serverTimestamp(),
+        status: 'verified', resolvedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
-
-      // Write audit entry
       await db.collection('audit_log').add({
-        action:    'security_finding_verified',
-        findingId: plan.findingId,
-        planId,
-        prNumber,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        action: 'security_finding_verified', findingId: plan.findingId,
+        planId, prNumber, timestamp: FieldValue.serverTimestamp(),
       });
-
       return res.status(200).json({ verified: true, planId });
-    } else {
-      // PR not yet merged — schedule a re-check (the ops portal can poll this)
-      return res.status(200).json({
-        verified: false,
-        message:  prNumber
-          ? `PR #${prNumber} not yet merged — check again after merge.`
-          : 'Manual verification required — no PR number provided.',
-        planId,
-      });
     }
+
+    return res.status(200).json({
+      verified: false,
+      message: prNumber ? `PR #${prNumber} not yet merged.` : 'Manual verification required.',
+      planId,
+    });
 
   } catch (err: any) {
     console.error('verify.ts error:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return res.status(500).json({ error: err.message || 'Internal error' });
   }
 }
