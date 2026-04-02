@@ -93,8 +93,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!authHeader?.startsWith('Bearer ')) return res.status(403).json({ error: 'No auth token' });
 
     const decoded = await auth.verifyIdToken(authHeader.slice(7));
-    const userDoc = await firestore.collection('users').doc(decoded.uid).get();
-    if (!userDoc.data()?.isPlatformAdmin) return res.status(403).json({ error: 'Platform admin required' });
+
+    // Check ops_staff collection (ops portal session)
+    const opsDoc     = await firestore.collection('ops_staff').doc(decoded.uid).get();
+    const isOpsAdmin = opsDoc.exists && opsDoc.data()?.role === 'platform_admin';
+
+    // Also check users collection (bewatu.com session)
+    const userDoc     = await firestore.collection('users').doc(decoded.uid).get();
+    const isUserAdmin = userDoc.exists && userDoc.data()?.isPlatformAdmin === true;
+
+    if (!isOpsAdmin && !isUserAdmin) return res.status(403).json({ error: 'Platform admin required' });
 
     if (!req.body?.confirm) return res.status(400).json({ error: 'Pass { confirm: true } in body' });
 
