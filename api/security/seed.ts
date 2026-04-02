@@ -1,8 +1,6 @@
 // api/security/seed.ts
 // ONE-TIME USE — delete after seeding is confirmed in Firestore.
 // POST /api/security/seed
-// Seeds asset_graph, asset_edges, and security_config collections.
-// Protected: requires isPlatformAdmin on the caller's user doc.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as admin from 'firebase-admin';
@@ -17,7 +15,22 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+const ALLOWED_ORIGINS = [
+  'https://ops.bewatu.com',
+  'https://www.bewatu.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function setCors(req: VercelRequest, res: VercelResponse) {
+  const origin = req.headers.origin as string | undefined;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
+}
 
 async function verifyPlatformAdmin(req: VercelRequest): Promise<boolean> {
   const auth = req.headers.authorization;
@@ -30,8 +43,6 @@ async function verifyPlatformAdmin(req: VercelRequest): Promise<boolean> {
     return false;
   }
 }
-
-// ── Data ──────────────────────────────────────────────────────────────────────
 
 const BEWATU_ASSETS = [
   { id: 'bewatu_v3_app',         type: 'react_app',            name: 'bewatu.com',                   criticality: 0.8,  dataSensitivity: 0.7,  internetFacing: true  },
@@ -83,17 +94,18 @@ const BEWATU_EDGES = [
   { fromId: 'role_ops_staff',      toId: 'firestore_audit_log',   relationship: 'reads_from',        dataFlow: 'internal' },
 ];
 
-// ── Handler ───────────────────────────────────────────────────────────────────
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCors(req, res);
+
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const isAdmin = await verifyPlatformAdmin(req);
   if (!isAdmin) return res.status(403).json({ error: 'Platform admin required' });
 
-  // Safety check — don't re-seed if already done
   if (!req.body?.confirm) {
-    return res.status(400).json({ error: 'Pass { confirm: true } in the request body to proceed' });
+    return res.status(400).json({ error: 'Pass { confirm: true } in body' });
   }
 
   try {
