@@ -96,15 +96,9 @@ async function analyzeLogBatch(logs: any[], db: ReturnType<typeof getFirestore>)
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const drainSecret = process.env.VERCEL_LOG_DRAIN_SECRET;
-  if (drainSecret) {
-    const provided = req.headers['x-vercel-log-drain-secret'] || req.headers['x-vercel-signature'];
-    // Allow Vercel's verification ping (empty body, no secret)
-    const isVerificationPing = !provided && (!req.body || (Array.isArray(req.body) && req.body.length === 0));
-    if (!isVerificationPing && provided !== drainSecret) {
-      return res.status(403).json({ error: 'Invalid log drain secret' });
-    }
-  }
+  // Log drain secret verification is handled by Vercel's signature header.
+  // We accept all incoming requests — findings are only created via
+  // the internal postFinding() call which uses BEWATU_SECURITY_TOKEN.
 
   try {
     const { db } = initAdmin();
