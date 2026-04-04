@@ -99,7 +99,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const drainSecret = process.env.VERCEL_LOG_DRAIN_SECRET;
   if (drainSecret) {
     const provided = req.headers['x-vercel-log-drain-secret'] || req.headers['x-vercel-signature'];
-    if (provided !== drainSecret) return res.status(403).json({ error: 'Invalid log drain secret' });
+    // Allow Vercel's verification ping (empty body, no secret)
+    const isVerificationPing = !provided && (!req.body || (Array.isArray(req.body) && req.body.length === 0));
+    if (!isVerificationPing && provided !== drainSecret) {
+      return res.status(403).json({ error: 'Invalid log drain secret' });
+    }
   }
 
   try {
