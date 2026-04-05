@@ -4,7 +4,7 @@ import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
-import { analyzeSynergy, analyzeJobMatch } from './services/claudeService';
+import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/claudeService';
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
@@ -669,44 +669,18 @@ const MainApp: React.FC = () => {
   const handleGenerateSkillsGraph = async (resume: string, digitalFootprint: string, references: string) => {
     if (!data || !currentUser || !fbUser) return;
 
-    // Call Claude proxy instead of broken Gemini endpoint
-    const prompt = `Analyse this professional's background and return a JSON array of verified skills.
-Each skill: { "name": string, "level": "beginner"|"intermediate"|"advanced"|"expert", "endorsements": 0, "source": "platform"|"resume"|"endorsement" }
-Return ONLY valid JSON — no markdown, no explanation.
-
-Background:
-${resume || 'No resume provided'}
-
-Digital presence:
-${digitalFootprint || 'Not provided'}
-
-References/testimonials:
-${references || 'Not provided'}`;
-
     let verifiedSkills: any[] = [];
     try {
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system: 'You are a professional skills analyser. Return only valid JSON arrays. No markdown. No explanation.',
-          prompt,
-          maxTokens: 800,
-        }),
-      });
-      if (res.ok) {
-        const { text } = await res.json();
-        const clean = text.replace(/```json|```/g, '').trim();
-        verifiedSkills = JSON.parse(clean);
-      }
+      verifiedSkills = await generateSkillsGraph(resume, digitalFootprint, references);
     } catch (err) {
       console.error('Skills generation error:', err);
       // Fall back to deriving from existing profile skills
       verifiedSkills = (currentUser.skills ?? []).map((s: any) => ({
-        name:        typeof s === 'string' ? s : s.name,
-        level:       'intermediate',
+        name:         typeof s === 'string' ? s : s.name,
+        proficiency:  'Intermediate',
         endorsements: 0,
-        source:      'platform',
+        source:       'platform',
+        evidence:     '',
       }));
     }
 
