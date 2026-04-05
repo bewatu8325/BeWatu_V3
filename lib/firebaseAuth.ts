@@ -271,6 +271,8 @@ export async function updateUserInFirestore(
     ...(updates.trialEndsAt !== undefined && { trialEndsAt: updates.trialEndsAt }),
     ...(updates.currentPeriodEnd !== undefined && { currentPeriodEnd: updates.currentPeriodEnd }),
     ...(updates.factoryUnlocked !== undefined && { factoryUnlocked: updates.factoryUnlocked }),
+    ...((updates as any).employerName !== undefined && { employerName: (updates as any).employerName }),
+    ...((updates as any).showOnCompanyPage !== undefined && { showOnCompanyPage: (updates as any).showOnCompanyPage }),
     updatedAt: serverTimestamp(),
   };
   await updateDoc(doc(db, 'users', fbUid), fsUpdates);
