@@ -1103,6 +1103,110 @@ export async function getOrCreateCompanyForRecruiter(
   };
 }
 
+// Fetch users who have listed this company as their employer (Option A).
+// Users self-associate by entering their company name in profile settings.
+// Fuzzy match: case-insensitive contains check.
+export async function fetchCompanyTeamMembers(
+  companyName: string
+): Promise<import('../types').User[]> {
+  if (!companyName) return [];
+  // Query users where employerName matches (exact, case-insensitive handled client-side)
+  const snap = await getDocs(
+    query(
+      collection(db, 'users'),
+      where('showOnCompanyPage', '==', true),
+      limit(50)
+    )
+  );
+  const normalised = companyName.toLowerCase().trim();
+  return snap.docs
+    .map(d => ({ ...d.data(), _firestoreUid: d.id }))
+    .filter((u: any) =>
+      u.employerName?.toLowerCase().trim().includes(normalised) ||
+      normalised.includes(u.employerName?.toLowerCase().trim() ?? '____')
+    )
+    .map((u: any) => ({
+      id:           u.numericId ?? 1,
+      name:         u.displayName ?? '',
+      headline:     u.headline ?? '',
+      avatarUrl:    u.photoURL ?? '',
+      isVerified:   u.isVerified ?? false,
+      skills:       u.skills ?? [],
+      verifiedSkills: u.verifiedSkills ?? [],
+      industry:     u.industry ?? '',
+    })) as any[];
+}
+
+// Read-only version — used on login. Never creates a company.
+// Company creation is handled explicitly in Gate 4 of recruiter registration.
+export async function fetchCompanyForRecruiter(
+  recruiterUid: string
+): Promise<import('../types').Company | null> {
+  if (!recruiterUid) return null;
+  const q = query(collection(db, 'companies'), where('adminUid', '==', recruiterUid));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  const data = d.data();
+  return {
+    id: data.numericId ?? 1,
+    _firestoreId: d.id,
+    name: data.name ?? '',
+    description: data.description ?? '',
+    industry: data.industry ?? '',
+    logoUrl: data.logoUrl ?? '',
+    website: data.website ?? '',
+    adminUid: data.adminUid,
+    verifiedRecruiters: data.verifiedRecruiters ?? [],
+    verificationStatus: data.verificationStatus ?? 'unverified',
+  };
+}
+
+// Creates a company explicitly during recruiter registration Gate 4.
+// Only called from RecruiterRegistrationFlow on form submit.
+export async function createCompanyForRecruiter(
+  recruiterUid: string,
+  companyData: {
+    name: string;
+    industry?: string;
+    size?: string;
+    website?: string;
+    description?: string;
+  }
+): Promise<import('../types').Company> {
+  // Check if company already exists for this recruiter first
+  const existing = await fetchCompanyForRecruiter(recruiterUid);
+  if (existing) return existing;
+
+  const ref = await addDoc(collection(db, 'companies'), {
+    adminUid:           recruiterUid,
+    name:               companyData.name,
+    description:        companyData.description ?? '',
+    industry:           companyData.industry ?? '',
+    size:               companyData.size ?? '',
+    website:            companyData.website ?? '',
+    logoUrl:            '',
+    numericId:          Date.now(),
+    verifiedRecruiters: [recruiterUid],
+    verificationStatus: 'pending',
+    createdAt:          serverTimestamp(),
+    updatedAt:          serverTimestamp(),
+  });
+
+  return {
+    id: Date.now(),
+    _firestoreId: ref.id,
+    name: companyData.name,
+    description: companyData.description ?? '',
+    industry: companyData.industry ?? '',
+    logoUrl: '',
+    website: companyData.website ?? '',
+    adminUid: recruiterUid,
+    verifiedRecruiters: [recruiterUid],
+    verificationStatus: 'pending',
+  };
+}
+
 export async function applyToJobWithProfile(
   jobFirestoreId: string,
   jobNumericId: number,
