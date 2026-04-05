@@ -110,7 +110,13 @@ export default function RecruiterRegistrationFlow({
   const [workEmail, setWorkEmail] = useState(
     isPersonalEmail(fbUserEmail) ? '' : fbUserEmail
   );
-  const [emailError, setEmailError] = useState('');
+  const [emailError,    setEmailError]    = useState('');
+  const [otpSent,       setOtpSent]       = useState(false);
+  const [otpCode,       setOtpCode]       = useState('');
+  const [otpVerified,   setOtpVerified]   = useState(false);
+  const [otpLoading,    setOtpLoading]    = useState(false);
+  const [otpError,      setOtpError]      = useState('');
+  const [otpExpiresAt,  setOtpExpiresAt]  = useState<string | null>(null);
 
   // Gate 3 state
   const [agreedNoAgency, setAgreedNoAgency] = useState(false);
@@ -140,6 +146,47 @@ export default function RecruiterRegistrationFlow({
   // Gate 4 check
   const passesGate4 = jobTitle.trim().length > 0 && companyName.trim().length > 0 && companySize && hiringFor.trim().length > 0;
 
+  async function handleSendOtp() {
+    if (!passesEmailCheck) return;
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      const res = await fetch('/api/send-recruiter-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: workEmail, uid: fbUserUid }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send code');
+      setOtpSent(true);
+      setOtpExpiresAt(data.expiresAt);
+    } catch (err: any) {
+      setOtpError(err.message);
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otpCode.trim()) return;
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      const res = await fetch('/api/send-recruiter-otp?action=verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: workEmail, otp: otpCode.trim(), uid: fbUserUid }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) throw new Error(data.error || 'Incorrect code');
+      setOtpVerified(true);
+    } catch (err: any) {
+      setOtpError(err.message);
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
   async function handleSubmit() {
     if (!passesGate4) return;
     setSubmitting(true);
@@ -167,6 +214,7 @@ export default function RecruiterRegistrationFlow({
         agreedAccurate: true,
         agreedTerms:    true,
         emailDomain:  emailDomain,
+        emailVerified: true,  // OTP verified
         // Status
         status:       'pending_ops',
         submittedAt:  serverTimestamp(),
@@ -300,7 +348,7 @@ export default function RecruiterRegistrationFlow({
           </div>
         )}
 
-        {/* ── Gate 2 — Work email ───────────────────────────────────────────── */}
+        {/* ── Gate 2 — Work email + OTP ─────────────────────────────────────── */}
         {gate === 2 && (
           <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
             <div>
@@ -308,38 +356,89 @@ export default function RecruiterRegistrationFlow({
                 <Mail size={16} style={{ color: GREEN }} /> Work email verification
               </h2>
               <p className="text-xs text-stone-500">
-                Recruiters must use a company email address. Free email providers (Gmail, Yahoo, Outlook, etc.) are not accepted.
+                Recruiters must verify a company email address. Free email providers (Gmail, Yahoo, Outlook, etc.) are not accepted.
               </p>
             </div>
 
+            {/* Email input — only editable before OTP sent */}
             <div className="space-y-2">
               <label className="text-xs font-semibold text-stone-600">Company email address</label>
               <input
                 type="email"
                 value={workEmail}
-                onChange={e => { setWorkEmail(e.target.value); setEmailError(''); }}
+                onChange={e => { setWorkEmail(e.target.value); setEmailError(''); setOtpSent(false); setOtpVerified(false); setOtpCode(''); }}
                 placeholder="you@yourcompany.com"
-                className="w-full px-4 py-3 text-sm border rounded-xl focus:outline-none transition-colors"
+                disabled={otpSent && !otpVerified}
+                className="w-full px-4 py-3 text-sm border rounded-xl focus:outline-none transition-colors disabled:opacity-60"
                 style={{
-                  borderColor: emailError ? '#f87171' : passesEmailCheck ? GREEN : '#e7e5e4',
-                  backgroundColor: passesEmailCheck ? GREEN_LT : 'white',
+                  borderColor: emailError ? '#f87171' : otpVerified ? GREEN : passesEmailCheck ? '#a3d9c3' : '#e7e5e4',
+                  backgroundColor: otpVerified ? GREEN_LT : passesEmailCheck ? '#f7fcfa' : 'white',
                 }}
               />
               {emailError && <p className="text-xs text-red-500">{emailError}</p>}
-              {passesEmailCheck && (
-                <p className="text-xs font-medium flex items-center gap-1.5" style={{ color: GREEN }}>
-                  <CheckCircle2 size={12} /> @{emailDomain} — company domain accepted
-                </p>
-              )}
               {workEmail && isPersonalEmail(workEmail) && (
                 <p className="text-xs text-red-500 flex items-center gap-1.5">
                   <XCircle size={12} /> Free email providers are not accepted
                 </p>
               )}
+              {otpVerified && (
+                <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: GREEN }}>
+                  <CheckCircle2 size={12} /> Email verified ✓
+                </p>
+              )}
             </div>
 
+            {/* Send OTP button — shown when email is valid and not yet verified */}
+            {!otpVerified && passesEmailCheck && !otpSent && (
+              <button
+                onClick={handleSendOtp}
+                disabled={otpLoading}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-60"
+                style={{ backgroundColor: GREEN }}>
+                {otpLoading ? <><Loader2 size={14} className="animate-spin" /> Sending…</> : <>Send verification code</>}
+              </button>
+            )}
+
+            {/* OTP entry — shown after code is sent */}
+            {otpSent && !otpVerified && (
+              <div className="space-y-3">
+                <div className="p-3 rounded-xl text-xs leading-relaxed" style={{ backgroundColor: GREEN_LT, color: GREEN }}>
+                  A 6-digit code was sent to <strong>{workEmail}</strong>. It expires in 10 minutes.
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-stone-600">Enter verification code</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '')); setOtpError(''); }}
+                    placeholder="123456"
+                    className="w-full px-4 py-3 text-xl font-bold text-center tracking-widest border rounded-xl focus:outline-none transition-colors"
+                    style={{ borderColor: otpError ? '#f87171' : '#e7e5e4' }}
+                  />
+                  {otpError && <p className="text-xs text-red-500 text-center">{otpError}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSendOtp}
+                    disabled={otpLoading}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-medium text-stone-600 border border-stone-200 hover:bg-stone-50 disabled:opacity-60">
+                    Resend code
+                  </button>
+                  <button
+                    onClick={handleVerifyOtp}
+                    disabled={otpCode.length !== 6 || otpLoading}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-40"
+                    style={{ backgroundColor: GREEN }}>
+                    {otpLoading ? <><Loader2 size={14} className="animate-spin" /> Verifying…</> : 'Verify'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="p-3 rounded-xl bg-stone-50 border border-stone-100 text-xs text-stone-500 leading-relaxed">
-              Your work email must match the company you will be posting jobs for. If your company uses a custom domain, make sure it matches.
+              Your work email must match the company you will be posting jobs for.
             </div>
 
             <div className="flex gap-2 pt-1">
@@ -348,11 +447,8 @@ export default function RecruiterRegistrationFlow({
                 Back
               </button>
               <button
-                onClick={() => {
-                  if (!passesEmailCheck) { setEmailError('Please enter a valid company email address.'); return; }
-                  setGate(3);
-                }}
-                disabled={!passesEmailCheck}
+                onClick={() => setGate(3)}
+                disabled={!otpVerified}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
                 style={{ backgroundColor: GREEN }}>
                 Continue <ChevronRight size={15} />
