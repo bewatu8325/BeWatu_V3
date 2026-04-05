@@ -10,19 +10,20 @@
  */
 import React, { useState, useEffect } from 'react';
 import {
-  X, Building2, Globe, Zap, Plus, Clock,
+  X, Building2, Globe, Zap, Users, Plus, Clock,
   CheckCircle, Star, Send, Bookmark, Trophy, ArrowLeft, Loader2,
   Eye, EyeOff, Sword, Info, BookOpen, Target, ChevronDown,
   UserPlus, Briefcase, Calendar, MessageSquare, Gift, Link2,
   AlertCircle, Check, MoreHorizontal,
 } from 'lucide-react';
-import { Company, Job } from '../types';
+import { Company, Job, User } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
 import app from '../lib/firebase';
 import {
   followCompany,
   unfollowCompany,
   getChallengesForCompany,
+  fetchCompanyTeamMembers,
   createSkillChallenge,
   submitSkillChallenge,
   updateSubmissionStatus,
@@ -1772,7 +1773,9 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
   const [challenges, setChallenges] = useState<any[]>([]);
   const [userSubmissions, setUserSubmissions] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'overview' | 'challenges'>('overview');
+  const [tab, setTab] = useState<'overview' | 'challenges' | 'team'>('overview');
+  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
 
   const [isFollowing, setIsFollowing] = useState(
     (currentUser as any)?.followingCompanies?.includes(company._firestoreId) ?? false
@@ -1827,6 +1830,15 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
   }
 
   useEffect(() => { loadChallenges(); }, [company._firestoreId]);
+
+  useEffect(() => {
+    if (tab !== 'team' || !company.name) return;
+    setTeamLoading(true);
+    fetchCompanyTeamMembers(company.name)
+      .then(members => setTeamMembers(members))
+      .catch(() => setTeamMembers([]))
+      .finally(() => setTeamLoading(false));
+  }, [tab, company.name]);
 
   async function handleFollow() {
     if (!fbUser || !company._firestoreId) return;
@@ -1921,11 +1933,11 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
 
           {/* Tabs */}
           <div className="flex gap-1 mx-4 mt-4 p-1 rounded-2xl bg-stone-100">
-            {(['overview', 'challenges'] as const).map(t => (
+            {(['overview', 'challenges', 'team'] as const).map(t => (
               <button key={t} onClick={() => setTab(t)}
                 className="flex-1 py-1.5 rounded-xl text-xs font-bold capitalize transition-all"
                 style={{ background: tab === t ? 'white' : 'transparent', color: tab === t ? '#1c1917' : '#78716c', boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
-                {t === 'challenges' ? `Challenges${challenges.length > 0 ? ` (${challenges.length})` : ''}` : 'Overview'}
+                {t === 'challenges' ? `Challenges${challenges.length > 0 ? ` (${challenges.length})` : ''}` : t === 'team' ? `Team${teamMembers.length > 0 ? ` (${teamMembers.length})` : ''}` : 'Overview'}
               </button>
             ))}
           </div>
@@ -1934,6 +1946,64 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
           <div className="flex-1 px-4 py-4 pb-24 space-y-4">
             {tab === 'overview' && (
               <>
+                {/* Culture signals */}
+                {((company as any).values?.length > 0 || (company as any).culture || (company as any).size) && (
+                  <div className="bg-white rounded-2xl border p-4 space-y-3" style={{ borderColor: '#e7e5e4' }}>
+                    <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                      <Users className="w-4 h-4" style={{ color: GREEN }} /> Culture & Values
+                    </h3>
+                    {(company as any).size && (
+                      <div className="flex items-center gap-2 text-xs text-stone-500">
+                        <Building2 className="w-3.5 h-3.5" /> {(company as any).size} employees
+                      </div>
+                    )}
+                    {(company as any).culture && (
+                      <p className="text-sm text-stone-600 leading-relaxed">{(company as any).culture}</p>
+                    )}
+                    {(company as any).values?.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {(company as any).values.map((v: string) => (
+                          <span key={v} className="text-xs px-3 py-1 rounded-full font-medium"
+                            style={{ background: GREEN_LT, color: GREEN }}>{v}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Hiring signal — skills they look for */}
+                {companyJobs.length > 0 && (() => {
+                  const allSkills = companyJobs.flatMap((j: any) => j.skills ?? []);
+                  const skillCounts: Record<string, number> = {};
+                  allSkills.forEach((s: string) => { skillCounts[s] = (skillCounts[s] ?? 0) + 1; });
+                  const topSkills = Object.entries(skillCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+                  if (topSkills.length === 0) return null;
+                  return (
+                    <div className="bg-white rounded-2xl border p-4 space-y-3" style={{ borderColor: '#e7e5e4' }}>
+                      <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-amber-500" /> Skills They Hire For
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {topSkills.map(([skill]) => {
+                          const isMatch = userSkills.includes(skill.toLowerCase());
+                          return (
+                            <span key={skill}
+                              className="text-xs px-3 py-1 rounded-full font-medium border"
+                              style={{
+                                background: isMatch ? GREEN_LT : 'white',
+                                color: isMatch ? GREEN : '#78716c',
+                                borderColor: isMatch ? '#b6ddd2' : '#e7e5e4',
+                              }}>
+                              {isMatch && '✓ '}{skill}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-stone-400">Green skills match your profile</p>
+                    </div>
+                  );
+                })()}
+
                 {/* CoSentiment Score Widget */}
                 {cosentimentData && (
                   <CoSentimentWidget data={cosentimentData} userId={fbUser?.uid} />
@@ -1979,6 +2049,81 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
                     </div>
                   ))}
                 </div>
+              </>
+            )}
+
+            {tab === 'team' && (
+              <>
+                {teamLoading ? (
+                  <div className="flex justify-center py-10">
+                    <Loader2 className="w-6 h-6 animate-spin" style={{ color: GREEN }} />
+                  </div>
+                ) : teamMembers.length === 0 ? (
+                  <div className="flex flex-col items-center py-14 text-center gap-3">
+                    <Users className="w-10 h-10 text-stone-300" />
+                    <p className="font-bold text-stone-500">No team members visible yet</p>
+                    <p className="text-xs text-stone-400 max-w-xs">
+                      Team members appear here when they add {company.name} as their employer in their profile settings.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Team skill cloud */}
+                    {(() => {
+                      const allSkills = teamMembers.flatMap((m: any) => [
+                        ...((m.skills ?? []).map((s: any) => typeof s === 'string' ? s : s.name)),
+                        ...((m.verifiedSkills ?? []).map((s: any) => s.name)),
+                      ]);
+                      const skillCounts: Record<string, number> = {};
+                      allSkills.forEach((s: string) => { skillCounts[s] = (skillCounts[s] ?? 0) + 1; });
+                      const topSkills = Object.entries(skillCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                      if (topSkills.length === 0) return null;
+                      return (
+                        <div className="bg-white rounded-2xl border p-4 space-y-3" style={{ borderColor: '#e7e5e4' }}>
+                          <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-amber-500" /> Team Skills
+                          </h3>
+                          <div className="flex flex-wrap gap-2">
+                            {topSkills.map(([skill, count]) => (
+                              <span key={skill}
+                                className="text-xs px-3 py-1 rounded-full font-medium"
+                                style={{ background: GREEN_LT, color: GREEN }}>
+                                {skill} {count > 1 && <span className="opacity-60">×{count}</span>}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Team member cards */}
+                    <div className="bg-white rounded-2xl border p-4 space-y-3" style={{ borderColor: '#e7e5e4' }}>
+                      <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                        <Users className="w-4 h-4" style={{ color: GREEN }} /> {teamMembers.length} Team Member{teamMembers.length !== 1 ? 's' : ''}
+                      </h3>
+                      {teamMembers.map((member: any) => (
+                        <div key={member.id} className="flex items-center gap-3 py-2 border-t" style={{ borderColor: '#f5f5f4' }}>
+                          {member.avatarUrl ? (
+                            <img src={member.avatarUrl} alt={member.name}
+                              className="w-9 h-9 rounded-full object-cover border" style={{ borderColor: '#e7e5e4' }} />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                              style={{ background: GREEN }}>
+                              {member.name?.[0] ?? '?'}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-stone-800 text-sm truncate">{member.name}</p>
+                            <p className="text-xs text-stone-400 truncate">{member.headline}</p>
+                          </div>
+                          {member.isVerified && (
+                            <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: GREEN }} />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
