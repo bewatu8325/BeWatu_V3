@@ -61,6 +61,29 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   const [localAvatarUrl, setLocalAvatarUrl] = useState('');
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
+
+  // Workplace visibility state
+  const [employerName,       setEmployerName]       = useState<string>((user as any).employerName ?? '');
+  const [showOnCompanyPage,  setShowOnCompanyPage]  = useState<boolean>((user as any).showOnCompanyPage ?? false);
+  const [workplaceSaving,    setWorkplaceSaving]    = useState(false);
+  const [workplaceSaved,     setWorkplaceSaved]     = useState(false);
+
+  async function handleSaveWorkplace() {
+    if (!fbUser) return;
+    setWorkplaceSaving(true);
+    try {
+      await updateUserInFirestore(fbUser.uid, {
+        employerName,
+        showOnCompanyPage,
+      } as any);
+      setWorkplaceSaved(true);
+      setTimeout(() => setWorkplaceSaved(false), 2000);
+    } catch (err) {
+      console.error('Failed to save workplace settings:', err);
+    } finally {
+      setWorkplaceSaving(false);
+    }
+  }
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeError, setResumeError] = useState('');
   const [localExperiences, setLocalExperiences] = useState<any[]>((user as any).experiences ?? []);
@@ -370,6 +393,67 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Workplace visibility — only for current user */}
+        {isCurrentUser && (
+          <div className="bg-white rounded-2xl border p-4 space-y-4" style={{ borderColor: '#e7e5e4' }}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white flex-shrink-0" style={{ backgroundColor: '#1a4a3a' }}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </div>
+              <div>
+                <p className="font-bold text-stone-900 text-sm">Workplace</p>
+                <p className="text-xs text-stone-400">Appear on your company's page on BeWatu</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-stone-600">Employer name</label>
+              <input
+                type="text"
+                value={employerName}
+                onChange={e => setEmployerName(e.target.value)}
+                placeholder="e.g. Acme Corp"
+                className="w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none transition-colors"
+                style={{ borderColor: '#e7e5e4' }}
+              />
+              <p className="text-xs text-stone-400">
+                Must match the company name exactly as registered on BeWatu.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-t" style={{ borderColor: '#f5f5f4' }}>
+              <div>
+                <p className="text-sm font-semibold text-stone-800">Show me on company page</p>
+                <p className="text-xs text-stone-400 mt-0.5">
+                  Your name, headline and skills will appear on {employerName || 'your company'}'s BeWatu page.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOnCompanyPage(v => !v)}
+                className="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none ml-4"
+                style={{ backgroundColor: showOnCompanyPage ? '#1a4a3a' : '#e7e5e4' }}
+                aria-checked={showOnCompanyPage}
+                role="switch"
+              >
+                <span
+                  className="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform"
+                  style={{ transform: showOnCompanyPage ? 'translateX(1.375rem)' : 'translateX(0.25rem)' }}
+                />
+              </button>
+            </div>
+
+            <button
+              onClick={handleSaveWorkplace}
+              disabled={workplaceSaving}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+              style={{ backgroundColor: '#1a4a3a' }}
+            >
+              {workplaceSaving ? 'Saving…' : workplaceSaved ? '✓ Saved' : 'Save workplace settings'}
+            </button>
           </div>
         )}
 
