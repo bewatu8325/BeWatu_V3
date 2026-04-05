@@ -4,7 +4,7 @@ import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
-import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/claudeService';
+import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/geminiService';
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
@@ -52,7 +52,7 @@ import {
   createCircle,
   leaveCircle,
   fetchUsers,
-  getOrCreateCompanyForRecruiter,
+  fetchCompanyForRecruiter,
   applyToJobWithProfile,
   fetchCompanyById,
 } from './lib/firestoreService';
@@ -237,14 +237,14 @@ const MainApp: React.FC = () => {
         u.id !== user.id && (u as any)._firestoreUid !== currentUid
       );
 
-      const company = await getOrCreateCompanyForRecruiter(
-        fbUser?.uid ?? '',
-        user.name,
-        user.headline
-      ).catch(() => ({
-        id: 1, _firestoreId: '', name: user.headline || user.name,
-        description: '', industry: '', logoUrl: '', website: ''
-      }));
+      // Only fetch company for approved recruiters — never auto-create.
+      // Company creation happens explicitly in Gate 4 of recruiter registration.
+      const company = (user as any).isRecruiter === true
+        ? await fetchCompanyForRecruiter(fbUser?.uid ?? '').catch(() => ({
+            id: 1, _firestoreId: '', name: user.headline || user.name,
+            description: '', industry: '', logoUrl: '', website: ''
+          }))
+        : { id: 1, _firestoreId: '', name: '', description: '', industry: '', logoUrl: '', website: '' };
 
       // Normalize circle members — Firestore stores Firebase UIDs but components
       // check membership using numeric user IDs. Map UIDs → numeric IDs.
@@ -669,18 +669,44 @@ const MainApp: React.FC = () => {
   const handleGenerateSkillsGraph = async (resume: string, digitalFootprint: string, references: string) => {
     if (!data || !currentUser || !fbUser) return;
 
+    // Call Claude proxy instead of broken Gemini endpoint
+    const prompt = `Analyse this professional's background and return a JSON array of verified skills.
+Each skill: { "name": string, "level": "beginner"|"intermediate"|"advanced"|"expert", "endorsements": 0, "source": "platform"|"resume"|"endorsement" }
+Return ONLY valid JSON — no markdown, no explanation.
+
+Background:
+${resume || 'No resume provided'}
+
+Digital presence:
+${digitalFootprint || 'Not provided'}
+
+References/testimonials:
+${references || 'Not provided'}`;
+
     let verifiedSkills: any[] = [];
     try {
-      verifiedSkills = await generateSkillsGraph(resume, digitalFootprint, references);
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system: 'You are a professional skills analyser. Return only valid JSON arrays. No markdown. No explanation.',
+          prompt,
+          maxTokens: 800,
+        }),
+      });
+      if (res.ok) {
+        const { text } = await res.json();
+        const clean = text.replace(/```json|```/g, '').trim();
+        verifiedSkills = JSON.parse(clean);
+      }
     } catch (err) {
       console.error('Skills generation error:', err);
       // Fall back to deriving from existing profile skills
       verifiedSkills = (currentUser.skills ?? []).map((s: any) => ({
-        name:         typeof s === 'string' ? s : s.name,
-        proficiency:  'Intermediate',
+        name:        typeof s === 'string' ? s : s.name,
+        level:       'intermediate',
         endorsements: 0,
-        source:       'platform',
-        evidence:     '',
+        source:      'platform',
       }));
     }
 
