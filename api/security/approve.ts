@@ -96,6 +96,13 @@ ${fileContent.slice(0, 6000)}
 Fix ONLY the specific vulnerability. Do not refactor or change anything else.
 Preserve all existing functionality, style, and conventions.
 
+IMPORTANT CONSTRAINTS:
+- NEVER add integrity or crossorigin attributes to third-party CDN scripts (Stripe, Tailwind, Google, Firebase, etc.) — these scripts change frequently and SRI will break them
+- NEVER modify script tags loading from stripe.com, tailwindcss.com, googleapis.com, gstatic.com, or any other third-party CDN
+- Only apply SRI to scripts you control (same domain or your own CDN)
+- If the vulnerability is about missing SRI on third-party scripts, mark it as accepted_risk in your response instead of applying a fix
+- If you cannot fix the vulnerability without breaking functionality, return the original content unchanged
+
 Respond with JSON only:
 {
   "fixedContent": "<complete fixed file>",
