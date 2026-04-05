@@ -475,7 +475,30 @@ const MainApp: React.FC = () => {
     // Circle posts must NOT enter the global feed — they live only inside
     // their circle and arrive via the subscribeToCirclePosts real-time listener.
     // Non-circle posts go into the main feed immediately (optimistic update).
-    if (circleId !== undefined && circleId !== null) return;
+    if (circleId !== undefined && circleId !== null) {
+      // Notify all pod members except the poster
+      const circle = data.circles.find(c => c.id === circleId) as any;
+      if (circle) {
+        const otherMemberIds = circle.members.filter((id: number) => id !== currentUser.id);
+        const { createNotification } = await import('./lib/firestoreService');
+        await Promise.allSettled(
+          otherMemberIds.map(async (memberId: number) => {
+            const member = data.users.find(u => u.id === memberId) as any;
+            if (member?._firestoreUid) {
+              await createNotification(member._firestoreUid, {
+                type: 'circle_post',
+                message: `${currentUser.name} posted in "${circle.name}"`,
+                relatedId: circleId,
+                actorId: currentUser.id,
+                actorName: currentUser.name,
+                actorAvatar: currentUser.avatarUrl,
+              });
+            }
+          })
+        );
+      }
+      return;
+    }
     setData({ ...data, posts: [newPost, ...data.posts] });
   };
 
@@ -777,14 +800,49 @@ ${references || 'Not provided'}`;
     setData(d => d ? { ...d, circles: [newCircle, ...d.circles] } : null);
   };
 
-  const handleAddMemberToCircle = (circleId: number, userId: number) => {
+  const handleAddMemberToCircle = async (circleId: number, userId: number) => {
     if (!data) return;
+    // Optimistic update
     setData({ ...data, circles: data.circles.map(c => c.id === circleId && !c.members.includes(userId) ? { ...c, members: [...c.members, userId] } : c) });
+    // Persist to Firestore
+    const circle = data.circles.find(c => c.id === circleId) as any;
+    if (circle?._firestoreId) {
+      try {
+        const { addMemberToCircle } = await import('./lib/firestoreService');
+        await addMemberToCircle(circle._firestoreId, userId);
+        // Send notification to the added user
+        const addedUser = data.users.find(u => u.id === userId) as any;
+        if (addedUser?._firestoreUid && currentUser) {
+          const { createNotification } = await import('./lib/firestoreService');
+          await createNotification(addedUser._firestoreUid, {
+            type: 'circle_invite',
+            message: `${currentUser.name} added you to the pod "${circle.name}"`,
+            relatedId: circleId,
+            actorId: currentUser.id,
+            actorName: currentUser.name,
+            actorAvatar: currentUser.avatarUrl,
+          });
+        }
+      } catch (err) {
+        console.error('addMemberToCircle failed:', err);
+      }
+    }
   };
 
-  const handleRemoveMemberFromCircle = (circleId: number, userId: number) => {
+  const handleRemoveMemberFromCircle = async (circleId: number, userId: number) => {
     if (!data) return;
+    // Optimistic update
     setData({ ...data, circles: data.circles.map(c => c.id === circleId && c.adminId !== userId ? { ...c, members: c.members.filter(id => id !== userId) } : c) });
+    // Persist to Firestore
+    const circle = data.circles.find(c => c.id === circleId) as any;
+    if (circle?._firestoreId) {
+      try {
+        const { removeMemberFromCircle } = await import('./lib/firestoreService');
+        await removeMemberFromCircle(circle._firestoreId, userId);
+      } catch (err) {
+        console.error('removeMemberFromCircle failed:', err);
+      }
+    }
   };
 
   const handleLeaveCircle = async (circleId: number) => {
@@ -1096,7 +1154,7 @@ ${references || 'Not provided'}`;
         if (activeCircleId) {
           const circle = data.circles.find(c => c.id === activeCircleId);
           content = circle
-            ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onViewProfile={handleViewProfile} />
+            ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onLeaveCircle={handleLeaveCircle} onViewProfile={handleViewProfile} />
             : <div>Circle not found</div>;
         } else {
           content = <Circles
