@@ -124,13 +124,15 @@ export default function RecruiterRegistrationFlow({
   const [agreedTerms, setAgreedTerms] = useState(false);
 
   // Gate 4 state
-  const [jobTitle,     setJobTitle]     = useState('');
-  const [companyName,  setCompanyName]  = useState('');
-  const [companySize,  setCompanySize]  = useState('');
-  const [hiringFor,    setHiringFor]    = useState('');
-  const [linkedinUrl,  setLinkedinUrl]  = useState('');
-  const [submitting,   setSubmitting]   = useState(false);
-  const [submitError,  setSubmitError]  = useState('');
+  const [jobTitle,          setJobTitle]          = useState('');
+  const [companyName,       setCompanyName]       = useState('');
+  const [companySize,       setCompanySize]       = useState('');
+  const [hiringFor,         setHiringFor]         = useState('');
+  const [linkedinUrl,       setLinkedinUrl]       = useState('');
+  const [companyWebsite,    setCompanyWebsite]    = useState('');
+  const [companyIndustry,   setCompanyIndustry]   = useState('');
+  const [submitting,        setSubmitting]        = useState(false);
+  const [submitError,       setSubmitError]       = useState('');
 
   // Profile score for Gate 1
   const profileScore = useMemo(() => scoreProfile(user), [user]);
@@ -144,7 +146,7 @@ export default function RecruiterRegistrationFlow({
   const passesGate3 = agreedNoAgency && agreedAccurate && agreedTerms;
 
   // Gate 4 check
-  const passesGate4 = jobTitle.trim().length > 0 && companyName.trim().length > 0 && companySize && hiringFor.trim().length > 0;
+  const passesGate4 = jobTitle.trim().length > 0 && companyName.trim().length > 0 && companySize && companyIndustry && hiringFor.trim().length > 0;
 
   async function handleSendOtp() {
     if (!passesEmailCheck) return;
@@ -195,6 +197,15 @@ export default function RecruiterRegistrationFlow({
       const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('../../lib/firebase');
 
+      // Create or link the company before submitting application
+      const { createCompanyForRecruiter } = await import('../../lib/firestoreService');
+      const company = await createCompanyForRecruiter(fbUserUid, {
+        name:        companyName.trim(),
+        industry:    companyIndustry,
+        size:        companySize,
+        website:     companyWebsite.trim(),
+      });
+
       await addDoc(collection(db, 'recruiter_applications'), {
         // Applicant
         uid:          fbUserUid,
@@ -204,9 +215,12 @@ export default function RecruiterRegistrationFlow({
         avatarUrl:    user.photoURL ?? user.avatarUrl ?? '',
         linkedinUrl:  linkedinUrl.trim(),
         // Company
+        companyId:    company._firestoreId,
         jobTitle:     jobTitle.trim(),
         companyName:  companyName.trim(),
         companySize:  companySize,
+        companyIndustry: companyIndustry,
+        companyWebsite: companyWebsite.trim(),
         hiringFor:    hiringFor.trim(),
         // Verification
         profileScore: profileScore.score,
@@ -576,7 +590,27 @@ export default function RecruiterRegistrationFlow({
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-stone-600 mb-1 block">LinkedIn profile URL (optional)</label>
+                <label className="text-xs font-semibold text-stone-600 mb-1 block">Company industry *</label>
+                <select value={companyIndustry} onChange={e => setCompanyIndustry(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-stone-400 bg-white text-stone-700">
+                  <option value="">Select industry</option>
+                  {['Technology', 'Finance', 'Healthcare', 'Education', 'Media & Entertainment',
+                    'Retail & E-commerce', 'Manufacturing', 'Consulting', 'Legal', 'Real Estate',
+                    'Energy & Utilities', 'Non-profit', 'Government', 'Other'].map(i => (
+                    <option key={i} value={i}>{i}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-stone-600 mb-1 block">Company website (optional)</label>
+                <input type="url" value={companyWebsite} onChange={e => setCompanyWebsite(e.target.value)}
+                  placeholder="https://yourcompany.com"
+                  className="w-full px-4 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-stone-400 bg-white" />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-stone-600 mb-1 block">Your LinkedIn profile URL (optional)</label>
                 <input type="url" value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)}
                   placeholder="https://linkedin.com/in/yourname"
                   className="w-full px-4 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-stone-400 bg-white" />
