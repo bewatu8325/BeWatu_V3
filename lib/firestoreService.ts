@@ -604,6 +604,38 @@ export async function leaveCircle(
   });
 }
 
+export async function addMemberToCircle(
+  firestoreId: string,
+  userNumericId: number
+): Promise<void> {
+  const ref = doc(db, 'circles', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const members: number[] = snap.data().members ?? [];
+  if (members.includes(userNumericId)) return;
+  await updateDoc(ref, {
+    members: [...members, userNumericId],
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function removeMemberFromCircle(
+  firestoreId: string,
+  userNumericId: number
+): Promise<void> {
+  const ref = doc(db, 'circles', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const data = snap.data();
+  const members: number[] = data.members ?? [];
+  // Never remove the admin
+  if (data.adminId === userNumericId) return;
+  await updateDoc(ref, {
+    members: members.filter(m => m !== userNumericId),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function createCircle(
   circle: Omit<Circle, 'id'>,
   creatorUid: string
