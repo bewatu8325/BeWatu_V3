@@ -17,10 +17,11 @@ const GREEN_LT = '#e8f4f0';
 type PostMode = 'standard' | 'perspective' | 'wisdom';
 
 interface CreatePostProps {
-  addPost:         (content: string) => void;
+  addPost:         (content: string, circleId?: number) => void;
   onPerspective?:  (question: string, context: string, seeking: GenerationTag[]) => Promise<void>;
   onWisdomThread?: (data: any) => Promise<void>;
   currentUser:     User;
+  circleId?:       number;
 }
 
 const POST_TYPES: { mode: PostMode; label: string; icon: React.ReactNode; description: string }[] = [
@@ -45,7 +46,7 @@ const POST_TYPES: { mode: PostMode; label: string; icon: React.ReactNode; descri
 ];
 
 const CreatePost: React.FC<CreatePostProps> = ({
-  addPost, onPerspective, onWisdomThread, currentUser,
+  addPost, onPerspective, onWisdomThread, currentUser, circleId,
 }) => {
   const [mode, setMode]           = useState<PostMode>('standard');
   const [content, setContent]     = useState('');
@@ -57,7 +58,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
 
   const handleStandardPost = () => {
     if (!content.trim()) return;
-    addPost(content.trim());
+    addPost(content.trim(), circleId);
     setContent('');
     setFocused(false);
   };

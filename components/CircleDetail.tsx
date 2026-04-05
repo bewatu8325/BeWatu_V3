@@ -27,39 +27,90 @@ const ArticleCard: React.FC<{ article: Article, author?: User, onViewProfile: (u
 );
 
 const AddMember: React.FC<{ allUsers: User[]; circleMembers: number[]; onAdd: (userId: number) => void }> = ({ allUsers, circleMembers, onAdd }) => {
-    const [userName, setUserName] = useState('');
+    const [query,    setQuery]    = useState('');
     const [feedback, setFeedback] = useState('');
+    const [showList, setShowList] = useState(false);
 
-    const handleAdd = () => {
-        const userToAdd = allUsers.find(u => u.name.toLowerCase() === userName.toLowerCase().trim());
-        if (!userToAdd) {
-            setFeedback(`User "${userName}" not found.`);
-            return;
-        }
-        if (circleMembers.includes(userToAdd.id)) {
-            setFeedback(`${userName} is already a member.`);
-            return;
-        }
-        onAdd(userToAdd.id);
-        setFeedback(`${userToAdd.name} has been added.`);
-        setUserName('');
+    const eligible = allUsers.filter(u =>
+        !circleMembers.includes(u.id) &&
+        (u.name.toLowerCase().includes(query.toLowerCase()) ||
+         u.headline?.toLowerCase().includes(query.toLowerCase())) &&
+        query.trim().length > 0
+    ).slice(0, 6);
+
+    const handleAdd = (user: User) => {
+        onAdd(user.id);
+        setFeedback(`${user.name} added.`);
+        setQuery('');
+        setShowList(false);
         setTimeout(() => setFeedback(''), 3000);
     };
 
     return (
-        <div className="mt-4 p-3 bg-stone-50 rounded-xl border" style={{ borderColor:"#e7e5e4" }}>
+        <div className="mt-4 p-3 bg-stone-50 rounded-xl border" style={{ borderColor:'#e7e5e4' }}>
             <h4 className="text-sm font-semibold text-stone-700 mb-2">Add Member</h4>
-            <div className="flex space-x-2">
+            <div className="relative">
                 <input
                     type="text"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    placeholder="Enter user's full name"
-                    className="flex-grow p-1.5 bg-white text-stone-800 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300" style={{ borderColor:"#e7e5e4" }}
+                    value={query}
+                    onChange={e => { setQuery(e.target.value); setShowList(true); }}
+                    onFocus={() => setShowList(true)}
+                    onBlur={() => setTimeout(() => setShowList(false), 150)}
+                    placeholder="Search by name or headline…"
+                    className="w-full p-2 bg-white text-stone-800 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    style={{ borderColor:'#e7e5e4' }}
                 />
-                <button onClick={handleAdd} className="text-white font-semibold px-3 py-1 rounded-lg text-sm hover:opacity-90 transition" style={{ backgroundColor:"#1a4a3a" }}>Add</button>
+                {showList && eligible.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-lg z-20 overflow-hidden"
+                        style={{ borderColor:'#e7e5e4' }}>
+                        {eligible.map(u => (
+                            <button key={u.id} onMouseDown={() => handleAdd(u)}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-stone-50 transition-colors text-left">
+                                {u.avatarUrl
+                                    ? <img src={u.avatarUrl} alt={u.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                                    : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor:'#1a4a3a' }}>{u.name[0]}</div>
+                                }
+                                <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-stone-800 truncate">{u.name}</p>
+                                    <p className="text-xs text-stone-400 truncate">{u.headline}</p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
-            {feedback && <p className="text-xs mt-2" style={{ color:"#1a4a3a" }}>{feedback}</p>}
+            {feedback && <p className="text-xs mt-2 font-medium" style={{ color:'#1a4a3a' }}>{feedback}</p>}
+        </div>
+    );
+};
+
+// Invite link generator for non-admin members
+const InviteLink: React.FC<{ circleId: number; circleName: string }> = ({ circleId, circleName }) => {
+    const [copied, setCopied] = useState(false);
+    const link = `${window.location.origin}?join=${circleId}`;
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(link).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+
+    return (
+        <div className="mt-3 p-3 bg-stone-50 rounded-xl border" style={{ borderColor:'#e7e5e4' }}>
+            <h4 className="text-sm font-semibold text-stone-700 mb-2">Invite members</h4>
+            <button onClick={handleCopy}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold border transition-all"
+                style={{
+                    borderColor: copied ? '#1a4a3a' : '#e7e5e4',
+                    color: copied ? '#1a4a3a' : '#6b7280',
+                    backgroundColor: copied ? '#e8f4f0' : 'white',
+                }}>
+                {copied ? '✓ Link copied!' : '🔗 Copy invite link'}
+            </button>
+            <p className="text-xs text-stone-400 mt-1.5 text-center">
+                Share this link to invite people to {circleName}
+            </p>
         </div>
     );
 };
@@ -76,6 +127,7 @@ interface CircleDetailProps {
   onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
   onAddMember: (circleId: number, userId: number) => void;
   onRemoveMember: (circleId: number, userId: number) => void;
+  onLeaveCircle?: (circleId: number) => void;
   onViewProfile: (userId: number) => void;
 }
 
@@ -90,6 +142,7 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
   onAppreciatePost,
   onAddMember,
   onRemoveMember,
+  onLeaveCircle,
   onViewProfile
 }) => {
   const [activeTab, setActiveTab] = useState<'discussion' | 'learn' | 'articles' | 'ideas'>('discussion');
@@ -126,7 +179,8 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
                 <p className="text-stone-500">{circle.description}</p>
             </div>
         </div>
-        <div className="flex items-center space-x-4 text-stone-400 text-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4 text-stone-400 text-sm">
             <div className="flex items-center space-x-2">
                 <UsersIcon className="w-5 h-5"/>
                 <span>{circle.members.length} members</span>
@@ -140,6 +194,15 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
                  </div>
                 </>
             )}
+          </div>
+          {/* Leave pod — only for non-admin members */}
+          {!isCurrentUserAdmin && circle.members.includes(currentUser.id) && onLeaveCircle && (
+            <button
+              onClick={() => onLeaveCircle(circle.id)}
+              className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors font-medium">
+              Leave pod
+            </button>
+          )}
         </div>
       </div>
 
@@ -233,7 +296,12 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
                         </div>
                     ))}
                 </div>
-                {isCurrentUserAdmin && <AddMember allUsers={allUsers} circleMembers={circle.members} onAdd={(userId) => onAddMember(circle.id, userId)} />}
+                {isCurrentUserAdmin && (
+                  <AddMember allUsers={allUsers} circleMembers={circle.members} onAdd={(userId) => onAddMember(circle.id, userId)} />
+                )}
+                {circle.members.includes(currentUser.id) && (
+                  <InviteLink circleId={circle.id} circleName={circle.name} />
+                )}
             </div>
         </div>
       </div>
