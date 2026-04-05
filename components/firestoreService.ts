@@ -1,0 +1,3429 @@
+/**
+ * lib/firestoreService.ts
+ *
+ * All Firestore reads/writes for BeWatu, typed against the app's existing
+ * types.ts interfaces so no component changes are needed.
+ */
+import {
+  collection,
+  doc,
+  addDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  serverTimestamp,
+  increment,
+  arrayUnion,
+  arrayRemove,
+  writeBatch,
+  onSnapshot,
+  Unsubscribe,
+  QueryDocumentSnapshot,
+} from 'firebase/firestore';
+import { db } from './firebase';
+import {
+  Post,
+  User,
+  Job,
+  Company,
+  Message,
+  Notification,
+  ConnectionRequest,
+  Circle,
+  Article,
+  AppreciationType,
+  NotificationType,
+} from '../types';
+import type { 
+  Arena, 
+  ArenaPhase, 
+  ArenaParticipant, 
+  ArenaSubmission, 
+  ArenaVote 
+} from '../types';
+import type { Opportunity, OpportunityMatch } from '../types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS — Firestore doc → BeWatu type
+// ─────────────────────────────────────────────────────────────────────────────
+
+function toPost(d: QueryDocumentSnapshot): Post {
+  const data = d.data();
+  return {
+    id: data.numericId ?? (parseInt(d.id, 10) || Date.now()),
+    authorId: data.authorNumericId,
+    content: data.content,
+    appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
+    comments: data.commentCount ?? 0,
+    shares: data.shares ?? 0,
+    timestamp: data.timestamp ?? 'Just now',
+    circleId: data.circleId,
+    // store firebase doc id for updates
+    _firestoreId: d.id,
+  } as Post & { _firestoreId: string };
+}
+
+function toMessage(d: QueryDocumentSnapshot): Message {
+  const data = d.data();
+  return {
+   id: data.numericId ?? (parseInt(d.id, 10) || Date.now()),
+    senderId: data.senderNumericId,
+    receiverId: data.receiverNumericId,
+    text: data.text,
+    timestamp: data.createdAt?.toDate?.()?.toLocaleTimeString() ?? 'Just now',
+    isRead: data.isRead ?? false,
+    _firestoreId: d.id,
+  } as Message & { _firestoreId: string };
+}
+
+function toNotification(d: QueryDocumentSnapshot): Notification {
+  const data = d.data();
+  return {
+    id: (parseInt(d.id, 10) || Date.now()),
+    userId: data.recipientNumericId,
+    type: data.type as NotificationType,
+    text: data.message,
+    read: data.read ?? false,
+    timestamp: data.createdAt?.toDate?.()?.toLocaleTimeString() ?? '',
+    relatedId: data.relatedId,
+    _firestoreId: d.id,
+  } as Notification & { _firestoreId: string };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POSTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function createPost(
+  content: string,
+  author: User,
+  authorUid: string,
+  circleId?: number
+): Promise<Post> {
+  const ref = await addDoc(collection(db, 'posts'), {
+    content,
+    authorUid,
+    authorNumericId: author.id,
+    authorName: author.name,
+    authorPhoto: author.avatarUrl,
+    authorHeadline: author.headline,
+    appreciations: { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
+    commentCount: 0,
+    shares: 0,
+    timestamp: 'Just now',
+    // Always write circleId explicitly — null for non-circle posts.
+    // This allows Firestore to filter with where('circleId', '==', null)
+    // so circle posts never surface in the main feed.
+    circleId: circleId ?? null,
+    numericId: Date.now(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    id: Date.now(),
+    authorId: author.id,
+    content,
+    appreciations: { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
+    comments: 0,
+    shares: 0,
+    timestamp: 'Just now',
+    circleId,
+    _firestoreId: ref.id,
+  } as Post & { _firestoreId: string };
+}
+
+export async function fetchPosts(pageSize = 30, after?: QueryDocumentSnapshot) {
+  // Exclude circle posts from the main feed — they load per-circle via
+  // subscribeToCirclePosts. where('circleId', '==', null) requires a composite
+  // index: posts — circleId ASC + createdAt DESC (create in Firebase Console).
+  const constraints: any[] = [
+    where('circleId', '==', null),
+    orderBy('createdAt', 'desc'),
+    limit(pageSize),
+  ];
+  if (after) constraints.push(startAfter(after));
+  try {
+    const snap = await getDocs(query(collection(db, 'posts'), ...constraints));
+    return {
+      posts: snap.docs.map(toPost),
+      lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+    };
+  } catch (err: any) {
+    // Index not built yet — fall back to unfiltered fetch with client-side exclusion.
+    // Remove the where() clause and filter client-side until the index is live.
+    console.warn('fetchPosts: index not ready, falling back to client-side filter:', err?.code);
+    const fallbackSnap = await getDocs(
+      query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(pageSize * 3))
+    );
+    const filtered = fallbackSnap.docs
+      .filter(d => !d.data().circleId)
+      .slice(0, pageSize);
+    return {
+      posts: filtered.map(toPost),
+      lastDoc: filtered[filtered.length - 1] ?? null,
+    };
+  }
+}
+
+export async function appreciatePost(
+  firestoreId: string,
+  type: AppreciationType,
+  authorUid: string
+) {
+  await updateDoc(doc(db, 'posts', firestoreId), {
+    [`appreciations.${type}`]: increment(1),
+    updatedAt: serverTimestamp(),
+  });
+
+  // Award reputation + credits to author via their user doc
+  const reputationMap: Record<AppreciationType, number> = {
+    helpful: 1, thoughtProvoking: 3, collaborationReady: 2,
+  };
+  const creditMap: Record<AppreciationType, number> = {
+    helpful: 5, thoughtProvoking: 10, collaborationReady: 7,
+  };
+  await updateDoc(doc(db, 'users', authorUid), {
+    reputation: increment(reputationMap[type]),
+    credits: increment(creditMap[type]),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONNECTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendConnectionRequest(
+  senderUid: string,
+  senderNumericId: number,
+  receiverUid: string,
+  receiverNumericId: number
+): Promise<ConnectionRequest & { _firestoreId: string }> {
+  // Server-side duplicate guard — check both directions
+  const [existingSent, existingReceived] = await Promise.all([
+    getDocs(query(
+      collection(db, 'connections'),
+      where('senderUid', '==', senderUid),
+      where('receiverUid', '==', receiverUid),
+    )),
+    getDocs(query(
+      collection(db, 'connections'),
+      where('senderUid', '==', receiverUid),
+      where('receiverUid', '==', senderUid),
+    )),
+  ]);
+
+  // If any non-cancelled request exists, return it instead of creating a new one
+  for (const d of [...existingSent.docs, ...existingReceived.docs]) {
+    if (d.data().status !== 'cancelled' && d.data().status !== 'declined') {
+      const data = d.data();
+      return {
+        id: data.senderNumericId * 100000 + data.receiverNumericId,
+        fromUserId: data.senderNumericId,
+        toUserId: data.receiverNumericId,
+        status: data.status,
+        _firestoreId: d.id,
+        createdAt: data.createdAt,
+      } as any;
+    }
+  }
+
+  const ref = await addDoc(collection(db, 'connections'), {
+    senderUid,
+    senderNumericId,
+    receiverUid,
+    receiverNumericId,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return {
+    id: Date.now(),
+    fromUserId: senderNumericId,
+    toUserId: receiverNumericId,
+    status: 'pending',
+    _firestoreId: ref.id,
+    createdAt: new Date(),
+  } as ConnectionRequest & { _firestoreId: string };
+}
+
+export async function respondToConnectionRequest(
+  firestoreDocId: string,
+  response: 'accepted' | 'declined',
+  senderUid: string,
+  receiverUid: string
+): Promise<void> {
+  // Update status first — this is the critical write
+  await updateDoc(doc(db, 'connections', firestoreDocId), {
+    status: response,
+    updatedAt: serverTimestamp(),
+  });
+
+  // Update connection counts separately — non-fatal if they fail
+  if (response === 'accepted' && senderUid && receiverUid) {
+    try {
+      const batch = writeBatch(db);
+      if (senderUid)   batch.update(doc(db, 'users', senderUid),   { connectionCount: increment(1) });
+      if (receiverUid) batch.update(doc(db, 'users', receiverUid), { connectionCount: increment(1) });
+      await batch.commit();
+    } catch (err) {
+      console.warn('Connection count update failed (non-fatal):', err);
+    }
+  }
+}
+
+export async function fetchConnectionRequests(uid: string): Promise<ConnectionRequest[]> {
+  const [sent, received] = await Promise.all([
+    getDocs(query(collection(db, 'connections'), where('senderUid', '==', uid))),
+    getDocs(query(collection(db, 'connections'), where('receiverUid', '==', uid))),
+  ]);
+  const seen = new Set<string>();
+  const results: (ConnectionRequest & { _firestoreId: string; senderUid?: string; receiverUid?: string; createdAt?: any })[] = [];
+  for (const d of [...sent.docs, ...received.docs]) {
+    if (seen.has(d.id)) continue;
+    seen.add(d.id);
+    const data = d.data();
+    // Skip declined/cancelled — but keep accepted and pending
+    if (data.status === 'declined' || data.status === 'cancelled') continue;
+    // Compute a stable numeric id — fall back if numericIds are missing
+    const stableId = (data.senderNumericId && data.receiverNumericId)
+      ? data.senderNumericId * 100000 + data.receiverNumericId
+      : parseInt(d.id.replace(/\D/g, '').slice(0, 12), 10) || Date.now();
+    results.push({
+      id: stableId,
+      fromUserId: data.senderNumericId ?? 0,
+      toUserId: data.receiverNumericId ?? 0,
+      status: data.status,
+      _firestoreId: d.id,
+      senderUid: data.senderUid,
+      receiverUid: data.receiverUid,
+      createdAt: data.createdAt,
+    } as any);
+  }
+  return results;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANCEL / REFRESH CONNECTION REQUESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Cancel an outgoing pending connection request.
+ * Sets status to 'cancelled' rather than deleting, so the duplicate guard
+ * in sendConnectionRequest still works.
+ */
+export async function cancelConnectionRequest(
+  firestoreDocId: string
+): Promise<void> {
+  await updateDoc(doc(db, 'connections', firestoreDocId), {
+    status: 'cancelled',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Refresh a pending connection request that is about to expire.
+ * Resets createdAt to now, extending the expiry by 30 days from today.
+ * Only valid within the last 7 days before expiry.
+ */
+export async function refreshConnectionRequest(
+  firestoreDocId: string
+): Promise<void> {
+  await updateDoc(doc(db, 'connections', firestoreDocId), {
+    createdAt: serverTimestamp(), // reset the clock
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FOLLOW REQUESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendFollowRequest(
+  senderUid: string,
+  senderNumericId: number,
+  receiverUid: string,
+  receiverNumericId: number
+): Promise<FollowRequest> {
+  const ref = await addDoc(collection(db, 'followRequests'), {
+    senderUid,
+    senderNumericId,
+    receiverUid,
+    receiverNumericId,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  // Notify the receiver
+  await createNotification(receiverUid, senderNumericId, 'FOLLOW_REQUEST', ref.id);
+  return {
+    id: Date.now(),
+    fromUserId: senderNumericId,
+    toUserId: receiverNumericId,
+    status: 'pending',
+    _firestoreId: ref.id,
+  };
+}
+
+export async function respondToFollowRequest(
+  firestoreDocId: string,
+  response: 'accepted' | 'declined',
+  receiverUid: string,
+  senderUid: string,
+  senderNumericId: number
+): Promise<void> {
+  await updateDoc(doc(db, 'followRequests', firestoreDocId), {
+    status: response,
+    updatedAt: serverTimestamp(),
+  });
+  if (response === 'accepted') {
+    await createNotification(senderUid, senderNumericId, 'FOLLOW_ACCEPTED', firestoreDocId);
+  }
+}
+
+export async function fetchFollowRequests(uid: string): Promise<FollowRequest[]> {
+  const [sent, received] = await Promise.all([
+    getDocs(query(collection(db, 'followRequests'), where('senderUid', '==', uid))),
+    getDocs(query(collection(db, 'followRequests'), where('receiverUid', '==', uid))),
+  ]);
+  return [...sent.docs, ...received.docs].map(d => {
+    const data = d.data();
+    return {
+      id: Date.now() + Math.random(),
+      fromUserId: data.senderNumericId,
+      toUserId: data.receiverNumericId,
+      status: data.status,
+      _firestoreId: d.id,
+    } as FollowRequest;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MESSAGING
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getThreadId(uid1: string, uid2: string) {
+  return [uid1, uid2].sort().join('_');
+}
+
+export async function sendMessage(
+  senderUid: string,
+  senderNumericId: number,
+  receiverUid: string,
+  receiverNumericId: number,
+  text: string
+): Promise<Message> {
+  const threadId = getThreadId(senderUid, receiverUid);
+  const batch = writeBatch(db);
+
+  // Upsert thread metadata
+  const threadRef = doc(db, 'messages', threadId);
+  batch.set(
+    threadRef,
+    {
+      participants: [senderUid, receiverUid],
+      participantNumericIds: [senderNumericId, receiverNumericId],
+      lastMessage: text,
+      lastMessageAt: serverTimestamp(),
+      lastSenderUid: senderUid,
+    },
+    { merge: true }
+  );
+
+  const msgRef = doc(collection(db, 'messages', threadId, 'messages'));
+  const numericId = Date.now();
+  batch.set(msgRef, {
+    senderUid,
+    senderNumericId,
+    receiverUid,
+    receiverNumericId,
+    text,
+    isRead: false,
+    numericId,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+
+  return {
+    id: numericId,
+    senderId: senderNumericId,
+    receiverId: receiverNumericId,
+    text,
+    timestamp: 'Just now',
+    isRead: false,
+  };
+}
+
+export function subscribeToMessages(
+  uid1: string,
+  uid2: string,
+  callback: (messages: Message[]) => void
+): Unsubscribe {
+  const threadId = getThreadId(uid1, uid2);
+  return onSnapshot(
+    query(
+      collection(db, 'messages', threadId, 'messages'),
+      orderBy('createdAt', 'asc')
+    ),
+    (snap) => callback(snap.docs.map(toMessage))
+  );
+}
+
+export async function fetchAllMessagesForUser(
+  uid: string,
+  numericId: number
+): Promise<Message[]> {
+  // Fetch all threads where user participates, then flatten messages
+  const snap = await getDocs(
+    query(collection(db, 'messages'), where('participants', 'array-contains', uid))
+  );
+
+  const allMessages: Message[] = [];
+  for (const threadDoc of snap.docs) {
+    const msgSnap = await getDocs(
+      query(
+        collection(db, 'messages', threadDoc.id, 'messages'),
+        orderBy('createdAt', 'asc')
+      )
+    );
+    allMessages.push(...msgSnap.docs.map(toMessage));
+  }
+  return allMessages;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function subscribeToNotifications(
+  uid: string,
+  recipientNumericId: number,
+  callback: (notifications: Notification[]) => void
+): Unsubscribe {
+  return onSnapshot(
+    query(
+      collection(db, 'notifications', uid, 'items'),
+      orderBy('createdAt', 'desc'),
+      limit(30)
+    ),
+    (snap) => callback(snap.docs.map(toNotification))
+  );
+}
+
+export async function markNotificationsRead(uid: string, firestoreIds: string[]): Promise<void> {
+  const batch = writeBatch(db);
+  firestoreIds.forEach((id) =>
+    batch.update(doc(db, 'notifications', uid, 'items', id), { read: true })
+  );
+  await batch.commit();
+}
+
+export async function createNotification(
+  recipientUid: string,
+  recipientNumericId: number,
+  type: NotificationType,
+  message: string,
+  senderName: string,
+  relatedId?: number
+): Promise<void> {
+  await addDoc(collection(db, 'notifications', recipientUid, 'items'), {
+    type,
+    message,
+    senderName,
+    recipientNumericId,
+    relatedId,
+    read: false,
+    createdAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOBS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function createJob(job: Omit<Job, 'id'>, recruiterUid: string): Promise<Job> {
+  const numericId = Date.now();
+  await addDoc(collection(db, 'jobs'), {
+    ...job,
+    numericId,
+    recruiterUid,
+    applicants: [],
+    createdAt: serverTimestamp(),
+  });
+  return { ...job, id: numericId };
+}
+
+export async function fetchJobs(): Promise<Job[]> {
+  const snap = await getDocs(
+    query(collection(db, 'jobs'), where('status', '==', 'Active'), orderBy('createdAt', 'desc'))
+  );
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return { ...data, id: data.numericId, _firestoreId: d.id } as Job & { _firestoreId: string };
+  });
+}
+
+export async function updateJob(firestoreId: string, updates: Partial<Job>): Promise<void> {
+  await updateDoc(doc(db, 'jobs', firestoreId), { ...updates, updatedAt: serverTimestamp() });
+}
+
+export async function deleteJob(firestoreId: string): Promise<void> {
+  await deleteDoc(doc(db, 'jobs', firestoreId));
+}
+
+export async function applyToJob(firestoreId: string, applicantUid: string): Promise<void> {
+  await updateDoc(doc(db, 'jobs', firestoreId), {
+    applicants: arrayUnion(applicantUid),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CIRCLES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function leaveCircle(
+  firestoreId: string,
+  userNumericId: number
+): Promise<void> {
+  const ref = doc(db, 'circles', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const members: number[] = snap.data().members ?? [];
+  await updateDoc(ref, {
+    members: members.filter(m => m !== userNumericId),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function createCircle(
+  circle: Omit<Circle, 'id'>,
+  creatorUid: string
+): Promise<Circle> {
+  const numericId = Date.now();
+  await addDoc(collection(db, 'circles'), {
+    ...circle,
+    numericId,
+    creatorUid,
+    createdAt: serverTimestamp(),
+  });
+  return { ...circle, id: numericId };
+}
+
+export async function fetchCircles(): Promise<Circle[]> {
+  try {
+    const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
+    });
+  } catch (err: any) {
+    // Index not built — fall back to unordered fetch
+    console.warn('fetchCircles ordered query failed, falling back:', err?.message);
+    try {
+      const snap = await getDocs(collection(db, 'circles'));
+      return snap.docs.map((d) => {
+        const data = d.data();
+        return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
+      });
+    } catch (err2) {
+      console.error('fetchCircles fallback failed:', err2);
+      return [];
+    }
+  }
+}
+// ----------------
+//  Fetch Users
+// ----------------
+export async function fetchUsers(): Promise<User[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'users'),
+      where('isPublic', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    )
+  );
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: data.numericId ?? Date.now(),
+      name: data.displayName ?? '',
+      headline: data.headline ?? '',
+      bio: data.bio ?? '',
+      avatarUrl: data.photoURL ?? `https://picsum.photos/seed/${d.id}/100`,
+      industry: data.industry ?? '',
+      professionalGoals: data.professionalGoals ?? [],
+      reputation: data.reputation ?? 0,
+      credits: data.credits ?? 100,
+      isRecruiter: data.isRecruiter ?? false,
+      isVerified: data.isVerified ?? false,
+      portfolio: data.portfolio ?? [],
+      verifiedAchievements: data.verifiedAchievements ?? [],
+      thirdPartyIntegrations: data.thirdPartyIntegrations ?? [],
+      workStyle: data.workStyle ?? {
+        collaboration: 'Thrives in pairs',
+        communication: 'Prefers asynchronous',
+        workPace: 'Fast-paced and iterative',
+      },
+      values: data.values ?? [],
+      availability: data.availability ?? 'Exploring opportunities',
+      skills: data.skills ?? [],
+      verifiedSkills: data.verifiedSkills ?? null,
+      microIntroductionUrl: data.microIntroductionUrl ?? null,
+      _firestoreUid: d.id,
+    } as User & { _firestoreUid: string };
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// ADD THESE FUNCTIONS TO YOUR EXISTING firestoreService.ts
+// Also add these imports at the top if not already present:
+// import { arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SparkFormat = 'win' | 'insight' | 'goal' | 'looking-for' | 'status';
+export type ChallengeDifficulty = 'entry' | 'mid' | 'senior';
+export type ChallengeType = 'code' | 'design' | 'strategy' | 'writing' | 'data';
+
+// ─── Sparks ──────────────────────────────────────────────────────────────────
+
+export async function createSpark(data: {
+  authorId: string;
+  authorName: string;
+  authorAvatar: string;
+  format: SparkFormat;
+  content: string;
+  stat?: string;
+}) {
+  // Strip undefined values — Firestore rejects them (causes "Unsupported field value: undefined")
+  const sanitized: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) sanitized[k] = v;
+  }
+  const ref = await addDoc(collection(db, 'sparks'), {
+    ...sanitized,
+    reactions: { relate: [], inspire: [], collab: [] },
+    createdAt: serverTimestamp(),
+    expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+  });
+  return ref.id;
+}
+
+export async function getActiveSparks(maxResults = 30) {
+  const now = new Date();
+  try {
+    const q = query(
+      collection(db, 'sparks'),
+      where('expiresAt', '>', now),
+      orderBy('expiresAt', 'asc'),
+      limit(maxResults)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    // Fallback if index not built yet
+    const snap = await getDocs(collection(db, 'sparks'));
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((s: any) => {
+        const exp = s.expiresAt?.toDate?.() ?? new Date(s.expiresAt);
+        return exp > now;
+      })
+      .slice(0, maxResults);
+  }
+}
+
+export async function toggleSparkReaction(
+  sparkId: string,
+  userId: string,
+  type: 'relate' | 'inspire' | 'collab'
+) {
+  const sparkRef = doc(db, 'sparks', sparkId);
+  const snap = await getDoc(sparkRef);
+  if (!snap.exists()) return;
+  const arr: string[] = snap.data().reactions?.[type] ?? [];
+  if (arr.includes(userId)) {
+    await updateDoc(sparkRef, { [`reactions.${type}`]: arrayRemove(userId) });
+  } else {
+    await updateDoc(sparkRef, { [`reactions.${type}`]: arrayUnion(userId) });
+  }
+}
+
+// ─── Challenges (Prove) ───────────────────────────────────────────────────────
+
+export async function createChallenge(data: {
+  title: string;
+  description: string;
+  recruiterId: string;
+  companyName: string;
+  skills: string[];
+  difficulty: ChallengeDifficulty;
+  type: ChallengeType;
+  timeLimit: number;
+  reward: { credits: number; badge: string; visibility: boolean };
+  expiresAt: string;
+}) {
+  const ref = await addDoc(collection(db, 'challenges'), {
+    ...data,
+    submissionCount: 0,
+    isActive: true,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getChallenges(maxResults = 20) {
+  const q = query(
+    collection(db, 'challenges'),
+    where('isActive', '==', true),
+    orderBy('createdAt', 'desc'),
+    limit(maxResults)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function submitChallenge(
+  challengeId: string,
+  data: {
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    content: string;
+  }
+) {
+  const ref = await addDoc(
+    collection(db, 'challenges', challengeId, 'submissions'),
+    {
+      ...data,
+      score: null,
+      feedback: null,
+      isShortlisted: false,
+      submittedAt: serverTimestamp(),
+    }
+  );
+  await updateDoc(doc(db, 'challenges', challengeId), {
+    submissionCount: increment(1),
+  });
+  return ref.id;
+}
+
+export async function getChallengeSubmissions(challengeId: string) {
+  const snap = await getDocs(
+    collection(db, 'challenges', challengeId, 'submissions')
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function scoreSubmission(
+  challengeId: string,
+  submissionId: string,
+  score: number,
+  feedback: string
+) {
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    { score, feedback }
+  );
+}
+
+export async function shortlistSubmission(
+  challengeId: string,
+  submissionId: string,
+  recruiterId: string,
+  jobId?: string
+) {
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    { isShortlisted: true }
+  );
+  const subSnap = await getDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId)
+  );
+  if (!subSnap.exists()) return;
+  const sub = subSnap.data();
+  if (jobId) {
+    await addDoc(collection(db, 'applications'), {
+      jobId,
+      userId: sub.userId,
+      message: 'Shortlisted from Prove challenge',
+      status: 'applied',
+      stage: 'challenge',
+      source: 'prove',
+      challengeId,
+      submissionId,
+      createdAt: serverTimestamp(),
+    });
+  }
+}
+
+// ─── Endorsements (Skill DNA) ─────────────────────────────────────────────────
+
+export async function endorseSkill(
+  userId: string,
+  skillName: string,
+  endorserId: string
+) {
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) return;
+  const endorsements = userSnap.data().endorsements ?? [];
+  const idx = endorsements.findIndex(
+    (e: { skillName: string }) => e.skillName === skillName
+  );
+  if (idx >= 0) {
+    if (!endorsements[idx].endorsedBy.includes(endorserId)) {
+      endorsements[idx].endorsedBy.push(endorserId);
+    }
+  } else {
+    endorsements.push({ skillName, endorsedBy: [endorserId] });
+  }
+  await updateDoc(userRef, { endorsements, updatedAt: serverTimestamp() });
+}
+
+// ─── Talent Pipeline ──────────────────────────────────────────────────────────
+
+export async function getPipelineCandidates(recruiterId: string) {
+  const q = query(
+    collection(db, 'applications'),
+    where('recruiterId', '==', recruiterId),
+    orderBy('createdAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function movePipelineCandidate(
+  applicationId: string,
+  toStage: string
+) {
+  await updateDoc(doc(db, 'applications', applicationId), { stage: toStage });
+}
+
+export async function addPipelineNote(applicationId: string, note: string) {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    notes: arrayUnion({ text: note, createdAt: new Date().toISOString() }),
+  });
+}
+
+export async function schedulePipelineInterview(
+  applicationId: string,
+  date: string
+) {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    interviewDate: date,
+  });
+}
+
+export async function rejectPipelineCandidate(
+  applicationId: string,
+  reason: string
+) {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    status: 'rejected',
+    rejectionReason: reason,
+  });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PEER LEARNING
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { LearnRequest, MicroLesson, LessonFormat } from '../types';
+
+export async function createLearnRequest(data: {
+  circleId: number;
+  authorId: number;
+  skill: string;
+  context?: string;
+}): Promise<LearnRequest> {
+  // Strip undefined fields — Firestore rejects them (e.g. context: undefined)
+  const safeLearnData: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) safeLearnData[k] = v;
+  }
+
+  const ref = await addDoc(collection(db, 'learnRequests'), {
+    ...safeLearnData,
+    status: 'open',
+    lessonCount: 0,
+    sparkedByIds: [],
+    createdAt: serverTimestamp(),
+  });
+  return {
+    id: ref.id,
+    ...data,
+    context: data.context ?? '',
+    status: 'open',
+    lessonCount: 0,
+    sparkedByIds: [],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function fetchLearnRequests(circleId: number): Promise<LearnRequest[]> {
+  const snap = await getDocs(
+    query(collection(db, 'learnRequests'),
+      where('circleId', '==', circleId),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as LearnRequest));
+}
+
+export async function completeLearnRequest(requestId: string): Promise<void> {
+  await updateDoc(doc(db, 'learnRequests', requestId), {
+    status: 'complete',
+    completedAt: serverTimestamp(),
+  });
+}
+
+export async function sparkLearnRequest(requestId: string, userId: number): Promise<void> {
+  await updateDoc(doc(db, 'learnRequests', requestId), {
+    sparkedByIds: arrayUnion(userId),
+  });
+}
+
+export async function createMicroLesson(data: {
+  requestId: string;
+  circleId: number;
+  authorId: number;
+  format: LessonFormat;
+  body?: string;
+  videoUrl?: string;
+  videoDurationSec?: number;
+  linkUrl?: string;
+  linkTitle?: string;
+  linkDescription?: string;
+  steps?: string[];
+}): Promise<MicroLesson> {
+  // Strip undefined optional fields — Firestore rejects them
+  const safeLessonData: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) safeLessonData[k] = v;
+  }
+  const ref = await addDoc(collection(db, 'microLessons'), {
+    ...safeLessonData,
+    sparkedByIds: [],
+    completedSteps: [],
+    createdAt: serverTimestamp(),
+  });
+  // bump lessonCount on the request
+  await updateDoc(doc(db, 'learnRequests', data.requestId), {
+    lessonCount: increment(1),
+  });
+  return {
+    id: ref.id,
+    ...data,
+    sparkedByIds: [],
+    completedSteps: [],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function fetchMicroLessons(requestId: string): Promise<MicroLesson[]> {
+  const snap = await getDocs(
+    query(collection(db, 'microLessons'),
+      where('requestId', '==', requestId),
+      orderBy('createdAt', 'asc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as MicroLesson));
+}
+
+export async function sparkMicroLesson(lessonId: string, userId: number): Promise<void> {
+  await updateDoc(doc(db, 'microLessons', lessonId), {
+    sparkedByIds: arrayUnion(userId),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getOrCreateCompanyForRecruiter(
+  recruiterUid: string,
+  recruiterName: string,
+  recruiterHeadline: string
+): Promise<import('../types').Company> {
+  if (!recruiterUid) {
+    return { id: 1, _firestoreId: '', name: recruiterName, description: '', industry: '', logoUrl: '', website: '' };
+  }
+  const q = query(collection(db, 'companies'), where('adminUid', '==', recruiterUid));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    const d = snap.docs[0];
+    const data = d.data();
+    return {
+      id: data.numericId ?? 1,
+      _firestoreId: d.id,
+      name: data.name ?? recruiterName,
+      description: data.description ?? '',
+      industry: data.industry ?? '',
+      logoUrl: data.logoUrl ?? '',
+      website: data.website ?? '',
+      adminUid: data.adminUid,
+      verifiedRecruiters: data.verifiedRecruiters ?? [],
+      verificationStatus: data.verificationStatus ?? 'unverified',
+    };
+  }
+  // Create a new company record
+  const ref = await addDoc(collection(db, 'companies'), {
+    adminUid: recruiterUid,
+    name: recruiterHeadline || recruiterName,
+    description: '',
+    industry: '',
+    logoUrl: '',
+    website: '',
+    numericId: Date.now(),
+    verifiedRecruiters: [],
+    verificationStatus: 'unverified',
+    createdAt: serverTimestamp(),
+  });
+  return {
+    id: Date.now(),
+    _firestoreId: ref.id,
+    name: recruiterHeadline || recruiterName,
+    description: '',
+    industry: '',
+    logoUrl: '',
+    website: '',
+    adminUid: recruiterUid,
+    verifiedRecruiters: [],
+    verificationStatus: 'unverified',
+  };
+}
+
+// Read-only version — used on login. Never creates a company.
+// Company creation is handled explicitly in Gate 4 of recruiter registration.
+export async function fetchCompanyForRecruiter(
+  recruiterUid: string
+): Promise<import('../types').Company | null> {
+  if (!recruiterUid) return null;
+  const q = query(collection(db, 'companies'), where('adminUid', '==', recruiterUid));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  const data = d.data();
+  return {
+    id: data.numericId ?? 1,
+    _firestoreId: d.id,
+    name: data.name ?? '',
+    description: data.description ?? '',
+    industry: data.industry ?? '',
+    logoUrl: data.logoUrl ?? '',
+    website: data.website ?? '',
+    adminUid: data.adminUid,
+    verifiedRecruiters: data.verifiedRecruiters ?? [],
+    verificationStatus: data.verificationStatus ?? 'unverified',
+  };
+}
+
+// Creates a company explicitly during recruiter registration Gate 4.
+// Only called from RecruiterRegistrationFlow on form submit.
+export async function createCompanyForRecruiter(
+  recruiterUid: string,
+  companyData: {
+    name: string;
+    industry?: string;
+    size?: string;
+    website?: string;
+    description?: string;
+  }
+): Promise<import('../types').Company> {
+  // Check if company already exists for this recruiter first
+  const existing = await fetchCompanyForRecruiter(recruiterUid);
+  if (existing) return existing;
+
+  const ref = await addDoc(collection(db, 'companies'), {
+    adminUid:           recruiterUid,
+    name:               companyData.name,
+    description:        companyData.description ?? '',
+    industry:           companyData.industry ?? '',
+    size:               companyData.size ?? '',
+    website:            companyData.website ?? '',
+    logoUrl:            '',
+    numericId:          Date.now(),
+    verifiedRecruiters: [recruiterUid],
+    verificationStatus: 'pending',
+    createdAt:          serverTimestamp(),
+    updatedAt:          serverTimestamp(),
+  });
+
+  return {
+    id: Date.now(),
+    _firestoreId: ref.id,
+    name: companyData.name,
+    description: companyData.description ?? '',
+    industry: companyData.industry ?? '',
+    logoUrl: '',
+    website: companyData.website ?? '',
+    adminUid: recruiterUid,
+    verifiedRecruiters: [recruiterUid],
+    verificationStatus: 'pending',
+  };
+}
+
+export async function applyToJobWithProfile(
+  jobFirestoreId: string,
+  jobNumericId: number,
+  applicantUid: string
+): Promise<void> {
+  await addDoc(collection(db, 'applications'), {
+    jobFirestoreId,
+    jobNumericId,
+    applicantUid,
+    status: 'applied',
+    appliedAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERVIEW SCHEDULER
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function proposeInterviewSlots(
+  recruiterId: string,
+  applicationId: string,
+  candidateUid: string,
+  jobTitle: string,
+  candidateName: string,
+  slots: { datetime: string; duration: number }[]
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'interviews'), {
+    recruiterId,
+    applicationId,
+    candidateUid,
+    jobTitle,
+    candidateName,
+    slots: slots.map((s, i) => ({ id: `slot_${i}`, ...s })),
+    status: 'proposed',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function fetchInterviewsForRecruiter(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'interviews'), where('recruiterId', '==', recruiterId))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function confirmInterviewSlot(interviewId: string, slotId: string): Promise<void> {
+  await updateDoc(doc(db, 'interviews', interviewId), {
+    confirmedSlotId: slotId,
+    status: 'confirmed',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function cancelInterview(interviewId: string, reason?: string): Promise<void> {
+  await updateDoc(doc(db, 'interviews', interviewId), {
+    status: 'cancelled',
+    cancellationReason: reason ?? '',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APPLICANT INBOX
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchJobsForRecruiter(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterId))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function fetchApplicantsForJob(jobFirestoreId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'applications'), where('jobFirestoreId', '==', jobFirestoreId))
+  );
+  const applicants = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // Hydrate user info where possible
+  const withProfiles = await Promise.all(
+    applicants.map(async (app: any) => {
+      try {
+        const userSnap = await getDocs(
+          query(collection(db, 'users'), where('uid', '==', app.applicantUid))
+        );
+        if (!userSnap.empty) {
+          const u = userSnap.docs[0].data();
+          return { ...app, userName: u.name, userAvatar: u.avatarUrl, userHeadline: u.headline, userSkills: u.skills?.map((s: any) => s.name ?? s) ?? [] };
+        }
+      } catch {}
+      return { ...app, userName: 'Applicant', userAvatar: '', userHeadline: '' };
+    })
+  );
+  return withProfiles;
+}
+
+export async function updateApplicationStatus(
+  applicationId: string,
+  status: string
+): Promise<void> {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIPELINE ANALYTICS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchPipelineAnalytics(recruiterId: string): Promise<any> {
+  const [jobs, apps] = await Promise.all([
+    getDocs(query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterId))),
+    getDocs(query(collection(db, 'applications'), where('recruiterUid', '==', recruiterId))),
+  ]);
+  const stages = ['new', 'reviewing', 'shortlisted', 'interview', 'offer', 'hired', 'rejected'];
+  const stageCounts: Record<string, number> = {};
+  stages.forEach(s => { stageCounts[s] = 0; });
+  apps.docs.forEach(d => {
+    const st = d.data().status ?? 'new';
+    stageCounts[st] = (stageCounts[st] ?? 0) + 1;
+  });
+  return {
+    totalJobs: jobs.size,
+    totalApplications: apps.size,
+    stageCounts,
+    conversionRate: apps.size > 0 ? ((stageCounts['hired'] ?? 0) / apps.size * 100).toFixed(1) : '0',
+  };
+}
+
+export async function fetchApplicantsWithProfiles(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'applications'), where('recruiterUid', '==', recruiterId))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TALENT POOL
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchTalentPool(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'talentPool'), where('recruiterId', '==', recruiterId), orderBy('savedAt', 'desc'))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function addToTalentPool(recruiterId: string, entry: {
+  userId: string; userName: string; userAvatar?: string;
+  userHeadline?: string; userLocation?: string; userSkills?: string[];
+  tags: string[]; notes: string; rating: number;
+}): Promise<string> {
+  const safeEntry: Record<string, any> = {};
+  for (const [k, v] of Object.entries(entry as any)) { if (v !== undefined) safeEntry[k] = v; }
+  const ref = await addDoc(collection(db, 'talentPool'), {
+    ...safeEntry,
+    recruiterId,
+    savedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateTalentPoolEntry(entryId: string, updates: Partial<{
+  tags: string[]; notes: string; rating: number;
+}>): Promise<void> {
+  await updateDoc(doc(db, 'talentPool', entryId), { ...updates, updatedAt: serverTimestamp() });
+}
+
+export async function removeFromTalentPool(entryId: string): Promise<void> {
+  await deleteDoc(doc(db, 'talentPool', entryId));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OUTREACH TEMPLATES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchOutreachTemplates(recruiterId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'outreachTemplates'), where('recruiterId', '==', recruiterId), orderBy('createdAt', 'desc'))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function saveOutreachTemplate(recruiterId: string, template: {
+  id?: string; name: string; subject: string; body: string;
+  category: string; usageCount?: number;
+}): Promise<string> {
+  if (template.id) {
+    await updateDoc(doc(db, 'outreachTemplates', template.id), {
+      name: template.name, subject: template.subject,
+      body: template.body, category: template.category,
+      updatedAt: serverTimestamp(),
+    });
+    return template.id;
+  }
+  const safeTemplate: Record<string, any> = {};
+  for (const [k, v] of Object.entries(template as any)) { if (v !== undefined) safeTemplate[k] = v; }
+  const ref = await addDoc(collection(db, 'outreachTemplates'), {
+    ...safeTemplate,
+    recruiterId,
+    usageCount: 0,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function deleteOutreachTemplate(templateId: string): Promise<void> {
+  await deleteDoc(doc(db, 'outreachTemplates', templateId));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY VERIFICATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getCompanyForRecruiter(recruiterUid: string): Promise<any | null> {
+  const snap = await getDocs(
+    query(collection(db, 'companies'), where('adminUid', '==', recruiterUid))
+  );
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() };
+}
+
+export async function createCompanyWithAdmin(
+  recruiterUid: string,
+  adminName: string,
+  data: {
+    name: string;
+    description?: string;
+    industry: string;
+    website: string;
+    // extended schema fields (all optional at creation)
+    legalName?: string;
+    companySize?: string;           // e.g. '1-10', '11-50', '51-200', '201-500', '500+'
+    headquartersLocation?: string;
+    domain?: string;                // auto-derived from website if not supplied
+  }
+): Promise<string> {
+  // Derive domain from website if not explicitly provided
+  let domain = data.domain;
+  if (!domain && data.website) {
+    try {
+      const u = data.website.startsWith('http') ? data.website : `https://${data.website}`;
+      const parts = new URL(u).hostname.toLowerCase().split('.');
+      domain = parts.length >= 2 ? parts.slice(-2).join('.') : parts.join('.');
+    } catch { domain = data.website.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].toLowerCase(); }
+  }
+
+  // Strip undefined optional fields
+  const safeCreateData: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) safeCreateData[k] = v;
+  }
+
+  const ref = await addDoc(collection(db, 'companies'), {
+    ...safeCreateData,
+    domain: domain ?? null,
+    adminUid: recruiterUid,
+    adminName,
+    verifiedRecruiters: [recruiterUid],
+    verificationStatus: 'unverified',
+    trustScore: 0,
+    status: 'active',
+    inviteCode: Math.random().toString(36).slice(2, 8).toUpperCase(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  // Write the initial CompanyAdmin record
+  await addDoc(collection(db, 'companyAdmins'), {
+    userId: recruiterUid,
+    userName: adminName,
+    companyId: ref.id,
+    role: 'admin',
+    createdAt: serverTimestamp(),
+  });
+
+  return ref.id;
+}
+
+export async function updateCompanyProfile(companyId: string, data: Partial<{
+  name: string;
+  legalName: string;
+  description: string;
+  industry: string;
+  website: string;
+  domain: string;
+  logoUrl: string;
+  companySize: string;
+  headquartersLocation: string;
+  status: 'active' | 'suspended';
+}>): Promise<void> {
+  // Strip undefined fields — Firestore rejects them
+  const safeUpdate: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) safeUpdate[k] = v;
+  }
+  // Auto-derive domain if website is being updated
+  if (safeUpdate.website && !safeUpdate.domain) {
+    try {
+      const u = safeUpdate.website.startsWith('http') ? safeUpdate.website : `https://${safeUpdate.website}`;
+      const parts = new URL(u).hostname.toLowerCase().split('.');
+      safeUpdate.domain = parts.length >= 2 ? parts.slice(-2).join('.') : parts.join('.');
+    } catch {}
+  }
+  await updateDoc(doc(db, 'companies', companyId), { ...safeUpdate, updatedAt: serverTimestamp() });
+}
+
+/** Company admin deletes their own company (hides jobs, deletes company doc). */
+export async function deleteCompanyByAdmin(companyId: string): Promise<void> {
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'companies', companyId));
+  const jobsSnap = await getDocs(
+    query(collection(db, 'jobs'), where('companyFirestoreId', '==', companyId))
+  );
+  jobsSnap.docs.forEach(j =>
+    batch.update(j.ref, { status: 'Suspended', verificationStatus: 'hidden' })
+  );
+  const vrSnap = await getDocs(
+    query(collection(db, 'verificationRequests'), where('companyId', '==', companyId))
+  );
+  vrSnap.docs.forEach(vr => batch.delete(vr.ref));
+  await batch.commit();
+}
+
+export async function generateInviteCode(companyId: string, _forEmail?: string): Promise<string> {
+  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  await updateDoc(doc(db, 'companies', companyId), { inviteCode: code });
+  return code;
+}
+
+export async function redeemInviteCode(recruiterUid: string, code: string): Promise<boolean> {
+  const snap = await getDocs(
+    query(collection(db, 'companies'), where('inviteCode', '==', code.toUpperCase()))
+  );
+  if (snap.empty) return false;
+  const company = snap.docs[0];
+  await updateDoc(doc(db, 'companies', company.id), {
+    verifiedRecruiters: arrayUnion(recruiterUid),
+  });
+  return true;
+}
+
+export async function removeRecruiterFromCompany(companyId: string, recruiterUid: string): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verifiedRecruiters: arrayRemove(recruiterUid),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY FOLLOWING
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function followCompany(userUid: string, companyFirestoreId: string): Promise<void> {
+  await updateDoc(doc(db, 'users', userUid), {
+    followingCompanies: arrayUnion(companyFirestoreId),
+  });
+  await updateDoc(doc(db, 'companies', companyFirestoreId), {
+    followerCount: increment(1),
+  });
+}
+
+export async function unfollowCompany(userUid: string, companyFirestoreId: string): Promise<void> {
+  await updateDoc(doc(db, 'users', userUid), {
+    followingCompanies: arrayRemove(companyFirestoreId),
+  });
+  await updateDoc(doc(db, 'companies', companyFirestoreId), {
+    followerCount: increment(-1),
+  });
+}
+
+export async function getSuggestedCompanies(limit_ = 5): Promise<any[]> {
+  const snap = await getDocs(query(collection(db, 'companies'), limit(limit_)));
+  return snap.docs.map(d => {
+    const data = d.data();
+    const numericId = data.numericId && data.numericId > 0
+      ? data.numericId
+      : Math.abs(d.id.split('').reduce((a: number, c: string) => (a << 5) - a + c.charCodeAt(0), 0));
+    return { ...data, id: numericId, _firestoreId: d.id };
+  });
+}
+
+export async function getFollowingCompanies(userUid: string): Promise<any[]> {
+  const userSnap = await getDoc(doc(db, 'users', userUid));
+  if (!userSnap.exists()) return [];
+  const ids: string[] = userSnap.data().followingCompanies ?? [];
+  if (ids.length === 0) return [];
+  const results = await Promise.all(
+    ids.map(id => getDoc(doc(db, 'companies', id)).then(d => d.exists() ? { id: d.id, ...d.data() } : null))
+  );
+  return results.filter(Boolean);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SKILL CHALLENGES (ENHANCED)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { ScoringCriterion, SubmissionFormat, SubmissionStatus } from '../types';
+
+export async function createSkillChallenge(data: {
+  title: string;
+  description: string;
+  instructions: string;
+  companyId?: string;
+  companyName: string;
+  companyLogoUrl?: string;
+  recruiterId: string;
+  targetedSkill: string;
+  skills: string[];
+  difficulty: ChallengeDifficulty;
+  type: ChallengeType;
+  timeLimit: number;
+  dueDate?: string;
+  submissionFormat: SubmissionFormat;
+  scoringRubric: ScoringCriterion[];
+  linkedJobId?: string;
+  reward: { credits: number; badge: string; visibility: boolean };
+  expiresAt: string;
+}): Promise<string> {
+  const safeChalData: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) { if (v !== undefined) safeChalData[k] = v; }
+  const ref = await addDoc(collection(db, 'challenges'), {
+    ...safeChalData,
+    submissionCount: 0,
+    isActive: true,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getChallengesForCompany(companyId: string): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'challenges'),
+      where('companyId', '==', companyId),
+      where('isActive', '==', true),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function getChallengesForUser(userUid: string): Promise<any[]> {
+  // Get user's skills and followed companies
+  const userSnap = await getDoc(doc(db, 'users', userUid));
+  if (!userSnap.exists()) return getChallenges();
+  const userData = userSnap.data();
+  const followingCompanies: string[] = userData.followingCompanies ?? [];
+  const skills: string[] = (userData.skills ?? []).map((s: any) => (typeof s === 'string' ? s : s.name).toLowerCase());
+  const verifiedSkillNames: string[] = (userData.verifiedSkills ?? []).map((s: any) => (s.name ?? '').toLowerCase());
+  const allSkills = [...new Set([...skills, ...verifiedSkillNames])];
+
+  // Fetch active challenges
+  const allChallenges = await getChallenges(50);
+
+  // Score and filter — matching skill OR following company gets surfaced first
+  const scored = allChallenges.map((c: any) => {
+    const challengeSkills = (c.skills ?? []).map((s: string) => s.toLowerCase());
+    const skillMatch = allSkills.some(s => challengeSkills.some((cs: string) => cs.includes(s) || s.includes(cs)));
+    const companyMatch = c.companyId && followingCompanies.includes(c.companyId);
+    return { ...c, _relevance: (companyMatch ? 2 : 0) + (skillMatch ? 1 : 0) };
+  });
+
+  return scored.sort((a: any, b: any) => b._relevance - a._relevance);
+}
+
+export async function submitSkillChallenge(
+  challengeId: string,
+  data: {
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    content: string;
+    format: SubmissionFormat;
+  }
+): Promise<string> {
+  const ref = await addDoc(
+    collection(db, 'challenges', challengeId, 'submissions'),
+    {
+      ...data,
+      score: null,
+      feedback: null,
+      isShortlisted: false,
+      status: 'submitted' as SubmissionStatus,
+      submittedAt: serverTimestamp(),
+    }
+  );
+  await updateDoc(doc(db, 'challenges', challengeId), {
+    submissionCount: increment(1),
+  });
+  return ref.id;
+}
+
+export async function updateSubmissionStatus(
+  challengeId: string,
+  submissionId: string,
+  status: SubmissionStatus,
+  extras?: { score?: number; feedback?: string }
+): Promise<void> {
+  const updates: any = { status };
+  if (extras?.score !== undefined) updates.score = extras.score;
+  if (extras?.feedback !== undefined) updates.feedback = extras.feedback;
+  if (status === 'shortlisted') updates.isShortlisted = true;
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    updates
+  );
+}
+
+export async function inviteCandidateFromChallenge(
+  challengeId: string,
+  submissionId: string,
+  linkedJobId?: string
+): Promise<void> {
+  await updateSubmissionStatus(challengeId, submissionId, 'invited');
+  const subSnap = await getDoc(doc(db, 'challenges', challengeId, 'submissions', submissionId));
+  if (!subSnap.exists()) return;
+  const sub = subSnap.data();
+  if (linkedJobId) {
+    await addDoc(collection(db, 'applications'), {
+      jobFirestoreId: linkedJobId,
+      applicantUid: sub.userId,
+      message: 'Invited from skill challenge',
+      status: 'shortlisted',
+      source: 'challenge',
+      challengeId,
+      submissionId,
+      createdAt: serverTimestamp(),
+    });
+  }
+}
+
+export async function getUserChallengeSubmissions(userUid: string): Promise<any[]> {
+  // Query across all challenges for this user's submissions
+  const challengesSnap = await getDocs(
+    query(collection(db, 'challenges'), where('isActive', '==', true))
+  );
+  const results: any[] = [];
+  await Promise.all(
+    challengesSnap.docs.map(async (challengeDoc) => {
+      const subsSnap = await getDocs(
+        query(
+          collection(db, 'challenges', challengeDoc.id, 'submissions'),
+          where('userId', '==', userUid)
+        )
+      );
+      subsSnap.docs.forEach(d => {
+        results.push({
+          id: d.id,
+          challengeId: challengeDoc.id,
+          challengeTitle: challengeDoc.data().title,
+          companyName: challengeDoc.data().companyName,
+          ...d.data(),
+        });
+      });
+    })
+  );
+  return results.sort((a, b) => {
+    const ta = a.submittedAt?.toDate?.()?.getTime() ?? 0;
+    const tb = b.submittedAt?.toDate?.()?.getTime() ?? 0;
+    return tb - ta;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHALLENGE CONVERSION PIPELINE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Saves a challenge submission directly to the recruiter's talent pool */
+export async function saveSubmissionToTalentPool(
+  recruiterId: string,
+  submission: {
+    userId: string;
+    userName: string;
+    userAvatar?: string;
+    challengeId: string;
+    challengeTitle: string;
+    companyName: string;
+    score?: number | null;
+    targetedSkill?: string;
+  },
+  notes: string,
+  tags: string[]
+): Promise<string> {
+  return addToTalentPool(recruiterId, {
+    userId: submission.userId,
+    userName: submission.userName,
+    userAvatar: submission.userAvatar,
+    userHeadline: `${submission.targetedSkill ?? 'Skill'} challenge — ${submission.challengeTitle}`,
+    userSkills: submission.targetedSkill ? [submission.targetedSkill] : [],
+    tags: ['challenge-sourced', ...tags],
+    notes: notes || `Sourced via challenge: ${submission.challengeTitle}`,
+    rating: submission.score != null ? Math.round(submission.score / 20) : 3,
+  });
+}
+
+/** Links a challenge submission to an existing job application / creates one */
+export async function linkSubmissionToJob(
+  challengeId: string,
+  submissionId: string,
+  jobFirestoreId: string,
+  submission: { userId: string; userName: string }
+): Promise<string> {
+  // Update submission with the linked job
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    { linkedJobId: jobFirestoreId }
+  );
+  // Create or upsert application record
+  const ref = await addDoc(collection(db, 'applications'), {
+    jobFirestoreId,
+    applicantUid: submission.userId,
+    applicantName: submission.userName,
+    message: 'Linked from skill challenge submission',
+    status: 'applied',
+    stage: 'Sourced',
+    source: 'challenge',
+    challengeId,
+    submissionId,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/** Sends a pre-filled outreach message to the candidate via the DM system */
+export async function sendChallengeOutreach(
+  recruiterUid: string,
+  recruiterNumericId: number,
+  candidateUid: string,
+  candidateNumericId: number,
+  messageBody: string
+): Promise<void> {
+  await sendMessage(
+    recruiterUid,
+    recruiterNumericId,
+    candidateUid,
+    candidateNumericId,
+    messageBody
+  );
+}
+
+/** Proposes interview slots originating from a challenge */
+export async function proposeInterviewFromChallenge(
+  recruiterId: string,
+  challengeId: string,
+  submissionId: string,
+  candidateUid: string,
+  candidateName: string,
+  jobTitle: string,
+  slots: { datetime: string; duration: number }[]
+): Promise<string> {
+  // Mark submission as invited
+  await updateSubmissionStatus(challengeId, submissionId, 'invited');
+  // Create interview proposal (reuses existing proposeInterviewSlots)
+  const interviewId = await proposeInterviewSlots(
+    recruiterId,
+    `challenge:${challengeId}:${submissionId}`,
+    candidateUid,
+    jobTitle,
+    candidateName,
+    slots
+  );
+  // Tag submission with interviewId for reference
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    { interviewId }
+  );
+  return interviewId;
+}
+
+/** Sends a role offer (project / internship / full-time) to a candidate */
+export async function sendRoleOffer(
+  challengeId: string,
+  submissionId: string,
+  offer: {
+    type: 'project' | 'internship' | 'full-time' | 'contract' | 'part-time';
+    title: string;
+    companyName: string;
+    message: string;
+    linkedJobId?: string;
+  },
+  recruiterUid: string,
+  recruiterNumericId: number,
+  candidateUid: string,
+  candidateNumericId: number
+): Promise<void> {
+  // Store the offer on the submission
+  await updateDoc(
+    doc(db, 'challenges', challengeId, 'submissions', submissionId),
+    {
+      offer: {
+        ...offer,
+        sentAt: new Date().toISOString(),
+        recruiterUid,
+      },
+      status: 'invited',
+    }
+  );
+  // Send as a DM
+  const body =
+    `${offer.message}\n\n— Offer type: ${offer.type.charAt(0).toUpperCase() + offer.type.slice(1)}\n— Role: ${offer.title} at ${offer.companyName}`;
+  await sendMessage(
+    recruiterUid, recruiterNumericId,
+    candidateUid, candidateNumericId,
+    body
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REEL VIBES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ReelVibe {
+  id: string;
+  authorUid: string;
+  authorId: number;
+  authorName: string;
+  authorAvatar: string;
+  authorHeadline: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  caption: string;
+  skill: string;             // primary skill showcased
+  tags: string[];
+  likedByUids: string[];
+  commentCount: number;
+  viewCount: number;
+  createdAt: any;
+}
+
+export async function createReelVibe(data: {
+  authorUid: string;
+  authorId: number;
+  authorName: string;
+  authorAvatar: string;
+  authorHeadline: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  caption: string;
+  skill: string;
+  tags: string[];
+}): Promise<string> {
+  const sanitized: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) sanitized[k] = v;
+  }
+  const ref = await addDoc(collection(db, 'reelVibes'), {
+    ...sanitized,
+    likedByUids: [],
+    commentCount: 0,
+    viewCount: 0,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getReelVibes(maxResults = 20): Promise<ReelVibe[]> {
+  const snap = await getDocs(
+    query(collection(db, 'reelVibes'), orderBy('createdAt', 'desc'), limit(maxResults))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ReelVibe));
+}
+
+export async function getReelVibesByUser(authorUid: string): Promise<ReelVibe[]> {
+  const snap = await getDocs(
+    query(collection(db, 'reelVibes'), where('authorUid', '==', authorUid), orderBy('createdAt', 'desc'))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ReelVibe));
+}
+
+export async function toggleReelLike(reelId: string, userUid: string): Promise<void> {
+  const ref = doc(db, 'reelVibes', reelId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const liked: string[] = snap.data().likedByUids ?? [];
+  if (liked.includes(userUid)) {
+    await updateDoc(ref, { likedByUids: arrayRemove(userUid) });
+  } else {
+    await updateDoc(ref, { likedByUids: arrayUnion(userUid) });
+  }
+}
+
+export async function incrementReelView(reelId: string): Promise<void> {
+  await updateDoc(doc(db, 'reelVibes', reelId), { viewCount: increment(1) });
+}
+
+export async function deleteReelVibe(reelId: string): Promise<void> {
+  await deleteDoc(doc(db, 'reelVibes', reelId));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY & RECRUITER VERIFICATION SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Submit a verification request for a company.
+ * If the recruiter's email domain matches the company website, the company
+ * is instantly approved. Otherwise it goes to manual review.
+ */
+export async function createVerificationRequest(data: {
+  companyId: string;
+  recruiterUid: string;
+  recruiterName: string;
+  recruiterEmail: string;
+  companyName: string;
+  companyWebsite: string;
+  notes?: string;
+}): Promise<{ requestId: string; instant: boolean; type: string }> {
+  // Inline email domain verification logic
+  const _emailDomain = data.recruiterEmail.split('@')[1]?.toLowerCase() ?? '';
+  const _websiteNorm = (() => {
+    try {
+      const u = data.companyWebsite.startsWith('http') ? data.companyWebsite : `https://${data.companyWebsite}`;
+      const parts = new URL(u).hostname.toLowerCase().split('.');
+      return parts.length >= 2 ? parts.slice(-2).join('.') : parts.join('.');
+    } catch { return data.companyWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].toLowerCase(); }
+  })();
+  const _personalDomains = new Set(['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com','protonmail.com','live.com','msn.com','me.com','mac.com']);
+  const _isWorkEmail = !_personalDomains.has(_emailDomain);
+  const _domainMatch = _isWorkEmail && _emailDomain === _websiteNorm || _emailDomain.endsWith('.' + _websiteNorm);
+  const type: string = _domainMatch ? 'email_domain' : 'manual_review';
+  const instant = _domainMatch;
+  const reason = _domainMatch
+    ? `Email domain matches ${_websiteNorm}`
+    : !_isWorkEmail
+      ? 'Personal email address — requires manual review'
+      : 'Email domain does not match company website — requires manual review';
+
+  // Strip any undefined fields — Firestore rejects them
+  const safeData: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) safeData[k] = v;
+  }
+
+  // Create the request doc — matches CompanyVerification schema
+  const requestRef = await addDoc(collection(db, 'verificationRequests'), {
+    ...safeData,
+    // CompanyVerification schema fields
+    verificationType: type,          // 'domain' | 'business' | 'id' | 'email_domain' | 'manual_review'
+    status: instant ? 'approved' : 'pending',
+    verifiedBy: instant ? 'system' : null,
+    verifiedAt: instant ? serverTimestamp() : null,
+    reason,
+    submittedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  if (instant) {
+    // Auto-approve: update company doc with full verification fields + trust score
+    await updateDoc(doc(db, 'companies', data.companyId), {
+      verificationStatus: 'verified',
+      verifiedAt: serverTimestamp(),
+      verifiedBy: 'email_domain',
+      trustScore: 80,   // email-domain verified = high trust baseline
+      status: 'active',
+      updatedAt: serverTimestamp(),
+    });
+  } else {
+    // Set to pending
+    await updateDoc(doc(db, 'companies', data.companyId), {
+      verificationStatus: 'pending',
+      verificationRequestId: requestRef.id,
+    });
+  }
+
+  return { requestId: requestRef.id, instant, type };
+}
+
+/** Admin: approve a pending verification request. */
+export async function approveVerification(
+  requestId: string,
+  adminUid: string,
+  notes?: string
+): Promise<void> {
+  const reqSnap = await getDoc(doc(db, 'verificationRequests', requestId));
+  if (!reqSnap.exists()) throw new Error('Request not found');
+  const req = reqSnap.data();
+
+  await updateDoc(doc(db, 'verificationRequests', requestId), {
+    status: 'approved',
+    reviewedAt: serverTimestamp(),
+    reviewedBy: adminUid,
+    ...(notes ? { adminNotes: notes } : {}),
+  });
+
+  if (req.companyId) {
+    await updateDoc(doc(db, 'companies', req.companyId), {
+      verificationStatus: 'verified',
+      verifiedAt: serverTimestamp(),
+      verifiedBy: adminUid,
+    });
+  }
+}
+
+/** Admin: reject a pending verification request with a reason. */
+export async function rejectVerification(
+  requestId: string,
+  adminUid: string,
+  reason: string
+): Promise<void> {
+  const reqSnap = await getDoc(doc(db, 'verificationRequests', requestId));
+  if (!reqSnap.exists()) throw new Error('Request not found');
+  const req = reqSnap.data();
+
+  await updateDoc(doc(db, 'verificationRequests', requestId), {
+    status: 'rejected',
+    reviewedAt: serverTimestamp(),
+    reviewedBy: adminUid,
+    rejectionReason: reason,
+  });
+
+  if (req.companyId) {
+    await updateDoc(doc(db, 'companies', req.companyId), {
+      verificationStatus: 'rejected',
+      rejectionReason: reason,
+    });
+  }
+}
+
+/** Update a company's verification status directly (admin use). */
+export async function updateCompanyVerificationStatus(
+  companyId: string,
+  status: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended',
+  adminUid?: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: status,
+    ...(adminUid ? { updatedBy: adminUid } : {}),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Update a recruiter's verification status on their user doc. */
+export async function updateRecruiterVerificationStatus(
+  recruiterUid: string,
+  status: 'unverified' | 'pending' | 'email_verified' | 'company_verified' | 'rejected',
+  companyId?: string
+): Promise<void> {
+  await updateDoc(doc(db, 'users', recruiterUid), {
+    recruiterVerificationStatus: status,
+    ...(companyId ? { verifiedCompanyId: companyId } : {}),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Fetch all pending verification requests (admin use). */
+export async function getPendingVerificationRequests(): Promise<any[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'verificationRequests'),
+      where('status', '==', 'pending'),
+      orderBy('submittedAt', 'asc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Get the verification request for a specific company. */
+export async function getVerificationRequestForCompany(companyId: string): Promise<any | null> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'verificationRequests'),
+      where('companyId', '==', companyId),
+      orderBy('submittedAt', 'desc'),
+      limit(1)
+    )
+  );
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLATFORM ADMIN — COMPANY MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Write a platform-level audit event to adminAuditLog/{id}. */
+export async function writeAdminAuditLog(entry: {
+  actorUid: string;
+  actorName: string;
+  action: string;
+  targetType: 'company' | 'recruiter' | 'verification';
+  targetId: string;
+  targetName: string;
+  details?: string;
+  previousValue?: any;
+  newValue?: any;
+}): Promise<void> {
+  await addDoc(collection(db, 'adminAuditLog'), {
+    ...entry,
+    timestamp: serverTimestamp(),
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'server',
+  });
+}
+
+/** Fetch the full admin audit log, most recent first. */
+export async function getAdminAuditLog(limit_ = 100): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'adminAuditLog'), orderBy('timestamp', 'desc'), limit(limit_))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Fetch audit log entries for a specific company. */
+export async function getCompanyAuditLog(companyId: string, limit_ = 50): Promise<any[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'adminAuditLog'),
+      where('targetId', '==', companyId),
+      orderBy('timestamp', 'desc'),
+      limit(limit_)
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Fetch all companies (platform admin only). */
+export async function getAllCompanies(): Promise<any[]> {
+  const snap = await getDocs(
+    query(collection(db, 'companies'), orderBy('createdAt', 'desc'))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Create a company directly from the admin panel. */
+export async function adminCreateCompany(
+  actorUid: string,
+  actorName: string,
+  data: {
+    name: string;
+    description: string;
+    industry: string;
+    website: string;
+    adminUid?: string;
+    adminName?: string;
+    adminEmail?: string;
+  }
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'companies'), {
+    ...data,
+    verifiedRecruiters: data.adminUid ? [data.adminUid] : [],
+    verificationStatus: 'unverified',
+    inviteCode: Math.random().toString(36).slice(2, 8).toUpperCase(),
+    createdByAdmin: actorUid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_created',
+    targetType: 'company',
+    targetId: ref.id,
+    targetName: data.name,
+    details: `Company created by platform admin. Website: ${data.website}`,
+  });
+  return ref.id;
+}
+
+/** Update any company fields (admin can edit anything). */
+export async function adminUpdateCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  updates: Record<string, any>
+): Promise<void> {
+  const before = await getDoc(doc(db, 'companies', companyId));
+  await updateDoc(doc(db, 'companies', companyId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+    lastUpdatedBy: actorUid,
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_updated',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    previousValue: before.data(),
+    newValue: updates,
+    details: `Fields updated: ${Object.keys(updates).join(', ')}`,
+  });
+}
+
+/** Admin verify a company directly (bypass email flow). */
+export async function adminVerifyCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  notes?: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: 'verified',
+    verifiedAt: serverTimestamp(),
+    verifiedBy: actorUid,
+    verificationNotes: notes ?? '',
+    trustScore: 90,       // manually verified by platform admin = highest trust
+    status: 'active',
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_verified',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: notes ?? 'Manually verified by platform admin.',
+  });
+}
+
+/** Admin reject a verification request. */
+export async function adminRejectCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  reason: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: 'rejected',
+    rejectionReason: reason,
+    rejectedAt: serverTimestamp(),
+    rejectedBy: actorUid,
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_rejected',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: `Rejection reason: ${reason}`,
+  });
+}
+
+/** Suspend a company (blocks all activity, jobs hidden). */
+export async function adminSuspendCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  reason: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: 'suspended',
+    status: 'suspended',
+    suspendedAt: serverTimestamp(),
+    suspendedBy: actorUid,
+    suspensionReason: reason,
+    trustScore: 0,
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_suspended',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: `Suspension reason: ${reason}`,
+  });
+}
+
+/** Reinstate a previously suspended company. */
+export async function adminReinstateCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verificationStatus: 'verified',
+    status: 'active',
+    reinstatedAt: serverTimestamp(),
+    reinstatedBy: actorUid,
+    suspensionReason: null,
+    trustScore: 70,       // reinstated — slightly lower trust than fresh verify
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_reinstated',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: 'Company reinstated by platform admin.',
+  });
+}
+
+/** Permanently delete a company and cascade-clean associated data. */
+export async function adminDeleteCompany(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string
+): Promise<void> {
+  const batch = writeBatch(db);
+  // Delete company doc
+  batch.delete(doc(db, 'companies', companyId));
+  // Hide all jobs from this company
+  const jobsSnap = await getDocs(
+    query(collection(db, 'jobs'), where('companyFirestoreId', '==', companyId))
+  );
+  jobsSnap.docs.forEach(j => batch.update(j.ref, { status: 'Suspended', verificationStatus: 'hidden' }));
+  // Delete any verification requests
+  const vrSnap = await getDocs(
+    query(collection(db, 'verificationRequests'), where('companyId', '==', companyId))
+  );
+  vrSnap.docs.forEach(vr => batch.delete(vr.ref));
+  await batch.commit();
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'company_deleted',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: `Company permanently deleted. ${jobsSnap.size} job(s) hidden.`,
+  });
+}
+
+/** Assign a new admin UID to a company. */
+export async function adminAssignCompanyAdmin(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  newAdminUid: string,
+  newAdminName: string
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    adminUid: newAdminUid,
+    adminName: newAdminName,
+    verifiedRecruiters: arrayUnion(newAdminUid),
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: 'admin_assigned',
+    targetType: 'company',
+    targetId: companyId,
+    targetName: companyName,
+    details: `New admin assigned: ${newAdminName} (${newAdminUid})`,
+  });
+}
+
+/** Grant or revoke recruiter membership for a company. */
+export async function adminSetRecruiterPermission(
+  actorUid: string,
+  actorName: string,
+  companyId: string,
+  companyName: string,
+  recruiterUid: string,
+  recruiterName: string,
+  grant: boolean
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), {
+    verifiedRecruiters: grant ? arrayUnion(recruiterUid) : arrayRemove(recruiterUid),
+    updatedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: grant ? 'recruiter_granted' : 'recruiter_revoked',
+    targetType: 'recruiter',
+    targetId: recruiterUid,
+    targetName: companyName,
+    details: `${grant ? 'Granted' : 'Revoked'} recruiter access for ${recruiterName}`,
+  });
+}
+
+/** Fetch company activity: jobs posted + challenge submissions. */
+export async function getCompanyActivity(companyId: string): Promise<{
+  jobs: any[]; challenges: any[]; verificationHistory: any[];
+}> {
+  const [jobsSnap, challengesSnap, verifSnap] = await Promise.all([
+    getDocs(query(collection(db, 'jobs'), where('companyFirestoreId', '==', companyId), orderBy('liveDate', 'desc'), limit(20))),
+    getDocs(query(collection(db, 'challenges'), where('companyId', '==', companyId), orderBy('createdAt', 'desc'), limit(20))),
+    getDocs(query(collection(db, 'verificationRequests'), where('companyId', '==', companyId), orderBy('submittedAt', 'desc'))),
+  ]);
+  return {
+    jobs: jobsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    challenges: challengesSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    verificationHistory: verifSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+  };
+}
+
+/** Check if a Firebase UID belongs to a platform admin. */
+export async function isPlatformAdmin(uid: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, 'users', uid));
+  if (!snap.exists()) return false;
+  return snap.data().isPlatformAdmin === true;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 1 — TRUST INFRASTRUCTURE
+// Append these functions to the bottom of lib/firestoreService.ts
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { TrustEdge, TrustEvidenceType, ReputationProfile } from '../types';
+
+// ─── Domain taxonomy ──────────────────────────────────────────────────────────
+// Mirrors SkillDNA's SKILL_CLUSTERS so trust domains map directly to skill clusters.
+// A challenge's `targetedSkill` or `type` maps to one of these domains.
+
+export const TRUST_DOMAIN_MAP: Record<string, string> = {
+  // Challenge types → domain
+  code:     'Frontend',
+  design:   'Design',
+  strategy: 'Product',
+  writing:  'Leadership',
+  data:     'Data',
+  // Skill cluster names pass through directly
+  Frontend:   'Frontend',
+  Backend:    'Backend',
+  Data:       'Data',
+  Design:     'Design',
+  DevOps:     'DevOps',
+  Product:    'Product',
+  'AI/ML':    'AI/ML',
+  Leadership: 'Leadership',
+};
+
+/** Map a challenge type or skill name to a canonical trust domain */
+export function resolveTrustDomain(raw: string): string {
+  return TRUST_DOMAIN_MAP[raw] ?? TRUST_DOMAIN_MAP[raw?.toLowerCase()] ?? 'Other';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRUST EDGES — write
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Write a trust edge. Idempotent — if an edge with the same fromUid/toUid/
+ * domain/evidenceRef already exists it is updated rather than duplicated.
+ */
+export async function writeTrustEdge(edge: Omit<TrustEdge, 'id' | 'createdAt'>): Promise<string> {
+  // Check for existing edge with same source to avoid duplicates
+  const existing = await getDocs(
+    query(
+      collection(db, 'trust_edges'),
+      where('fromUid',     '==', edge.fromUid),
+      where('toUid',       '==', edge.toUid),
+      where('domain',      '==', edge.domain),
+      where('evidenceRef', '==', edge.evidenceRef),
+    )
+  );
+
+  if (!existing.empty) {
+    // Update strength if higher signal now
+    const docRef = existing.docs[0].ref;
+    const current = existing.docs[0].data().strength ?? 1;
+    if (edge.strength > current) {
+      await updateDoc(docRef, { strength: edge.strength });
+    }
+    return existing.docs[0].id;
+  }
+
+  const ref = await addDoc(collection(db, 'trust_edges'), {
+    ...edge,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Called when a recruiter/reviewer scores a challenge submission.
+ * Creates a trust edge: reviewer → submitter in the challenge's domain.
+ */
+export async function recordChallengeReviewTrust(
+  reviewerUid: string,
+  submitterUid: string,
+  challengeId: string,
+  submissionId: string,
+  score: number,          // 0–100
+  challengeType: string,  // 'code' | 'design' | 'strategy' | 'writing' | 'data'
+): Promise<void> {
+  if (reviewerUid === submitterUid) return; // no self-trust
+
+  const domain   = resolveTrustDomain(challengeType);
+  // Score >= 80 → strong signal, 60–79 → moderate, below → weak
+  const strength: 1 | 2 | 3 = score >= 80 ? 3 : score >= 60 ? 2 : 1;
+
+  await writeTrustEdge({
+    fromUid:      reviewerUid,
+    toUid:        submitterUid,
+    domain,
+    strength,
+    evidenceType: 'challenge_review',
+    evidenceRef:  submissionId,
+  });
+}
+
+/**
+ * Called when a user completes a scored challenge with score >= 60.
+ * Creates a trust edge: company/challenge → submitter (the recruiter is the proxy truster).
+ */
+export async function recordChallengeCompletionTrust(
+  recruiterId: string,
+  submitterUid: string,
+  challengeId: string,
+  submissionId: string,
+  score: number,
+  challengeType: string,
+): Promise<void> {
+  if (score < 60) return; // below threshold, no signal
+  if (recruiterId === submitterUid) return;
+
+  const domain   = resolveTrustDomain(challengeType);
+  const strength: 1 | 2 | 3 = score >= 85 ? 3 : score >= 70 ? 2 : 1;
+
+  await writeTrustEdge({
+    fromUid:      recruiterId,
+    toUid:        submitterUid,
+    domain,
+    strength,
+    evidenceType: 'challenge_submission',
+    evidenceRef:  submissionId,
+  });
+}
+
+/**
+ * Called when a micro-lesson is sparked >= 3 times (peer recognition).
+ * Creates a trust edge: lesson author earns trust in pod's skill domain.
+ */
+export async function recordPeerLearningTrust(
+  teacherUid: string,
+  learnerUid: string,
+  lessonId: string,
+  skillDomain: string,
+): Promise<void> {
+  if (teacherUid === learnerUid) return;
+
+  await writeTrustEdge({
+    fromUid:      learnerUid,
+    toUid:        teacherUid,
+    domain:       resolveTrustDomain(skillDomain),
+    strength:     2,
+    evidenceType: 'peer_learning',
+    evidenceRef:  lessonId,
+  });
+}
+
+/**
+ * Called when a skill endorsement is made via SkillDNA.
+ */
+export async function recordSkillEndorsementTrust(
+  endorserUid: string,
+  endorsedUid: string,
+  skillName: string,
+  endorsementRef: string,
+): Promise<void> {
+  if (endorserUid === endorsedUid) return;
+
+  await writeTrustEdge({
+    fromUid:      endorserUid,
+    toUid:        endorsedUid,
+    domain:       resolveTrustDomain(skillName),
+    strength:     1, // endorsements are weak signals alone
+    evidenceType: 'skill_endorsement',
+    evidenceRef:  endorsementRef,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRUST EDGES — read
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Fetch all trust edges pointing TO a user (incoming trust). */
+export async function getIncomingTrustEdges(uid: string): Promise<TrustEdge[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'trust_edges'),
+      where('toUid', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(200),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as TrustEdge));
+}
+
+/** Fetch all trust edges FROM a user (trust they've extended). */
+export async function getOutgoingTrustEdges(uid: string): Promise<TrustEdge[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'trust_edges'),
+      where('fromUid', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(200),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as TrustEdge));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REPUTATION PROFILES — read
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch the computed reputation profile for a user.
+ * Returns null if not yet computed (Cloud Function hasn't run).
+ */
+export async function getReputationProfile(uid: string): Promise<ReputationProfile | null> {
+  const snap = await getDoc(doc(db, 'reputation_profiles', uid));
+  if (!snap.exists()) return null;
+  return { uid, ...snap.data() } as ReputationProfile;
+}
+
+/**
+ * Subscribe to live reputation profile updates for a user.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToReputationProfile(
+  uid: string,
+  onUpdate: (profile: ReputationProfile | null) => void,
+): () => void {
+  return onSnapshot(doc(db, 'reputation_profiles', uid), (snap) => {
+    onUpdate(snap.exists() ? ({ uid, ...snap.data() } as ReputationProfile) : null);
+  });
+}
+
+/**
+ * Compute a lightweight local reputation profile from raw trust edges.
+ * Used as a fallback before the Cloud Function has run, or for instant
+ * feedback after a new trust edge is written.
+ *
+ * This is a simplified version of the Cloud Function logic — no PageRank
+ * weighting, just raw edge aggregation.
+ */
+export function computeLocalReputationProfile(
+  uid: string,
+  edges: TrustEdge[],
+): ReputationProfile {
+  const incoming = edges.filter(e => e.toUid === uid);
+
+  // Group by domain
+  const domainMap: Record<string, { score: number; count: number; vouchers: Set<string> }> = {};
+
+  for (const edge of incoming) {
+    if (!domainMap[edge.domain]) {
+      domainMap[edge.domain] = { score: 0, count: 0, vouchers: new Set() };
+    }
+    const weight = edge.strength === 3 ? 40 : edge.strength === 2 ? 20 : 8;
+    domainMap[edge.domain].score += weight;
+    domainMap[edge.domain].count += 1;
+    domainMap[edge.domain].vouchers.add(edge.fromUid);
+  }
+
+  const domains = Object.entries(domainMap).map(([name, d]) => ({
+    name,
+    score: Math.min(d.score, 1000),
+    tier: (d.score >= 200 ? 'authority' : d.score >= 80 ? 'established' : 'emerging') as
+      'emerging' | 'established' | 'authority',
+    edgeCount: d.count,
+    topVoucherUids: [...d.vouchers].slice(0, 5),
+  }));
+
+  domains.sort((a, b) => b.score - a.score);
+
+  const overallScore = domains.reduce((sum, d) => sum + d.score, 0);
+
+  return {
+    uid,
+    domains,
+    overallScore: Math.min(overallScore, 5000),
+    trajectory: 'rising',
+    totalEvidenceCount: incoming.length,
+    lastComputedAt: new Date().toISOString(),
+  };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 2 — IDEA NETWORK
+// Append these to lib/firestoreService.ts (after Sprint 1 additions)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { Idea, IdeaComment, IdeaStage, IdeaDomain } from '../types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IDEAS — write
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function createIdea(data: {
+  authorUid: string;
+  authorName: string;
+  authorAvatar: string;
+  title: string;
+  body: string;
+  domain: IdeaDomain;
+  podId?: number;
+  parentIdeaId?: string;
+}): Promise<string> {
+  const safe: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) safe[k] = v;
+  }
+  const ref = await addDoc(collection(db, 'ideas'), {
+    ...safe,
+    stage: 'seed' as IdeaStage,
+    sparkCount: 0,
+    sparkedByUids: [],
+    commentCount: 0,
+    forkCount: 0,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Spark an idea. Atomically increments count and advances stage if thresholds met.
+ * Thresholds: 5 sparks → developing, 15 sparks → arena_ready
+ */
+export async function sparkIdea(ideaId: string, userUid: string): Promise<void> {
+  const ideaRef = doc(db, 'ideas', ideaId);
+  const snap    = await getDoc(ideaRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  if ((data.sparkedByUids ?? []).includes(userUid)) {
+    // Un-spark
+    await updateDoc(ideaRef, {
+      sparkedByUids: arrayRemove(userUid),
+      sparkCount:    increment(-1),
+      updatedAt:     serverTimestamp(),
+    });
+    return;
+  }
+
+  const newCount = (data.sparkCount ?? 0) + 1;
+  const currentStage: IdeaStage = data.stage ?? 'seed';
+
+  let newStage: IdeaStage = currentStage;
+  if (currentStage === 'seed'       && newCount >= 5)  newStage = 'developing';
+  if (currentStage === 'developing' && newCount >= 15) newStage = 'arena_ready';
+
+  await updateDoc(ideaRef, {
+    sparkedByUids: arrayUnion(userUid),
+    sparkCount:    increment(1),
+    stage:         newStage,
+    updatedAt:     serverTimestamp(),
+  });
+}
+
+/** Fork an idea — creates a new idea with parentIdeaId set */
+export async function forkIdea(
+  parentId: string,
+  data: {
+    authorUid: string;
+    authorName: string;
+    authorAvatar: string;
+    title: string;
+    body: string;
+    domain: IdeaDomain;
+    podId?: number;
+  }
+): Promise<string> {
+  const newId = await createIdea({ ...data, parentIdeaId: parentId });
+  // Increment fork count on parent
+  await updateDoc(doc(db, 'ideas', parentId), {
+    forkCount: increment(1),
+    updatedAt: serverTimestamp(),
+  });
+  return newId;
+}
+
+/** Link an idea to an Arena once one is created from it */
+export async function linkIdeaToArena(ideaId: string, arenaId: string): Promise<void> {
+  await updateDoc(doc(db, 'ideas', ideaId), {
+    connectedArenaId: arenaId,
+    stage:            'in_progress' as IdeaStage,
+    updatedAt:        serverTimestamp(),
+  });
+}
+
+/** Mark an idea as shipped */
+export async function markIdeaShipped(ideaId: string): Promise<void> {
+  await updateDoc(doc(db, 'ideas', ideaId), {
+    stage:     'shipped' as IdeaStage,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Add a comment to an idea */
+export async function addIdeaComment(
+  ideaId: string,
+  comment: { authorUid: string; authorName: string; authorAvatar: string; body: string }
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'ideas', ideaId, 'comments'), {
+    ...comment,
+    createdAt: serverTimestamp(),
+  });
+  await updateDoc(doc(db, 'ideas', ideaId), {
+    commentCount: increment(1),
+    updatedAt:    serverTimestamp(),
+  });
+  return ref.id;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IDEAS — read
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Fetch global ideas feed — sorted by spark count, newest first for ties */
+export async function getIdeasFeed(maxResults = 30): Promise<Idea[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas'),
+      where('stage', 'in', ['seed', 'developing', 'arena_ready']),
+      orderBy('sparkCount', 'desc'),
+      orderBy('createdAt',  'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea));
+}
+
+/** Fetch ideas for a specific pod */
+export async function getPodIdeas(podId: number, maxResults = 20): Promise<Idea[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas'),
+      where('podId',  '==', podId),
+      where('stage',  'in', ['seed', 'developing', 'arena_ready', 'in_progress']),
+      orderBy('sparkCount', 'desc'),
+      orderBy('createdAt',  'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea));
+}
+
+/** Fetch ideas by domain (for filtered global feed) */
+export async function getIdeasByDomain(domain: IdeaDomain, maxResults = 20): Promise<Idea[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas'),
+      where('domain', '==', domain),
+      where('stage',  'in', ['seed', 'developing', 'arena_ready']),
+      orderBy('sparkCount', 'desc'),
+      orderBy('createdAt',  'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea));
+}
+
+/** Fetch ideas that are arena_ready (for Arena creation flow) */
+export async function getArenaReadyIdeas(): Promise<Idea[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas'),
+      where('stage', '==', 'arena_ready'),
+      orderBy('sparkCount', 'desc'),
+      limit(10),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea));
+}
+
+/** Fetch comments for an idea */
+export async function getIdeaComments(ideaId: string): Promise<IdeaComment[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ideas', ideaId, 'comments'),
+      orderBy('createdAt', 'asc'),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as IdeaComment));
+}
+
+/** Subscribe to live ideas for a pod */
+export function subscribeToPodIdeas(
+  podId: number,
+  onUpdate: (ideas: Idea[]) => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'ideas'),
+      where('podId',  '==', podId),
+      where('stage',  'in', ['seed', 'developing', 'arena_ready', 'in_progress']),
+      orderBy('sparkCount', 'desc'),
+      orderBy('createdAt',  'desc'),
+      limit(20),
+    ),
+    (snap) => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() } as Idea)))
+  );
+}
+
+/** Fetch a single idea */
+export async function getIdea(ideaId: string): Promise<Idea | null> {
+  const snap = await getDoc(doc(db, 'ideas', ideaId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Idea;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRINT 3 — ARENA MVP
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── ARENAS — write ───────────────────────────────────────────────────────────
+
+export async function createArena(data: {
+  title: string;
+  brief: string;
+  hostUid: string;
+  hostName: string;
+  hostAvatar: string;
+  type: Arena['type'];
+  domain: string;
+  sourceIdeaId?: string;
+  sourceChallengeId?: string;
+  maxParticipants?: number;
+  phaseDurationMinutes?: number;
+  scheduledStartAt?: string;
+}): Promise<string> {
+  const safe: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) safe[k] = v;
+  }
+  const ref = await addDoc(collection(db, 'arenas'), {
+    ...safe,
+    phase: 'lobby' as ArenaPhase,
+    participantUids: [data.hostUid],
+    maxParticipants: data.maxParticipants ?? 8,
+    phaseDurationMinutes: data.phaseDurationMinutes ?? 30,
+    submissionCount: 0,
+    phaseStartedAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  // Write host as first participant
+  await setDoc(doc(db, 'arenas', ref.id, 'participants', data.hostUid), {
+    uid: data.hostUid,
+    displayName: data.hostName,
+    avatarUrl: data.hostAvatar,
+    isHost: true,
+    presenceStatus: 'active',
+    joinedAt: serverTimestamp(),
+    lastSeenAt: serverTimestamp(),
+  });
+
+  return ref.id;
+}
+
+/** Join an arena as a participant */
+export async function joinArena(arenaId: string, participant: {
+  uid: string;
+  displayName: string;
+  avatarUrl: string;
+}): Promise<void> {
+  const arenaRef = doc(db, 'arenas', arenaId);
+  await updateDoc(arenaRef, {
+    participantUids: arrayUnion(participant.uid),
+    updatedAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, 'arenas', arenaId, 'participants', participant.uid), {
+    ...participant,
+    isHost: false,
+    presenceStatus: 'active',
+    joinedAt: serverTimestamp(),
+    lastSeenAt: serverTimestamp(),
+  });
+}
+
+/** Host advances arena to next phase */
+export async function advanceArenaPhase(arenaId: string, toPhase: ArenaPhase): Promise<void> {
+  await updateDoc(doc(db, 'arenas', arenaId), {
+    phase: toPhase,
+    phaseStartedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Participant submits during open phase */
+export async function submitToArena(arenaId: string, data: {
+  authorUid: string;
+  authorName: string;
+  authorAvatar: string;
+  content: string;
+  format: ArenaSubmission['format'];
+}): Promise<string> {
+  const ref = await addDoc(collection(db, 'arenas', arenaId, 'submissions'), {
+    ...data,
+    arenaId,
+    reactions: { fire: [], think: [], collab: [] },
+    isWinner: false,
+    submittedAt: serverTimestamp(),
+  });
+  // Record submissionId on participant doc
+  await updateDoc(doc(db, 'arenas', arenaId, 'participants', data.authorUid), {
+    submissionId: ref.id,
+  });
+  await updateDoc(doc(db, 'arenas', arenaId), {
+    submissionCount: increment(1),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/** React to a submission during review phase */
+export async function reactToArenaSubmission(
+  arenaId: string,
+  submissionId: string,
+  userUid: string,
+  reaction: 'fire' | 'think' | 'collab'
+): Promise<void> {
+  const ref = doc(db, 'arenas', arenaId, 'submissions', submissionId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const arr: string[] = snap.data().reactions?.[reaction] ?? [];
+  if (arr.includes(userUid)) {
+    await updateDoc(ref, { [`reactions.${reaction}`]: arrayRemove(userUid) });
+  } else {
+    await updateDoc(ref, { [`reactions.${reaction}`]: arrayUnion(userUid) });
+  }
+}
+
+/** Cast a verdict vote */
+export async function castArenaVote(arenaId: string, vote: {
+  voterUid: string;
+  nominatedUid: string;
+  reasoning?: string;
+}): Promise<void> {
+  await setDoc(doc(db, 'arenas', arenaId, 'votes', vote.voterUid), {
+    ...vote,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Close the arena — host finalises winner.
+ * Trust edge generation happens in the Cloud Function (onArenaClose).
+ */
+export async function closeArena(arenaId: string, winnerUid: string): Promise<void> {
+  await updateDoc(doc(db, 'arenas', arenaId), {
+    phase: 'closed' as ArenaPhase,
+    winnerUid,
+    phaseStartedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  // Mark the winner's submission
+  const subsSnap = await getDocs(
+    query(collection(db, 'arenas', arenaId, 'submissions'), where('authorUid', '==', winnerUid))
+  );
+  for (const d of subsSnap.docs) {
+    await updateDoc(d.ref, { isWinner: true });
+  }
+}
+
+/** Presence heartbeat — call every 30s from the arena component */
+export async function updateArenaPresence(
+  arenaId: string,
+  uid: string,
+  status: ArenaParticipant['presenceStatus'] = 'active'
+): Promise<void> {
+  await updateDoc(doc(db, 'arenas', arenaId, 'participants', uid), {
+    presenceStatus: status,
+    lastSeenAt: serverTimestamp(),
+  });
+}
+
+// ─── ARENAS — read ────────────────────────────────────────────────────────────
+
+/** Subscribe to arena doc — drives phase transitions in real time */
+export function subscribeToArena(
+  arenaId: string,
+  onUpdate: (arena: Arena) => void
+): () => void {
+  return onSnapshot(doc(db, 'arenas', arenaId), (snap) => {
+    if (snap.exists()) onUpdate({ id: snap.id, ...snap.data() } as Arena);
+  });
+}
+
+/** Subscribe to participant presence */
+export function subscribeToArenaParticipants(
+  arenaId: string,
+  onUpdate: (participants: ArenaParticipant[]) => void
+): () => void {
+  return onSnapshot(collection(db, 'arenas', arenaId, 'participants'), (snap) => {
+    onUpdate(snap.docs.map(d => d.data() as ArenaParticipant));
+  });
+}
+
+/** Subscribe to submissions — live during open + review phases */
+export function subscribeToArenaSubmissions(
+  arenaId: string,
+  onUpdate: (submissions: ArenaSubmission[]) => void
+): () => void {
+  return onSnapshot(
+    query(collection(db, 'arenas', arenaId, 'submissions'), orderBy('submittedAt', 'asc')),
+    (snap) => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() } as ArenaSubmission)))
+  );
+}
+
+/** Get open/lobby arenas for the global discovery list */
+export async function getOpenArenas(maxResults = 20): Promise<Arena[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'arenas'),
+      where('phase', 'in', ['lobby', 'brief', 'open', 'review', 'verdict']),
+      orderBy('createdAt', 'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Arena));
+}
+
+/** Get a single arena */
+export async function getArena(arenaId: string): Promise<Arena | null> {
+  const snap = await getDoc(doc(db, 'arenas', arenaId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Arena;
+}
+
+/** Get votes for verdict phase */
+export async function getArenaVotes(arenaId: string): Promise<ArenaVote[]> {
+  const snap = await getDocs(collection(db, 'arenas', arenaId, 'votes'));
+  return snap.docs.map(d => d.data() as ArenaVote);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2. FIRESTORE SERVICE ADDITIONS  (append to lib/firestoreService.ts)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── OPPORTUNITIES — write ────────────────────────────────────────────────────
+
+export async function createOpportunity(data: Omit<Opportunity, 'id' | 'applicationCount' | 'matchScore' | 'isUnlocked' | 'createdAt'>): Promise<string> {
+  const safe: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) { if (v !== undefined) safe[k] = v; }
+  const ref = await addDoc(collection(db, 'opportunities'), {
+    ...safe,
+    applicationCount: 0,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateOpportunity(id: string, updates: Partial<Opportunity>): Promise<void> {
+  await updateDoc(doc(db, 'opportunities', id), updates);
+}
+
+export async function deactivateOpportunity(id: string): Promise<void> {
+  await updateDoc(doc(db, 'opportunities', id), { isActive: false });
+}
+
+export async function applyToOpportunity(opportunityId: string, applicantUid: string): Promise<void> {
+  await setDoc(doc(db, 'opportunities', opportunityId, 'applicants', applicantUid), {
+    uid: applicantUid,
+    appliedAt: serverTimestamp(),
+    status: 'applied',
+  });
+  await updateDoc(doc(db, 'opportunities', opportunityId), {
+    applicationCount: increment(1),
+  });
+}
+
+// ─── OPPORTUNITIES — read ─────────────────────────────────────────────────────
+
+// Get the user's personalized opportunity feed
+// Includes public + trust-gated ones the user qualifies for
+export async function getOpportunityFeed(uid: string, maxResults = 30): Promise<Opportunity[]> {
+  // Fetch active opportunities, sorted by creation date
+  const snap = await getDocs(
+    query(
+      collection(db, 'opportunities'),
+      where('isActive', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Opportunity));
+}
+
+// Get pre-computed matches for a user (written by Cloud Function)
+export async function getUserMatches(uid: string): Promise<OpportunityMatch[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'opportunity_matches'),
+      where('uid', '==', uid),
+      orderBy('score', 'desc'),
+      limit(20),
+    )
+  );
+  return snap.docs.map(d => d.data() as OpportunityMatch);
+}
+
+// Get opportunities posted by a recruiter (for RecruiterConsole)
+export async function getRecruiterOpportunities(recruiterId: string): Promise<Opportunity[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'opportunities'),
+      where('recruiterId', '==', recruiterId),
+      orderBy('createdAt', 'desc'),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Opportunity));
+}
+
+// Client-side unlock check: does this user's reputation unlock this opportunity?
+export function checkOpportunityUnlock(
+  opportunity: Opportunity,
+  profile: import('../types').ReputationProfile | null
+): boolean {
+  if (opportunity.visibility === 'public') return true;
+  if (!profile) return false;
+  if (opportunity.visibility === 'arena_winner') {
+    // Check trust_edges for arena_winner evidence — simplified: check overall score
+    return profile.overallScore >= 200;
+  }
+  if (opportunity.visibility === 'trust_gated') {
+    return opportunity.trustRequirements.every(req => {
+      const domain = profile.domains.find(d => d.name === req.domain);
+      if (!domain) return false;
+      if (domain.score < req.minTrustScore) return false;
+      if (req.minTier) {
+        const tierOrder = { emerging: 0, established: 1, authority: 2 };
+        return tierOrder[domain.tier] >= tierOrder[req.minTier];
+      }
+      return true;
+    });
+  }
+  return false;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANIES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchCompanyById(firestoreId: string): Promise<Company | null> {
+  try {
+    const snap = await getDoc(doc(db, 'companies', firestoreId));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    return {
+      id:                 d.numericId && d.numericId > 0 ? d.numericId : Math.abs(firestoreId.split('').reduce((a: number, c: string) => (a << 5) - a + c.charCodeAt(0), 0)),
+      _firestoreId:       snap.id,
+      name:               d.name ?? '',
+      description:        d.description ?? '',
+      industry:           d.industry ?? '',
+      logoUrl:            d.logoUrl ?? '',
+      website:            d.website ?? '',
+      domain:             d.domain ?? '',
+      ticker:             d.ticker ?? '',
+      source:             d.source ?? 'user',
+      claimed:            d.claimed ?? false,
+      verified:           d.verified ?? false,
+      adminUid:           d.adminUid ?? undefined,
+      verifiedRecruiters: d.verifiedRecruiters ?? [],
+      verificationStatus: d.verificationStatus ?? 'unverified',
+    } as Company & { domain: string; ticker: string; source: string; claimed: boolean };
+  } catch (err) {
+    console.error('fetchCompanyById failed:', err);
+    return null;
+  }
+}
+
+export async function fetchCompanies(claimedOnly = false): Promise<Company[]> {
+  const mapDoc = (d: any) => {
+    const data = d.data();
+    return {
+      id:                 data.numericId && data.numericId > 0 ? data.numericId : Math.abs(d.id.split('').reduce((a: number, c: string) => (a << 5) - a + c.charCodeAt(0), 0)),
+      _firestoreId:       d.id,
+      name:               data.name ?? '',
+      description:        data.description ?? '',
+      industry:           data.industry ?? '',
+      logoUrl:            data.logoUrl ?? '',
+      website:            data.website ?? '',
+      domain:             data.domain ?? '',
+      ticker:             data.ticker ?? '',
+      source:             data.source ?? 'user',
+      claimed:            data.claimed ?? false,
+      verified:           data.verified ?? false,
+      adminUid:           data.adminUid ?? undefined,
+      verifiedRecruiters: data.verifiedRecruiters ?? [],
+      verificationStatus: data.verificationStatus ?? 'unverified',
+    } as Company & { domain: string; ticker: string; source: string; claimed: boolean };
+  };
+
+  try {
+    // Try ordered query first (requires index)
+    const q = claimedOnly
+      ? query(collection(db, 'companies'), where('claimed', '==', true), orderBy('name'), limit(200))
+      : query(collection(db, 'companies'), orderBy('name'), limit(200));
+    const snap = await getDocs(q);
+    return snap.docs.map(mapDoc);
+  } catch (err: any) {
+    // Index not built yet — fall back to unordered fetch
+    console.warn('fetchCompanies ordered query failed, falling back:', err?.message);
+    try {
+      const q2 = claimedOnly
+        ? query(collection(db, 'companies'), where('claimed', '==', true), limit(200))
+        : query(collection(db, 'companies'), limit(200));
+      const snap2 = await getDocs(q2);
+      const results = snap2.docs.map(mapDoc);
+      return results.sort((a, b) => a.name.localeCompare(b.name));
+    } catch (err2) {
+      console.error('fetchCompanies fallback also failed:', err2);
+      return [];
+    }
+  }
+}
+
+export async function claimCompany(
+  firestoreId: string,
+  recruiterUid: string,
+  recruiterEmail: string,
+  companyDomain: string
+): Promise<{ success: boolean; reason?: string }> {
+  const freeEmailDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com'];
+  const emailDomain = recruiterEmail.split('@')[1]?.toLowerCase() ?? '';
+
+  if (freeEmailDomains.includes(emailDomain)) {
+    return { success: false, reason: 'A corporate email address is required to claim a company.' };
+  }
+
+  if (companyDomain && !companyDomain.includes(emailDomain) && !emailDomain.includes(companyDomain.replace(/^www\./, ''))) {
+    return {
+      success: false,
+      reason: `Your email domain (${emailDomain}) must match the company domain (${companyDomain}).`,
+    };
+  }
+
+  const ref = doc(db, 'companies', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return { success: false, reason: 'Company not found.' };
+
+  const data = snap.data();
+  if (data.claimed && data.adminUid && data.adminUid !== recruiterUid) {
+    return { success: false, reason: 'This company has already been claimed by another admin.' };
+  }
+
+  await updateDoc(ref, {
+    claimed:            true,
+    adminUid:           recruiterUid,
+    verificationStatus: 'pending',
+    claimedAt:          serverTimestamp(),
+    updatedAt:          serverTimestamp(),
+  });
+
+  return { success: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TERMS AGREEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+export async function recordTermsAgreement(
+  uid:        string,
+  version:    string,
+  ipAddress?: string
+): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), {
+    agreedToTermsVersion: version,
+    agreedToTermsAt:      serverTimestamp(),
+    agreedToTermsIp:      ipAddress ?? null,
+    updatedAt:            serverTimestamp(),
+  });
+}
