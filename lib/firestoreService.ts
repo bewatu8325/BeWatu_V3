@@ -176,6 +176,100 @@ export async function fetchPosts(pageSize = 30, after?: QueryDocumentSnapshot) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// POD POST COMMENTS
+// Stored as: posts/{postId}/comments/{commentId}
+// At scale: subcollection reads are isolated — no fan-out on post reads
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PostComment {
+  id:            string;
+  content:       string;
+  authorUid:     string;
+  authorId:      number;
+  authorName:    string;
+  authorAvatar?: string;
+  authorHeadline?: string;
+  createdAt:     any;
+  _firestoreId:  string;
+}
+
+export async function addComment(
+  postFirestoreId: string,
+  author: { uid: string; numericId: number; name: string; avatarUrl?: string; headline?: string },
+  content: string
+): Promise<PostComment> {
+  const ref = await addDoc(
+    collection(db, 'posts', postFirestoreId, 'comments'),
+    {
+      content,
+      authorUid:      author.uid,
+      authorId:       author.numericId,
+      authorName:     author.name,
+      authorAvatar:   author.avatarUrl ?? null,
+      authorHeadline: author.headline ?? null,
+      createdAt:      serverTimestamp(),
+    }
+  );
+  // Increment commentCount on parent post
+  await updateDoc(doc(db, 'posts', postFirestoreId), {
+    commentCount: increment(1),
+    updatedAt:    serverTimestamp(),
+  });
+  return {
+    id:            ref.id,
+    content,
+    authorUid:     author.uid,
+    authorId:      author.numericId,
+    authorName:    author.name,
+    authorAvatar:  author.avatarUrl,
+    authorHeadline: author.headline,
+    createdAt:     new Date(),
+    _firestoreId:  ref.id,
+  };
+}
+
+/** Send a notification to a post author when someone comments.
+ *  Called from PodPostCard after addComment succeeds. */
+export async function notifyPostAuthor(
+  postFirestoreId:  string,
+  commenterName:    string,
+  postAuthorUid:    string,
+  commenterUid:     string,
+  circleFirestoreId?: string
+): Promise<void> {
+  // Don't notify yourself
+  if (postAuthorUid === commenterUid) return;
+  try {
+    await addDoc(collection(db, 'users', postAuthorUid, 'notifications'), {
+      type:              'post_comment',
+      message:           `${commenterName} commented on your post`,
+      relatedId:         postFirestoreId,
+      circleFirestoreId: circleFirestoreId ?? null,
+      isRead:            false,
+      createdAt:         serverTimestamp(),
+    });
+  } catch { /* notification failure should never break the comment flow */ }
+}
+
+export function subscribeToComments(
+  postFirestoreId: string,
+  onUpdate: (comments: PostComment[]) => void
+): () => void {
+  const q = query(
+    collection(db, 'posts', postFirestoreId, 'comments'),
+    orderBy('createdAt', 'asc'),
+    limit(100)
+  );
+  return onSnapshot(
+    q,
+    snap => onUpdate(
+      snap.docs.map(d => ({ id: d.id, _firestoreId: d.id, ...d.data() } as PostComment))
+    ),
+    () => onUpdate([])
+  );
+}
+
 export async function appreciatePost(
   firestoreId: string,
   type: AppreciationType,
@@ -624,62 +718,26 @@ export async function createCircle(
 }
 
 export async function fetchCircles(): Promise<Circle[]> {
-  const results: any[] = [];
-  const seen = new Set<string>();
-
-  // ── Read from `circles` collection (primary schema, numeric IDs) ──────────
   try {
-    let snap;
+    const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
+    });
+  } catch (err: any) {
+    // Index not built — fall back to unordered fetch
+    console.warn('fetchCircles ordered query failed, falling back:', err?.message);
     try {
-      snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
-    } catch {
-      snap = await getDocs(collection(db, 'circles'));
-    }
-    for (const d of snap.docs) {
-      if (seen.has(d.id)) continue;
-      seen.add(d.id);
-      const data = d.data();
-      results.push({
-        ...data,
-        id:                data.numericId ?? Date.now(),
-        _firestoreId:      d.id,
-        _sourceCollection: 'circles',
+      const snap = await getDocs(collection(db, 'circles'));
+      return snap.docs.map((d) => {
+        const data = d.data();
+        return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
       });
+    } catch (err2) {
+      console.error('fetchCircles fallback failed:', err2);
+      return [];
     }
-  } catch (err: any) {
-    console.error('fetchCircles circles read failed:', err?.message);
   }
-
-  // ── Also read from `pods` collection (legacy schema, UID string members) ──
-  try {
-    const snap = await getDocs(collection(db, 'pods'));
-    for (const d of snap.docs) {
-      if (seen.has(d.id)) continue;
-      seen.add(d.id);
-      const data = d.data();
-      // Generate a stable numeric id from the doc ID characters
-      const numericId = data.numericId
-        ?? Math.abs(d.id.split('').reduce((a: number, c: string) => (a * 31 + c.charCodeAt(0)) | 0, 0));
-      results.push({
-        ...data,
-        id:                numericId,
-        numericId,
-        _firestoreId:      d.id,
-        _sourceCollection: 'pods',
-        // Preserve raw UID arrays for notification/membership writes
-        _adminUid:         data.adminId,
-        _memberUids:       data.members ?? [],
-        // Normalise field names to match circles schema
-        podType:           data.podType ?? data.type ?? 'community',
-        visibility:        data.visibility ?? 'open',
-        pendingMembers:    data.pendingMembers ?? data.invites ?? [],
-      });
-    }
-  } catch (err: any) {
-    console.warn('fetchCircles pods read failed:', err?.message);
-  }
-
-  return results as Circle[];
 }
 // ----------------
 //  Fetch Users
@@ -3577,6 +3635,16 @@ export function subscribeToCirclePosts(
   circleFirestoreId: string,
   onUpdate: (posts: any[]) => void
 ): () => void {
+  // Always query by string circleId — new posts normalise to string on write.
+  // At scale: single consistent type = single index = no fan-out queries.
+  // Composite index needed: circleId ASC + createdAt DESC
+  const q = query(
+    collection(db, 'posts'),
+    where('circleId', '==', circleFirestoreId),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+
   const mapPost = (d: any) => {
     const data = d.data();
     return {
@@ -3596,34 +3664,7 @@ export function subscribeToCirclePosts(
     };
   };
 
-  // Try ordered query first (requires composite index: circleId ASC + createdAt DESC)
-  // If index doesn't exist yet, fall back to unordered query
-  const qOrdered = query(
-    collection(db, 'posts'),
-    where('circleId', '==', circleFirestoreId),
-    orderBy('createdAt', 'desc'),
-    limit(50)
-  );
-
-  let unsub = onSnapshot(
-    qOrdered,
-    snap => onUpdate(snap.docs.map(mapPost)),
-    (err: any) => {
-      // Index not built yet — fall back to unordered
-      if (err?.code === 'failed-precondition' || err?.message?.includes('index')) {
-        const qSimple = query(
-          collection(db, 'posts'),
-          where('circleId', '==', circleFirestoreId),
-          limit(50)
-        );
-        unsub = onSnapshot(qSimple, snap => onUpdate(snap.docs.map(mapPost)), () => onUpdate([]));
-      } else {
-        onUpdate([]);
-      }
-    }
-  );
-
-  return () => unsub();
+  return onSnapshot(q, snap => onUpdate(snap.docs.map(mapPost)), () => onUpdate([]));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
