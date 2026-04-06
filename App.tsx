@@ -487,18 +487,24 @@ const MainApp: React.FC = () => {
 
   const addPost = async (content: string, circleId?: number) => {
     if (!data || !currentUser || !fbUser) return;
-    // For pod posts, pass the Firestore string ID so the real-time subscription
-    // can match on it. Fall back to numeric circleId if _firestoreId not found.
-    let firestoreCircleId: string | undefined;
+    // Resolve the Firestore string ID for the circle.
+    // At scale: consistent string IDs = consistent index queries = no fan-out.
+    let circleStringId: string | undefined;
     if (circleId !== undefined && circleId !== null) {
       const circle = data.circles.find(c => c.id === circleId) as any;
-      firestoreCircleId = circle?._firestoreId ?? String(circleId);
+      // Prefer _firestoreId (Firestore doc ID string), fall back to string(numeric)
+      circleStringId = circle?._firestoreId
+        ? circle._firestoreId
+        : undefined;
+      // If no _firestoreId found, don't post — we can't route it correctly
+      if (!circleStringId) {
+        console.error('addPost: circle has no _firestoreId, cannot post to pod', circleId);
+        return;
+      }
     }
-    const newPost = await fbCreatePost(content, currentUser, fbUser.uid, firestoreCircleId as any);
-    // Circle posts must NOT enter the global feed — they live only inside
-    // their pod and arrive via the subscribeToCirclePosts real-time listener.
-    // Non-circle posts go into the main feed immediately (optimistic update).
-    if (firestoreCircleId !== undefined) return;
+    const newPost = await fbCreatePost(content, currentUser, fbUser.uid, circleStringId as any);
+    // Pod posts arrive via real-time listener — don't add to global feed
+    if (circleStringId !== undefined) return;
     setData({ ...data, posts: [newPost, ...data.posts] });
   };
 
