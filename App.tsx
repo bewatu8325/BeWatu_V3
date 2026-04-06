@@ -802,8 +802,8 @@ ${references || 'Not provided'}`;
       // Send notification to invited user
       const invitedUser = data.users.find(u => u.id === userId) as any;
       if (invitedUser?._firestoreUid) {
-        const { createNotification } = await import('./lib/firestoreService');
-        await createNotification(invitedUser._firestoreUid, {
+        const { createPodNotification } = await import("./lib/firestoreService");
+        await createPodNotification(invitedUser._firestoreUid, {
           type: 'circle_invite',
           message: `${currentUser.name} invited you to join "${circle.name}"`,
           relatedId: circleId,
@@ -832,8 +832,8 @@ ${references || 'Not provided'}`;
       // Notify the approved user
       const approvedUser = data.users.find(u => u.id === userId) as any;
       if (approvedUser?._firestoreUid) {
-        const { createNotification } = await import('./lib/firestoreService');
-        await createNotification(approvedUser._firestoreUid, {
+        const { createPodNotification } = await import("./lib/firestoreService");
+        await createPodNotification(approvedUser._firestoreUid, {
           type: 'circle_approved',
           message: `Your request to join "${circle.name}" was approved`,
           relatedId: circleId,
@@ -1198,12 +1198,12 @@ ${references || 'Not provided'}`;
               // Persist + notify admin
               if (circle?._firestoreId) {
                 try {
-                  const { requestToJoinCircle, createNotification } = await import('./lib/firestoreService');
+                  const { requestToJoinCircle, createPodNotification } = await import('./lib/firestoreService');
                   await requestToJoinCircle(circle._firestoreId, currentUser.id);
                   // Find admin and notify
                   const admin = data.users.find(u => u.id === circle.adminId) as any;
                   if (admin?._firestoreUid) {
-                    await createNotification(admin._firestoreUid, {
+                    await createPodNotification(admin._firestoreUid, {
                       type: 'circle_join_request',
                       message: `${currentUser.name} requested to join "${circle.name}"`,
                       relatedId: circleId,
