@@ -90,7 +90,9 @@ interface CircleDetailProps {
   onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
   onAddMember: (circleId: number, userId: number) => void;
   onRemoveMember: (circleId: number, userId: number) => void;
+  onLeaveCircle?: (circleId: number) => void;
   onViewProfile: (userId: number) => void;
+  lastVisited?: Date;
 }
 
 const CircleDetail: React.FC<CircleDetailProps> = ({
@@ -104,7 +106,9 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
   onAppreciatePost,
   onAddMember,
   onRemoveMember,
-  onViewProfile
+  onLeaveCircle,
+  onViewProfile,
+  lastVisited,
 }) => {
   const [activeTab, setActiveTab] = useState<'discussion' | 'challenges' | 'learn' | 'articles' | 'ideas'>('discussion');
   const [challenges,       setChallenges]       = useState<PodChallengeData[]>([]);
