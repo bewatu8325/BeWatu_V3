@@ -1081,10 +1081,7 @@ ${references || 'Not provided'}`;
           <ConnectionsView
             currentUser={currentUser}
             allUsers={data.users}
-            connectionRequests={data.connectionRequests.filter((cr: any) =>
-              cr.status === 'pending' &&
-              (!cr.expiresAt || new Date(cr.expiresAt?.toDate?.() ?? cr.expiresAt) > new Date())
-            )}
+            connectionRequests={data.connectionRequests}
             followRequests={data.followRequests ?? []}
             onAccept={(id) => handleConnectionRequest(id, 'accepted')}
             onDecline={(id) => handleConnectionRequest(id, 'declined')}
