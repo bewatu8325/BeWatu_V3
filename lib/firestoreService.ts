@@ -3577,16 +3577,6 @@ export function subscribeToCirclePosts(
   circleFirestoreId: string,
   onUpdate: (posts: any[]) => void
 ): () => void {
-  // Always query by string circleId — new posts normalise to string on write.
-  // At scale: single consistent type = single index = no fan-out queries.
-  // Composite index needed: circleId ASC + createdAt DESC
-  const q = query(
-    collection(db, 'posts'),
-    where('circleId', '==', circleFirestoreId),
-    orderBy('createdAt', 'desc'),
-    limit(50)
-  );
-
   const mapPost = (d: any) => {
     const data = d.data();
     return {
@@ -3606,7 +3596,34 @@ export function subscribeToCirclePosts(
     };
   };
 
-  return onSnapshot(q, snap => onUpdate(snap.docs.map(mapPost)), () => onUpdate([]));
+  // Try ordered query first (requires composite index: circleId ASC + createdAt DESC)
+  // If index doesn't exist yet, fall back to unordered query
+  const qOrdered = query(
+    collection(db, 'posts'),
+    where('circleId', '==', circleFirestoreId),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+
+  let unsub = onSnapshot(
+    qOrdered,
+    snap => onUpdate(snap.docs.map(mapPost)),
+    (err: any) => {
+      // Index not built yet — fall back to unordered
+      if (err?.code === 'failed-precondition' || err?.message?.includes('index')) {
+        const qSimple = query(
+          collection(db, 'posts'),
+          where('circleId', '==', circleFirestoreId),
+          limit(50)
+        );
+        unsub = onSnapshot(qSimple, snap => onUpdate(snap.docs.map(mapPost)), () => onUpdate([]));
+      } else {
+        onUpdate([]);
+      }
+    }
+  );
+
+  return () => unsub();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
