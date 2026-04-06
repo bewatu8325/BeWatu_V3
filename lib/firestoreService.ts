@@ -290,8 +290,8 @@ export async function fetchConnectionRequests(uid: string): Promise<ConnectionRe
     if (seen.has(d.id)) continue;
     seen.add(d.id);
     const data = d.data();
-    // Skip declined/cancelled — but keep accepted and pending
-    if (data.status === 'declined' || data.status === 'cancelled') continue;
+    // Only return pending requests — accepted/declined/cancelled are resolved
+    if (data.status !== 'pending') continue;
     // Compute a stable numeric id — fall back if numericIds are missing
     const stableId = (data.senderNumericId && data.receiverNumericId)
       ? data.senderNumericId * 100000 + data.receiverNumericId
@@ -1324,7 +1324,10 @@ export async function getCompanyForRecruiter(recruiterUid: string): Promise<any 
     query(collection(db, 'companies'), where('adminUid', '==', recruiterUid))
   );
   if (snap.empty) return null;
-  return { id: snap.docs[0].id, ...snap.docs[0].data() };
+  const d = snap.docs[0];
+  // Both id and _firestoreId must point to the Firestore doc ID
+  // CompanyVerification uses _firestoreId for delete/update operations
+  return { ...d.data(), id: d.id, _firestoreId: d.id };
 }
 
 export async function createCompanyWithAdmin(
@@ -3582,6 +3585,62 @@ export function subscribeToCirclePosts(
   }, () => onUpdate([]));
 
   return unsub;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILITY — avoids dynamic Firebase imports in components
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Real-time count of unread notifications for a user. */
+export function subscribeToUnreadNotifCount(
+  uid: string,
+  onCount: (count: number) => void
+): () => void {
+  const q = query(
+    collection(db, 'users', uid, 'notifications'),
+    where('isRead', '==', false)
+  );
+  return onSnapshot(q, snap => onCount(snap.size), () => onCount(0));
+}
+
+/** Look up Firebase UID by numeric user ID. */
+export async function lookupFirebaseUidByNumericId(numericId: number): Promise<string | null> {
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'users'), where('numericId', '==', numericId), limit(1))
+    );
+    return snap.empty ? null : snap.docs[0].id;
+  } catch { return null; }
+}
+
+/** Fetch an arena challenge by Firestore ID or numeric ID. */
+export async function fetchArenaChallengeById(id: string): Promise<any | null> {
+  try {
+    // Direct doc lookup
+    const snap = await getDoc(doc(db, 'arena_challenges', id));
+    if (snap.exists()) {
+      return { ...snap.data(), _firestoreId: snap.id, id: snap.data().numericId ?? snap.id };
+    }
+    // Fallback: query by numericId
+    const numericId = parseInt(id, 10);
+    if (!isNaN(numericId)) {
+      const q = query(collection(db, 'arena_challenges'), where('numericId', '==', numericId), limit(1));
+      const results = await getDocs(q);
+      if (!results.empty) {
+        const d = results.docs[0];
+        return { ...d.data(), _firestoreId: d.id, id: d.data().numericId ?? d.id };
+      }
+    }
+    // Last resort: scan all and match
+    const all = await getDocs(collection(db, 'arena_challenges'));
+    const match = all.docs.find(d =>
+      d.id === id || String(d.data().numericId) === id || d.data().id === id
+    );
+    if (match) {
+      return { ...match.data(), _firestoreId: match.id, id: match.data().numericId ?? match.id };
+    }
+    return null;
+  } catch { return null; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
