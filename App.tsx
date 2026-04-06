@@ -494,11 +494,18 @@ const MainApp: React.FC = () => {
 
   const addPost = async (content: string, circleId?: number) => {
     if (!data || !currentUser || !fbUser) return;
-    const newPost = await fbCreatePost(content, currentUser, fbUser.uid, circleId);
+    // For pod posts, pass the Firestore string ID so the real-time subscription
+    // can match on it. Fall back to numeric circleId if _firestoreId not found.
+    let firestoreCircleId: string | undefined;
+    if (circleId !== undefined && circleId !== null) {
+      const circle = data.circles.find(c => c.id === circleId) as any;
+      firestoreCircleId = circle?._firestoreId ?? String(circleId);
+    }
+    const newPost = await fbCreatePost(content, currentUser, fbUser.uid, firestoreCircleId as any);
     // Circle posts must NOT enter the global feed — they live only inside
-    // their circle and arrive via the subscribeToCirclePosts real-time listener.
+    // their pod and arrive via the subscribeToCirclePosts real-time listener.
     // Non-circle posts go into the main feed immediately (optimistic update).
-    if (circleId !== undefined && circleId !== null) return;
+    if (firestoreCircleId !== undefined) return;
     setData({ ...data, posts: [newPost, ...data.posts] });
   };
 
@@ -1196,11 +1203,32 @@ ${references || 'Not provided'}`;
               onBack={() => setCurrentView(View.Arenas as any)}
               onSelectChallenge={async (id: string) => {
                 try {
-                  const { doc, getDoc } = await import('firebase/firestore');
+                  const { doc, getDoc, collection, query, where, getDocs, limit } = await import('firebase/firestore');
                   const { db } = await import('./lib/firebase');
+                  // Try direct Firestore doc lookup first
                   const snap = await getDoc(doc(db, 'arena_challenges', id));
                   if (snap.exists()) {
                     setSelectedChallenge({ ...snap.data(), _firestoreId: snap.id, id: snap.data().numericId ?? snap.id });
+                    setCurrentView('ARENA_CHALLENGE' as any);
+                    return;
+                  }
+                  // Fallback: query by numericId (ArenaIndustryView may pass numeric id)
+                  const numericId = parseInt(id, 10);
+                  if (!isNaN(numericId)) {
+                    const q = query(collection(db, 'arena_challenges'), where('numericId', '==', numericId), limit(1));
+                    const results = await getDocs(q);
+                    if (!results.empty) {
+                      const d = results.docs[0];
+                      setSelectedChallenge({ ...d.data(), _firestoreId: d.id, id: d.data().numericId ?? d.id });
+                      setCurrentView('ARENA_CHALLENGE' as any);
+                      return;
+                    }
+                  }
+                  // Last resort: load all and match by id field
+                  const all = await getDocs(collection(db, 'arena_challenges'));
+                  const match = all.docs.find(d => d.id === id || String(d.data().numericId) === id || d.data().id === id);
+                  if (match) {
+                    setSelectedChallenge({ ...match.data(), _firestoreId: match.id, id: match.data().numericId ?? match.id });
                     setCurrentView('ARENA_CHALLENGE' as any);
                   }
                 } catch(e) { console.error('Failed to load challenge:', e); }
