@@ -799,7 +799,11 @@ const Circles: React.FC<CirclesProps> = ({
 
             {/* CTA */}
             <div className="px-5 pb-5">
-              {previewCircle.visibility === 'open' || !previewCircle.visibility ? (
+              {currentUserId && (previewCircle.pendingMembers ?? []).includes(currentUserId) ? (
+                <div className="w-full py-3 rounded-xl text-sm font-semibold text-center text-amber-600 bg-amber-50 border border-amber-200">
+                  ⏳ Request pending — waiting for admin approval
+                </div>
+              ) : previewCircle.visibility === 'open' || !previewCircle.visibility ? (
                 <button
                   onClick={() => { onJoinCircle?.(previewCircle.id); setPreviewCircle(null); }}
                   className="w-full py-3 rounded-xl text-sm font-bold text-white hover:opacity-90"
@@ -812,14 +816,11 @@ const Circles: React.FC<CirclesProps> = ({
                     onClick={() => { onApplyToCircle?.(previewCircle.id); setPreviewCircle(null); }}
                     className="w-full py-3 rounded-xl text-sm font-bold text-white hover:opacity-90"
                     style={{ backgroundColor: GREEN }}>
-                    Apply to join
+                    Request to join
                   </button>
-                  <button
-                    onClick={() => { onSelectCircle(previewCircle.id); setPreviewCircle(null); }}
-                    className="w-full py-2.5 rounded-xl text-sm font-medium text-stone-600 border hover:bg-stone-50"
-                    style={{ borderColor: '#e7e5e4' }}>
-                    Preview pod →
-                  </button>
+                  <p className="text-xs text-center text-stone-400">
+                    The pod admin will review your request
+                  </p>
                 </div>
               ) : (
                 <p className="text-center text-xs text-stone-400 py-2">This pod is invite only</p>

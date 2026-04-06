@@ -39,42 +39,126 @@ const ArticleCard: React.FC<{ article: Article, author?: User, onViewProfile: (u
     </div>
 );
 
-const AddMember: React.FC<{ allUsers: User[]; circleMembers: number[]; onAdd: (userId: number) => void }> = ({ allUsers, circleMembers, onAdd }) => {
-    const [userName, setUserName] = useState('');
-    const [feedback, setFeedback] = useState('');
+// Invite member — searchable dropdown, sends invite notification instead of adding directly
+const InviteMember: React.FC<{
+  allUsers: User[];
+  circleMembers: number[];
+  pendingInvites: number[];
+  circleName: string;
+  onInvite: (userId: number) => void;
+}> = ({ allUsers, circleMembers, pendingInvites, circleName, onInvite }) => {
+  const [query,    setQuery]    = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [showList, setShowList] = useState(false);
 
-    const handleAdd = () => {
-        const userToAdd = allUsers.find(u => u.name.toLowerCase() === userName.toLowerCase().trim());
-        if (!userToAdd) {
-            setFeedback(`User "${userName}" not found.`);
-            return;
-        }
-        if (circleMembers.includes(userToAdd.id)) {
-            setFeedback(`${userName} is already a member.`);
-            return;
-        }
-        onAdd(userToAdd.id);
-        setFeedback(`${userToAdd.name} has been added.`);
-        setUserName('');
-        setTimeout(() => setFeedback(''), 3000);
-    };
+  const eligible = allUsers.filter(u =>
+    !circleMembers.includes(u.id) &&
+    !pendingInvites.includes(u.id) &&
+    (u.name.toLowerCase().includes(query.toLowerCase()) ||
+     (u as any).headline?.toLowerCase().includes(query.toLowerCase())) &&
+    query.trim().length > 0
+  ).slice(0, 6);
 
-    return (
-        <div className="mt-4 p-3 bg-stone-50 rounded-xl border" style={{ borderColor:"#e7e5e4" }}>
-            <h4 className="text-sm font-semibold text-stone-700 mb-2">Add Member</h4>
-            <div className="flex space-x-2">
-                <input
-                    type="text"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    placeholder="Enter user's full name"
-                    className="flex-grow p-1.5 bg-white text-stone-800 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300" style={{ borderColor:"#e7e5e4" }}
-                />
-                <button onClick={handleAdd} className="text-white font-semibold px-3 py-1 rounded-lg text-sm hover:opacity-90 transition" style={{ backgroundColor:"#1a4a3a" }}>Add</button>
+  const handleInvite = (user: User) => {
+    onInvite(user.id);
+    setFeedback(`Invite sent to ${user.name}`);
+    setQuery('');
+    setShowList(false);
+    setTimeout(() => setFeedback(''), 3000);
+  };
+
+  return (
+    <div className="mt-4 p-3 bg-stone-50 rounded-xl border" style={{ borderColor: '#e7e5e4' }}>
+      <h4 className="text-sm font-semibold text-stone-700 mb-1">Invite member</h4>
+      <p className="text-xs text-stone-400 mb-2">They'll receive an invite and can choose to accept or decline.</p>
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setShowList(true); }}
+          onFocus={() => setShowList(true)}
+          onBlur={() => setTimeout(() => setShowList(false), 150)}
+          placeholder="Search by name or headline…"
+          className="w-full p-2 bg-white text-stone-800 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-200"
+          style={{ borderColor: '#e7e5e4' }}
+        />
+        {showList && eligible.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-lg z-20 overflow-hidden"
+            style={{ borderColor: '#e7e5e4' }}>
+            {eligible.map(u => (
+              <button key={u.id} onMouseDown={() => handleInvite(u)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-stone-50 transition-colors text-left">
+                {(u as any).avatarUrl
+                  ? <img src={(u as any).avatarUrl} alt={u.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                      style={{ backgroundColor: '#1a4a3a' }}>{u.name[0]}</div>
+                }
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-stone-800 truncate">{u.name}</p>
+                  <p className="text-xs text-stone-400 truncate">{(u as any).headline}</p>
+                </div>
+                <span className="text-xs font-medium ml-auto px-2 py-0.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: '#e8f4f0', color: '#1a4a3a' }}>Invite</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {showList && query.trim().length > 0 && eligible.length === 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-sm z-20 px-3 py-2.5"
+            style={{ borderColor: '#e7e5e4' }}>
+            <p className="text-xs text-stone-400">No matching users found</p>
+          </div>
+        )}
+      </div>
+      {feedback && <p className="text-xs mt-2 font-medium" style={{ color: '#1a4a3a' }}>{feedback}</p>}
+    </div>
+  );
+};
+
+// Join requests panel — shown to admin
+const JoinRequests: React.FC<{
+  pendingMembers: number[];
+  allUsers: User[];
+  onApprove: (userId: number) => void;
+  onDecline: (userId: number) => void;
+}> = ({ pendingMembers, allUsers, onApprove, onDecline }) => {
+  if (pendingMembers.length === 0) return null;
+
+  return (
+    <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+      <h4 className="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-1.5">
+        <span className="w-4 h-4 rounded-full bg-amber-400 text-white text-xs flex items-center justify-center font-bold">{pendingMembers.length}</span>
+        Pending requests
+      </h4>
+      <div className="space-y-2">
+        {pendingMembers.map(uid => {
+          const user = allUsers.find(u => u.id === uid);
+          if (!user) return null;
+          return (
+            <div key={uid} className="flex items-center gap-3 bg-white rounded-lg p-2.5 border border-amber-100">
+              {(user as any).avatarUrl
+                ? <img src={(user as any).avatarUrl} alt={user.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                    style={{ backgroundColor: '#1a4a3a' }}>{user.name[0]}</div>
+              }
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-stone-800 truncate">{user.name}</p>
+                <p className="text-xs text-stone-400 truncate">{(user as any).headline}</p>
+              </div>
+              <div className="flex gap-1.5 flex-shrink-0">
+                <button onClick={() => onApprove(uid)}
+                  className="text-xs font-bold px-2.5 py-1 rounded-lg text-white"
+                  style={{ backgroundColor: '#1a4a3a' }}>Accept</button>
+                <button onClick={() => onDecline(uid)}
+                  className="text-xs font-medium px-2.5 py-1 rounded-lg border hover:bg-stone-50"
+                  style={{ borderColor: '#e7e5e4', color: '#6b7280' }}>Decline</button>
+              </div>
             </div>
-            {feedback && <p className="text-xs mt-2" style={{ color:"#1a4a3a" }}>{feedback}</p>}
-        </div>
-    );
+          );
+        })}
+      </div>
+    </div>
+  );
 };
 
 
@@ -87,8 +171,11 @@ interface CircleDetailProps {
   addPost: (content: string, circleId?: number) => void;
   findAuthor: (authorId: number) => User | undefined;
   onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
+  onInviteMember: (circleId: number, userId: number) => void;
   onAddMember: (circleId: number, userId: number) => void;
   onRemoveMember: (circleId: number, userId: number) => void;
+  onApproveJoinRequest: (circleId: number, userId: number) => void;
+  onDeclineJoinRequest: (circleId: number, userId: number) => void;
   onLeaveCircle?: (circleId: number) => void;
   onViewProfile: (userId: number) => void;
   lastVisited?: Date;
@@ -103,8 +190,11 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
   addPost,
   findAuthor,
   onAppreciatePost,
+  onInviteMember,
   onAddMember,
   onRemoveMember,
+  onApproveJoinRequest,
+  onDeclineJoinRequest,
   onLeaveCircle,
   onViewProfile,
   lastVisited,
@@ -114,6 +204,8 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
   const [showChallengeForm, setShowChallengeForm] = useState(false);
   const { fbUser } = useFirebase();
 
+  const pendingInvites  = (circle as any).pendingInvites  ?? [] as number[];
+  const pendingMembers  = (circle as any).pendingMembers  ?? [] as number[];
   const isGenerationalPod = !!(circle as any).slots;
   const currentUserStage  = (currentUser as any).careerStage ?? undefined;
 
@@ -436,7 +528,23 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                         </div>
                     ))}
                 </div>
-                {isCurrentUserAdmin && <AddMember allUsers={allUsers} circleMembers={circle.members} onAdd={(userId) => onAddMember(circle.id, userId)} />}
+                {isCurrentUserAdmin && (
+                  <JoinRequests
+                    pendingMembers={pendingMembers}
+                    allUsers={allUsers}
+                    onApprove={(uid) => onApproveJoinRequest(circle.id, uid)}
+                    onDecline={(uid) => onDeclineJoinRequest(circle.id, uid)}
+                  />
+                )}
+                {isCurrentUserAdmin && (
+                  <InviteMember
+                    allUsers={allUsers}
+                    circleMembers={circle.members}
+                    pendingInvites={pendingInvites}
+                    circleName={circle.name}
+                    onInvite={(uid) => onInviteMember(circle.id, uid)}
+                  />
+                )}
             </div>
         </div>
       </div>
