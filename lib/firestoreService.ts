@@ -104,7 +104,7 @@ export async function createPost(
   content: string,
   author: User,
   authorUid: string,
-  circleId?: number | string
+  circleId?: number
 ): Promise<Post> {
   const ref = await addDoc(collection(db, 'posts'), {
     content,
@@ -137,82 +137,6 @@ export async function createPost(
     circleId,
     _firestoreId: ref.id,
   } as Post & { _firestoreId: string };
-}
-
-/**
- * Real-time subscription to posts for a specific circle/pod.
- * Matches on both numeric circleId and Firestore string circleId
- * because posts may have been written with either format.
- */
-export function subscribeToCirclePosts(
-  circleFirestoreId: string,
-  onUpdate: (posts: any[]) => void
-): () => void {
-  const numericId = parseInt(circleFirestoreId, 10);
-  const hasNumeric = !isNaN(numericId);
-
-  // Query by Firestore string ID first (preferred)
-  const q = query(
-    collection(db, 'posts'),
-    where('circleId', '==', circleFirestoreId),
-    orderBy('createdAt', 'desc'),
-    limit(50)
-  );
-
-  const unsub = onSnapshot(q, async (snap) => {
-    let posts = snap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: data.numericId ?? Date.now(),
-        authorId: data.authorNumericId ?? 0,
-        content: data.content ?? '',
-        appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
-        comments: data.commentCount ?? 0,
-        shares: data.shares ?? 0,
-        timestamp: data.createdAt?.toDate?.()?.toISOString?.() ?? 'Just now',
-        circleId: data.circleId,
-        _firestoreId: d.id,
-        createdAt: data.createdAt,
-        avatarUrl: data.authorPhoto,
-        authorName: data.authorName,
-        authorHeadline: data.authorHeadline,
-      };
-    });
-
-    // Also query by numeric ID if the post was written with numeric circleId
-    if (hasNumeric && posts.length === 0) {
-      try {
-        const qNumeric = query(
-          collection(db, 'posts'),
-          where('circleId', '==', numericId),
-          orderBy('createdAt', 'desc'),
-          limit(50)
-        );
-        const snapNumeric = await getDocs(qNumeric);
-        posts = snapNumeric.docs.map(d => {
-          const data = d.data();
-          return {
-            id: data.numericId ?? Date.now(),
-            authorId: data.authorNumericId ?? 0,
-            content: data.content ?? '',
-            appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
-            comments: data.commentCount ?? 0,
-            shares: data.shares ?? 0,
-            timestamp: data.createdAt?.toDate?.()?.toISOString?.() ?? 'Just now',
-            circleId: data.circleId,
-            _firestoreId: d.id,
-            createdAt: data.createdAt,
-            avatarUrl: data.authorPhoto,
-            authorName: data.authorName,
-            authorHeadline: data.authorHeadline,
-          };
-        });
-      } catch { /* index may not exist yet */ }
-    }
-    onUpdate(posts);
-  }, () => onUpdate([]));
-
-  return unsub;
 }
 
 export async function fetchPosts(pageSize = 30, after?: QueryDocumentSnapshot) {
@@ -1488,129 +1412,10 @@ export async function updateCompanyProfile(companyId: string, data: Partial<{
   await updateDoc(doc(db, 'companies', companyId), { ...safeUpdate, updatedAt: serverTimestamp() });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POD / CIRCLE MEMBERSHIP & NOTIFICATIONS
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function inviteMemberToCircle(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['circles', 'pods']) {
-    const ref = doc(db, col, firestoreId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) continue;
-    const d = snap.data();
-    const pending: number[] = d.pendingInvites ?? [];
-    if (pending.includes(userNumericId)) return;
-    await updateDoc(ref, { pendingInvites: [...pending, userNumericId], updatedAt: serverTimestamp() });
-    return;
-  }
-}
-
-export async function requestToJoinCircle(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['circles', 'pods']) {
-    const ref = doc(db, col, firestoreId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) continue;
-    const d = snap.data();
-    const pending: number[] = d.pendingMembers ?? [];
-    if (pending.includes(userNumericId)) return;
-    await updateDoc(ref, { pendingMembers: [...pending, userNumericId], updatedAt: serverTimestamp() });
-    return;
-  }
-}
-
-export async function approveJoinRequest(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['circles', 'pods']) {
-    const ref = doc(db, col, firestoreId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) continue;
-    const d = snap.data();
-    const members: number[]       = d.members        ?? [];
-    const pendingMembers: number[] = d.pendingMembers ?? [];
-    await updateDoc(ref, {
-      members:        members.includes(userNumericId) ? members : [...members, userNumericId],
-      pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
-      updatedAt:      serverTimestamp(),
-    });
-    return;
-  }
-}
-
-export async function declineJoinRequest(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['circles', 'pods']) {
-    const ref = doc(db, col, firestoreId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) continue;
-    const d = snap.data();
-    const pendingMembers: number[] = d.pendingMembers ?? [];
-    await updateDoc(ref, {
-      pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
-      updatedAt:      serverTimestamp(),
-    });
-    return;
-  }
-}
-
-export async function createPodNotification(
-  recipientUid: string,
-  notif: {
-    type: string;
-    message: string;
-    relatedId?: number;
-    actorId?: number;
-    actorName?: string;
-    actorAvatar?: string;
-    circleFirestoreId?: string;
-  }
-): Promise<void> {
-  await addDoc(collection(db, 'users', recipientUid, 'notifications'), {
-    ...notif,
-    isRead:    false,
-    createdAt: serverTimestamp(),
-  });
-}
-
-/** Read-only fetch of a company for a given recruiter UID.
- *  Never creates — used in loadAppData to populate the recruiter's company context. */
-export async function fetchCompanyForRecruiter(
-  recruiterUid: string
-): Promise<import('../types').Company | null> {
-  if (!recruiterUid) return null;
-  try {
-    const q = query(collection(db, 'companies'), where('adminUid', '==', recruiterUid), limit(1));
-    const snap = await getDocs(q);
-    if (snap.empty) return null;
-    const d = snap.docs[0];
-    const data = d.data();
-    return {
-      id:                  data.numericId ?? 1,
-      _firestoreId:        d.id,
-      name:                data.name ?? '',
-      description:         data.description ?? '',
-      industry:            data.industry ?? '',
-      logoUrl:             data.logoUrl ?? '',
-      website:             data.website ?? '',
-      adminUid:            data.adminUid,
-      verifiedRecruiters:  data.verifiedRecruiters ?? [],
-      verificationStatus:  data.verificationStatus ?? 'unverified',
-    } as any;
-  } catch {
-    return null;
-  }
-}
-
 /** Company admin deletes their own company (hides jobs, deletes company doc). */
 export async function deleteCompanyByAdmin(companyId: string): Promise<void> {
-  if (!companyId || companyId.trim() === '' || !isNaN(Number(companyId))) {
-    throw new Error('Invalid company ID — cannot delete. Please refresh and try again.');
-  }
-  // Verify the doc exists before attempting batch delete
-  const companyRef = doc(db, 'companies', companyId);
-  const companySnap = await getDoc(companyRef);
-  if (!companySnap.exists()) {
-    throw new Error('Company not found. It may have already been deleted.');
-  }
   const batch = writeBatch(db);
-  batch.delete(companyRef);
+  batch.delete(doc(db, 'companies', companyId));
   const jobsSnap = await getDocs(
     query(collection(db, 'jobs'), where('companyFirestoreId', '==', companyId))
   );
@@ -3535,6 +3340,248 @@ export async function claimCompany(
   });
 
   return { success: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY TEAM MEMBERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch users who have opted in to appear on a company's team tab.
+ * Queries by employerName + showOnCompanyPage == true.
+ * Falls back to a soft match if exact query returns nothing.
+ */
+export async function fetchCompanyTeamMembers(companyName: string): Promise<any[]> {
+  if (!companyName) return [];
+  try {
+    // Exact match
+    const snap = await getDocs(
+      query(
+        collection(db, 'users'),
+        where('employerName', '==', companyName),
+        where('showOnCompanyPage', '==', true),
+        limit(50)
+      )
+    );
+    if (!snap.empty) {
+      return snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id:             data.numericId ?? d.id,
+          _firestoreUid:  d.id,
+          name:           data.displayName ?? data.name ?? '',
+          headline:       data.headline ?? '',
+          avatarUrl:      data.photoURL ?? data.avatarUrl ?? null,
+          skills:         data.skills ?? [],
+          verifiedSkills: data.verifiedSkills ?? [],
+          isVerified:     data.isVerified ?? false,
+          employerName:   data.employerName ?? '',
+        };
+      });
+    }
+    // Fuzzy fallback — in case employerName has slight variations
+    const allSnap = await getDocs(
+      query(
+        collection(db, 'users'),
+        where('showOnCompanyPage', '==', true),
+        limit(200)
+      )
+    );
+    const lower = companyName.toLowerCase();
+    return allSnap.docs
+      .filter(d => d.data().employerName?.toLowerCase().includes(lower))
+      .map(d => {
+        const data = d.data();
+        return {
+          id:             data.numericId ?? d.id,
+          _firestoreUid:  d.id,
+          name:           data.displayName ?? data.name ?? '',
+          headline:       data.headline ?? '',
+          avatarUrl:      data.photoURL ?? data.avatarUrl ?? null,
+          skills:         data.skills ?? [],
+          verifiedSkills: data.verifiedSkills ?? [],
+          isVerified:     data.isVerified ?? false,
+          employerName:   data.employerName ?? '',
+        };
+      });
+  } catch (err) {
+    console.warn('fetchCompanyTeamMembers failed:', err);
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RECRUITER COMPANY — READ-ONLY FETCH
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Read-only company fetch by recruiter UID. Never creates. Used in loadAppData. */
+export async function fetchCompanyForRecruiter(recruiterUid: string): Promise<any | null> {
+  if (!recruiterUid) return null;
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'companies'), where('adminUid', '==', recruiterUid), limit(1))
+    );
+    if (snap.empty) return null;
+    const d = snap.docs[0];
+    const data = d.data();
+    return {
+      id:                 data.numericId ?? 1,
+      _firestoreId:       d.id,
+      name:               data.name ?? '',
+      description:        data.description ?? '',
+      industry:           data.industry ?? '',
+      logoUrl:            data.logoUrl ?? '',
+      website:            data.website ?? '',
+      adminUid:           data.adminUid,
+      verifiedRecruiters: data.verifiedRecruiters ?? [],
+      verificationStatus: data.verificationStatus ?? 'unverified',
+    };
+  } catch { return null; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POD / CIRCLE MEMBERSHIP & NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Send invite — adds userId to pendingInvites array, idempotent. */
+export async function inviteMemberToCircle(firestoreId: string, userNumericId: number): Promise<void> {
+  for (const col of ['circles', 'pods']) {
+    const ref = doc(db, col, firestoreId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) continue;
+    const d = snap.data();
+    const pending: number[] = d.pendingInvites ?? [];
+    if (pending.includes(userNumericId)) return;
+    await updateDoc(ref, { pendingInvites: [...pending, userNumericId], updatedAt: serverTimestamp() });
+    return;
+  }
+}
+
+/** User requests to join — adds to pendingMembers, idempotent. */
+export async function requestToJoinCircle(firestoreId: string, userNumericId: number): Promise<void> {
+  for (const col of ['circles', 'pods']) {
+    const ref = doc(db, col, firestoreId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) continue;
+    const d = snap.data();
+    const pending: number[] = d.pendingMembers ?? [];
+    if (pending.includes(userNumericId)) return;
+    await updateDoc(ref, { pendingMembers: [...pending, userNumericId], updatedAt: serverTimestamp() });
+    return;
+  }
+}
+
+/** Admin approves join request — moves from pendingMembers to members. */
+export async function approveJoinRequest(firestoreId: string, userNumericId: number): Promise<void> {
+  for (const col of ['circles', 'pods']) {
+    const ref = doc(db, col, firestoreId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) continue;
+    const d = snap.data();
+    const members: number[]        = d.members        ?? [];
+    const pendingMembers: number[] = d.pendingMembers  ?? [];
+    await updateDoc(ref, {
+      members:        members.includes(userNumericId) ? members : [...members, userNumericId],
+      pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
+      updatedAt:      serverTimestamp(),
+    });
+    return;
+  }
+}
+
+/** Admin declines join request — removes from pendingMembers. */
+export async function declineJoinRequest(firestoreId: string, userNumericId: number): Promise<void> {
+  for (const col of ['circles', 'pods']) {
+    const ref = doc(db, col, firestoreId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) continue;
+    const d = snap.data();
+    const pendingMembers: number[] = d.pendingMembers ?? [];
+    await updateDoc(ref, {
+      pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
+      updatedAt:      serverTimestamp(),
+    });
+    return;
+  }
+}
+
+/** Write a notification to users/{uid}/notifications subcollection. */
+export async function createPodNotification(
+  recipientUid: string,
+  notif: {
+    type: string;
+    message: string;
+    relatedId?: number;
+    actorId?: number;
+    actorName?: string;
+    actorAvatar?: string;
+    circleFirestoreId?: string;
+  }
+): Promise<void> {
+  await addDoc(collection(db, 'users', recipientUid, 'notifications'), {
+    ...notif,
+    isRead:    false,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Real-time subscription to posts for a specific circle/pod.
+ * Matches on Firestore string circleId with numeric fallback.
+ */
+export function subscribeToCirclePosts(
+  circleFirestoreId: string,
+  onUpdate: (posts: any[]) => void
+): () => void {
+  const numericId = parseInt(circleFirestoreId, 10);
+  const hasNumeric = !isNaN(numericId);
+
+  const q = query(
+    collection(db, 'posts'),
+    where('circleId', '==', circleFirestoreId),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+
+  const unsub = onSnapshot(q, async (snap) => {
+    const mapPost = (d: any) => {
+      const data = d.data();
+      return {
+        id:           data.numericId ?? Date.now(),
+        authorId:     data.authorNumericId ?? 0,
+        content:      data.content ?? '',
+        appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
+        comments:     data.commentCount ?? 0,
+        shares:       data.shares ?? 0,
+        timestamp:    data.createdAt?.toDate?.()?.toISOString?.() ?? 'Just now',
+        circleId:     data.circleId,
+        _firestoreId: d.id,
+        createdAt:    data.createdAt,
+        avatarUrl:    data.authorPhoto,
+        authorName:   data.authorName,
+        authorHeadline: data.authorHeadline,
+      };
+    };
+
+    let posts = snap.docs.map(mapPost);
+
+    // Also try numeric ID if string query returned nothing
+    if (hasNumeric && posts.length === 0) {
+      try {
+        const qNum = query(
+          collection(db, 'posts'),
+          where('circleId', '==', numericId),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+        const snapNum = await getDocs(qNum);
+        posts = snapNum.docs.map(mapPost);
+      } catch { /* index may not exist */ }
+    }
+    onUpdate(posts);
+  }, () => onUpdate([]));
+
+  return unsub;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
