@@ -579,14 +579,14 @@ const MainApp: React.FC = () => {
       return;
     }
 
-    // Update local state immediately for snappy UI
+    // Remove from state entirely — accepted/declined requests don't belong
+    // in the pending list. Accepted connections appear in My Circles instead.
     setData(d => {
       if (!d) return null;
       return {
         ...d,
         connectionRequests: d.connectionRequests
-          .filter(cr => cr.id !== req.id && (cr as any)._firestoreId !== req._firestoreId)
-          .concat(status === 'accepted' ? [{ ...req, status: 'accepted' }] : []),
+          .filter(cr => cr.id !== req.id && (cr as any)._firestoreId !== req._firestoreId),
         notifications: d.notifications.filter(n => n.relatedId !== requestId),
       };
     });
@@ -1083,7 +1083,10 @@ ${references || 'Not provided'}`;
           <ConnectionsView
             currentUser={currentUser}
             allUsers={data.users}
-            connectionRequests={data.connectionRequests}
+            connectionRequests={data.connectionRequests.filter((cr: any) =>
+              cr.status === 'pending' &&
+              (!cr.expiresAt || new Date(cr.expiresAt?.toDate?.() ?? cr.expiresAt) > new Date())
+            )}
             followRequests={data.followRequests ?? []}
             onAccept={(id) => handleConnectionRequest(id, 'accepted')}
             onDecline={(id) => handleConnectionRequest(id, 'declined')}
