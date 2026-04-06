@@ -546,6 +546,27 @@ export async function createNotification(
   });
 }
 
+// Pod/circle notification — writes to users/{uid}/notifications subcollection
+// Called from App.tsx for circle_invite, circle_post, circle_approved, circle_join_request
+export async function createPodNotification(
+  recipientUid: string,
+  notif: {
+    type: string;
+    message: string;
+    relatedId?: number;
+    actorId?: number;
+    actorName?: string;
+    actorAvatar?: string;
+    circleFirestoreId?: string;
+  }
+): Promise<void> {
+  await addDoc(collection(db, 'users', recipientUid, 'notifications'), {
+    ...notif,
+    isRead:    false,
+    createdAt: serverTimestamp(),
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // JOBS
 // ─────────────────────────────────────────────────────────────────────────────
