@@ -53,6 +53,9 @@ import {
   leaveCircle,
   fetchUsers,
   fetchCompanyForRecruiter,
+  subscribeToUnreadNotifCount,
+  lookupFirebaseUidByNumericId,
+  fetchArenaChallengeById,
   applyToJobWithProfile,
   fetchCompanyById,
 } from './lib/firestoreService';
@@ -193,20 +196,10 @@ const MainApp: React.FC = () => {
   // ── Real-time unread notification count ───────────────────────────────────
   useEffect(() => {
     if (!fbUser?.uid) return;
-    let unsub: (() => void) | undefined;
-    import('firebase/firestore').then(({ collection, query, where, onSnapshot }) => {
-      import('./lib/firebase').then(({ db }) => {
-        const q = query(
-          collection(db, 'users', fbUser.uid, 'notifications'),
-          where('isRead', '==', false)
-        );
-        unsub = onSnapshot(q,
-          snap => setUnreadNotifCount(snap.size),
-          () => setUnreadNotifCount(0)
-        );
-      });
-    });
-    return () => unsub?.();
+    // Use subscribeToUnreadNotifCount from firestoreService to avoid
+    // creating a second Firestore instance via dynamic import
+    const unsub = subscribeToUnreadNotifCount(fbUser.uid, setUnreadNotifCount);
+    return () => unsub();
   }, [fbUser?.uid]);
 
   // Uses a session-level flag so it never re-fires once dismissed this session
@@ -834,10 +827,8 @@ ${references || 'Not provided'}`;
       let invitedUid = invitedUser?._firestoreUid;
       if (!invitedUid) {
         try {
-          const { getDocs, collection, where, query, limit } = await import('firebase/firestore');
-          const { db } = await import('./lib/firebase');
-          const snap = await getDocs(query(collection(db, 'users'), where('numericId', '==', userId), limit(1)));
-          if (!snap.empty) invitedUid = snap.docs[0].id;
+          const { lookupFirebaseUidByNumericId } = await import('./lib/firestoreService');
+          invitedUid = await lookupFirebaseUidByNumericId(userId) ?? undefined;
         } catch { /* ignore */ }
       }
       if (invitedUid) {
@@ -1206,32 +1197,10 @@ ${references || 'Not provided'}`;
               onBack={() => setCurrentView(View.Arenas as any)}
               onSelectChallenge={async (id: string) => {
                 try {
-                  const { doc, getDoc, collection, query, where, getDocs, limit } = await import('firebase/firestore');
-                  const { db } = await import('./lib/firebase');
-                  // Try direct Firestore doc lookup first
-                  const snap = await getDoc(doc(db, 'arena_challenges', id));
-                  if (snap.exists()) {
-                    setSelectedChallenge({ ...snap.data(), _firestoreId: snap.id, id: snap.data().numericId ?? snap.id });
-                    setCurrentView('ARENA_CHALLENGE' as any);
-                    return;
-                  }
-                  // Fallback: query by numericId (ArenaIndustryView may pass numeric id)
-                  const numericId = parseInt(id, 10);
-                  if (!isNaN(numericId)) {
-                    const q = query(collection(db, 'arena_challenges'), where('numericId', '==', numericId), limit(1));
-                    const results = await getDocs(q);
-                    if (!results.empty) {
-                      const d = results.docs[0];
-                      setSelectedChallenge({ ...d.data(), _firestoreId: d.id, id: d.data().numericId ?? d.id });
-                      setCurrentView('ARENA_CHALLENGE' as any);
-                      return;
-                    }
-                  }
-                  // Last resort: load all and match by id field
-                  const all = await getDocs(collection(db, 'arena_challenges'));
-                  const match = all.docs.find(d => d.id === id || String(d.data().numericId) === id || d.data().id === id);
-                  if (match) {
-                    setSelectedChallenge({ ...match.data(), _firestoreId: match.id, id: match.data().numericId ?? match.id });
+                  const { fetchArenaChallengeById } = await import('./lib/firestoreService');
+                  const challenge = await fetchArenaChallengeById(id);
+                  if (challenge) {
+                    setSelectedChallenge(challenge);
                     setCurrentView('ARENA_CHALLENGE' as any);
                   }
                 } catch(e) { console.error('Failed to load challenge:', e); }
@@ -1293,7 +1262,7 @@ ${references || 'Not provided'}`;
               // Persist + notify admin
               if (circle?._firestoreId) {
                 try {
-                  const { requestToJoinCircle, createPodNotification } = await import('./lib/firestoreService');
+                  const { requestToJoinCircle, createPodNotification } = await import('./lib/firestoreService') as any;
                   await requestToJoinCircle(circle._firestoreId, currentUser.id);
                   // Find admin and notify
                   const admin = data.users.find(u => u.id === circle.adminId) as any;
