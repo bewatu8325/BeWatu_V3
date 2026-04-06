@@ -153,6 +153,7 @@ const MainApp: React.FC = () => {
   };
 
   const [activeCircleId, setActiveCircleId] = useState<number | null>(null);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [lastCircleVisited, setLastCircleVisited] = useState<Record<number, Date>>({});
   const [profileUserId, setProfileUserId] = useState<number | null>(null);
   const [showSecurityPage, setShowSecurityPage] = useState(false);
@@ -186,6 +187,25 @@ const MainApp: React.FC = () => {
       loadAppData(currentUser);
     }
   }, [authLoading, currentUser, authState, data, loading]);
+
+  // ── Real-time unread notification count ───────────────────────────────────
+  useEffect(() => {
+    if (!fbUser?.uid) return;
+    let unsub: (() => void) | undefined;
+    import('firebase/firestore').then(({ collection, query, where, onSnapshot }) => {
+      import('./lib/firebase').then(({ db }) => {
+        const q = query(
+          collection(db, 'users', fbUser.uid, 'notifications'),
+          where('isRead', '==', false)
+        );
+        unsub = onSnapshot(q,
+          snap => setUnreadNotifCount(snap.size),
+          () => setUnreadNotifCount(0)
+        );
+      });
+    });
+    return () => unsub?.();
+  }, [fbUser?.uid]);
 
   // Uses a session-level flag so it never re-fires once dismissed this session
   useEffect(() => {
@@ -1284,7 +1304,7 @@ ${references || 'Not provided'}`;
         {showSecurityPage && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={0} />
+              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   <SecurityPrivacyPage
@@ -1325,7 +1345,7 @@ ${references || 'Not provided'}`;
         {publicProfileUserId && data && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={data?.notifications?.filter(n => !(n as any).isRead).length ?? 0} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} />
+              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   {(() => {
@@ -1361,7 +1381,7 @@ ${references || 'Not provided'}`;
             onNavigate={handleSetView}
             onLogout={handleLogout}
             onSwitchToRecruiter={handleSwitchProfile}
-            notificationCount={data.notifications.filter(n => !(n as any).isRead).length}
+            notificationCount={unreadNotifCount}
             pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length}
             onSearch={(q) => {
               setPeopleSearch(q);
