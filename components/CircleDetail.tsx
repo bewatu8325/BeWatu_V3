@@ -430,6 +430,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                           : ((circle as any).createdAt?.toDate?.() ?? undefined)
                       }
                       isAdmin={isCurrentUserAdmin}
+                      circleId={circle.id}
                       onPost={(content) => addPost(content, circle.id)}
                     />
 
@@ -457,7 +458,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                         </div>
                     ) : (
                          <div className="text-center py-10 bg-stone-50 rounded-2xl border" style={{ borderColor:"#e7e5e4" }}>
-                            <p className="text-stone-400">No posts in this circle yet. Be the first to share something!</p>
+                            <p className="text-stone-400">No posts in this pod yet. Be the first to share something!</p>
                         </div>
                     )}
                 </>
@@ -517,7 +518,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                         ))
                     ) : (
                          <div className="text-center py-10 bg-stone-50 rounded-2xl border" style={{ borderColor:"#e7e5e4" }}>
-                            <p className="text-stone-400">No articles have been published in this circle yet.</p>
+                            <p className="text-stone-400">No articles have been published in this pod yet.</p>
                         </div>
                     )}
                 </div>

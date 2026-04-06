@@ -756,10 +756,11 @@ interface ConversationStarterProps {
   lastPostDate?: Date;
   isAdmin:       boolean;
   onPost:        (content: string) => void;
+  circleId?:     number;
 }
 
 export const ConversationStarter: React.FC<ConversationStarterProps> = ({
-  podName, podTopic, lastPostDate, isAdmin, onPost,
+  podName, podTopic, lastPostDate, isAdmin, onPost, circleId,
 }) => {
   const [starter,  setStarter]  = useState('');
   const [loading,  setLoading]  = useState(false);
