@@ -604,6 +604,68 @@ export async function leaveCircle(
   });
 }
 
+// Send an invite — adds userId to pendingInvites array on circle doc
+export async function inviteMemberToCircle(
+  firestoreId: string,
+  userNumericId: number
+): Promise<void> {
+  const ref = doc(db, 'circles', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const d = snap.data();
+  const pending: number[] = d.pendingInvites ?? [];
+  if (pending.includes(userNumericId)) return;
+  await updateDoc(ref, { pendingInvites: [...pending, userNumericId], updatedAt: serverTimestamp() });
+}
+
+// User requests to join — adds userId to pendingMembers array
+export async function requestToJoinCircle(
+  firestoreId: string,
+  userNumericId: number
+): Promise<void> {
+  const ref = doc(db, 'circles', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const d = snap.data();
+  const pending: number[] = d.pendingMembers ?? [];
+  if (pending.includes(userNumericId)) return;
+  await updateDoc(ref, { pendingMembers: [...pending, userNumericId], updatedAt: serverTimestamp() });
+}
+
+// Admin approves join request
+export async function approveJoinRequest(
+  firestoreId: string,
+  userNumericId: number
+): Promise<void> {
+  const ref = doc(db, 'circles', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const d = snap.data();
+  const members: number[]        = d.members        ?? [];
+  const pendingMembers: number[] = d.pendingMembers  ?? [];
+  await updateDoc(ref, {
+    members:        members.includes(userNumericId) ? members : [...members, userNumericId],
+    pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
+    updatedAt:      serverTimestamp(),
+  });
+}
+
+// Admin declines join request
+export async function declineJoinRequest(
+  firestoreId: string,
+  userNumericId: number
+): Promise<void> {
+  const ref = doc(db, 'circles', firestoreId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const d = snap.data();
+  const pendingMembers: number[] = d.pendingMembers ?? [];
+  await updateDoc(ref, {
+    pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
+    updatedAt:      serverTimestamp(),
+  });
+}
+
 export async function addMemberToCircle(
   firestoreId: string,
   userNumericId: number
