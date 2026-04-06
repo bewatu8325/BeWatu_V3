@@ -200,8 +200,10 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
   const [showDelete, setShowDelete]       = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const companyId    = company?._firestoreId ?? company?.id ?? '';
-  const isAdmin      = company?.adminUid === fbUser?.uid;
+  // Always use Firestore document ID — numeric .id is NOT the doc ID
+  const companyId    = company?._firestoreId ?? '';
+  const isAdmin      = company?.adminUid === fbUser?.uid || company?.adminId === fbUser?.uid;
+
   const verifStatus: CompanyVerificationStatus = company?.verificationStatus ?? 'unverified';
   const restrictions = getRestrictions(verifStatus);
   const display      = getVerificationDisplay(verifStatus);
