@@ -67,6 +67,7 @@ const CommunityGuidelines = lazy(() => import('./components/legal/CommunityGuide
 
 // ── Lazy-loaded components ────────────────────────────────────────────────────
 const ProfilePage = lazy(() => import('./components/ProfilePage'));
+const ArenaChallengeDetail = lazy(() => import('./components/ArenaChallengeDetail'));
 const HomePage = lazy(() => import('./components/HomePage'));
 const People = lazy(() => import('./components/People'));
 const Jobs = lazy(() => import('./components/Jobs'));
@@ -152,7 +153,8 @@ const MainApp: React.FC = () => {
     setReportModalOpen(true);
   };
 
-  const [activeCircleId, setActiveCircleId] = useState<number | null>(null);
+  const [activeCircleId,   setActiveCircleId]   = useState<number | null>(null);
+  const [selectedChallenge, setSelectedChallenge] = useState<any | null>(null);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [lastCircleVisited, setLastCircleVisited] = useState<Record<number, Date>>({});
   const [profileUserId, setProfileUserId] = useState<number | null>(null);
@@ -1192,9 +1194,41 @@ ${references || 'Not provided'}`;
             <ArenaIndustryView
               industry={activeArenaIndustry as any}
               onBack={() => setCurrentView(View.Arenas as any)}
-              onSelectChallenge={(id: string) => {}}
+              onSelectChallenge={async (id: string) => {
+                try {
+                  const { doc, getDoc } = await import('firebase/firestore');
+                  const { db } = await import('./lib/firebase');
+                  const snap = await getDoc(doc(db, 'arena_challenges', id));
+                  if (snap.exists()) {
+                    setSelectedChallenge({ ...snap.data(), _firestoreId: snap.id, id: snap.data().numericId ?? snap.id });
+                    setCurrentView('ARENA_CHALLENGE' as any);
+                  }
+                } catch(e) { console.error('Failed to load challenge:', e); }
+              }}
               onPostChallenge={() => {}}
               currentUserCompany={selectedCompany}
+            />
+          </Suspense>
+        ) : null;
+        break;
+
+      case 'ARENA_CHALLENGE' as any:
+        content = selectedChallenge && currentUser && fbUser ? (
+          <Suspense fallback={<div />}>
+            <ArenaChallengeDetail
+              challenge={selectedChallenge}
+              currentUser={currentUser}
+              fbUser={fbUser}
+              allUsers={data?.users ?? []}
+              onBack={() => setCurrentView('ARENA_INDUSTRY' as any)}
+              onCreatePod={async (name, description) => {
+                const { createCircle } = await import('./lib/firestoreService');
+                const pod = await createCircle(
+                  { name, description, adminId: currentUser.id, members: [currentUser.id], podType: 'challenge' as any } as any,
+                  fbUser.uid
+                );
+                return pod;
+              }}
             />
           </Suspense>
         ) : null;
