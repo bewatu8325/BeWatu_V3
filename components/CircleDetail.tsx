@@ -172,8 +172,7 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
 
       const stageBlocks = Object.entries(byStage).map(([stage, msgs]) =>
         `${stage} professionals: ${msgs.join(' | ')}`
-      ).join('
-');
+      ).join('\n');
 
       const res = await fetch('/api/claude', {
         method: 'POST',
