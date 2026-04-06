@@ -624,26 +624,62 @@ export async function createCircle(
 }
 
 export async function fetchCircles(): Promise<Circle[]> {
+  const results: any[] = [];
+  const seen = new Set<string>();
+
+  // ── Read from `circles` collection (primary schema, numeric IDs) ──────────
   try {
-    const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
-    return snap.docs.map((d) => {
-      const data = d.data();
-      return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
-    });
-  } catch (err: any) {
-    // Index not built — fall back to unordered fetch
-    console.warn('fetchCircles ordered query failed, falling back:', err?.message);
+    let snap;
     try {
-      const snap = await getDocs(collection(db, 'circles'));
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
-      });
-    } catch (err2) {
-      console.error('fetchCircles fallback failed:', err2);
-      return [];
+      snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
+    } catch {
+      snap = await getDocs(collection(db, 'circles'));
     }
+    for (const d of snap.docs) {
+      if (seen.has(d.id)) continue;
+      seen.add(d.id);
+      const data = d.data();
+      results.push({
+        ...data,
+        id:                data.numericId ?? Date.now(),
+        _firestoreId:      d.id,
+        _sourceCollection: 'circles',
+      });
+    }
+  } catch (err: any) {
+    console.error('fetchCircles circles read failed:', err?.message);
   }
+
+  // ── Also read from `pods` collection (legacy schema, UID string members) ──
+  try {
+    const snap = await getDocs(collection(db, 'pods'));
+    for (const d of snap.docs) {
+      if (seen.has(d.id)) continue;
+      seen.add(d.id);
+      const data = d.data();
+      // Generate a stable numeric id from the doc ID characters
+      const numericId = data.numericId
+        ?? Math.abs(d.id.split('').reduce((a: number, c: string) => (a * 31 + c.charCodeAt(0)) | 0, 0));
+      results.push({
+        ...data,
+        id:                numericId,
+        numericId,
+        _firestoreId:      d.id,
+        _sourceCollection: 'pods',
+        // Preserve raw UID arrays for notification/membership writes
+        _adminUid:         data.adminId,
+        _memberUids:       data.members ?? [],
+        // Normalise field names to match circles schema
+        podType:           data.podType ?? data.type ?? 'community',
+        visibility:        data.visibility ?? 'open',
+        pendingMembers:    data.pendingMembers ?? data.invites ?? [],
+      });
+    }
+  } catch (err: any) {
+    console.warn('fetchCircles pods read failed:', err?.message);
+  }
+
+  return results as Circle[];
 }
 // ----------------
 //  Fetch Users
