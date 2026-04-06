@@ -1,5 +1,4 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import IdeaNetwork from './IdeaNetwork';
 import PeerLearning from './PeerLearning';
 import { Circle, Post, User, AppreciationType, Article } from '../types';
 import CreatePost from './CreatePost';
@@ -110,7 +109,7 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
   onViewProfile,
   lastVisited,
 }) => {
-  const [activeTab, setActiveTab] = useState<'discussion' | 'challenges' | 'learn' | 'articles' | 'ideas'>('discussion');
+  const [activeTab, setActiveTab] = useState<'discussion' | 'challenges' | 'learn' | 'articles'>('discussion');
   const [challenges,       setChallenges]       = useState<PodChallengeData[]>([]);
   const [showChallengeForm, setShowChallengeForm] = useState(false);
   const { fbUser } = useFirebase();
@@ -260,10 +259,6 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                     <button onClick={() => setActiveTab('discussion')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'discussion' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='discussion'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Discussion</button>
                     <button onClick={() => setActiveTab('challenges')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'challenges' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='challenges'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Challenges{challenges.length > 0 ? ` (${challenges.length})` : ''}</button>
                     <button onClick={() => setActiveTab('learn')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'learn' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='learn'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>
-                        <button onClick={() => setActiveTab('ideas')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'ideas' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab === 'ideas' ? { color:'#1a4a3a', borderColor:'#1a4a3a' } : {}} >
-             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"> <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/> </svg>
-             Ideas
-            </button>
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
                       Learn
                     </button>
@@ -290,7 +285,11 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                     <ConversationStarter
                       podName={circle.name}
                       podTopic={(circle as any).topic}
-                      lastPostDate={circlePosts[0] ? ((circlePosts[0] as any).createdAt?.toDate?.() ?? undefined) : undefined}
+                      lastPostDate={
+                        circlePosts[0]
+                          ? ((circlePosts[0] as any).createdAt?.toDate?.() ?? undefined)
+                          : ((circle as any).createdAt?.toDate?.() ?? undefined)
+                      }
                       isAdmin={isCurrentUserAdmin}
                       onPost={(content) => addPost(content, circle.id)}
                     />
@@ -371,15 +370,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                 />
             )}
 
-            {activeTab === 'ideas' && (
-                <IdeaNetwork
-                    currentUser={currentUser}
-                    podId={circle.id}
-                    onArenaLaunch={(idea) => console.log('Arena launch:', idea)} // wire to Sprint 3
-                />
-            )}
-
-            {activeTab === 'articles' && (
+{activeTab === 'articles' && (
                  <div className="space-y-4">
                     {circleArticles.length > 0 ? (
                         circleArticles.map(article => (
