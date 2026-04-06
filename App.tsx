@@ -578,14 +578,15 @@ const MainApp: React.FC = () => {
       return;
     }
 
-    // Remove from state entirely — accepted/declined requests don't belong
-    // in the pending list. Accepted connections appear in My Circles instead.
+    // Keep accepted requests in state (My Circles reads them).
+    // Remove declined. The Requests tab filters to status==='pending' separately.
     setData(d => {
       if (!d) return null;
       return {
         ...d,
         connectionRequests: d.connectionRequests
-          .filter(cr => cr.id !== req.id && (cr as any)._firestoreId !== req._firestoreId),
+          .filter(cr => cr.id !== req.id && (cr as any)._firestoreId !== req._firestoreId)
+          .concat(status === 'accepted' ? [{ ...req, status: 'accepted' }] : []),
         notifications: d.notifications.filter(n => n.relatedId !== requestId),
       };
     });
