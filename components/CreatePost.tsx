@@ -21,7 +21,7 @@ interface CreatePostProps {
   onPerspective?:  (question: string, context: string, seeking: GenerationTag[]) => Promise<void>;
   onWisdomThread?: (data: any) => Promise<void>;
   currentUser:     User;
-  circleId?:       number;
+  circleId?:       number;  // set when posting inside a pod
 }
 
 const POST_TYPES: { mode: PostMode; label: string; icon: React.ReactNode; description: string }[] = [
@@ -58,7 +58,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
 
   const handleStandardPost = () => {
     if (!content.trim()) return;
-    addPost(content.trim(), circleId);
+    addPost(content.trim(), circleId);  // circleId scopes post to pod
     setContent('');
     setFocused(false);
   };
@@ -109,7 +109,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
               value={content}
               onChange={e => setContent(e.target.value)}
               onFocus={() => setFocused(true)}
-              placeholder={`What's on your mind, ${currentUser.name.split(' ')[0]}?`}
+              placeholder={circleId ? `Share something with this pod…` : `What's on your mind, ${currentUser.name.split(' ')[0]}?`}
               rows={focused ? 3 : 1}
               className="w-full resize-none text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none bg-transparent"
               style={{ lineHeight: 1.6 }}
