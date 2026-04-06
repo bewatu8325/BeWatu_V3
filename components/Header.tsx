@@ -1,13 +1,199 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Home, Users, Users2, Hexagon, Briefcase, MessageSquare, Building2,
   Bell, LogOut, User, ChevronDown, Settings, Sword, Search, Shield, Zap, CreditCard, Trophy, GitMerge,
+  CheckCircle, X, Loader2 as Loader, Users as UsersIcon,
 } from 'lucide-react';
 import { LogoIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { View } from '../types';
 import { Factory, Loader2 } from 'lucide-react';
 import { redirectToFactory } from '../lib/handoff';
+
+const GREEN    = '#1a4a3a';
+const GREEN_LT = '#e8f4f0';
+
+// ── Notification item type ────────────────────────────────────────────────────
+interface NotifItem {
+  id:          string;
+  type:        string;
+  message:     string;
+  actorName?:  string;
+  actorAvatar?: string;
+  relatedId?:  number;
+  circleFirestoreId?: string;
+  isRead:      boolean;
+  createdAt?:  any;
+}
+
+// ── NotificationsPanel ────────────────────────────────────────────────────────
+function NotificationsPanel({
+  uid, onClose, onNavigate,
+}: { uid: string; onClose: () => void; onNavigate: (v: View) => void }) {
+  const [notifs,  setNotifs]  = useState<NotifItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [acting,  setActing]  = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!uid) return;
+    let unsub: (() => void) | undefined;
+    import('firebase/firestore').then(({ collection, query, orderBy, limit, onSnapshot, doc, updateDoc, serverTimestamp }) => {
+      import('../lib/firebase').then(({ db }) => {
+        const q = query(
+          collection(db, 'users', uid, 'notifications'),
+          orderBy('createdAt', 'desc'),
+          limit(30)
+        );
+        unsub = onSnapshot(q, snap => {
+          setNotifs(snap.docs.map(d => ({ id: d.id, ...d.data() } as NotifItem)));
+          setLoading(false);
+          // Mark all as read
+          snap.docs.filter(d => !d.data().isRead).forEach(d => {
+            updateDoc(doc(db, 'users', uid, 'notifications', d.id), {
+              isRead: true, readAt: serverTimestamp()
+            }).catch(() => {});
+          });
+        });
+      });
+    });
+    return () => unsub?.();
+  }, [uid]);
+
+  const handleCircleInvite = useCallback(async (notif: NotifItem, accept: boolean) => {
+    if (!notif.circleFirestoreId || !uid) return;
+    setActing(a => ({ ...a, [notif.id]: true }));
+    try {
+      const { doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      const { getCurrentUserNumericId } = await import('../lib/firestoreService').catch(() => ({ getCurrentUserNumericId: null })) as any;
+
+      // Get numeric user id from users collection
+      const userSnap = await (await import('firebase/firestore')).getDoc(doc(db, 'users', uid));
+      const numericId = userSnap.data()?.numericId;
+
+      const circleRef = doc(db, 'circles', notif.circleFirestoreId);
+      if (accept) {
+        await updateDoc(circleRef, {
+          members:        arrayUnion(numericId),
+          pendingInvites: arrayRemove(numericId),
+          updatedAt:      serverTimestamp(),
+        });
+      } else {
+        await updateDoc(circleRef, {
+          pendingInvites: arrayRemove(numericId),
+          updatedAt:      serverTimestamp(),
+        });
+      }
+      // Mark notification as actioned
+      await updateDoc(doc(db, 'users', uid, 'notifications', notif.id), {
+        actioned: accept ? 'accepted' : 'declined',
+        actionedAt: serverTimestamp(),
+      });
+      setNotifs(ns => ns.map(n => n.id === notif.id
+        ? { ...n, actioned: accept ? 'accepted' : 'declined' } as any : n));
+    } catch (e) {
+      console.error('Circle invite action failed:', e);
+    } finally {
+      setActing(a => ({ ...a, [notif.id]: false }));
+    }
+  }, [uid]);
+
+  function timeAgo(ts: any): string {
+    if (!ts) return '';
+    const d = ts.toDate?.() ?? new Date(ts);
+    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  }
+
+  function notifIcon(type: string) {
+    if (type === 'circle_invite' || type === 'circle_approved' || type === 'circle_post') {
+      return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT }}><UsersIcon size={14} style={{ color: GREEN }} /></div>;
+    }
+    if (type === 'connection_request') {
+      return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-50"><Users size={14} className="text-blue-500" /></div>;
+    }
+    return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-100"><Bell size={14} className="text-stone-400" /></div>;
+  }
+
+  return (
+    <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl border bg-white shadow-2xl shadow-black/10 z-50 overflow-hidden"
+      style={{ borderColor: '#e7e5e4' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: '#f3f4f6' }}>
+        <h3 className="font-bold text-stone-900">Notifications</h3>
+        <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* List */}
+      <div className="max-h-96 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader size={18} className="animate-spin text-stone-300" />
+          </div>
+        ) : notifs.length === 0 ? (
+          <div className="text-center py-10">
+            <Bell size={24} className="text-stone-200 mx-auto mb-2" />
+            <p className="text-sm text-stone-400">No notifications yet</p>
+          </div>
+        ) : (
+          notifs.map(n => {
+            const actioned = (n as any).actioned;
+            return (
+              <div key={n.id}
+                className="px-4 py-3 border-b last:border-0 hover:bg-stone-50 transition-colors"
+                style={{ borderColor: '#f9f9f9', backgroundColor: n.isRead ? 'white' : '#f7fcfa' }}>
+                <div className="flex items-start gap-3">
+                  {n.actorAvatar
+                    ? <img src={n.actorAvatar} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                    : notifIcon(n.type)
+                  }
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-stone-800 leading-snug">{n.message}</p>
+                    <p className="text-xs text-stone-400 mt-0.5">{timeAgo(n.createdAt)}</p>
+
+                    {/* Circle invite actions */}
+                    {n.type === 'circle_invite' && !actioned && (
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleCircleInvite(n, true)}
+                          disabled={acting[n.id]}
+                          className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg text-white disabled:opacity-50"
+                          style={{ backgroundColor: GREEN }}>
+                          {acting[n.id] ? <Loader size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleCircleInvite(n, false)}
+                          disabled={acting[n.id]}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg border hover:bg-stone-50 disabled:opacity-50"
+                          style={{ borderColor: '#e7e5e4', color: '#6b7280' }}>
+                          Decline
+                        </button>
+                      </div>
+                    )}
+                    {n.type === 'circle_invite' && actioned && (
+                      <p className="text-xs mt-1 font-medium" style={{ color: actioned === 'accepted' ? GREEN : '#9ca3af' }}>
+                        {actioned === 'accepted' ? '✓ Accepted' : '✗ Declined'}
+                      </p>
+                    )}
+                  </div>
+                  {!n.isRead && (
+                    <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: GREEN }} />
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
 
 const NAV_ITEMS = [
   { view: View.Feed,        label: 'Home',          icon: Home          },
@@ -35,15 +221,18 @@ interface HeaderProps {
 }
 
 export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch }: HeaderProps) {
-  const { currentUser } = useFirebase();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { currentUser, fbUser } = useFirebase() as any;
+  const [menuOpen,  setMenuOpen]  = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [factoryLoading, setFactoryLoading] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef  = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (menuRef.current  && !menuRef.current.contains(e.target as Node))  setMenuOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -127,17 +316,26 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
         <div className="flex-1 md:hidden" />
 
         {/* Notifications */}
-        <button
-          onClick={() => onNavigate(View.Notifications ?? View.Feed)}
-          className="relative flex h-9 w-9 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition-colors"
-        >
-          <Bell className="h-5 w-5" />
-          {notificationCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-              {notificationCount > 9 ? '9+' : notificationCount}
-            </span>
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setNotifOpen(o => !o)}
+            className="relative flex h-9 w-9 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition-colors"
+          >
+            <Bell className="h-5 w-5" />
+            {notificationCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {notificationCount > 9 ? '9+' : notificationCount}
+              </span>
+            )}
+          </button>
+          {notifOpen && fbUser && (
+            <NotificationsPanel
+              uid={fbUser.uid}
+              onClose={() => setNotifOpen(false)}
+              onNavigate={onNavigate}
+            />
           )}
-        </button>
+        </div>
 
         {/* Profile menu */}
         <div ref={menuRef} className="relative">
