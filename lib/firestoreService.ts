@@ -104,7 +104,7 @@ export async function createPost(
   content: string,
   author: User,
   authorUid: string,
-  circleId?: number
+  circleId?: number | string
 ): Promise<Post> {
   const ref = await addDoc(collection(db, 'posts'), {
     content,
@@ -137,6 +137,82 @@ export async function createPost(
     circleId,
     _firestoreId: ref.id,
   } as Post & { _firestoreId: string };
+}
+
+/**
+ * Real-time subscription to posts for a specific circle/pod.
+ * Matches on both numeric circleId and Firestore string circleId
+ * because posts may have been written with either format.
+ */
+export function subscribeToCirclePosts(
+  circleFirestoreId: string,
+  onUpdate: (posts: any[]) => void
+): () => void {
+  const numericId = parseInt(circleFirestoreId, 10);
+  const hasNumeric = !isNaN(numericId);
+
+  // Query by Firestore string ID first (preferred)
+  const q = query(
+    collection(db, 'posts'),
+    where('circleId', '==', circleFirestoreId),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+
+  const unsub = onSnapshot(q, async (snap) => {
+    let posts = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: data.numericId ?? Date.now(),
+        authorId: data.authorNumericId ?? 0,
+        content: data.content ?? '',
+        appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
+        comments: data.commentCount ?? 0,
+        shares: data.shares ?? 0,
+        timestamp: data.createdAt?.toDate?.()?.toISOString?.() ?? 'Just now',
+        circleId: data.circleId,
+        _firestoreId: d.id,
+        createdAt: data.createdAt,
+        avatarUrl: data.authorPhoto,
+        authorName: data.authorName,
+        authorHeadline: data.authorHeadline,
+      };
+    });
+
+    // Also query by numeric ID if the post was written with numeric circleId
+    if (hasNumeric && posts.length === 0) {
+      try {
+        const qNumeric = query(
+          collection(db, 'posts'),
+          where('circleId', '==', numericId),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+        const snapNumeric = await getDocs(qNumeric);
+        posts = snapNumeric.docs.map(d => {
+          const data = d.data();
+          return {
+            id: data.numericId ?? Date.now(),
+            authorId: data.authorNumericId ?? 0,
+            content: data.content ?? '',
+            appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
+            comments: data.commentCount ?? 0,
+            shares: data.shares ?? 0,
+            timestamp: data.createdAt?.toDate?.()?.toISOString?.() ?? 'Just now',
+            circleId: data.circleId,
+            _firestoreId: d.id,
+            createdAt: data.createdAt,
+            avatarUrl: data.authorPhoto,
+            authorName: data.authorName,
+            authorHeadline: data.authorHeadline,
+          };
+        });
+      } catch { /* index may not exist yet */ }
+    }
+    onUpdate(posts);
+  }, () => onUpdate([]));
+
+  return unsub;
 }
 
 export async function fetchPosts(pageSize = 30, after?: QueryDocumentSnapshot) {
@@ -546,27 +622,6 @@ export async function createNotification(
   });
 }
 
-// Pod/circle notification — writes to users/{uid}/notifications subcollection
-// Called from App.tsx for circle_invite, circle_post, circle_approved, circle_join_request
-export async function createPodNotification(
-  recipientUid: string,
-  notif: {
-    type: string;
-    message: string;
-    relatedId?: number;
-    actorId?: number;
-    actorName?: string;
-    actorAvatar?: string;
-    circleFirestoreId?: string;
-  }
-): Promise<void> {
-  await addDoc(collection(db, 'users', recipientUid, 'notifications'), {
-    ...notif,
-    isRead:    false,
-    createdAt: serverTimestamp(),
-  });
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // JOBS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -613,120 +668,12 @@ export async function applyToJob(firestoreId: string, applicantUid: string): Pro
 
 export async function leaveCircle(
   firestoreId: string,
-  userNumericId: number,
-  userUid?: string
-): Promise<void> {
-  // Try circles collection first, then pods
-  for (const colName of ['circles', 'pods']) {
-    const ref = doc(db, colName, firestoreId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) continue;
-    const data = snap.data();
-    const members = data.members ?? [];
-    // Handle both numeric IDs (circles) and UID strings (pods)
-    const updated = members.filter((m: any) =>
-      m !== userNumericId && m !== userUid
-    );
-    await updateDoc(ref, { members: updated, updatedAt: serverTimestamp() });
-    return;
-  }
-}
-
-// Send an invite — adds userId to pendingInvites array on circle doc
-export async function inviteMemberToCircle(
-  firestoreId: string,
   userNumericId: number
 ): Promise<void> {
   const ref = doc(db, 'circles', firestoreId);
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
-  const d = snap.data();
-  const pending: number[] = d.pendingInvites ?? [];
-  if (pending.includes(userNumericId)) return;
-  await updateDoc(ref, { pendingInvites: [...pending, userNumericId], updatedAt: serverTimestamp() });
-}
-
-// User requests to join — adds userId to pendingMembers array
-export async function requestToJoinCircle(
-  firestoreId: string,
-  userNumericId: number
-): Promise<void> {
-  const ref = doc(db, 'circles', firestoreId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const d = snap.data();
-  const pending: number[] = d.pendingMembers ?? [];
-  if (pending.includes(userNumericId)) return;
-  await updateDoc(ref, { pendingMembers: [...pending, userNumericId], updatedAt: serverTimestamp() });
-}
-
-// Admin approves join request
-export async function approveJoinRequest(
-  firestoreId: string,
-  userNumericId: number
-): Promise<void> {
-  const ref = doc(db, 'circles', firestoreId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const d = snap.data();
-  const members: number[]        = d.members        ?? [];
-  const pendingMembers: number[] = d.pendingMembers  ?? [];
-  await updateDoc(ref, {
-    members:        members.includes(userNumericId) ? members : [...members, userNumericId],
-    pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
-    updatedAt:      serverTimestamp(),
-  });
-}
-
-// Admin declines join request
-export async function declineJoinRequest(
-  firestoreId: string,
-  userNumericId: number
-): Promise<void> {
-  const ref = doc(db, 'circles', firestoreId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const d = snap.data();
-  const pendingMembers: number[] = d.pendingMembers ?? [];
-  await updateDoc(ref, {
-    pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
-    updatedAt:      serverTimestamp(),
-  });
-}
-
-export async function addMemberToCircle(
-  firestoreId: string,
-  userNumericId: number,
-  userUid?: string
-): Promise<void> {
-  for (const colName of ['circles', 'pods']) {
-    const ref = doc(db, colName, firestoreId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) continue;
-    const data = snap.data();
-    const members = data.members ?? [];
-    // pods uses UID strings, circles uses numeric IDs
-    const valueToAdd = colName === 'pods' && userUid ? userUid : userNumericId;
-    if (members.includes(valueToAdd)) return;
-    await updateDoc(ref, {
-      members: [...members, valueToAdd],
-      updatedAt: serverTimestamp(),
-    });
-    return;
-  }
-}
-
-export async function removeMemberFromCircle(
-  firestoreId: string,
-  userNumericId: number
-): Promise<void> {
-  const ref = doc(db, 'circles', firestoreId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const data = snap.data();
-  const members: number[] = data.members ?? [];
-  // Never remove the admin
-  if (data.adminId === userNumericId) return;
+  const members: number[] = snap.data().members ?? [];
   await updateDoc(ref, {
     members: members.filter(m => m !== userNumericId),
     updatedAt: serverTimestamp(),
@@ -747,94 +694,27 @@ export async function createCircle(
   return { ...circle, id: numericId };
 }
 
-// Normalise a `pods` collection doc (old schema with Firebase UID strings) into
-// the Circle shape the app expects (numeric IDs + _firestoreUid map).
-async function normalisePodDoc(d: any, uidToNumericId: Record<string, number>): Promise<any> {
-  const data = d.data();
-  // members is an array of Firebase UIDs — map to numeric IDs
-  const memberUids: string[] = data.members ?? [];
-  const memberNumericIds = memberUids
-    .map(uid => uidToNumericId[uid])
-    .filter(Boolean);
-
-  // adminId is a Firebase UID — map to numeric
-  const adminNumericId = uidToNumericId[data.adminId] ?? 0;
-
-  // Use doc id as the numeric id seed if no numericId
-  const numericId = data.numericId ?? Math.abs(d.id.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0));
-
-  return {
-    ...data,
-    id:           numericId,
-    numericId,
-    _firestoreId: d.id,
-    _sourceCollection: 'pods',
-    adminId:      adminNumericId,
-    members:      memberNumericIds,
-    // Keep original UIDs for notification sending
-    _adminUid:    data.adminId,
-    _memberUids:  memberUids,
-    // Normalise field names
-    name:         data.name ?? '',
-    description:  data.description ?? '',
-    podType:      data.podType ?? data.type ?? 'community',
-    visibility:   data.visibility ?? 'open',
-    pendingMembers: (data.pendingMembers ?? data.invites ?? [])
-      .map((uid: string) => typeof uid === 'string' ? uidToNumericId[uid] : uid)
-      .filter(Boolean),
-  };
-}
-
 export async function fetchCircles(): Promise<Circle[]> {
-  // Build UID → numeric ID map from users collection for normalisation
-  let uidToNumericId: Record<string, number> = {};
-  try {
-    const usersSnap = await getDocs(query(collection(db, 'users'), limit(200)));
-    usersSnap.docs.forEach(d => {
-      const data = d.data();
-      if (data.numericId) uidToNumericId[d.id] = data.numericId;
-    });
-  } catch { /* proceed without map */ }
-
-  const results: any[] = [];
-
-  // Read from `circles` collection (new schema)
   try {
     const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
-    snap.docs.forEach(d => {
+    return snap.docs.map((d) => {
       const data = d.data();
-      results.push({ ...data, id: data.numericId, _firestoreId: d.id, _sourceCollection: 'circles' });
+      return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
     });
   } catch (err: any) {
+    // Index not built — fall back to unordered fetch
+    console.warn('fetchCircles ordered query failed, falling back:', err?.message);
     try {
       const snap = await getDocs(collection(db, 'circles'));
-      snap.docs.forEach(d => {
+      return snap.docs.map((d) => {
         const data = d.data();
-        results.push({ ...data, id: data.numericId, _firestoreId: d.id, _sourceCollection: 'circles' });
+        return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
       });
-    } catch { /* ignore */ }
-  }
-
-  // Also read from `pods` collection (old schema) and normalise
-  try {
-    const snap = await getDocs(collection(db, 'pods'));
-    for (const d of snap.docs) {
-      const normalised = await normalisePodDoc(d, uidToNumericId);
-      // Only include if not already present (avoid duplicates by name)
-      const alreadyExists = results.some(r => r.name === normalised.name);
-      if (!alreadyExists) results.push(normalised);
+    } catch (err2) {
+      console.error('fetchCircles fallback failed:', err2);
+      return [];
     }
-  } catch (err: any) {
-    console.warn('fetchCircles: pods collection read failed:', err?.message);
   }
-
-  // Deduplicate by _firestoreId
-  const seen = new Set<string>();
-  return results.filter(r => {
-    if (seen.has(r._firestoreId)) return false;
-    seen.add(r._firestoreId);
-    return true;
-  }) as Circle[];
 }
 // ----------------
 //  Fetch Users
@@ -1299,110 +1179,6 @@ export async function getOrCreateCompanyForRecruiter(
   };
 }
 
-// Fetch users who have listed this company as their employer (Option A).
-// Users self-associate by entering their company name in profile settings.
-// Fuzzy match: case-insensitive contains check.
-export async function fetchCompanyTeamMembers(
-  companyName: string
-): Promise<import('../types').User[]> {
-  if (!companyName) return [];
-  // Query users where employerName matches (exact, case-insensitive handled client-side)
-  const snap = await getDocs(
-    query(
-      collection(db, 'users'),
-      where('showOnCompanyPage', '==', true),
-      limit(50)
-    )
-  );
-  const normalised = companyName.toLowerCase().trim();
-  return snap.docs
-    .map(d => ({ ...d.data(), _firestoreUid: d.id }))
-    .filter((u: any) =>
-      u.employerName?.toLowerCase().trim().includes(normalised) ||
-      normalised.includes(u.employerName?.toLowerCase().trim() ?? '____')
-    )
-    .map((u: any) => ({
-      id:           u.numericId ?? 1,
-      name:         u.displayName ?? '',
-      headline:     u.headline ?? '',
-      avatarUrl:    u.photoURL ?? '',
-      isVerified:   u.isVerified ?? false,
-      skills:       u.skills ?? [],
-      verifiedSkills: u.verifiedSkills ?? [],
-      industry:     u.industry ?? '',
-    })) as any[];
-}
-
-// Read-only version — used on login. Never creates a company.
-// Company creation is handled explicitly in Gate 4 of recruiter registration.
-export async function fetchCompanyForRecruiter(
-  recruiterUid: string
-): Promise<import('../types').Company | null> {
-  if (!recruiterUid) return null;
-  const q = query(collection(db, 'companies'), where('adminUid', '==', recruiterUid));
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  const d = snap.docs[0];
-  const data = d.data();
-  return {
-    id: data.numericId ?? 1,
-    _firestoreId: d.id,
-    name: data.name ?? '',
-    description: data.description ?? '',
-    industry: data.industry ?? '',
-    logoUrl: data.logoUrl ?? '',
-    website: data.website ?? '',
-    adminUid: data.adminUid,
-    verifiedRecruiters: data.verifiedRecruiters ?? [],
-    verificationStatus: data.verificationStatus ?? 'unverified',
-  };
-}
-
-// Creates a company explicitly during recruiter registration Gate 4.
-// Only called from RecruiterRegistrationFlow on form submit.
-export async function createCompanyForRecruiter(
-  recruiterUid: string,
-  companyData: {
-    name: string;
-    industry?: string;
-    size?: string;
-    website?: string;
-    description?: string;
-  }
-): Promise<import('../types').Company> {
-  // Check if company already exists for this recruiter first
-  const existing = await fetchCompanyForRecruiter(recruiterUid);
-  if (existing) return existing;
-
-  const ref = await addDoc(collection(db, 'companies'), {
-    adminUid:           recruiterUid,
-    name:               companyData.name,
-    description:        companyData.description ?? '',
-    industry:           companyData.industry ?? '',
-    size:               companyData.size ?? '',
-    website:            companyData.website ?? '',
-    logoUrl:            '',
-    numericId:          Date.now(),
-    verifiedRecruiters: [recruiterUid],
-    verificationStatus: 'pending',
-    createdAt:          serverTimestamp(),
-    updatedAt:          serverTimestamp(),
-  });
-
-  return {
-    id: Date.now(),
-    _firestoreId: ref.id,
-    name: companyData.name,
-    description: companyData.description ?? '',
-    industry: companyData.industry ?? '',
-    logoUrl: '',
-    website: companyData.website ?? '',
-    adminUid: recruiterUid,
-    verifiedRecruiters: [recruiterUid],
-    verificationStatus: 'pending',
-  };
-}
-
 export async function applyToJobWithProfile(
   jobFirestoreId: string,
   jobNumericId: number,
@@ -1714,8 +1490,17 @@ export async function updateCompanyProfile(companyId: string, data: Partial<{
 
 /** Company admin deletes their own company (hides jobs, deletes company doc). */
 export async function deleteCompanyByAdmin(companyId: string): Promise<void> {
+  if (!companyId || companyId.trim() === '' || !isNaN(Number(companyId))) {
+    throw new Error('Invalid company ID — cannot delete. Please refresh and try again.');
+  }
+  // Verify the doc exists before attempting batch delete
+  const companyRef = doc(db, 'companies', companyId);
+  const companySnap = await getDoc(companyRef);
+  if (!companySnap.exists()) {
+    throw new Error('Company not found. It may have already been deleted.');
+  }
   const batch = writeBatch(db);
-  batch.delete(doc(db, 'companies', companyId));
+  batch.delete(companyRef);
   const jobsSnap = await getDocs(
     query(collection(db, 'jobs'), where('companyFirestoreId', '==', companyId))
   );
