@@ -51,6 +51,7 @@ const InviteMember: React.FC<{
   const [feedback, setFeedback] = useState('');
   const [showList, setShowList] = useState(false);
 
+  // Users not yet members and not yet invited — show in search
   const eligible = allUsers.filter(u =>
     !circleMembers.includes(u.id) &&
     !pendingInvites.includes(u.id) &&
@@ -59,13 +60,25 @@ const InviteMember: React.FC<{
     query.trim().length > 0
   ).slice(0, 6);
 
-  const handleInvite = (user: User) => {
+  // Users with pending invites that match search — show with resend option
+  const pendingMatching = allUsers.filter(u =>
+    pendingInvites.includes(u.id) &&
+    !circleMembers.includes(u.id) &&
+    query.trim().length > 0 &&
+    (u.name.toLowerCase().includes(query.toLowerCase()) ||
+     (u as any).headline?.toLowerCase().includes(query.toLowerCase()))
+  ).slice(0, 3);
+
+  const handleInvite = (user: User, isResend = false) => {
     onInvite(user.id);
-    setFeedback(`Invite sent to ${user.name}`);
+    setFeedback(isResend ? `Invite resent to ${user.name}` : `Invite sent to ${user.name}`);
     setQuery('');
     setShowList(false);
     setTimeout(() => setFeedback(''), 3000);
   };
+
+  const showDropdown = showList && query.trim().length > 0 &&
+    (eligible.length > 0 || pendingMatching.length > 0);
 
   return (
     <div className="mt-4 p-3 bg-stone-50 rounded-xl border" style={{ borderColor: '#e7e5e4' }}>
@@ -82,7 +95,7 @@ const InviteMember: React.FC<{
           className="w-full p-2 bg-white text-stone-800 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-200"
           style={{ borderColor: '#e7e5e4' }}
         />
-        {showList && eligible.length > 0 && (
+        {showDropdown && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-lg z-20 overflow-hidden"
             style={{ borderColor: '#e7e5e4' }}>
             {eligible.map(u => (
@@ -101,9 +114,34 @@ const InviteMember: React.FC<{
                   style={{ backgroundColor: '#e8f4f0', color: '#1a4a3a' }}>Invite</span>
               </button>
             ))}
+            {pendingMatching.length > 0 && (
+              <>
+                {eligible.length > 0 && (
+                  <div className="px-3 py-1 border-t" style={{ borderColor: '#f5f5f4' }}>
+                    <p className="text-xs text-stone-400">Invite pending</p>
+                  </div>
+                )}
+                {pendingMatching.map(u => (
+                  <button key={u.id} onMouseDown={() => handleInvite(u, true)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-amber-50 transition-colors text-left">
+                    {(u as any).avatarUrl
+                      ? <img src={(u as any).avatarUrl} alt={u.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                      : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                          style={{ backgroundColor: '#d97706' }}>{u.name[0]}</div>
+                    }
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-stone-800 truncate">{u.name}</p>
+                      <p className="text-xs text-amber-600 truncate">Invite pending — tap to resend</p>
+                    </div>
+                    <span className="text-xs font-medium ml-auto px-2 py-0.5 rounded-full flex-shrink-0 border"
+                      style={{ borderColor: '#fde68a', color: '#d97706', backgroundColor: '#fef3c7' }}>Resend</span>
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         )}
-        {showList && query.trim().length > 0 && eligible.length === 0 && (
+        {showList && query.trim().length > 0 && !showDropdown && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-sm z-20 px-3 py-2.5"
             style={{ borderColor: '#e7e5e4' }}>
             <p className="text-xs text-stone-400">No matching users found</p>
