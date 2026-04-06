@@ -1,10 +1,24 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import IdeaNetwork from './IdeaNetwork';
 import PeerLearning from './PeerLearning';
 import { Circle, Post, User, AppreciationType, Article } from '../types';
 import CreatePost from './CreatePost';
 import PostCard from './PostCard';
 import { CirclesIcon, UsersIcon, ShieldCheckIcon, VerifiedIcon } from '../constants';
+import { useFirebase } from '../contexts/FirebaseContext';
+import {
+  PodNotificationPrefs,
+  PodCatchUp,
+  GenerationalInsight,
+  PodChallenge,
+  PodChallengeCard,
+  PostChallengeForm,
+  SmartMemberSuggestions,
+  ConversationStarter,
+  PodHealthNarrative,
+  RoleStageBadge,
+  type PodChallengeData,
+} from './PodFeatures';
 
 const ArticleCard: React.FC<{ article: Article, author?: User, onViewProfile: (userId: number) => void }> = ({ article, author, onViewProfile }) => (
     <div className="bg-white p-6 rounded-2xl border shadow-sm" style={{ borderColor:"#e7e5e4" }}>
@@ -27,90 +41,39 @@ const ArticleCard: React.FC<{ article: Article, author?: User, onViewProfile: (u
 );
 
 const AddMember: React.FC<{ allUsers: User[]; circleMembers: number[]; onAdd: (userId: number) => void }> = ({ allUsers, circleMembers, onAdd }) => {
-    const [query,    setQuery]    = useState('');
+    const [userName, setUserName] = useState('');
     const [feedback, setFeedback] = useState('');
-    const [showList, setShowList] = useState(false);
 
-    const eligible = allUsers.filter(u =>
-        !circleMembers.includes(u.id) &&
-        (u.name.toLowerCase().includes(query.toLowerCase()) ||
-         u.headline?.toLowerCase().includes(query.toLowerCase())) &&
-        query.trim().length > 0
-    ).slice(0, 6);
-
-    const handleAdd = (user: User) => {
-        onAdd(user.id);
-        setFeedback(`${user.name} added.`);
-        setQuery('');
-        setShowList(false);
+    const handleAdd = () => {
+        const userToAdd = allUsers.find(u => u.name.toLowerCase() === userName.toLowerCase().trim());
+        if (!userToAdd) {
+            setFeedback(`User "${userName}" not found.`);
+            return;
+        }
+        if (circleMembers.includes(userToAdd.id)) {
+            setFeedback(`${userName} is already a member.`);
+            return;
+        }
+        onAdd(userToAdd.id);
+        setFeedback(`${userToAdd.name} has been added.`);
+        setUserName('');
         setTimeout(() => setFeedback(''), 3000);
     };
 
     return (
-        <div className="mt-4 p-3 bg-stone-50 rounded-xl border" style={{ borderColor:'#e7e5e4' }}>
+        <div className="mt-4 p-3 bg-stone-50 rounded-xl border" style={{ borderColor:"#e7e5e4" }}>
             <h4 className="text-sm font-semibold text-stone-700 mb-2">Add Member</h4>
-            <div className="relative">
+            <div className="flex space-x-2">
                 <input
                     type="text"
-                    value={query}
-                    onChange={e => { setQuery(e.target.value); setShowList(true); }}
-                    onFocus={() => setShowList(true)}
-                    onBlur={() => setTimeout(() => setShowList(false), 150)}
-                    placeholder="Search by name or headline…"
-                    className="w-full p-2 bg-white text-stone-800 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
-                    style={{ borderColor:'#e7e5e4' }}
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="Enter user's full name"
+                    className="flex-grow p-1.5 bg-white text-stone-800 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300" style={{ borderColor:"#e7e5e4" }}
                 />
-                {showList && eligible.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-lg z-20 overflow-hidden"
-                        style={{ borderColor:'#e7e5e4' }}>
-                        {eligible.map(u => (
-                            <button key={u.id} onMouseDown={() => handleAdd(u)}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-stone-50 transition-colors text-left">
-                                {u.avatarUrl
-                                    ? <img src={u.avatarUrl} alt={u.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                                    : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor:'#1a4a3a' }}>{u.name[0]}</div>
-                                }
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-stone-800 truncate">{u.name}</p>
-                                    <p className="text-xs text-stone-400 truncate">{u.headline}</p>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                )}
+                <button onClick={handleAdd} className="text-white font-semibold px-3 py-1 rounded-lg text-sm hover:opacity-90 transition" style={{ backgroundColor:"#1a4a3a" }}>Add</button>
             </div>
-            {feedback && <p className="text-xs mt-2 font-medium" style={{ color:'#1a4a3a' }}>{feedback}</p>}
-        </div>
-    );
-};
-
-// Invite link generator for non-admin members
-const InviteLink: React.FC<{ circleId: number; circleName: string }> = ({ circleId, circleName }) => {
-    const [copied, setCopied] = useState(false);
-    const link = `${window.location.origin}?join=${circleId}`;
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(link).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        });
-    };
-
-    return (
-        <div className="mt-3 p-3 bg-stone-50 rounded-xl border" style={{ borderColor:'#e7e5e4' }}>
-            <h4 className="text-sm font-semibold text-stone-700 mb-2">Invite members</h4>
-            <button onClick={handleCopy}
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold border transition-all"
-                style={{
-                    borderColor: copied ? '#1a4a3a' : '#e7e5e4',
-                    color: copied ? '#1a4a3a' : '#6b7280',
-                    backgroundColor: copied ? '#e8f4f0' : 'white',
-                }}>
-                {copied ? '✓ Link copied!' : '🔗 Copy invite link'}
-            </button>
-            <p className="text-xs text-stone-400 mt-1.5 text-center">
-                Share this link to invite people to {circleName}
-            </p>
+            {feedback && <p className="text-xs mt-2" style={{ color:"#1a4a3a" }}>{feedback}</p>}
         </div>
     );
 };
@@ -127,7 +90,6 @@ interface CircleDetailProps {
   onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
   onAddMember: (circleId: number, userId: number) => void;
   onRemoveMember: (circleId: number, userId: number) => void;
-  onLeaveCircle?: (circleId: number) => void;
   onViewProfile: (userId: number) => void;
 }
 
@@ -142,10 +104,102 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
   onAppreciatePost,
   onAddMember,
   onRemoveMember,
-  onLeaveCircle,
   onViewProfile
 }) => {
-  const [activeTab, setActiveTab] = useState<'discussion' | 'learn' | 'articles' | 'ideas'>('discussion');
+  const [activeTab, setActiveTab] = useState<'discussion' | 'challenges' | 'learn' | 'articles' | 'ideas'>('discussion');
+  const [challenges,       setChallenges]       = useState<PodChallengeData[]>([]);
+  const [showChallengeForm, setShowChallengeForm] = useState(false);
+  const { fbUser } = useFirebase();
+
+  const isGenerationalPod = !!(circle as any).slots;
+  const currentUserStage  = (currentUser as any).careerStage ?? undefined;
+
+  // Map stage from user doc for generational pods
+  const getUserStage = (userId: number) => {
+    const u = allUsers.find(u => u.id === userId) as any;
+    return u?.careerStage ?? undefined;
+  };
+
+  // Pod challenge handlers
+  const handlePostChallenge = useCallback(async (question: string, context: string, deadline?: Date) => {
+    const newChallenge: PodChallengeData = {
+      id:        `ch_${Date.now()}`,
+      podId:     String(circle.id),
+      question,
+      context,
+      postedBy:  currentUser.name,
+      postedAt:  new Date(),
+      deadline,
+      responses: [],
+      status:    'open',
+    };
+    setChallenges(cs => [newChallenge, ...cs]);
+    setShowChallengeForm(false);
+    // Persist to Firestore
+    try {
+      const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      await addDoc(collection(db, 'circles', (circle as any)._firestoreId, 'challenges'), {
+        ...newChallenge, postedAt: serverTimestamp(), deadline: deadline ?? null,
+      });
+    } catch (err) { console.error('Failed to save challenge:', err); }
+  }, [circle, currentUser]);
+
+  const handleChallengeResponse = useCallback(async (challengeId: string, responseContent: string) => {
+    const newResponse = {
+      id:          `r_${Date.now()}`,
+      authorId:    currentUser.id,
+      authorName:  currentUser.name,
+      authorStage: currentUserStage,
+      content:     responseContent,
+      createdAt:   new Date(),
+      upvotes:     0,
+    };
+    setChallenges(cs => cs.map(c => c.id === challengeId
+      ? { ...c, responses: [...c.responses, newResponse] } : c));
+  }, [currentUser, currentUserStage]);
+
+  const handleChallengeSynthesise = useCallback(async (challengeId: string) => {
+    const challenge = challenges.find(c => c.id === challengeId);
+    if (!challenge) return;
+    try {
+      const byStage = challenge.responses.reduce((acc, r) => {
+        if (!r.authorStage) return acc;
+        if (!acc[r.authorStage]) acc[r.authorStage] = [];
+        acc[r.authorStage].push(r.content);
+        return acc;
+      }, {} as Record<string, string[]>);
+
+      const stageBlocks = Object.entries(byStage).map(([stage, msgs]) =>
+        `${stage} professionals: ${msgs.join(' | ')}`
+      ).join('
+');
+
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Synthesise these responses to the pod challenge "${challenge.question}".
+
+${stageBlocks}
+
+Write 2-3 sentences highlighting the most interesting agreements or tensions across career stages. Be specific. Do not use bullet points.`,
+          maxTokens: 250,
+        }),
+      });
+      const data = await res.json();
+      const synthesis = (data.text ?? data.content ?? '').trim();
+      setChallenges(cs => cs.map(c => c.id === challengeId
+        ? { ...c, synthesis, status: 'synthesised' } : c));
+    } catch (err) { console.error('Synthesis failed:', err); }
+  }, [challenges]);
+
+  const handleChallengeUpvote = useCallback(async (challengeId: string, responseId: string) => {
+    setChallenges(cs => cs.map(c => c.id === challengeId ? {
+      ...c,
+      responses: c.responses.map(r => r.id === responseId ? { ...r, upvotes: r.upvotes + 1 } : r),
+    } : c));
+  }, []);
     
 
   const circlePosts = useMemo(
@@ -179,8 +233,7 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
                 <p className="text-stone-500">{circle.description}</p>
             </div>
         </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 text-stone-400 text-sm">
+        <div className="flex items-center space-x-4 text-stone-400 text-sm">
             <div className="flex items-center space-x-2">
                 <UsersIcon className="w-5 h-5"/>
                 <span>{circle.members.length} members</span>
@@ -194,15 +247,6 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
                  </div>
                 </>
             )}
-          </div>
-          {/* Leave pod — only for non-admin members */}
-          {!isCurrentUserAdmin && circle.members.includes(currentUser.id) && onLeaveCircle && (
-            <button
-              onClick={() => onLeaveCircle(circle.id)}
-              className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors font-medium">
-              Leave pod
-            </button>
-          )}
         </div>
       </div>
 
@@ -211,6 +255,7 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
             <div className="border-b" style={{ borderColor:"#e7e5e4" }}>
                 <nav className="flex space-x-4">
                     <button onClick={() => setActiveTab('discussion')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'discussion' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='discussion'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Discussion</button>
+                    <button onClick={() => setActiveTab('challenges')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'challenges' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='challenges'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Challenges{challenges.length > 0 ? ` (${challenges.length})` : ''}</button>
                     <button onClick={() => setActiveTab('learn')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'learn' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='learn'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>
                         <button onClick={() => setActiveTab('ideas')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'ideas' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab === 'ideas' ? { color:'#1a4a3a', borderColor:'#1a4a3a' } : {}} >
              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"> <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/> </svg>
@@ -225,7 +270,41 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
             
             {activeTab === 'discussion' && (
                 <>
+                    {/* AI Catch-up — shown when user has been away */}
+                    <PodCatchUp
+                      podName={circle.name}
+                      podTopic={(circle as any).topic}
+                      recentPosts={circlePosts.map(p => ({
+                        content: p.content,
+                        authorName: findAuthor(p.authorId)?.name ?? 'Someone',
+                        authorStage: getUserStage(p.authorId),
+                        createdAt: (p as any).createdAt,
+                      }))}
+                      lastVisited={lastVisited}
+                    />
+
+                    {/* Conversation starter when pod is quiet */}
+                    <ConversationStarter
+                      podName={circle.name}
+                      podTopic={(circle as any).topic}
+                      lastPostDate={circlePosts[0] ? ((circlePosts[0] as any).createdAt?.toDate?.() ?? undefined) : undefined}
+                      isAdmin={isCurrentUserAdmin}
+                      onPost={(content) => addPost(content, circle.id)}
+                    />
+
                     <CreatePost addPost={addPost} currentUser={currentUser} circleId={circle.id} />
+                    {/* Generational insight — only for gen pods with enough posts */}
+                    {isGenerationalPod && circlePosts.length >= 4 && (
+                      <GenerationalInsight
+                        podName={circle.name}
+                        posts={circlePosts.slice(0, 10).map(p => ({
+                          content: p.content,
+                          authorName: findAuthor(p.authorId)?.name ?? '',
+                          stage: getUserStage(p.authorId),
+                        }))}
+                      />
+                    )}
+
                     {circlePosts.length > 0 ? (
                         <div className="space-y-4">
                         {circlePosts.map(post => {
@@ -241,6 +320,44 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
                         </div>
                     )}
                 </>
+            )}
+
+            {activeTab === 'challenges' && (
+              <div className="space-y-4">
+                {isCurrentUserAdmin && !showChallengeForm && (
+                  <button onClick={() => setShowChallengeForm(true)}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-white text-sm hover:opacity-90"
+                    style={{ background: '#1a4a3a' }}>
+                    + Post a challenge
+                  </button>
+                )}
+                {showChallengeForm && (
+                  <PostChallengeForm
+                    podId={String(circle.id)}
+                    podName={circle.name}
+                    onPost={handlePostChallenge}
+                    onCancel={() => setShowChallengeForm(false)}
+                  />
+                )}
+                {challenges.length === 0 ? (
+                  <div className="text-center py-12 bg-stone-50 rounded-2xl border" style={{ borderColor: '#e7e5e4' }}>
+                    <p className="text-stone-400 text-sm">No challenges yet.</p>
+                    {isCurrentUserAdmin && <p className="text-xs text-stone-400 mt-1">Post a challenge to spark cross-generational discussion.</p>}
+                  </div>
+                ) : (
+                  challenges.map(ch => (
+                    <PodChallengeCard
+                      key={ch.id}
+                      challenge={ch}
+                      currentUser={{ id: currentUser.id, name: currentUser.name, stage: currentUserStage }}
+                      isAdmin={isCurrentUserAdmin}
+                      onRespond={handleChallengeResponse}
+                      onSynthesise={handleChallengeSynthesise}
+                      onUpvote={handleChallengeUpvote}
+                    />
+                  ))
+                )}
+              </div>
             )}
 
             {activeTab === 'learn' && (
@@ -275,6 +392,26 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
         </div>
 
         <div className="col-span-12 md:col-span-4 space-y-6">
+            {/* Pod health narrative */}
+            <PodHealthNarrative
+              podName={circle.name}
+              memberCount={circle.members.length}
+              postCount={circlePosts.length}
+              activeMembers={new Set(circlePosts.slice(0, 20).map(p => p.authorId)).size}
+            />
+
+            {/* Notification preferences */}
+            {fbUser && (
+              <div className="flex items-center justify-between bg-white rounded-2xl border px-4 py-3" style={{ borderColor: '#e7e5e4' }}>
+                <span className="text-xs font-semibold text-stone-600">Notifications</span>
+                <PodNotificationPrefs
+                  podId={(circle as any)._firestoreId ?? String(circle.id)}
+                  podName={circle.name}
+                  userUid={fbUser.uid}
+                />
+              </div>
+            )}
+
             <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor:"#e7e5e4" }}>
                 <h3 className="font-semibold text-stone-800 mb-3">Members ({circleMembers.length})</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -296,12 +433,7 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
                         </div>
                     ))}
                 </div>
-                {isCurrentUserAdmin && (
-                  <AddMember allUsers={allUsers} circleMembers={circle.members} onAdd={(userId) => onAddMember(circle.id, userId)} />
-                )}
-                {circle.members.includes(currentUser.id) && (
-                  <InviteLink circleId={circle.id} circleName={circle.name} />
-                )}
+                {isCurrentUserAdmin && <AddMember allUsers={allUsers} circleMembers={circle.members} onAdd={(userId) => onAddMember(circle.id, userId)} />}
             </div>
         </div>
       </div>
