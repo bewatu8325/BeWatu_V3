@@ -106,6 +106,10 @@ export async function createPost(
   authorUid: string,
   circleId?: number
 ): Promise<Post> {
+  // Normalize circleId: always store as string for consistent querying.
+  // At scale: a single consistent type prevents dual-query fan-out.
+  const circleIdStr = circleId != null ? String(circleId) : null;
+
   const ref = await addDoc(collection(db, 'posts'), {
     content,
     authorUid,
@@ -117,10 +121,10 @@ export async function createPost(
     commentCount: 0,
     shares: 0,
     timestamp: 'Just now',
-    // Always write circleId explicitly — null for non-circle posts.
-    // This allows Firestore to filter with where('circleId', '==', null)
-    // so circle posts never surface in the main feed.
-    circleId: circleId ?? null,
+    // circleId stored as STRING for consistent indexing.
+    // Composite index required: circleId ASC + createdAt DESC
+    // (create in Firebase Console → Firestore → Indexes)
+    circleId: circleIdStr,
     numericId: Date.now(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -290,8 +294,9 @@ export async function fetchConnectionRequests(uid: string): Promise<ConnectionRe
     if (seen.has(d.id)) continue;
     seen.add(d.id);
     const data = d.data();
-    // Only return pending requests — accepted/declined/cancelled are resolved
-    if (data.status !== 'pending') continue;
+    // Skip definitively resolved requests — keep pending AND accepted
+    // (accepted connections appear in My Circles tab of ConnectionsView)
+    if (data.status === 'declined' || data.status === 'cancelled') continue;
     // Compute a stable numeric id — fall back if numericIds are missing
     const stableId = (data.senderNumericId && data.receiverNumericId)
       ? data.senderNumericId * 100000 + data.receiverNumericId
@@ -3536,9 +3541,9 @@ export function subscribeToCirclePosts(
   circleFirestoreId: string,
   onUpdate: (posts: any[]) => void
 ): () => void {
-  const numericId = parseInt(circleFirestoreId, 10);
-  const hasNumeric = !isNaN(numericId);
-
+  // Always query by string circleId — new posts normalise to string on write.
+  // At scale: single consistent type = single index = no fan-out queries.
+  // Composite index needed: circleId ASC + createdAt DESC
   const q = query(
     collection(db, 'posts'),
     where('circleId', '==', circleFirestoreId),
@@ -3546,45 +3551,26 @@ export function subscribeToCirclePosts(
     limit(50)
   );
 
-  const unsub = onSnapshot(q, async (snap) => {
-    const mapPost = (d: any) => {
-      const data = d.data();
-      return {
-        id:           data.numericId ?? Date.now(),
-        authorId:     data.authorNumericId ?? 0,
-        content:      data.content ?? '',
-        appreciations: data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
-        comments:     data.commentCount ?? 0,
-        shares:       data.shares ?? 0,
-        timestamp:    data.createdAt?.toDate?.()?.toISOString?.() ?? 'Just now',
-        circleId:     data.circleId,
-        _firestoreId: d.id,
-        createdAt:    data.createdAt,
-        avatarUrl:    data.authorPhoto,
-        authorName:   data.authorName,
-        authorHeadline: data.authorHeadline,
-      };
+  const mapPost = (d: any) => {
+    const data = d.data();
+    return {
+      id:             data.numericId ?? Date.now(),
+      authorId:       data.authorNumericId ?? 0,
+      content:        data.content ?? '',
+      appreciations:  data.appreciations ?? { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
+      comments:       data.commentCount ?? 0,
+      shares:         data.shares ?? 0,
+      timestamp:      data.createdAt?.toDate?.()?.toISOString?.() ?? 'Just now',
+      circleId:       data.circleId,
+      _firestoreId:   d.id,
+      createdAt:      data.createdAt,
+      avatarUrl:      data.authorPhoto,
+      authorName:     data.authorName,
+      authorHeadline: data.authorHeadline,
     };
+  };
 
-    let posts = snap.docs.map(mapPost);
-
-    // Also try numeric ID if string query returned nothing
-    if (hasNumeric && posts.length === 0) {
-      try {
-        const qNum = query(
-          collection(db, 'posts'),
-          where('circleId', '==', numericId),
-          orderBy('createdAt', 'desc'),
-          limit(50)
-        );
-        const snapNum = await getDocs(qNum);
-        posts = snapNum.docs.map(mapPost);
-      } catch { /* index may not exist */ }
-    }
-    onUpdate(posts);
-  }, () => onUpdate([]));
-
-  return unsub;
+  return onSnapshot(q, snap => onUpdate(snap.docs.map(mapPost)), () => onUpdate([]));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
