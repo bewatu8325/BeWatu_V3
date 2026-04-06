@@ -801,9 +801,19 @@ ${references || 'Not provided'}`;
       await inviteMemberToCircle(circle._firestoreId, userId);
       // Send notification to invited user
       const invitedUser = data.users.find(u => u.id === userId) as any;
-      if (invitedUser?._firestoreUid) {
-        const { createPodNotification } = await import("./lib/firestoreService");
-        await createPodNotification(invitedUser._firestoreUid, {
+      // _firestoreUid may be missing — look it up from Firestore if needed
+      let invitedUid = invitedUser?._firestoreUid;
+      if (!invitedUid) {
+        try {
+          const { getDocs, collection, where, query, limit } = await import('firebase/firestore');
+          const { db } = await import('./lib/firebase');
+          const snap = await getDocs(query(collection(db, 'users'), where('numericId', '==', userId), limit(1)));
+          if (!snap.empty) invitedUid = snap.docs[0].id;
+        } catch { /* ignore */ }
+      }
+      if (invitedUid) {
+        const { createPodNotification } = await import('./lib/firestoreService');
+        await createPodNotification(invitedUid, {
           type: 'circle_invite',
           message: `${currentUser.name} invited you to join "${circle.name}"`,
           relatedId: circleId,
