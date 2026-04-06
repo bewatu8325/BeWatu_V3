@@ -235,7 +235,8 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                 <p className="text-stone-500">{circle.description}</p>
             </div>
         </div>
-        <div className="flex items-center space-x-4 text-stone-400 text-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4 text-stone-400 text-sm">
             <div className="flex items-center space-x-2">
                 <UsersIcon className="w-5 h-5"/>
                 <span>{circle.members.length} members</span>
@@ -249,6 +250,14 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                  </div>
                 </>
             )}
+          </div>
+          {!isCurrentUserAdmin && circle.members.includes(currentUser.id) && onLeaveCircle && (
+            <button
+              onClick={() => onLeaveCircle(circle.id)}
+              className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors font-medium">
+              Leave pod
+            </button>
+          )}
         </div>
       </div>
 
