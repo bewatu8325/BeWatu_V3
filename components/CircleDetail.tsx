@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import PeerLearning from './PeerLearning';
 import { Circle, Post, User, AppreciationType, Article } from '../types';
 import CreatePost from './CreatePost';
-import PostCard from './PostCard';
+import PodPostCard from './PodPostCard';
 import { CirclesIcon, UsersIcon, ShieldCheckIcon, VerifiedIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
 import {
@@ -452,7 +452,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                         {circlePosts.map(post => {
                             const author = findAuthor(post.authorId);
                             return author ? (
-                                <PostCard key={post.id} post={post} author={author} onAppreciatePost={onAppreciatePost} onViewProfile={onViewProfile} />
+                                <PodPostCard key={post.id} post={post} author={author} currentUser={currentUser} circleFirestoreId={(circle as any)._firestoreId} onAppreciatePost={onAppreciatePost} onViewProfile={onViewProfile} />
                             ) : null;
                         })}
                         </div>

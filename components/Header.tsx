@@ -109,7 +109,7 @@ function NotificationsPanel({
   }
 
   function notifIcon(type: string) {
-    if (type === 'circle_invite' || type === 'circle_approved' || type === 'circle_post') {
+    if (type === 'circle_invite' || type === 'circle_approved' || type === 'circle_post' || type === 'post_comment') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT }}><UsersIcon size={14} style={{ color: GREEN }} /></div>;
     }
     if (type === 'connection_request') {
