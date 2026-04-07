@@ -271,14 +271,26 @@ const MainApp: React.FC = () => {
         if ((u as any)._firestoreUid) uidToNumericId[(u as any)._firestoreUid] = u.id;
       });
 
-      const normalizedCircles = firestoreCircles.map(circle => ({
-        ...circle,
-        members: (circle.members ?? []).map((m: any) => {
+      const normalizedCircles = firestoreCircles.map(circle => {
+        const mapId = (m: any) => {
           if (typeof m === 'number') return m;
           if (typeof m === 'string') return uidToNumericId[m] ?? m;
           return m;
-        }),
-      }));
+        };
+        return {
+          ...circle,
+          // Store raw UIDs for Firestore writes
+          _memberUids:         (circle.members ?? []).filter((m: any) => typeof m === 'string'),
+          _pendingMemberUids:  ((circle as any).pendingMembers ?? []).filter((m: any) => typeof m === 'string'),
+          _pendingInviteUids:  ((circle as any).pendingInvites ?? []).filter((m: any) => typeof m === 'string'),
+          // Map to numeric IDs for UI membership checks
+          members:             (circle.members ?? []).map(mapId),
+          pendingMembers:      ((circle as any).pendingMembers ?? []).map(mapId),
+          pendingInvites:      ((circle as any).pendingInvites ?? []).map(mapId),
+          // Resolve adminId from adminUid if missing
+          adminId:             circle.adminId || uidToNumericId[(circle as any).adminUid ?? ''] || 0,
+        };
+      });
 
       setData({
         users: [user, ...otherUsers],
@@ -815,7 +827,7 @@ ${references || 'Not provided'}`;
       : c) });
     try {
       const { inviteMemberToCircle } = await import('./lib/firestoreService');
-      await inviteMemberToCircle(circle._firestoreId, userId);
+      await inviteMemberToCircle(circle._firestoreId, userId, invitedUid);
       // Send notification to invited user
       const invitedUser = data.users.find(u => u.id === userId) as any;
       // _firestoreUid may be missing — look it up from Firestore if needed
@@ -853,7 +865,8 @@ ${references || 'Not provided'}`;
     } : c) });
     try {
       const { approveJoinRequest } = await import('./lib/firestoreService');
-      await approveJoinRequest(circle._firestoreId, userId);
+      const approvedUserForUid = data.users.find(u => u.id === userId) as any;
+      await approveJoinRequest(circle._firestoreId, userId, approvedUserForUid?._firestoreUid);
       // Notify the approved user
       const approvedUser = data.users.find(u => u.id === userId) as any;
       if (approvedUser?._firestoreUid) {
@@ -880,7 +893,8 @@ ${references || 'Not provided'}`;
     } : c) });
     try {
       const { declineJoinRequest } = await import('./lib/firestoreService');
-      await declineJoinRequest(circle._firestoreId, userId);
+      const decliningUser = data.users.find(u => u.id === userId) as any;
+      await declineJoinRequest(circle._firestoreId, userId, decliningUser?._firestoreUid);
     } catch (err) { console.error('declineJoinRequest failed:', err); }
   };
 
@@ -897,14 +911,14 @@ ${references || 'Not provided'}`;
     const circle = data.circles.find(c => c.id === circleId) as any;
     if (circle?._firestoreId) {
       try {
-        await leaveCircle(circle._firestoreId, currentUser.id);
+        await leaveCircle(circle._firestoreId, currentUser.id, fbUser?.uid);
       } catch (err) {
         console.error('leaveCircle failed:', err);
         // Revert on failure
         setData(d => d ? {
           ...d,
           circles: d.circles.map(c => c.id === circleId
-            ? { ...c, members: [...c.members, currentUser.id] }
+            ? { ...c, members: [...c.members, fbUser?.uid ?? currentUser.id] }
             : c)
         } : null);
       }
@@ -1255,11 +1269,15 @@ ${references || 'Not provided'}`;
               if (circle?._firestoreId) {
                 try {
                   const { requestToJoinCircle, createPodNotification } = await import('./lib/firestoreService') as any;
-                  await requestToJoinCircle(circle._firestoreId, currentUser.id);
-                  // Find admin and notify
-                  const admin = data.users.find(u => u.id === circle.adminId) as any;
-                  if (admin?._firestoreUid) {
-                    await createPodNotification(admin._firestoreUid, {
+                  await requestToJoinCircle(circle._firestoreId, currentUser.id, fbUser?.uid);
+                  // Find admin — check adminUid first (new pods), fall back to adminId (legacy)
+                  const adminUid = (circle as any).adminUid ?? (circle as any).creatorUid;
+                  const admin = data.users.find(u =>
+                    (u as any)._firestoreUid === adminUid || u.id === circle.adminId
+                  ) as any;
+                  const adminFirestoreUid = adminUid ?? admin?._firestoreUid;
+                  if (adminFirestoreUid) {
+                    await createPodNotification(adminFirestoreUid, {
                       type: 'circle_join_request',
                       message: `${currentUser.name} requested to join "${circle.name}"`,
                       relatedId: circleId,
