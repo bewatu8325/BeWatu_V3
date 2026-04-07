@@ -691,16 +691,20 @@ export async function applyToJob(firestoreId: string, applicantUid: string): Pro
 
 export async function leaveCircle(
   firestoreId: string,
-  userNumericId: number
+  userNumericId: number,
+  userUid?: string
 ): Promise<void> {
-  const ref = doc(db, 'circles', firestoreId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const members: number[] = snap.data().members ?? [];
-  await updateDoc(ref, {
-    members: members.filter(m => m !== userNumericId),
-    updatedAt: serverTimestamp(),
-  });
+  for (const col of ['pods', 'circles']) {
+    const ref = doc(db, col, firestoreId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) continue;
+    const members: any[] = snap.data().members ?? [];
+    await updateDoc(ref, {
+      members: members.filter(m => m !== userNumericId && m !== userUid),
+      updatedAt: serverTimestamp(),
+    });
+    return;
+  }
 }
 
 export async function createCircle(
@@ -3606,46 +3610,61 @@ export async function fetchCompanyForRecruiter(recruiterUid: string): Promise<an
 // POD / CIRCLE MEMBERSHIP & NOTIFICATIONS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Send invite — adds userId to pendingInvites array, idempotent. */
-export async function inviteMemberToCircle(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['pods', 'circles']) {  // pods first — canonical collection
+/** Send invite — adds userUid to pendingInvites, idempotent. */
+export async function inviteMemberToCircle(
+  firestoreId: string,
+  userNumericId: number,
+  userUid?: string
+): Promise<void> {
+  const value = userUid ?? userNumericId; // prefer UID
+  for (const col of ['pods', 'circles']) {
     const ref = doc(db, col, firestoreId);
     const snap = await getDoc(ref);
     if (!snap.exists()) continue;
     const d = snap.data();
-    const pending: number[] = d.pendingInvites ?? [];
-    if (pending.includes(userNumericId)) return;
-    await updateDoc(ref, { pendingInvites: [...pending, userNumericId], updatedAt: serverTimestamp() });
+    const pending: any[] = d.pendingInvites ?? [];
+    if (pending.includes(value) || pending.includes(userNumericId) || (userUid && pending.includes(userUid))) return;
+    await updateDoc(ref, { pendingInvites: [...pending, value], updatedAt: serverTimestamp() });
     return;
   }
 }
 
-/** User requests to join — adds to pendingMembers, idempotent. */
-export async function requestToJoinCircle(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['pods', 'circles']) {  // pods first — canonical collection
+/** User requests to join — adds userUid to pendingMembers, idempotent. */
+export async function requestToJoinCircle(
+  firestoreId: string,
+  userNumericId: number,
+  userUid?: string
+): Promise<void> {
+  const value = userUid ?? userNumericId;
+  for (const col of ['pods', 'circles']) {
     const ref = doc(db, col, firestoreId);
     const snap = await getDoc(ref);
     if (!snap.exists()) continue;
     const d = snap.data();
-    const pending: number[] = d.pendingMembers ?? [];
-    if (pending.includes(userNumericId)) return;
-    await updateDoc(ref, { pendingMembers: [...pending, userNumericId], updatedAt: serverTimestamp() });
+    const pending: any[] = d.pendingMembers ?? [];
+    if (pending.includes(value) || pending.includes(userNumericId)) return;
+    await updateDoc(ref, { pendingMembers: [...pending, value], updatedAt: serverTimestamp() });
     return;
   }
 }
 
 /** Admin approves join request — moves from pendingMembers to members. */
-export async function approveJoinRequest(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['pods', 'circles']) {  // pods first — canonical collection
+export async function approveJoinRequest(
+  firestoreId: string,
+  userNumericId: number,
+  userUid?: string
+): Promise<void> {
+  const value = userUid ?? userNumericId;
+  for (const col of ['pods', 'circles']) {
     const ref = doc(db, col, firestoreId);
     const snap = await getDoc(ref);
     if (!snap.exists()) continue;
     const d = snap.data();
-    const members: number[]        = d.members        ?? [];
-    const pendingMembers: number[] = d.pendingMembers  ?? [];
+    const members: any[]       = d.members        ?? [];
+    const pendingMembers: any[] = d.pendingMembers ?? [];
     await updateDoc(ref, {
-      members:        members.includes(userNumericId) ? members : [...members, userNumericId],
-      pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
+      members:        members.includes(value) ? members : [...members, value],
+      pendingMembers: pendingMembers.filter((id: any) => id !== value && id !== userNumericId),
       updatedAt:      serverTimestamp(),
     });
     return;
@@ -3653,15 +3672,20 @@ export async function approveJoinRequest(firestoreId: string, userNumericId: num
 }
 
 /** Admin declines join request — removes from pendingMembers. */
-export async function declineJoinRequest(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['pods', 'circles']) {  // pods first — canonical collection
+export async function declineJoinRequest(
+  firestoreId: string,
+  userNumericId: number,
+  userUid?: string
+): Promise<void> {
+  const value = userUid ?? userNumericId;
+  for (const col of ['pods', 'circles']) {
     const ref = doc(db, col, firestoreId);
     const snap = await getDoc(ref);
     if (!snap.exists()) continue;
     const d = snap.data();
-    const pendingMembers: number[] = d.pendingMembers ?? [];
+    const pendingMembers: any[] = d.pendingMembers ?? [];
     await updateDoc(ref, {
-      pendingMembers: pendingMembers.filter((id: number) => id !== userNumericId),
+      pendingMembers: pendingMembers.filter((id: any) => id !== value && id !== userNumericId),
       updatedAt:      serverTimestamp(),
     });
     return;
