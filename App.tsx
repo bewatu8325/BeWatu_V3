@@ -53,6 +53,7 @@ import {
   leaveCircle,
   fetchUsers,
   fetchCompanyForRecruiter,
+  subscribeToCirclePosts,
   subscribeToUnreadNotifCount,
   lookupFirebaseUidByNumericId,
   fetchArenaChallengeById,
@@ -315,22 +316,16 @@ const MainApp: React.FC = () => {
 
     let unsub: (() => void) | null = null;
 
-    import('./lib/firestoreService').then(({ subscribeToCirclePosts }) => {
-      if (typeof subscribeToCirclePosts !== 'function') return;
-      unsub = subscribeToCirclePosts(firestoreCircleId, (newPosts: any[]) => {
-        setData(d => {
-          if (!d) return null;
-          // Remove any existing posts for this circle (by firestoreCircleId or
-          // numeric activeCircleId) then add the fresh real-time batch.
-          // Non-circle posts (circleId is null/undefined) are untouched.
-          const nonCirclePosts = d.posts.filter((p: any) =>
-            !p.circleId ||
-            (p.circleId !== activeCircleId && p.circleId !== firestoreCircleId)
-          );
-          return { ...d, posts: [...nonCirclePosts, ...newPosts] };
-        });
+    unsub = subscribeToCirclePosts(firestoreCircleId, (newPosts: any[]) => {
+      setData(d => {
+        if (!d) return null;
+        const nonCirclePosts = d.posts.filter((p: any) =>
+          !p.circleId ||
+          (p.circleId !== activeCircleId && p.circleId !== firestoreCircleId)
+        );
+        return { ...d, posts: [...nonCirclePosts, ...newPosts] };
       });
-    }).catch(() => {});
+    });
 
     return () => { unsub?.(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -490,17 +485,14 @@ const MainApp: React.FC = () => {
     let resolvedCircleId: string | number | undefined = circleId;
     if (circleId !== undefined && circleId !== null) {
       const circle = data.circles.find(c => c.id === circleId) as any;
-      console.log('[addPost] circleId:', circleId, '| found circle:', !!circle, '| _firestoreId:', circle?._firestoreId, '| circle.id:', circle?.id);
       if (circle?._firestoreId) resolvedCircleId = circle._firestoreId;
     }
-    console.log('[addPost] resolvedCircleId:', resolvedCircleId, '| content length:', content.length);
     try {
       const newPost = await fbCreatePost(content, currentUser, fbUser.uid, resolvedCircleId as any);
-      console.log('[addPost] post created OK:', newPost._firestoreId ?? 'no firestoreId');
       if (resolvedCircleId !== undefined) return;
       setData({ ...data, posts: [newPost, ...data.posts] });
     } catch (err) {
-      console.error('[addPost] fbCreatePost FAILED:', err);
+      console.error('[addPost] failed:', err);
     }
   };
 
