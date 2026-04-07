@@ -1063,13 +1063,28 @@ export async function endorseSkill(
 // ─── Talent Pipeline ──────────────────────────────────────────────────────────
 
 export async function getPipelineCandidates(recruiterId: string) {
-  const q = query(
-    collection(db, 'applications'),
-    where('recruiterId', '==', recruiterId),
-    orderBy('createdAt', 'desc')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  try {
+    // Composite index: recruiterId ASC + createdAt DESC
+    // Create in Firebase Console if this fails
+    const q = query(
+      collection(db, 'applications'),
+      where('recruiterId', '==', recruiterId),
+      orderBy('createdAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (err: any) {
+    if (err?.code === 'failed-precondition' || err?.message?.includes('index')) {
+      // Index not yet built — fall back to unordered
+      const q = query(
+        collection(db, 'applications'),
+        where('recruiterId', '==', recruiterId)
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    }
+    throw err;
+  }
 }
 
 export async function movePipelineCandidate(
