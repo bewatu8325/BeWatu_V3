@@ -709,17 +709,24 @@ export async function leaveCircle(
 
 export async function createCircle(
   circle: Omit<Circle, 'id'>,
-  creatorUid: string
+  creatorUid: string,
+  creatorNumericId?: number
 ): Promise<Circle> {
   const numericId = Date.now();
+  // Seed members with creator's numeric ID (consistent with existing pods schema)
+  // Store adminUid separately for permission checks
+  const existingMembers: any[] = (circle as any).members ?? [];
+  const members = creatorNumericId && !existingMembers.includes(creatorNumericId)
+    ? [creatorNumericId, ...existingMembers]
+    : existingMembers;
+
   const ref = await addDoc(collection(db, 'pods'), {
     ...circle,
     numericId,
     adminUid:       creatorUid,
+    adminId:        creatorNumericId ?? 0,
     creatorUid,
-    // Ensure members is an array of UIDs — if passed as numeric, keep as-is
-    // for backward compat but new pods will use UIDs
-    members:        (circle as any).members ?? [],
+    members,
     pendingInvites: [],
     pendingMembers: [],
     createdAt:      serverTimestamp(),
