@@ -113,26 +113,16 @@ function NotificationsPanel({
         = await import('firebase/firestore');
       const { db } = await import('../lib/firebase');
 
-      // actorId holds the numeric ID of the user who requested to join
       const actorNumericId = (notif as any).actorId;
-      const actorUid       = (notif as any).actorUid; // may be absent
+      // actorUid is stored on the notification at write time — use directly, no query needed
+      const requesterUid   = (notif as any).actorUid ?? null;
 
-      // Find the requester's Firebase UID from their user doc if not in notif
-      let requesterUid = actorUid;
-      if (!requesterUid && actorNumericId) {
-        const usersRef = collection(db, 'users');
-        const { query, where, getDocs, limit: lim } = await import('firebase/firestore');
-        const q = query(usersRef, where('numericId', '==', actorNumericId), lim(1));
-        const snap = await getDocs(q);
-        if (!snap.empty) requesterUid = snap.docs[0].id;
-      }
-
-      // Try pods first, fall back to circles
+      // Try pods first (canonical), fall back to circles (legacy)
       let circleRef = doc(db, 'pods', notif.circleFirestoreId);
       const podSnap = await getDoc(circleRef);
       if (!podSnap.exists()) circleRef = doc(db, 'circles', notif.circleFirestoreId);
-      const circleData = (podSnap.exists() ? podSnap : await getDoc(circleRef)).data();
-      const circleName = circleData?.name ?? 'the pod';
+      const circleSnap = podSnap.exists() ? podSnap : await getDoc(circleRef);
+      const circleName = circleSnap.data()?.name ?? 'the pod';
 
       if (accept) {
         await updateDoc(circleRef, {
@@ -150,14 +140,14 @@ function NotificationsPanel({
       // Notify the requester
       if (requesterUid) {
         await addDoc(collection(db, 'users', requesterUid, 'notifications'), {
-          type:      accept ? 'circle_approved' : 'circle_denied',
-          message:   accept
+          type:              accept ? 'circle_approved' : 'circle_denied',
+          message:           accept
             ? `Your request to join "${circleName}" was approved`
             : `Your request to join "${circleName}" was not approved`,
-          relatedId: notif.relatedId ?? null,
+          relatedId:         notif.relatedId ?? null,
           circleFirestoreId: notif.circleFirestoreId,
-          isRead:    false,
-          createdAt: serverTimestamp(),
+          isRead:            false,
+          createdAt:         serverTimestamp(),
         });
       }
 
