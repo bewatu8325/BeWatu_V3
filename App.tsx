@@ -194,14 +194,46 @@ const MainApp: React.FC = () => {
     }
   }, [authLoading, currentUser, authState, data, loading]);
 
-  // ── Real-time unread notification count ───────────────────────────────────
+  // ── Real-time unread notification count + membership sync ────────────────
   useEffect(() => {
-    if (!fbUser?.uid) return;
-    // Use subscribeToUnreadNotifCount from firestoreService to avoid
-    // creating a second Firestore instance via dynamic import
+    if (!fbUser?.uid || !currentUser) return;
     const unsub = subscribeToUnreadNotifCount(fbUser.uid, setUnreadNotifCount);
-    return () => unsub();
-  }, [fbUser?.uid]);
+
+    // Also watch for circle_approved / circle_denied so membership state
+    // updates immediately without requiring a page reload
+    let notifUnsub: (() => void) | null = null;
+    import('firebase/firestore').then(({ collection, query, where, onSnapshot, orderBy, limit }) => {
+      import('./lib/firebase').then(({ db }) => {
+        const q = query(
+          collection(db, 'users', fbUser.uid, 'notifications'),
+          where('isRead', '==', false),
+          orderBy('createdAt', 'desc'),
+          limit(10)
+        );
+        notifUnsub = onSnapshot(q, snap => {
+          snap.docs.forEach(d => {
+            const n = d.data();
+            if (n.type === 'circle_approved' && n.circleFirestoreId) {
+              // Add current user to members in local state immediately
+              setData(prev => {
+                if (!prev) return null;
+                return {
+                  ...prev,
+                  circles: prev.circles.map(c => {
+                    if ((c as any)._firestoreId !== n.circleFirestoreId) return c;
+                    if (c.members.includes(currentUser.id)) return c;
+                    return { ...c, members: [...c.members, currentUser.id] };
+                  }),
+                };
+              });
+            }
+          });
+        });
+      });
+    }).catch(() => {});
+
+    return () => { unsub(); notifUnsub?.(); };
+  }, [fbUser?.uid, currentUser?.id]);
 
   // Uses a session-level flag so it never re-fires once dismissed this session
   useEffect(() => {
@@ -936,6 +968,7 @@ ${references || 'Not provided'}`;
             message: `${currentUser.name} requested to join "${circle.name}"`,
             relatedId: circleId,
             actorId: currentUser.id,
+            actorUid: fbUser?.uid,          // store UID so admin can notify back
             actorName: currentUser.name,
             actorAvatar: currentUser.avatarUrl,
             circleFirestoreId: circle._firestoreId,
