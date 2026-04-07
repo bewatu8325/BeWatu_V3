@@ -3635,6 +3635,7 @@ export function subscribeToCirclePosts(
   circleFirestoreId: string,
   onUpdate: (posts: any[]) => void
 ): () => void {
+  console.log('[subscribeToCirclePosts] subscribing for circleId:', circleFirestoreId);
   const mapPost = (d: any) => {
     const data = d.data();
     return {
@@ -3670,6 +3671,7 @@ export function subscribeToCirclePosts(
       const tb = b.createdAt?.toMillis?.() ?? b.createdAt?.getTime?.() ?? 0;
       return tb - ta;
     });
+    console.log('[subscribeToCirclePosts] publishing', merged.length, 'posts (str:', strPosts.length, 'num:', numPosts.length, ')');
     onUpdate(merged);
   };
 
