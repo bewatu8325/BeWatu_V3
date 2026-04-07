@@ -585,10 +585,59 @@ const MainApp: React.FC = () => {
     setData({ ...data, users: data.users.map(u => u.id === userId ? { ...u, skills: u.skills.map(s => s.name === skillName ? { ...s, endorsements: s.endorsements + 1 } : s) } : u) });
   };
 
+  // ── Real-time subscription for active message thread ─────────────────────
+  useEffect(() => {
+    if (!activeChatUserId || !fbUser?.uid || !data) return;
+
+    const otherUser = data.users.find(u => u.id === activeChatUserId) as any;
+    const otherUid  = otherUser?._firestoreUid;
+    if (!otherUid) return;
+
+    const unsub = subscribeToMessages(fbUser.uid, otherUid, (threadMessages) => {
+      setData(d => {
+        if (!d) return null;
+        // Replace all messages between these two users with the live thread
+        const otherMessages = d.messages.filter(m =>
+          !(
+            (m.senderId === currentUser?.id && m.receiverId === activeChatUserId) ||
+            (m.senderId === activeChatUserId && m.receiverId === currentUser?.id)
+          )
+        );
+        return { ...d, messages: [...otherMessages, ...threadMessages] };
+      });
+    });
+
+    return () => unsub();
+  }, [activeChatUserId, fbUser?.uid]);
+
   const sendMessage = async (receiverId: number, text: string) => {
     if (!data || !currentUser || !fbUser) return;
-    const newMsg: Message = { id: Date.now(), senderId: currentUser.id, receiverId, text, timestamp: 'Just now', isRead: false };
-    setData({ ...data, messages: [...data.messages, newMsg] });
+
+    const receiver = data.users.find(u => u.id === receiverId) as any;
+    const receiverUid = receiver?._firestoreUid;
+
+    // Optimistic update so sender sees message instantly
+    const newMsg: Message = {
+      id: Date.now(),
+      senderId: currentUser.id,
+      receiverId,
+      text,
+      timestamp: 'Just now',
+      isRead: false,
+    };
+    setData(d => d ? { ...d, messages: [...d.messages, newMsg] } : null);
+
+    // Write to Firestore — real-time subscription will replace the optimistic
+    // message with the server version (with proper timestamp)
+    if (receiverUid) {
+      try {
+        await fbSendMessage(fbUser.uid, currentUser.id, receiverUid, receiverId, text);
+      } catch (err) {
+        console.error('sendMessage failed:', err);
+        // Revert optimistic update on failure
+        setData(d => d ? { ...d, messages: d.messages.filter(m => m.id !== newMsg.id) } : null);
+      }
+    }
   };
 
   const startMessage = (userId: number) => { setActiveChatUserId(userId); setCurrentView(View.Messaging); };
