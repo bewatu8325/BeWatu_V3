@@ -3703,6 +3703,7 @@ export async function createPodNotification(
     message: string;
     relatedId?: number;
     actorId?: number;
+    actorUid?: string;
     actorName?: string;
     actorAvatar?: string;
     circleFirestoreId?: string;
