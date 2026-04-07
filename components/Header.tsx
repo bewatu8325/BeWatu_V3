@@ -63,15 +63,21 @@ function NotificationsPanel({
     if (!notif.circleFirestoreId || !uid) return;
     setActing(a => ({ ...a, [notif.id]: true }));
     try {
-      const { doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } = await import('firebase/firestore');
+      const { getDoc, doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, addDoc }
+        = await import('firebase/firestore');
       const { db } = await import('../lib/firebase');
-      const { getCurrentUserNumericId } = await import('../lib/firestoreService').catch(() => ({ getCurrentUserNumericId: null })) as any;
 
-      // Get numeric user id from users collection
-      const userSnap = await (await import('firebase/firestore')).getDoc(doc(db, 'users', uid));
+      // Get current user's numeric ID
+      const userSnap = await getDoc(doc(db, 'users', uid));
       const numericId = userSnap.data()?.numericId;
 
-      const circleRef = doc(db, 'circles', notif.circleFirestoreId);
+      // Try pods first (canonical), fall back to circles (legacy)
+      let circleRef = doc(db, 'pods', notif.circleFirestoreId);
+      const podSnap = await getDoc(circleRef);
+      if (!podSnap.exists()) {
+        circleRef = doc(db, 'circles', notif.circleFirestoreId);
+      }
+
       if (accept) {
         await updateDoc(circleRef, {
           members:        arrayUnion(numericId),
@@ -93,6 +99,77 @@ function NotificationsPanel({
         ? { ...n, actioned: accept ? 'accepted' : 'declined' } as any : n));
     } catch (e) {
       console.error('Circle invite action failed:', e);
+    } finally {
+      setActing(a => ({ ...a, [notif.id]: false }));
+    }
+  }, [uid]);
+
+  // Admin approves or denies a join request directly from the notification bell
+  const handleJoinRequest = useCallback(async (notif: NotifItem, accept: boolean) => {
+    if (!notif.circleFirestoreId || !uid) return;
+    setActing(a => ({ ...a, [notif.id]: true }));
+    try {
+      const { getDoc, doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, addDoc }
+        = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+
+      // actorId holds the numeric ID of the user who requested to join
+      const actorNumericId = (notif as any).actorId;
+      const actorUid       = (notif as any).actorUid; // may be absent
+
+      // Find the requester's Firebase UID from their user doc if not in notif
+      let requesterUid = actorUid;
+      if (!requesterUid && actorNumericId) {
+        const usersRef = collection(db, 'users');
+        const { query, where, getDocs, limit: lim } = await import('firebase/firestore');
+        const q = query(usersRef, where('numericId', '==', actorNumericId), lim(1));
+        const snap = await getDocs(q);
+        if (!snap.empty) requesterUid = snap.docs[0].id;
+      }
+
+      // Try pods first, fall back to circles
+      let circleRef = doc(db, 'pods', notif.circleFirestoreId);
+      const podSnap = await getDoc(circleRef);
+      if (!podSnap.exists()) circleRef = doc(db, 'circles', notif.circleFirestoreId);
+      const circleData = (podSnap.exists() ? podSnap : await getDoc(circleRef)).data();
+      const circleName = circleData?.name ?? 'the pod';
+
+      if (accept) {
+        await updateDoc(circleRef, {
+          members:        arrayUnion(actorNumericId),
+          pendingMembers: arrayRemove(actorNumericId),
+          updatedAt:      serverTimestamp(),
+        });
+      } else {
+        await updateDoc(circleRef, {
+          pendingMembers: arrayRemove(actorNumericId),
+          updatedAt:      serverTimestamp(),
+        });
+      }
+
+      // Notify the requester
+      if (requesterUid) {
+        await addDoc(collection(db, 'users', requesterUid, 'notifications'), {
+          type:      accept ? 'circle_approved' : 'circle_denied',
+          message:   accept
+            ? `Your request to join "${circleName}" was approved`
+            : `Your request to join "${circleName}" was not approved`,
+          relatedId: notif.relatedId ?? null,
+          circleFirestoreId: notif.circleFirestoreId,
+          isRead:    false,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      // Mark admin's notification as actioned
+      await updateDoc(doc(db, 'users', uid, 'notifications', notif.id), {
+        actioned: accept ? 'accepted' : 'declined',
+        actionedAt: serverTimestamp(),
+      });
+      setNotifs(ns => ns.map(n => n.id === notif.id
+        ? { ...n, actioned: accept ? 'accepted' : 'declined' } as any : n));
+    } catch (e) {
+      console.error('Join request action failed:', e);
     } finally {
       setActing(a => ({ ...a, [notif.id]: false }));
     }
@@ -156,7 +233,7 @@ function NotificationsPanel({
                     <p className="text-sm text-stone-800 leading-snug">{n.message}</p>
                     <p className="text-xs text-stone-400 mt-0.5">{timeAgo(n.createdAt)}</p>
 
-                    {/* Circle invite actions */}
+                    {/* Circle invite — accept/decline from bell */}
                     {n.type === 'circle_invite' && !actioned && (
                       <div className="flex gap-2 mt-2">
                         <button
@@ -180,6 +257,40 @@ function NotificationsPanel({
                       <p className="text-xs mt-1 font-medium" style={{ color: actioned === 'accepted' ? GREEN : '#9ca3af' }}>
                         {actioned === 'accepted' ? '✓ Accepted' : '✗ Declined'}
                       </p>
+                    )}
+
+                    {/* Join request — admin approves/declines from bell */}
+                    {n.type === 'circle_join_request' && !actioned && (
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleJoinRequest(n, true)}
+                          disabled={acting[n.id]}
+                          className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg text-white disabled:opacity-50"
+                          style={{ backgroundColor: GREEN }}>
+                          {acting[n.id] ? <Loader size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleJoinRequest(n, false)}
+                          disabled={acting[n.id]}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg border hover:bg-stone-50 disabled:opacity-50"
+                          style={{ borderColor: '#e7e5e4', color: '#6b7280' }}>
+                          Deny
+                        </button>
+                      </div>
+                    )}
+                    {n.type === 'circle_join_request' && actioned && (
+                      <p className="text-xs mt-1 font-medium" style={{ color: actioned === 'accepted' ? GREEN : '#9ca3af' }}>
+                        {actioned === 'accepted' ? '✓ Approved' : '✗ Denied'}
+                      </p>
+                    )}
+
+                    {/* Approval/denial status for the applicant */}
+                    {n.type === 'circle_approved' && (
+                      <p className="text-xs mt-1 font-medium" style={{ color: GREEN }}>✓ You're in</p>
+                    )}
+                    {n.type === 'circle_denied' && (
+                      <p className="text-xs mt-1 font-medium text-stone-400">Request not approved</p>
                     )}
                   </div>
                   {!n.isRead && (
