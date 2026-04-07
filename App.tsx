@@ -266,6 +266,8 @@ const MainApp: React.FC = () => {
       // Normalize circle members — Firestore stores Firebase UIDs but components
       // check membership using numeric user IDs. Map UIDs → numeric IDs.
       const uidToNumericId: Record<string, number> = {};
+      // Always include the current user first — they are filtered out of otherUsers
+      // but may appear in pod members arrays
       uidToNumericId[fbUser?.uid ?? ''] = user.id;
       firestoreUsers.forEach(u => {
         if ((u as any)._firestoreUid) uidToNumericId[(u as any)._firestoreUid] = u.id;
@@ -803,7 +805,7 @@ ${references || 'Not provided'}`;
       members: [currentUser.id],
       adminId: currentUser.id,
       ...extra,
-    }, fbUser.uid);
+    }, fbUser.uid, currentUser.id);
     setData(d => d ? { ...d, circles: [newCircle, ...d.circles] } : null);
   };
 
@@ -1231,7 +1233,8 @@ ${references || 'Not provided'}`;
                 const { createCircle } = await import('./lib/firestoreService');
                 const pod = await createCircle(
                   { name, description, adminId: currentUser.id, members: [currentUser.id], podType: 'challenge' as any } as any,
-                  fbUser.uid
+                  fbUser.uid,
+                  currentUser.id
                 );
                 return pod;
               }}
