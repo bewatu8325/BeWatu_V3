@@ -266,6 +266,15 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
   const [challengeFilter,   setChallengeFilter]   = useState('');
   const [minExp, setMinExp]             = useState('');
   const [maxExp, setMaxExp]             = useState('');
+
+  // Reset type-specific fields when pod type changes
+  const handleTypeSelect = (type: any) => {
+    setSelectedType(type);
+    setMinExp(''); setMaxExp('');
+    setPodStage(''); setRolesNeeded([]);
+    setProblemStatement(''); setSelectedChallenge(null);
+    setVisibility('open');
+  };
   const [creating, setCreating]         = useState(false);
   const [error, setError]               = useState('');
 
@@ -359,7 +368,7 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
             {(Object.keys(POD_TYPE_CONFIG) as PodType[]).map(type => {
               const cfg = POD_TYPE_CONFIG[type];
               return (
-                <button key={type} onClick={() => { setSelectedType(type); setStep('details'); }}
+                <button key={type} onClick={() => { handleTypeSelect(type); setStep('details'); }}
                   className="w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all hover:border-stone-300 hover:bg-stone-50"
                   style={{ borderColor: '#e7e5e4' }}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
@@ -584,16 +593,11 @@ const Circles: React.FC<CirclesProps> = ({
   circles, onSelectCircle, onCreateCircle, onJoinCircle,
   onApplyToCircle, onLeaveCircle, currentUserId, currentUserFirestoreUid,
 }) => {
-  const [isModalOpen,   setIsModalOpen]   = useState(false);
-  const [activeFilter,  setActiveFilter]  = useState<PodType | 'all'>('all');
-  const [previewCircle, setPreviewCircle] = useState<any | null>(null);
+  const [isModalOpen, setIsModalOpen]   = useState(false);
+  const [activeFilter, setActiveFilter] = useState<PodType | 'all'>('all');
 
-  // Deduplicate by circle id — Firestore listeners can sometimes return duplicates
-  const uniqueCircles = circles.filter((c, i, arr) =>
-    arr.findIndex(x => x.id === c.id) === i
-  );
-  const myPods    = uniqueCircles.filter(c => currentUserId && c.members.includes(currentUserId));
-  const otherPods = uniqueCircles.filter(c => !currentUserId || !c.members.includes(currentUserId));
+  const myPods    = circles.filter(c => currentUserId && c.members.includes(currentUserId));
+  const otherPods = circles.filter(c => !currentUserId || !c.members.includes(currentUserId));
   const filteredOther = activeFilter === 'all' ? otherPods
     : otherPods.filter(c => (c.podType ?? 'community') === activeFilter);
 
@@ -702,7 +706,7 @@ const Circles: React.FC<CirclesProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredOther.map(circle => (
                     <PodCard key={circle.id} circle={circle} isMember={false} currentUserId={currentUserId}
-                      onSelect={() => setPreviewCircle(circle)}
+                      onSelect={() => onSelectCircle(circle.id)}
                       onJoin={() => onJoinCircle?.(circle.id)}
                       onApply={() => onApplyToCircle?.(circle.id)} />
                   ))}
@@ -719,115 +723,6 @@ const Circles: React.FC<CirclesProps> = ({
           existingChallengePodIds={existingChallengePodIds}
           onCreate={async (n, d, extra) => { await onCreateCircle?.(n, d, extra); }}
         />
-      )}
-
-      {/* Pod preview modal for non-members */}
-      {previewCircle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-          onClick={() => setPreviewCircle(null)}>
-          <div className="bg-white rounded-3xl border shadow-2xl w-full max-w-md overflow-hidden"
-            style={{ borderColor: '#e7e5e4' }}
-            onClick={e => e.stopPropagation()}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#f3f4f6' }}>
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-lg"
-                  style={{ backgroundColor: GREEN }}>
-                  {previewCircle.name?.[0] ?? '?'}
-                </div>
-                <div>
-                  <h2 className="font-black text-stone-900">{previewCircle.name}</h2>
-                  <p className="text-xs text-stone-400">{previewCircle.members?.length ?? 0} members</p>
-                </div>
-              </div>
-              <button onClick={() => setPreviewCircle(null)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-400">
-                ✕
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="px-5 py-4 space-y-4">
-              {previewCircle.description && (
-                <p className="text-sm text-stone-700 leading-relaxed">{previewCircle.description}</p>
-              )}
-
-              {/* Pod type + visibility */}
-              <div className="flex flex-wrap gap-2">
-                {previewCircle.podType && (
-                  <span className="text-xs font-semibold px-3 py-1 rounded-full capitalize"
-                    style={{ backgroundColor: GREEN_LT, color: GREEN }}>
-                    {previewCircle.podType}
-                  </span>
-                )}
-                {previewCircle.visibility && (
-                  <span className="text-xs font-medium px-3 py-1 rounded-full border capitalize"
-                    style={{ borderColor: '#e7e5e4', color: '#6b7280' }}>
-                    {previewCircle.visibility === 'open' ? '🔓 Open to join' :
-                     previewCircle.visibility === 'apply' ? '📋 Apply to join' : '🔒 Invite only'}
-                  </span>
-                )}
-              </div>
-
-              {/* Roles needed */}
-              {previewCircle.rolesNeeded?.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Looking for</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {previewCircle.rolesNeeded.map((r: string) => (
-                      <span key={r} className="text-xs px-2.5 py-1 rounded-full border"
-                        style={{ borderColor: '#e7e5e4', color: '#374151' }}>{r}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Member count + capacity */}
-              <div className="flex items-center justify-between text-sm text-stone-500 py-2 border-t border-b"
-                style={{ borderColor: '#f3f4f6' }}>
-                <span>{previewCircle.members?.length ?? 0} / {previewCircle.capacity ?? '∞'} members</span>
-                {previewCircle.capacity && (
-                  <div className="w-32 h-1.5 rounded-full overflow-hidden bg-stone-100">
-                    <div className="h-full rounded-full" style={{
-                      width: `${Math.min(100, ((previewCircle.members?.length ?? 0) / previewCircle.capacity) * 100)}%`,
-                      backgroundColor: GREEN,
-                    }} />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* CTA */}
-            <div className="px-5 pb-5">
-              {currentUserId && (previewCircle.pendingMembers ?? []).includes(currentUserId) ? (
-                <div className="w-full py-3 rounded-xl text-sm font-semibold text-center text-amber-600 bg-amber-50 border border-amber-200">
-                  ⏳ Request pending — waiting for admin approval
-                </div>
-              ) : previewCircle.visibility === 'open' || !previewCircle.visibility ? (
-                <button
-                  onClick={() => { onJoinCircle?.(previewCircle.id); setPreviewCircle(null); }}
-                  className="w-full py-3 rounded-xl text-sm font-bold text-white hover:opacity-90"
-                  style={{ backgroundColor: GREEN }}>
-                  Join pod
-                </button>
-              ) : previewCircle.visibility === 'apply' ? (
-                <div className="space-y-2">
-                  <button
-                    onClick={() => { onApplyToCircle?.(previewCircle.id); setPreviewCircle(null); }}
-                    className="w-full py-3 rounded-xl text-sm font-bold text-white hover:opacity-90"
-                    style={{ backgroundColor: GREEN }}>
-                    Request to join
-                  </button>
-                  <p className="text-xs text-center text-stone-400">
-                    The pod admin will review your request
-                  </p>
-                </div>
-              ) : (
-                <p className="text-center text-xs text-stone-400 py-2">This pod is invite only</p>
-              )}
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
