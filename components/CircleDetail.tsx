@@ -211,6 +211,8 @@ interface CircleDetailProps {
   allUsers: User[];
   currentUser: User;
   addPost: (content: string, circleId?: number) => void;
+  onBack?: () => void;
+  onApplyToCircle?: (circleId: number) => void;
   findAuthor: (authorId: number) => User | undefined;
   onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
   onInviteMember: (circleId: number, userId: number) => void;
@@ -230,6 +232,8 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
   allUsers,
   currentUser,
   addPost,
+  onBack,
+  onApplyToCircle,
   findAuthor,
   onAppreciatePost,
   onInviteMember,
@@ -382,9 +386,115 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
     [allUsers, circle.adminId, (circle as any).adminUid]
   );
 
+  const isMember = isCurrentUserAdmin ||
+    circle.members.includes(currentUser.id) ||
+    (circle as any)._memberUids?.includes(fbUser?.uid);
+
+  const isPendingApproval =
+    !isMember &&
+    ((circle as any).pendingMembers ?? []).includes(currentUser.id);
+
+  // Non-members cannot see pod contents on apply/invite pods
+  const isGated = !isMember && !isPendingApproval &&
+    ((circle as any).visibility === 'apply' || (circle as any).visibility === 'invite');
+
+  const GREEN = '#1a4a3a';
+  const GREEN_LT = '#e8f4f0';
+
+  // ── Gated view ────────────────────────────────────────────────────────────
+  if (isGated || isPendingApproval) {
+    return (
+      <div className="space-y-4">
+        {onBack && (
+          <button onClick={onBack}
+            className="flex items-center gap-1.5 text-sm font-semibold text-stone-500 hover:text-stone-800 transition-colors group">
+            <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            All Pods
+          </button>
+        )}
+        <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: '#e7e5e4' }}>
+          {/* Pod summary header */}
+          <div className="p-6 border-b" style={{ borderColor: '#f5f5f4' }}>
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl flex-shrink-0" style={{ backgroundColor: GREEN_LT }}>
+                <CirclesIcon className="w-8 h-8" style={{ color: GREEN }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl font-bold text-stone-900">{circle.name}</h1>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full border"
+                    style={{ backgroundColor: GREEN_LT, color: GREEN, borderColor: '#a7d9c8' }}>
+                    {(circle as any).podType ?? 'Community'}
+                  </span>
+                </div>
+                <p className="text-stone-500 mt-1">{circle.description}</p>
+                <div className="flex items-center gap-4 mt-2 text-sm text-stone-400">
+                  <span>{circle.members.length} member{circle.members.length !== 1 ? 's' : ''}</span>
+                  {adminUser && <span>Admin: {adminUser.name}</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Gated content area */}
+          <div className="p-8 flex flex-col items-center text-center">
+            {isPendingApproval ? (
+              <>
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
+                  style={{ backgroundColor: '#fef3c7' }}>
+                  <svg className="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-stone-800 mb-1">Request sent</h2>
+                <p className="text-stone-500 text-sm max-w-xs">
+                  Your request to join <strong>{circle.name}</strong> is pending admin approval. You'll be notified when it's reviewed.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
+                  style={{ backgroundColor: GREEN_LT }}>
+                  <svg className="w-7 h-7" style={{ color: GREEN }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-stone-800 mb-1">Members only</h2>
+                <p className="text-stone-500 text-sm max-w-xs mb-5">
+                  {(circle as any).visibility === 'invite'
+                    ? 'This pod is invite-only. Ask a current member to invite you.'
+                    : 'This pod requires approval to join. Submit a request and the admin will review it.'}
+                </p>
+                {(circle as any).visibility === 'apply' && (
+                  <button
+                    onClick={() => onApplyToCircle?.(circle.id)}
+                    className="px-6 py-2.5 rounded-xl text-sm font-bold text-white hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: GREEN }}>
+                    Request to join
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* ── Back button ─────────────────────────────────────────────── */}
+      {onBack && (
+        <button onClick={onBack}
+          className="flex items-center gap-1.5 text-sm font-semibold text-stone-500 hover:text-stone-800 transition-colors group">
+          <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          All Pods
+        </button>
+      )}
       <div className="bg-white p-6 rounded-2xl border shadow-sm" style={{ borderColor:"#e7e5e4" }}>
         <div className="flex items-start space-x-4 mb-4">
             <div className="p-3 rounded-xl border" style={{ backgroundColor:"#e8f4f0", borderColor:"#1a6b52" }}>
