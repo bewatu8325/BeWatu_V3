@@ -952,8 +952,12 @@ ${references || 'Not provided'}`;
   };
 
   const handleApplyToCircle = async (circleId: number) => {
-    if (!data || !currentUser || !fbUser) return;
+    if (!data || !currentUser || !fbUser) {
+      console.error('[apply] missing deps:', { data: !!data, currentUser: !!currentUser, fbUser: !!fbUser });
+      return;
+    }
     const circle = data.circles.find(c => c.id === circleId) as any;
+    console.log('[apply] circle found:', !!circle, '| _firestoreId:', circle?._firestoreId, '| adminUid:', circle?.adminUid, '| circleId:', circleId);
     // Optimistic update
     setData(d => d ? {
       ...d,
@@ -964,25 +968,34 @@ ${references || 'Not provided'}`;
     if (circle?._firestoreId) {
       try {
         const { requestToJoinCircle, createPodNotification } = await import('./lib/firestoreService') as any;
+        console.log('[apply] calling requestToJoinCircle', circle._firestoreId, currentUser.id, fbUser?.uid);
         await requestToJoinCircle(circle._firestoreId, currentUser.id, fbUser?.uid);
+        console.log('[apply] requestToJoinCircle done');
         const adminUid = (circle as any).adminUid ?? (circle as any).creatorUid;
+        console.log('[apply] adminUid:', adminUid);
         const admin = data.users.find(u =>
           (u as any)._firestoreUid === adminUid || u.id === circle.adminId
         ) as any;
         const adminFirestoreUid = adminUid ?? admin?._firestoreUid;
+        console.log('[apply] adminFirestoreUid:', adminFirestoreUid);
         if (adminFirestoreUid) {
           await createPodNotification(adminFirestoreUid, {
             type: 'circle_join_request',
             message: `${currentUser.name} requested to join "${circle.name}"`,
             relatedId: circleId,
             actorId: currentUser.id,
-            actorUid: fbUser?.uid,          // store UID so admin can notify back
+            actorUid: fbUser?.uid,
             actorName: currentUser.name,
             actorAvatar: currentUser.avatarUrl,
             circleFirestoreId: circle._firestoreId,
           });
+          console.log('[apply] notification sent to admin');
+        } else {
+          console.error('[apply] NO adminFirestoreUid — notification not sent');
         }
-      } catch (err) { console.error('requestToJoin failed:', err); }
+      } catch (err) { console.error('[apply] FAILED:', err); }
+    } else {
+      console.error('[apply] NO _firestoreId on circle — write skipped');
     }
   };
 
