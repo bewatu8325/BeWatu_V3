@@ -487,18 +487,21 @@ const MainApp: React.FC = () => {
 
   const addPost = async (content: string, circleId?: number) => {
     if (!data || !currentUser || !fbUser) return;
-    // Mirror the original working approach: pass circleId directly.
-    // Use _firestoreId string when available for consistent querying,
-    // fall back to numeric circleId — never silently block a post.
     let resolvedCircleId: string | number | undefined = circleId;
     if (circleId !== undefined && circleId !== null) {
       const circle = data.circles.find(c => c.id === circleId) as any;
+      console.log('[addPost] circleId:', circleId, '| found circle:', !!circle, '| _firestoreId:', circle?._firestoreId, '| circle.id:', circle?.id);
       if (circle?._firestoreId) resolvedCircleId = circle._firestoreId;
     }
-    const newPost = await fbCreatePost(content, currentUser, fbUser.uid, resolvedCircleId as any);
-    // Pod posts arrive via real-time listener — don't add to global feed
-    if (resolvedCircleId !== undefined) return;
-    setData({ ...data, posts: [newPost, ...data.posts] });
+    console.log('[addPost] resolvedCircleId:', resolvedCircleId, '| content length:', content.length);
+    try {
+      const newPost = await fbCreatePost(content, currentUser, fbUser.uid, resolvedCircleId as any);
+      console.log('[addPost] post created OK:', newPost._firestoreId ?? 'no firestoreId');
+      if (resolvedCircleId !== undefined) return;
+      setData({ ...data, posts: [newPost, ...data.posts] });
+    } catch (err) {
+      console.error('[addPost] fbCreatePost FAILED:', err);
+    }
   };
 
   const handlePerspectivePost = async (question: string, context: string, seeking: any[]) => {
