@@ -891,27 +891,32 @@ ${references || 'Not provided'}`;
     if (!data || !currentUser) return;
     const circle = data.circles.find(c => c.id === circleId) as any;
     if (!circle?._firestoreId) return;
-    // Move from pendingMembers to members
+    // Optimistic state update
     setData({ ...data, circles: data.circles.map(c => c.id === circleId ? {
       ...c,
-      members: [...c.members, userId],
-      pendingMembers: ((c as any).pendingMembers ?? []).filter((id: number) => id !== userId),
+      members:        [...c.members, userId],
+      pendingMembers: ((c as any).pendingMembers ?? []).filter((id: any) => id !== userId),
     } : c) });
     try {
-      const { approveJoinRequest } = await import('./lib/firestoreService');
-      const approvedUserForUid = data.users.find(u => u.id === userId) as any;
-      await approveJoinRequest(circle._firestoreId, userId, approvedUserForUid?._firestoreUid);
-      // Notify the approved user
-      const approvedUser = data.users.find(u => u.id === userId) as any;
-      if (approvedUser?._firestoreUid) {
-        const { createPodNotification } = await import("./lib/firestoreService");
-        await createPodNotification(approvedUser._firestoreUid, {
-          type: 'circle_approved',
-          message: `Your request to join "${circle.name}" was approved`,
-          relatedId: circleId,
-          actorId: currentUser.id,
-          actorName: currentUser.name,
-          actorAvatar: currentUser.avatarUrl,
+      const { approveJoinRequest, createPodNotification } = await import('./lib/firestoreService') as any;
+      // Look up the requester's Firebase UID from their user doc directly
+      // — don't rely on data.users which may not contain them
+      const { getDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('./lib/firebase');
+      const { getDocs, query, collection, where, limit } = await import('firebase/firestore');
+      const q = query(collection(db, 'users'), where('numericId', '==', userId), limit(1));
+      const snap = await getDocs(q);
+      const requesterUid  = snap.empty ? null : snap.docs[0].id;
+      await approveJoinRequest(circle._firestoreId, userId, requesterUid);
+      if (requesterUid) {
+        await createPodNotification(requesterUid, {
+          type:              'circle_approved',
+          message:           `Your request to join "${circle.name}" was approved`,
+          relatedId:         circleId,
+          circleFirestoreId: circle._firestoreId,
+          actorId:           currentUser.id,
+          actorName:         currentUser.name,
+          actorAvatar:       currentUser.avatarUrl,
         });
       }
     } catch (err) { console.error('approveJoinRequest failed:', err); }
@@ -923,19 +928,22 @@ ${references || 'Not provided'}`;
     if (!circle?._firestoreId) return;
     setData({ ...data, circles: data.circles.map(c => c.id === circleId ? {
       ...c,
-      pendingMembers: ((c as any).pendingMembers ?? []).filter((id: number) => id !== userId),
+      pendingMembers: ((c as any).pendingMembers ?? []).filter((id: any) => id !== userId),
     } : c) });
     try {
       const { declineJoinRequest, createPodNotification } = await import('./lib/firestoreService') as any;
-      const declinedUser = data.users.find(u => u.id === userId) as any;
-      await declineJoinRequest(circle._firestoreId, userId, declinedUser?._firestoreUid);
-      // Notify the declined user
-      if (declinedUser?._firestoreUid) {
-        await createPodNotification(declinedUser._firestoreUid, {
-          type: 'circle_denied',
+      const { getDocs, query, collection, where, limit } = await import('firebase/firestore');
+      const { db } = await import('./lib/firebase');
+      const q = query(collection(db, 'users'), where('numericId', '==', userId), limit(1));
+      const snap = await getDocs(q);
+      const requesterUid = snap.empty ? null : snap.docs[0].id;
+      await declineJoinRequest(circle._firestoreId, userId, requesterUid);
+      if (requesterUid) {
+        await createPodNotification(requesterUid, {
+          type:    'circle_denied',
           message: `Your request to join "${circle.name}" was not approved`,
           relatedId: circleId,
-          actorId: currentUser.id,
+          actorId:   currentUser.id,
           actorName: currentUser.name,
           actorAvatar: currentUser.avatarUrl,
         });
