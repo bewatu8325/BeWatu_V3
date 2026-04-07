@@ -708,68 +708,97 @@ export async function createCircle(
   creatorUid: string
 ): Promise<Circle> {
   const numericId = Date.now();
-  await addDoc(collection(db, 'circles'), {
+  const ref = await addDoc(collection(db, 'pods'), {
     ...circle,
     numericId,
+    adminUid:       creatorUid,
     creatorUid,
-    createdAt: serverTimestamp(),
+    // Ensure members is an array of UIDs — if passed as numeric, keep as-is
+    // for backward compat but new pods will use UIDs
+    members:        (circle as any).members ?? [],
+    pendingInvites: [],
+    pendingMembers: [],
+    createdAt:      serverTimestamp(),
+    updatedAt:      serverTimestamp(),
   });
-  return { ...circle, id: numericId };
+  return { ...circle, id: numericId, _firestoreId: ref.id } as Circle & { _firestoreId: string };
 }
 
 export async function fetchCircles(): Promise<Circle[]> {
+  // Single collection — `pods` is the canonical store for all communities.
+  // The `circles` collection is legacy and will be removed after migration.
   const results: any[] = [];
   const seen = new Set<string>();
 
-  // ── circles collection (primary) ─────────────────────────────────────────
+  // Primary: pods collection (unified schema, Firebase UID members)
   try {
     let snap;
     try {
-      snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
+      snap = await getDocs(query(collection(db, 'pods'), orderBy('createdAt', 'desc')));
     } catch {
-      snap = await getDocs(collection(db, 'circles'));
+      snap = await getDocs(collection(db, 'pods'));
     }
     for (const d of snap.docs) {
       if (seen.has(d.id)) continue;
       seen.add(d.id);
       const data = d.data();
-      // id MUST be a number the UI can use for find(c => c.id === activeCircleId)
-      // Use numericId if present, otherwise hash the doc ID to a stable number
-      const id = data.numericId
-        ?? Math.abs(d.id.split('').reduce((a: number, c: string) => (a * 31 + c.charCodeAt(0)) | 0, 0));
-      results.push({ ...data, id, numericId: id, _firestoreId: d.id, _sourceCollection: 'circles' });
-    }
-  } catch (err: any) {
-    console.error('fetchCircles circles failed:', err?.message);
-  }
-
-  // ── pods collection (legacy, UID-string members) ──────────────────────────
-  try {
-    const snap = await getDocs(collection(db, 'pods'));
-    for (const d of snap.docs) {
-      if (seen.has(d.id)) continue;
-      seen.add(d.id);
-      const data = d.data();
-      const id = data.numericId
+      // Stable numeric id from doc ID for components that key by number
+      const numericId = data.numericId
         ?? Math.abs(d.id.split('').reduce((a: number, c: string) => (a * 31 + c.charCodeAt(0)) | 0, 0));
       results.push({
         ...data,
-        id,
-        numericId: id,
-        _firestoreId:      d.id,
-        _sourceCollection: 'pods',
-        _adminUid:         data.adminId,
-        _memberUids:       data.members ?? [],
-        podType:           data.podType ?? data.type ?? 'community',
-        visibility:        data.visibility ?? 'open',
-        pendingMembers:    data.pendingMembers ?? data.invites ?? [],
+        id:           numericId,
+        numericId,
+        _firestoreId: d.id,
+        adminId:      data.adminId      ?? 0,   // numeric fallback for legacy
+        adminUid:     data.adminUid     ?? data.creatorUid ?? null,
+        members:      data.members      ?? [],
+        podType:      data.podType      ?? data.type ?? 'community',
+        visibility:   data.visibility   ?? 'open',
+        pendingInvites: data.pendingInvites ?? [],
+        pendingMembers: data.pendingMembers ?? data.invites ?? [],
       });
     }
   } catch (err: any) {
-    console.warn('fetchCircles pods failed:', err?.message);
+    console.error('fetchCircles (pods) failed:', err?.message);
   }
 
-  return results as Circle[];
+  // Legacy fallback: circles collection — only read if pods is empty
+  // Remove this block after running the migration script
+  if (results.length === 0) {
+    try {
+      const snap = await getDocs(collection(db, 'circles'));
+      for (const d of snap.docs) {
+        if (seen.has(d.id)) continue;
+        seen.add(d.id);
+        const data = d.data();
+        const numericId = data.numericId
+          ?? Math.abs(d.id.split('').reduce((a: number, c: string) => (a * 31 + c.charCodeAt(0)) | 0, 0));
+        results.push({
+          ...data,
+          id:           numericId,
+          numericId,
+          _firestoreId: d.id,
+          adminUid:     data.creatorUid ?? null,
+          members:      data.members    ?? [],
+          podType:      data.podType    ?? 'community',
+          visibility:   data.visibility ?? 'open',
+          pendingInvites: [],
+          pendingMembers: [],
+        });
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Deduplicate by name — same pod may briefly exist in both collections
+  // during migration window
+  const seenNames = new Set<string>();
+  return results.filter(r => {
+    const key = (r.name ?? '').toLowerCase().trim();
+    if (!key || seenNames.has(key)) return false;
+    seenNames.add(key);
+    return true;
+  }) as Circle[];
 }
 // ----------------
 //  Fetch Users
@@ -3579,7 +3608,7 @@ export async function fetchCompanyForRecruiter(recruiterUid: string): Promise<an
 
 /** Send invite — adds userId to pendingInvites array, idempotent. */
 export async function inviteMemberToCircle(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['circles', 'pods']) {
+  for (const col of ['pods', 'circles']) {  // pods first — canonical collection
     const ref = doc(db, col, firestoreId);
     const snap = await getDoc(ref);
     if (!snap.exists()) continue;
@@ -3593,7 +3622,7 @@ export async function inviteMemberToCircle(firestoreId: string, userNumericId: n
 
 /** User requests to join — adds to pendingMembers, idempotent. */
 export async function requestToJoinCircle(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['circles', 'pods']) {
+  for (const col of ['pods', 'circles']) {  // pods first — canonical collection
     const ref = doc(db, col, firestoreId);
     const snap = await getDoc(ref);
     if (!snap.exists()) continue;
@@ -3607,7 +3636,7 @@ export async function requestToJoinCircle(firestoreId: string, userNumericId: nu
 
 /** Admin approves join request — moves from pendingMembers to members. */
 export async function approveJoinRequest(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['circles', 'pods']) {
+  for (const col of ['pods', 'circles']) {  // pods first — canonical collection
     const ref = doc(db, col, firestoreId);
     const snap = await getDoc(ref);
     if (!snap.exists()) continue;
@@ -3625,7 +3654,7 @@ export async function approveJoinRequest(firestoreId: string, userNumericId: num
 
 /** Admin declines join request — removes from pendingMembers. */
 export async function declineJoinRequest(firestoreId: string, userNumericId: number): Promise<void> {
-  for (const col of ['circles', 'pods']) {
+  for (const col of ['pods', 'circles']) {  // pods first — canonical collection
     const ref = doc(db, col, firestoreId);
     const snap = await getDoc(ref);
     if (!snap.exists()) continue;
