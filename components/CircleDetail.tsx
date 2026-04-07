@@ -155,7 +155,7 @@ const InviteMember: React.FC<{
 
 // Join requests panel — shown to admin
 const JoinRequests: React.FC<{
-  pendingMembers: number[];
+  pendingMembers: (number | string)[];
   allUsers: User[];
   onApprove: (userId: number) => void;
   onDecline: (userId: number) => void;
@@ -170,7 +170,11 @@ const JoinRequests: React.FC<{
       </h4>
       <div className="space-y-2">
         {pendingMembers.map(uid => {
-          const user = allUsers.find(u => u.id === uid);
+          // uid may be a Firebase UID string or legacy numeric id
+          const user = allUsers.find(u =>
+            u.id === uid ||
+            (u as any)._firestoreUid === uid
+          );
           if (!user) return null;
           return (
             <div key={uid} className="flex items-center gap-3 bg-white rounded-lg p-2.5 border border-amber-100">
@@ -184,10 +188,10 @@ const JoinRequests: React.FC<{
                 <p className="text-xs text-stone-400 truncate">{(user as any).headline}</p>
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
-                <button onClick={() => onApprove(uid)}
+                <button onClick={() => onApprove(user.id)}
                   className="text-xs font-bold px-2.5 py-1 rounded-lg text-white"
                   style={{ backgroundColor: '#1a4a3a' }}>Accept</button>
-                <button onClick={() => onDecline(uid)}
+                <button onClick={() => onDecline(user.id)}
                   className="text-xs font-medium px-2.5 py-1 rounded-lg border hover:bg-stone-50"
                   style={{ borderColor: '#e7e5e4', color: '#6b7280' }}>Decline</button>
               </div>
@@ -365,8 +369,18 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
       [allArticles, circle.id]
   );
 
-  const isCurrentUserAdmin = currentUser.id === circle.adminId;
-  const adminUser = useMemo(() => allUsers.find(u => u.id === circle.adminId), [allUsers, circle.adminId]);
+  const isCurrentUserAdmin =
+    currentUser.id === circle.adminId ||
+    fbUser?.uid === (circle as any).adminUid ||
+    fbUser?.uid === (circle as any).creatorUid;
+  const adminUser = useMemo(() =>
+    allUsers.find(u =>
+      u.id === circle.adminId ||
+      (u as any)._firestoreUid === (circle as any).adminUid ||
+      (u as any)._firestoreUid === (circle as any).creatorUid
+    ),
+    [allUsers, circle.adminId, (circle as any).adminUid]
+  );
 
 
   return (
@@ -397,7 +411,10 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                 </>
             )}
           </div>
-          {!isCurrentUserAdmin && circle.members.includes(currentUser.id) && onLeaveCircle && (
+          {!isCurrentUserAdmin &&
+        (circle.members.includes(currentUser.id) ||
+         (circle as any)._memberUids?.includes(fbUser?.uid)) &&
+        onLeaveCircle && (
             <button
               onClick={() => onLeaveCircle(circle.id)}
               className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors font-medium">
