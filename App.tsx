@@ -487,24 +487,17 @@ const MainApp: React.FC = () => {
 
   const addPost = async (content: string, circleId?: number) => {
     if (!data || !currentUser || !fbUser) return;
-    // Resolve the Firestore string ID for the circle.
-    // At scale: consistent string IDs = consistent index queries = no fan-out.
-    let circleStringId: string | undefined;
+    // Mirror the original working approach: pass circleId directly.
+    // Use _firestoreId string when available for consistent querying,
+    // fall back to numeric circleId — never silently block a post.
+    let resolvedCircleId: string | number | undefined = circleId;
     if (circleId !== undefined && circleId !== null) {
       const circle = data.circles.find(c => c.id === circleId) as any;
-      // Prefer _firestoreId (Firestore doc ID string), fall back to string(numeric)
-      circleStringId = circle?._firestoreId
-        ? circle._firestoreId
-        : undefined;
-      // If no _firestoreId found, don't post — we can't route it correctly
-      if (!circleStringId) {
-        console.error('addPost: circle has no _firestoreId, cannot post to pod', circleId);
-        return;
-      }
+      if (circle?._firestoreId) resolvedCircleId = circle._firestoreId;
     }
-    const newPost = await fbCreatePost(content, currentUser, fbUser.uid, circleStringId as any);
+    const newPost = await fbCreatePost(content, currentUser, fbUser.uid, resolvedCircleId as any);
     // Pod posts arrive via real-time listener — don't add to global feed
-    if (circleStringId !== undefined) return;
+    if (resolvedCircleId !== undefined) return;
     setData({ ...data, posts: [newPost, ...data.posts] });
   };
 
