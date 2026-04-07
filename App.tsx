@@ -886,7 +886,7 @@ ${references || 'Not provided'}`;
   };
 
   const handleDeclineJoinRequest = async (circleId: number, userId: number) => {
-    if (!data) return;
+    if (!data || !currentUser) return;
     const circle = data.circles.find(c => c.id === circleId) as any;
     if (!circle?._firestoreId) return;
     setData({ ...data, circles: data.circles.map(c => c.id === circleId ? {
@@ -894,10 +894,55 @@ ${references || 'Not provided'}`;
       pendingMembers: ((c as any).pendingMembers ?? []).filter((id: number) => id !== userId),
     } : c) });
     try {
-      const { declineJoinRequest } = await import('./lib/firestoreService');
-      const decliningUser = data.users.find(u => u.id === userId) as any;
-      await declineJoinRequest(circle._firestoreId, userId, decliningUser?._firestoreUid);
+      const { declineJoinRequest, createPodNotification } = await import('./lib/firestoreService') as any;
+      const declinedUser = data.users.find(u => u.id === userId) as any;
+      await declineJoinRequest(circle._firestoreId, userId, declinedUser?._firestoreUid);
+      // Notify the declined user
+      if (declinedUser?._firestoreUid) {
+        await createPodNotification(declinedUser._firestoreUid, {
+          type: 'circle_denied',
+          message: `Your request to join "${circle.name}" was not approved`,
+          relatedId: circleId,
+          actorId: currentUser.id,
+          actorName: currentUser.name,
+          actorAvatar: currentUser.avatarUrl,
+        });
+      }
     } catch (err) { console.error('declineJoinRequest failed:', err); }
+  };
+
+  const handleApplyToCircle = async (circleId: number) => {
+    if (!data || !currentUser || !fbUser) return;
+    const circle = data.circles.find(c => c.id === circleId) as any;
+    // Optimistic update
+    setData(d => d ? {
+      ...d,
+      circles: d.circles.map(c => c.id === circleId
+        ? { ...c, pendingMembers: [...((c as any).pendingMembers ?? []), currentUser.id] }
+        : c)
+    } : null);
+    if (circle?._firestoreId) {
+      try {
+        const { requestToJoinCircle, createPodNotification } = await import('./lib/firestoreService') as any;
+        await requestToJoinCircle(circle._firestoreId, currentUser.id, fbUser?.uid);
+        const adminUid = (circle as any).adminUid ?? (circle as any).creatorUid;
+        const admin = data.users.find(u =>
+          (u as any)._firestoreUid === adminUid || u.id === circle.adminId
+        ) as any;
+        const adminFirestoreUid = adminUid ?? admin?._firestoreUid;
+        if (adminFirestoreUid) {
+          await createPodNotification(adminFirestoreUid, {
+            type: 'circle_join_request',
+            message: `${currentUser.name} requested to join "${circle.name}"`,
+            relatedId: circleId,
+            actorId: currentUser.id,
+            actorName: currentUser.name,
+            actorAvatar: currentUser.avatarUrl,
+            circleFirestoreId: circle._firestoreId,
+          });
+        }
+      } catch (err) { console.error('requestToJoin failed:', err); }
+    }
   };
 
   const handleLeaveCircle = async (circleId: number) => {
@@ -1247,7 +1292,7 @@ ${references || 'Not provided'}`;
         if (activeCircleId) {
           const circle = data.circles.find(c => c.id === activeCircleId);
           content = circle
-            ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onInviteMember={handleInviteMemberToCircle} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onApproveJoinRequest={handleApproveJoinRequest} onDeclineJoinRequest={handleDeclineJoinRequest} onLeaveCircle={handleLeaveCircle} onViewProfile={handleViewProfile} lastVisited={lastCircleVisited[activeCircleId] ?? undefined} />
+            ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onInviteMember={handleInviteMemberToCircle} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onApproveJoinRequest={handleApproveJoinRequest} onDeclineJoinRequest={handleDeclineJoinRequest} onLeaveCircle={handleLeaveCircle} onViewProfile={handleViewProfile} onBack={() => setActiveCircleId(null)} onApplyToCircle={handleApplyToCircle} lastVisited={lastCircleVisited[activeCircleId] ?? undefined} />
             : <div>Circle not found</div>;
         } else {
           content = <Circles
@@ -1258,41 +1303,7 @@ ${references || 'Not provided'}`;
               if (!fbUser || !currentUser) return;
               handleAddMemberToCircle(circleId, currentUser.id);
             }}
-            onApplyToCircle={async (circleId) => {
-              if (!data || !currentUser) return;
-              const circle = data.circles.find(c => c.id === circleId) as any;
-              // Optimistic update
-              setData(d => d ? {
-                ...d,
-                circles: d.circles.map(c => c.id === circleId
-                  ? { ...c, pendingMembers: [...((c as any).pendingMembers ?? []), currentUser.id] }
-                  : c)
-              } : null);
-              // Persist + notify admin
-              if (circle?._firestoreId) {
-                try {
-                  const { requestToJoinCircle, createPodNotification } = await import('./lib/firestoreService') as any;
-                  await requestToJoinCircle(circle._firestoreId, currentUser.id, fbUser?.uid);
-                  // Find admin — check adminUid first (new pods), fall back to adminId (legacy)
-                  const adminUid = (circle as any).adminUid ?? (circle as any).creatorUid;
-                  const admin = data.users.find(u =>
-                    (u as any)._firestoreUid === adminUid || u.id === circle.adminId
-                  ) as any;
-                  const adminFirestoreUid = adminUid ?? admin?._firestoreUid;
-                  if (adminFirestoreUid) {
-                    await createPodNotification(adminFirestoreUid, {
-                      type: 'circle_join_request',
-                      message: `${currentUser.name} requested to join "${circle.name}"`,
-                      relatedId: circleId,
-                      actorId: currentUser.id,
-                      actorName: currentUser.name,
-                      actorAvatar: currentUser.avatarUrl,
-                      circleFirestoreId: circle._firestoreId,
-                    });
-                  }
-                } catch (err) { console.error('requestToJoin failed:', err); }
-              }
-            }}
+            onApplyToCircle={handleApplyToCircle}
             onLeaveCircle={handleLeaveCircle}
             currentUserId={currentUser.id}
             currentUserFirestoreUid={fbUser?.uid}
