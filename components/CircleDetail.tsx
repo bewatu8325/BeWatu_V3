@@ -335,8 +335,20 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
     
 
   const circlePosts = useMemo(
-    () => allPosts.filter(post => post.circleId === circle.id).sort((a, b) => b.id - a.id),
-    [allPosts, circle.id]
+    () => allPosts.filter(post => {
+      const cid = post.circleId;
+      if (!cid) return false;
+      // Match numeric id, string numeric, or Firestore string ID
+      return cid === circle.id ||
+        cid === String(circle.id) ||
+        cid === (circle as any)._firestoreId;
+    }).sort((a, b) => {
+      // Sort by createdAt timestamp if available, fall back to id
+      const ta = (a as any).createdAt?.toMillis?.() ?? (a as any).createdAt?.getTime?.() ?? a.id;
+      const tb = (b as any).createdAt?.toMillis?.() ?? (b as any).createdAt?.getTime?.() ?? b.id;
+      return tb - ta;
+    }),
+    [allPosts, circle.id, (circle as any)._firestoreId]
   );
   
   const circleMembers = useMemo(
@@ -345,7 +357,11 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
   );
 
   const circleArticles = useMemo(
-      () => allArticles.filter(article => article.circleId === circle.id).sort((a,b) => b.id - a.id),
+      () => allArticles.filter(article =>
+        article.circleId === circle.id ||
+        article.circleId === String(circle.id) ||
+        article.circleId === (circle as any)._firestoreId
+      ).sort((a,b) => b.id - a.id),
       [allArticles, circle.id]
   );
 
