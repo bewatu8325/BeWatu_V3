@@ -104,10 +104,10 @@ export async function createPost(
   content: string,
   author: User,
   authorUid: string,
-  circleId?: number
+  circleId?: number | string
 ): Promise<Post> {
-  // Normalize circleId: always store as string for consistent querying.
-  // At scale: a single consistent type prevents dual-query fan-out.
+  // Store circleId as-is (string _firestoreId preferred, numeric fallback).
+  // Also store the string form so subscribeToCirclePosts can always match.
   const circleIdStr = circleId != null ? String(circleId) : null;
 
   const ref = await addDoc(collection(db, 'posts'), {
@@ -3635,16 +3635,6 @@ export function subscribeToCirclePosts(
   circleFirestoreId: string,
   onUpdate: (posts: any[]) => void
 ): () => void {
-  // Always query by string circleId — new posts normalise to string on write.
-  // At scale: single consistent type = single index = no fan-out queries.
-  // Composite index needed: circleId ASC + createdAt DESC
-  const q = query(
-    collection(db, 'posts'),
-    where('circleId', '==', circleFirestoreId),
-    orderBy('createdAt', 'desc'),
-    limit(50)
-  );
-
   const mapPost = (d: any) => {
     const data = d.data();
     return {
@@ -3661,10 +3651,55 @@ export function subscribeToCirclePosts(
       avatarUrl:      data.authorPhoto,
       authorName:     data.authorName,
       authorHeadline: data.authorHeadline,
+      authorUid:      data.authorUid,
     };
   };
 
-  return onSnapshot(q, snap => onUpdate(snap.docs.map(mapPost)), () => onUpdate([]));
+  // Merge results from both queries, deduplicate, sort by time descending
+  let strPosts: any[] = [];
+  let numPosts: any[] = [];
+
+  const publish = () => {
+    const seen = new Set<string>();
+    const merged = [...strPosts, ...numPosts].filter(p => {
+      if (seen.has(p._firestoreId)) return false;
+      seen.add(p._firestoreId);
+      return true;
+    }).sort((a, b) => {
+      const ta = a.createdAt?.toMillis?.() ?? a.createdAt?.getTime?.() ?? 0;
+      const tb = b.createdAt?.toMillis?.() ?? b.createdAt?.getTime?.() ?? 0;
+      return tb - ta;
+    });
+    onUpdate(merged);
+  };
+
+  // Query 1: string circleId (posts written after the _firestoreId fix)
+  const qStr = query(
+    collection(db, 'posts'),
+    where('circleId', '==', circleFirestoreId),
+    limit(50)
+  );
+  const unsubStr = onSnapshot(qStr, snap => {
+    strPosts = snap.docs.map(mapPost);
+    publish();
+  }, () => {});
+
+  // Query 2: numeric circleId (posts written before the fix, or with numeric id)
+  const numericId = parseInt(circleFirestoreId, 10);
+  let unsubNum: (() => void) | null = null;
+  if (!isNaN(numericId)) {
+    const qNum = query(
+      collection(db, 'posts'),
+      where('circleId', '==', numericId),
+      limit(50)
+    );
+    unsubNum = onSnapshot(qNum, snap => {
+      numPosts = snap.docs.map(mapPost);
+      publish();
+    }, () => {});
+  }
+
+  return () => { unsubStr(); unsubNum?.(); };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
