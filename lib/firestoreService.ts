@@ -718,26 +718,58 @@ export async function createCircle(
 }
 
 export async function fetchCircles(): Promise<Circle[]> {
+  const results: any[] = [];
+  const seen = new Set<string>();
+
+  // ── circles collection (primary) ─────────────────────────────────────────
   try {
-    const snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
-    return snap.docs.map((d) => {
-      const data = d.data();
-      return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
-    });
-  } catch (err: any) {
-    // Index not built — fall back to unordered fetch
-    console.warn('fetchCircles ordered query failed, falling back:', err?.message);
+    let snap;
     try {
-      const snap = await getDocs(collection(db, 'circles'));
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return { ...data, id: data.numericId, _firestoreId: d.id } as Circle & { _firestoreId: string };
-      });
-    } catch (err2) {
-      console.error('fetchCircles fallback failed:', err2);
-      return [];
+      snap = await getDocs(query(collection(db, 'circles'), orderBy('createdAt', 'desc')));
+    } catch {
+      snap = await getDocs(collection(db, 'circles'));
     }
+    for (const d of snap.docs) {
+      if (seen.has(d.id)) continue;
+      seen.add(d.id);
+      const data = d.data();
+      // id MUST be a number the UI can use for find(c => c.id === activeCircleId)
+      // Use numericId if present, otherwise hash the doc ID to a stable number
+      const id = data.numericId
+        ?? Math.abs(d.id.split('').reduce((a: number, c: string) => (a * 31 + c.charCodeAt(0)) | 0, 0));
+      results.push({ ...data, id, numericId: id, _firestoreId: d.id, _sourceCollection: 'circles' });
+    }
+  } catch (err: any) {
+    console.error('fetchCircles circles failed:', err?.message);
   }
+
+  // ── pods collection (legacy, UID-string members) ──────────────────────────
+  try {
+    const snap = await getDocs(collection(db, 'pods'));
+    for (const d of snap.docs) {
+      if (seen.has(d.id)) continue;
+      seen.add(d.id);
+      const data = d.data();
+      const id = data.numericId
+        ?? Math.abs(d.id.split('').reduce((a: number, c: string) => (a * 31 + c.charCodeAt(0)) | 0, 0));
+      results.push({
+        ...data,
+        id,
+        numericId: id,
+        _firestoreId:      d.id,
+        _sourceCollection: 'pods',
+        _adminUid:         data.adminId,
+        _memberUids:       data.members ?? [],
+        podType:           data.podType ?? data.type ?? 'community',
+        visibility:        data.visibility ?? 'open',
+        pendingMembers:    data.pendingMembers ?? data.invites ?? [],
+      });
+    }
+  } catch (err: any) {
+    console.warn('fetchCircles pods failed:', err?.message);
+  }
+
+  return results as Circle[];
 }
 // ----------------
 //  Fetch Users
@@ -3635,7 +3667,6 @@ export function subscribeToCirclePosts(
   circleFirestoreId: string,
   onUpdate: (posts: any[]) => void
 ): () => void {
-  console.log('[subscribeToCirclePosts] subscribing for circleId:', circleFirestoreId);
   const mapPost = (d: any) => {
     const data = d.data();
     return {
@@ -3671,7 +3702,6 @@ export function subscribeToCirclePosts(
       const tb = b.createdAt?.toMillis?.() ?? b.createdAt?.getTime?.() ?? 0;
       return tb - ta;
     });
-    console.log('[subscribeToCirclePosts] publishing', merged.length, 'posts (str:', strPosts.length, 'num:', numPosts.length, ')');
     onUpdate(merged);
   };
 
