@@ -800,6 +800,7 @@ const MainApp: React.FC = () => {
   const handleGenerateSkillsGraph = async (resume: string, digitalFootprint: string, references: string) => {
     if (!data || !currentUser || !fbUser) return;
 
+    // Call Claude proxy instead of broken Gemini endpoint
     const prompt = `Analyse this professional's background and return a JSON array of verified skills.
 Each skill: { "name": string, "level": "beginner"|"intermediate"|"advanced"|"expert", "endorsements": 0, "source": "platform"|"resume"|"endorsement" }
 Return ONLY valid JSON — no markdown, no explanation.
@@ -831,6 +832,7 @@ ${references || 'Not provided'}`;
       }
     } catch (err) {
       console.error('Skills generation error:', err);
+      // Fall back to deriving from existing profile skills
       verifiedSkills = (currentUser.skills ?? []).map((s: any) => ({
         name:        typeof s === 'string' ? s : s.name,
         level:       'intermediate',
@@ -839,25 +841,11 @@ ${references || 'Not provided'}`;
       }));
     }
 
-    // AI/platform-derived skills → verifiedSkills (shown with green check)
     const updatedUser = { ...currentUser, verifiedSkills };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
     refreshUser(updatedUser);
     await updateUserInFirestore(fbUser.uid, { verifiedSkills });
     setIsSkillsGraphModalOpen(false);
-  };
-
-  // Manually added skills → userAddedSkills (shown without verification badge)
-  // Called when user types a skill in SkillsGraphModal's "Add manually" field
-  const handleAddUserSkill = async (skillName: string) => {
-    if (!data || !currentUser || !fbUser || !skillName.trim()) return;
-    const existing: string[] = (currentUser as any).userAddedSkills ?? [];
-    if (existing.includes(skillName.trim())) return;
-    const updated = [...existing, skillName.trim()];
-    const updatedUser = { ...currentUser, userAddedSkills: updated };
-    setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
-    refreshUser(updatedUser);
-    await updateUserInFirestore(fbUser.uid, { userAddedSkills: updated });
   };
 
   const handleSaveMicroIntroduction = async (videoUrl: string) => {
@@ -1577,7 +1565,7 @@ ${references || 'Not provided'}`;
           />
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
-          {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onAddUserSkill={handleAddUserSkill} onClose={() => setIsSkillsGraphModalOpen(false)} />}
+          {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
           {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
           {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
           {reportModalOpen && fbUser && currentUser && (
