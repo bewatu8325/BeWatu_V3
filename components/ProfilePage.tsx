@@ -17,6 +17,7 @@ interface ProfilePageProps {
   circles: Circle[];
   onGenerateSkills: () => void;
   onRecordVideo: () => void;
+  onUploadVideo?: (file: File) => void;
   onPlayVideo: (url: string) => void;
   onNavigate: (view: View) => void;
   onSelectCircle: (circleId: number) => void;
@@ -49,41 +50,290 @@ const getCircleColor = (circleName: string) => {
     return color;
 };
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity, onReportUser }) => {
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WorkplaceSection — company with autocomplete + auto-create
+// ─────────────────────────────────────────────────────────────────────────────
+const WorkplaceSection: React.FC<{
+  user: any;
+  isCurrentUser: boolean;
+  fbUid: string;
+}> = ({ user, isCurrentUser, fbUid }) => {
+  const [editing, setEditing] = useState(false);
+  const [query, setQuery] = useState(user.employerName ?? '');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showOnPage, setShowOnPage] = useState(user.showOnCompanyPage ?? false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const debounceRef = React.useRef<any>(null);
+
+  const searchCompanies = async (q: string) => {
+    if (!q.trim() || q.length < 2) { setSuggestions([]); return; }
+    try {
+      const { getDocs, query: fsQuery, collection, where, orderBy, limit, startAt, endAt } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      const snap = await getDocs(fsQuery(
+        collection(db, 'companies'),
+        orderBy('name'),
+        startAt(q),
+        endAt(q + '\uf8ff'),
+        limit(5)
+      ));
+      setSuggestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch { setSuggestions([]); }
+  };
+
+  const handleQueryChange = (val: string) => {
+    setQuery(val);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => searchCompanies(val), 300);
+  };
+
+  const handleSelect = (company: any) => {
+    setQuery(company.name);
+    setSuggestions([]);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { updateUserInFirestore } = await import('../lib/firebaseAuth');
+      const trimmed = query.trim();
+
+      // Check if company exists; if not, create a minimal entry
+      if (trimmed) {
+        const { getDocs, query: fsQuery, collection, where, limit, addDoc, serverTimestamp } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
+        const snap = await getDocs(fsQuery(collection(db, 'companies'), where('name', '==', trimmed), limit(1)));
+        if (snap.empty) {
+          // Company not in BeWatu — create minimal entry (unregistered)
+          await addDoc(collection(db, 'companies'), {
+            name: trimmed,
+            claimed: false,
+            createdAt: serverTimestamp(),
+            createdByUid: fbUid,
+            source: 'user_profile',
+          });
+        }
+      }
+
+      await updateUserInFirestore(fbUid, {
+        employerName: trimmed || null,
+        showOnCompanyPage: showOnPage,
+      });
+      setSaved(true);
+      setEditing(false);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) { console.error('workplace save failed:', e); }
+    finally { setSaving(false); }
+  };
+
+  if (!isCurrentUser && !user.employerName) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border shadow-sm p-5" style={{ borderColor: '#e7e5e4' }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2">
+          <svg className="w-4 h-4" style={{ color: '#1a4a3a' }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          Workplace
+        </h3>
+        {isCurrentUser && !editing && (
+          <button onClick={() => setEditing(true)} className="text-xs font-semibold px-2 py-0.5 rounded-lg hover:bg-stone-100" style={{ color: '#1a4a3a' }}>
+            {user.employerName ? 'Edit' : 'Add'}
+          </button>
+        )}
+      </div>
+
+      {!editing ? (
+        user.employerName ? (
+          <div>
+            <p className="text-sm font-medium text-stone-800">{user.employerName}</p>
+            {isCurrentUser && (
+              <p className="text-xs text-stone-400 mt-0.5">{user.showOnCompanyPage ? 'Showing on company page' : 'Not shown on company page'}</p>
+            )}
+          </div>
+        ) : isCurrentUser ? (
+          <p className="text-sm text-stone-400">Add your current employer</p>
+        ) : null
+      ) : (
+        <div className="space-y-3">
+          <div className="relative">
+            <input
+              autoFocus
+              value={query}
+              onChange={e => handleQueryChange(e.target.value)}
+              placeholder="Search or enter company name"
+              className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30"
+              style={{ borderColor: '#e7e5e4' }}
+            />
+            {suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white rounded-xl border shadow-lg overflow-hidden" style={{ borderColor: '#e7e5e4' }}>
+                {suggestions.map(s => (
+                  <button key={s.id} onClick={() => handleSelect(s)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50 transition-colors flex items-center gap-2">
+                    {s.logoUrl && <img src={s.logoUrl} alt="" className="w-5 h-5 rounded object-cover" />}
+                    <span className="font-medium text-stone-800">{s.name}</span>
+                    {s.claimed && <span className="text-xs text-green-600 font-semibold ml-auto">BeWatu member</span>}
+                  </button>
+                ))}
+                {query.trim() && !suggestions.find(s => s.name.toLowerCase() === query.toLowerCase()) && (
+                  <button onClick={() => { setSuggestions([]); }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50 transition-colors text-stone-500">
+                    Add "<strong className="text-stone-800">{query.trim()}</strong>" as new company
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+            <input type="checkbox" checked={showOnPage} onChange={e => setShowOnPage(e.target.checked)}
+              className="rounded border-stone-300" />
+            Show me on this company's BeWatu page
+          </label>
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving}
+              className="text-sm font-semibold px-4 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ backgroundColor: '#1a4a3a' }}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button onClick={() => { setEditing(false); setQuery(user.employerName ?? ''); setSuggestions([]); }}
+              className="text-sm px-4 py-1.5 rounded-lg border hover:bg-stone-50" style={{ borderColor: '#e7e5e4', color: '#6b7280' }}>
+              Cancel
+            </button>
+          </div>
+          {saved && <p className="text-xs text-green-600 font-medium">Saved ✓</p>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SkillsSection — self-reported skills management
+// ─────────────────────────────────────────────────────────────────────────────
+const SkillsSection: React.FC<{
+  skills: any[];
+  userAddedSkills: string[];
+  isCurrentUser: boolean;
+  fbUid: string;
+  onGenerateSkills: () => void;
+}> = ({ skills, userAddedSkills, isCurrentUser, fbUid, onGenerateSkills }) => {
+  const [newSkill, setNewSkill] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [localSkills, setLocalSkills] = useState<string[]>(userAddedSkills);
+
+  const handleAdd = async () => {
+    const trimmed = newSkill.trim();
+    if (!trimmed || localSkills.includes(trimmed)) return;
+    const updated = [...localSkills, trimmed];
+    setLocalSkills(updated);
+    setNewSkill('');
+    setAdding(false);
+    try {
+      const { updateUserInFirestore } = await import('../lib/firebaseAuth');
+      await updateUserInFirestore(fbUid, { userAddedSkills: updated });
+    } catch { /* silent — local state already updated */ }
+  };
+
+  const handleRemove = async (skill: string) => {
+    const updated = localSkills.filter(s => s !== skill);
+    setLocalSkills(updated);
+    try {
+      const { updateUserInFirestore } = await import('../lib/firebaseAuth');
+      await updateUserInFirestore(fbUid, { userAddedSkills: updated });
+    } catch { /* silent */ }
+  };
+
+  return (
+    <div className="mt-4">
+      {/* AI-endorsed skills from platform activity */}
+      {skills.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Platform Skills</h4>
+          <div className="flex flex-wrap gap-2">
+            {skills.map(skill => (
+              <div key={skill.name} className="flex items-center text-sm bg-[#e8f4f0]/50 text-[#1a6b52] rounded-full px-3 py-1 font-medium border border-[#1a4a3a]/20">
+                {skill.name}
+                {skill.endorsements > 0 && <span className="ml-1.5 text-[#1a6b52] font-semibold">{skill.endorsements}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Self-reported / user-added skills */}
+      {(localSkills.length > 0 || isCurrentUser) && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Self-reported Skills</h4>
+            {isCurrentUser && !adding && (
+              <button
+                onClick={() => setAdding(true)}
+                className="text-xs font-semibold px-2 py-0.5 rounded-lg hover:bg-stone-100 transition-colors"
+                style={{ color: '#1a4a3a' }}>
+                + Add skill
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {localSkills.map(skill => (
+              <div key={skill} className="flex items-center gap-1 text-sm bg-stone-100 text-stone-600 rounded-full px-3 py-1 font-medium border border-stone-200">
+                {skill}
+                {isCurrentUser && (
+                  <button onClick={() => handleRemove(skill)} className="ml-1 text-stone-400 hover:text-red-400 transition-colors leading-none">×</button>
+                )}
+              </div>
+            ))}
+          </div>
+          {adding && (
+            <div className="flex gap-2 mt-2">
+              <input
+                autoFocus
+                value={newSkill}
+                onChange={e => setNewSkill(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setNewSkill(''); } }}
+                placeholder="e.g. Product Management"
+                className="flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30"
+                style={{ borderColor: '#e7e5e4' }}
+                maxLength={50}
+              />
+              <button onClick={handleAdd} className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: '#1a4a3a' }}>Add</button>
+              <button onClick={() => { setAdding(false); setNewSkill(''); }} className="text-sm px-3 py-1.5 rounded-lg border hover:bg-stone-50" style={{ borderColor: '#e7e5e4', color: '#6b7280' }}>Cancel</button>
+            </div>
+          )}
+          {isCurrentUser && localSkills.length === 0 && !adding && (
+            <p className="text-xs text-stone-400">Add skills to your profile — they can be endorsed by your connections</p>
+          )}
+        </div>
+      )}
+
+      {/* Generate verified skills via AI */}
+      {isCurrentUser && (
+        <button onClick={onGenerateSkills} className="mt-4 w-full bg-[#1a4a3a]/10 text-[#1a6b52] font-semibold px-4 py-2 rounded-lg hover:bg-[#1a4a3a]/20 transition-colors text-sm flex items-center justify-center border border-[#1a4a3a]/20">
+          <SparklesIcon className="w-4 h-4 mr-2" />
+          Generate Verified Skills from Resume
+        </button>
+      )}
+    </div>
+  );
+};
+
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onUploadVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity, onReportUser }) => {
   const { t } = useTranslation();
   const { fbUser } = useFirebase();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [showReelPicker, setShowReelPicker] = useState(false);
+  const videoUploadRef = useRef<HTMLInputElement>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUploadProgress, setAvatarUploadProgress] = useState(0);
   const [avatarError, setAvatarError] = useState('');
   const [localAvatarUrl, setLocalAvatarUrl] = useState('');
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
-
-  // Workplace visibility state
-  const [employerName,       setEmployerName]       = useState<string>((user as any).employerName ?? '');
-  const [showOnCompanyPage,  setShowOnCompanyPage]  = useState<boolean>((user as any).showOnCompanyPage ?? false);
-  const [workplaceSaving,    setWorkplaceSaving]    = useState(false);
-  const [workplaceSaved,     setWorkplaceSaved]     = useState(false);
-
-  async function handleSaveWorkplace() {
-    if (!fbUser) return;
-    setWorkplaceSaving(true);
-    try {
-      await updateUserInFirestore(fbUser.uid, {
-        employerName,
-        showOnCompanyPage,
-      } as any);
-      setWorkplaceSaved(true);
-      setTimeout(() => setWorkplaceSaved(false), 2000);
-    } catch (err) {
-      console.error('Failed to save workplace settings:', err);
-    } finally {
-      setWorkplaceSaving(false);
-    }
-  }
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeError, setResumeError] = useState('');
   const [localExperiences, setLocalExperiences] = useState<any[]>((user as any).experiences ?? []);
@@ -214,15 +464,69 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 </button>
               ) : isCurrentUser ? (
                 <button
-                  onClick={e => { e.stopPropagation(); onRecordVideo(); }}
+                  onClick={e => { e.stopPropagation(); setShowReelPicker(true); }}
                   className="absolute bottom-0 right-0 bg-stone-100 p-1.5 rounded-full border-2 border-stone-200 hover:bg-stone-200 transition-colors"
-                  title={t('recordMicroIntro')}
+                  title="Share your reel vibe"
                 >
                   <CameraIcon className="w-4 h-4 text-stone-700" />
                 </button>
               ) : null
             )}
           </div>
+
+          {/* ── Reel vibe picker modal ──────────────────────────────── */}
+          {showReelPicker && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs text-center space-y-4">
+                <h3 className="text-lg font-bold text-stone-900">Share your reel vibe</h3>
+                <p className="text-sm text-stone-500">Record a quick intro or upload an existing video</p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => { setShowReelPicker(false); onRecordVideo(); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 hover:bg-stone-50 transition-colors text-left"
+                    style={{ borderColor: '#1a4a3a' }}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0" style={{ backgroundColor: '#1a4a3a' }}>
+                      <CameraIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-stone-900 text-sm">Record now</p>
+                      <p className="text-xs text-stone-400">Use your camera to record live</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { setShowReelPicker(false); videoUploadRef.current?.click(); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border hover:bg-stone-50 transition-colors text-left"
+                    style={{ borderColor: '#e7e5e4' }}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e8f4f0' }}>
+                      <svg className="w-5 h-5" style={{ color: '#1a4a3a' }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-bold text-stone-900 text-sm">Upload a video</p>
+                      <p className="text-xs text-stone-400">MP4, MOV up to 100 MB</p>
+                    </div>
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowReelPicker(false)}
+                  className="text-sm text-stone-400 hover:text-stone-600 transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          <input
+            ref={videoUploadRef}
+            type="file"
+            accept="video/mp4,video/quicktime,video/webm"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file && onUploadVideo) onUploadVideo(file);
+              e.target.value = '';
+            }}
+          />
 
           {isCurrentUser && (
             <div className="mb-2 -mt-2">
@@ -296,25 +600,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 ))}
               </div>
             </div>
-          ) : (
-            <div className="text-center">
-              <h3 className="font-semibold text-stone-800 text-md mb-2">{t('topSkills')}</h3>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {user.skills?.map(skill => (
-                  <div key={skill.name} className="flex items-center text-sm bg-[#e8f4f0]/50 text-[#1a6b52] rounded-full px-3 py-1 font-medium border border-[#1a4a3a]/20">
-                    {skill.name}
-                    <span className="ml-1.5 text-[#1a6b52] font-semibold">{skill.endorsements}</span>
-                  </div>
-                ))}
-              </div>
-              {isCurrentUser && (
-                <button onClick={onGenerateSkills} className="mt-4 w-full bg-[#1a4a3a]/10 text-[#1a6b52] font-semibold px-4 py-2 rounded-lg hover:bg-[#1a4a3a]/20 transition-colors text-sm flex items-center justify-center border border-[#1a4a3a]/20">
-                  <SparklesIcon className="w-4 h-4 mr-2" />
-                  {t('generateVerifiedSkills')}
-                </button>
-              )}
-            </div>
-          )}
+          ) : null}
+
+          {/* Self-reported skills — user-added, not yet verified */}
+          <SkillsSection
+            skills={user.skills ?? []}
+            userAddedSkills={(user as any).userAddedSkills ?? []}
+            isCurrentUser={isCurrentUser}
+            fbUid={fbUser?.uid ?? ''}
+            onGenerateSkills={onGenerateSkills}
+          />
         </div>
 
         {/* Trust Reputation Panel — full domain breakdown */}
@@ -359,6 +654,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         )}
 
         {/* Experience */}
+        {/* Workplace */}
+        <WorkplaceSection user={user} isCurrentUser={isCurrentUser} fbUid={fbUser?.uid ?? ''} />
+
         <ExperienceSection
           experiences={localExperiences}
           isOwn={isCurrentUser}
@@ -393,67 +691,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 </button>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Workplace visibility — only for current user */}
-        {isCurrentUser && (
-          <div className="bg-white rounded-2xl border p-4 space-y-4" style={{ borderColor: '#e7e5e4' }}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white flex-shrink-0" style={{ backgroundColor: '#1a4a3a' }}>
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-              </div>
-              <div>
-                <p className="font-bold text-stone-900 text-sm">Workplace</p>
-                <p className="text-xs text-stone-400">Appear on your company's page on BeWatu</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-stone-600">Employer name</label>
-              <input
-                type="text"
-                value={employerName}
-                onChange={e => setEmployerName(e.target.value)}
-                placeholder="e.g. Acme Corp"
-                className="w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none transition-colors"
-                style={{ borderColor: '#e7e5e4' }}
-              />
-              <p className="text-xs text-stone-400">
-                Must match the company name exactly as registered on BeWatu.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-t" style={{ borderColor: '#f5f5f4' }}>
-              <div>
-                <p className="text-sm font-semibold text-stone-800">Show me on company page</p>
-                <p className="text-xs text-stone-400 mt-0.5">
-                  Your name, headline and skills will appear on {employerName || 'your company'}'s BeWatu page.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowOnCompanyPage(v => !v)}
-                className="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none ml-4"
-                style={{ backgroundColor: showOnCompanyPage ? '#1a4a3a' : '#e7e5e4' }}
-                aria-checked={showOnCompanyPage}
-                role="switch"
-              >
-                <span
-                  className="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform"
-                  style={{ transform: showOnCompanyPage ? 'translateX(1.375rem)' : 'translateX(0.25rem)' }}
-                />
-              </button>
-            </div>
-
-            <button
-              onClick={handleSaveWorkplace}
-              disabled={workplaceSaving}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-              style={{ backgroundColor: '#1a4a3a' }}
-            >
-              {workplaceSaving ? 'Saving…' : workplaceSaved ? '✓ Saved' : 'Save workplace settings'}
-            </button>
           </div>
         )}
 
