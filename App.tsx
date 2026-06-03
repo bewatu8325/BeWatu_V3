@@ -65,6 +65,7 @@ import TermsConsentModal, { TERMS_VERSION } from './components/TermsConsentModal
 import { goToFactory } from './utils/factoryHandoff';
 import CookieBanner from './components/CookieBanner';
 import AccountDeletionModal from './components/AccountDeletionModal';
+import DataRequestModal from './components/DataRequestModal';
 const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
 const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
 const CommunityGuidelines = lazy(() => import('./components/legal/CommunityGuidelines'));
@@ -169,6 +170,7 @@ const MainApp: React.FC = () => {
   const [showPrivacyPage, setShowPrivacyPage] = useState(false);
   const [showCommunityPage, setShowCommunityPage] = useState(false);
   const [showDeletionModal, setShowDeletionModal] = useState(false);
+  const [showDataRequestModal, setShowDataRequestModal] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<number | null>(null);
   const [followedUserIds, setFollowedUserIds] = useState<Set<number>>(new Set());
 
@@ -513,11 +515,27 @@ const MainApp: React.FC = () => {
     await handleLogout();
   };
 
-  const handleExportData = async () => {
+  const handleExportData = () => {
     if (!fbUser || !currentUser) return;
-    const { exportUserData, downloadDataAsJson } = await import('./lib/accountService');
-    const data = await exportUserData(fbUser.uid, currentUser.id);
-    downloadDataAsJson(data);
+    setShowDataRequestModal(true);
+  };
+
+  const handleUploadVideo = async (file: File) => {
+    if (!fbUser || !currentUser) return;
+    try {
+      // Upload video to Firebase Storage → get URL → save as microIntroductionUrl
+      const { ref, uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
+      const { storage } = await import('./lib/firebase');
+      const storageRef = ref(storage, `microIntros/${fbUser.uid}/${Date.now()}_${file.name}`);
+      await new Promise<void>((resolve, reject) => {
+        const task = uploadBytesResumable(storageRef, file);
+        task.on('state_changed', undefined, reject, resolve);
+      });
+      const url = await getDownloadURL(storageRef);
+      await handleSaveMicroIntroduction(url);
+    } catch (err) {
+      console.error('Video upload failed:', err);
+    }
   };
   const handleEnterAdminPanel = () => setActiveProfile('admin');
 
@@ -1278,7 +1296,7 @@ ${references || 'Not provided'}`;
       case View.Profile: {
         const userToShow = profileUserId ? data.users.find(u => u.id === profileUserId) : currentUser;
         content = userToShow
-          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} />
+          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} />
           : <div>User not found.</div>;
         break;
       }
@@ -1720,6 +1738,14 @@ ${references || 'Not provided'}`;
         </div>
       )}
       <CookieBanner onShowPrivacy={() => setShowPrivacyPage(true)} />
+      {showDataRequestModal && currentUser && fbUser && (
+        <DataRequestModal
+          userName={currentUser.name}
+          userEmail={(currentUser as any).email ?? fbUser.email ?? ''}
+          userNumericId={currentUser.id}
+          onClose={() => setShowDataRequestModal(false)}
+        />
+      )}
       {showDeletionModal && currentUser && (
         <AccountDeletionModal
           userName={currentUser.name}
