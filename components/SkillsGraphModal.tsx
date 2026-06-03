@@ -1,396 +1,318 @@
 /**
  * components/SkillsGraphModal.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Replaces the resume-paste box with a two-source verified skills flow:
+ * Skills verification modal — "Based on what you've built, not what you've claimed"
  *
- *   Tab 1 — Platform activity
- *     Skills are auto-derived from what the user has actually done on BeWatu:
- *     arena submissions, reel tags, ideas posted, pods joined.
- *     The user reviews and confirms — no manual entry needed.
+ * TWO TABS:
+ * 1. Platform activity — AI-detected skills from BeWatu activity (→ verifiedSkills)
+ * 2. Peer endorsements — skills endorsed by connections (→ verifiedSkills)
  *
- *   Tab 2 — Peer endorsements
- *     Circle members can endorse specific skills. The user can request
- *     endorsements from their connections here.
- *
- * The result feeds into verifiedSkills on the user profile.
+ * "Add a skill manually" → goes to userAddedSkills (NOT verifiedSkills)
+ * Manual skills are self-reported and require peer endorsement to become verified.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../types';
-import {
-  X, CheckCircle2, Zap, Users, Trophy, Video,
-  Lightbulb, ChevronRight, Star, RefreshCw, Plus,
-} from 'lucide-react';
 
-interface SkillsGraphModalProps {
+const GREEN    = '#1a4a3a';
+const GREEN_LT = '#e8f4f0';
+
+interface Props {
   currentUser: User;
-  onSubmit:    (resume: string, digitalFootprint: string, references: string) => Promise<void>;
-  onClose:     () => void;
+  onSubmit: (resume: string, digitalFootprint: string, references: string) => Promise<void>;
+  onAddUserSkill?: (skillName: string) => Promise<void>;
+  onClose: () => void;
 }
 
-// ─── Derive skills from platform activity ────────────────────────────────────
-
-function deriveSkillsFromActivity(user: User): {
-  source: 'arena' | 'reel' | 'idea' | 'profile';
-  skill:  string;
-  evidence: string;
-}[] {
-  const derived: { source: 'arena' | 'reel' | 'idea' | 'profile'; skill: string; evidence: string }[] = [];
-
-  // From profile skills (self-declared baseline)
-  const profileSkills = ((user.skills ?? []) as any[])
-    .map((s: any) => typeof s === 'string' ? s : s.name)
-    .filter(Boolean);
-
-  for (const skill of profileSkills.slice(0, 6)) {
-    derived.push({
-      source:   'profile',
-      skill,
-      evidence: 'Listed on your profile',
-    });
-  }
-
-  // From verified achievements
-  const achievements = (user.verifiedAchievements ?? []) as any[];
-  for (const ach of achievements.slice(0, 3)) {
-    if (ach.skill || ach.skills) {
-      const skills = ach.skill ? [ach.skill] : ach.skills;
-      for (const s of skills) {
-        derived.push({ source: 'idea', skill: s, evidence: ach.title ?? 'Verified achievement' });
-      }
-    }
-  }
-
-  return derived.filter((item, idx, arr) =>
-    arr.findIndex(x => x.skill.toLowerCase() === item.skill.toLowerCase()) === idx
-  );
-}
-
-const SOURCE_CONFIG = {
-  arena:   { icon: Trophy,    label: 'Arena challenge',  color: '#d97706', bg: '#fef3c7' },
-  reel:    { icon: Video,     label: 'Prove reel',       color: '#7c3aed', bg: '#ede9fe' },
-  idea:    { icon: Lightbulb, label: 'Idea / project',   color: '#0891b2', bg: '#e0f2fe' },
-  profile: { icon: Star,      label: 'Profile',          color: '#1a6b52', bg: '#d1fae5' },
+const SOURCE_LABELS: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+  arena:   { label: 'Arena challenge', color: '#92400e', bg: '#fef3c7', icon: '🏆' },
+  reel:    { label: 'Prove reel',       color: '#5b21b6', bg: '#ede9fe', icon: '📹' },
+  idea:    { label: 'Idea / project',   color: '#1e40af', bg: '#dbeafe', icon: '💡' },
+  profile: { label: 'Profile',          color: '#065f46', bg: '#d1fae5', icon: '⭐' },
 };
 
-// ─── Skill chip ───────────────────────────────────────────────────────────────
+const SkillsGraphModal: React.FC<Props> = ({ currentUser, onSubmit, onAddUserSkill, onClose }) => {
+  const [tab,            setTab]           = useState<'activity' | 'peers'>('activity');
+  const [activitySkills, setActivitySkills] = useState<any[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
+  const [manualSkill,    setManualSkill]    = useState('');
+  const [submitting,     setSubmitting]     = useState(false);
+  const [addingManual,   setAddingManual]   = useState(false);
+  const [resume,         setResume]         = useState('');
+  const [digitalFP,      setDigitalFP]      = useState('');
+  const [references,     setReferences]     = useState('');
+  const [showAdvanced,   setShowAdvanced]   = useState(false);
 
-function SkillChip({
-  skill, source, evidence, selected, onToggle,
-}: {
-  skill:    string;
-  source:   keyof typeof SOURCE_CONFIG;
-  evidence: string;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  const cfg  = SOURCE_CONFIG[source];
-  const Icon = cfg.icon;
+  // Load activity-derived skill signals from user's existing skills/posts
+  useEffect(() => {
+    const skills: any[] = [];
 
-  return (
-    <button
-      onClick={onToggle}
-      className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-all ${
-        selected
-          ? 'border-emerald-400 bg-emerald-50'
-          : 'border-stone-200 bg-white hover:border-stone-300'
-      }`}
-    >
-      <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: cfg.bg }}>
-        <Icon size={12} style={{ color: cfg.color }} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-xs font-semibold truncate ${selected ? 'text-emerald-900' : 'text-stone-800'}`}>
-          {skill}
-        </p>
-        <p className="text-[10px] text-stone-400 truncate">{evidence}</p>
-      </div>
-      {selected && <CheckCircle2 size={13} className="text-emerald-600 flex-shrink-0" />}
-    </button>
-  );
-}
+    // Derive from existing platform skills
+    (currentUser.skills ?? []).forEach((s: any) => {
+      const name = typeof s === 'string' ? s : s.name;
+      if (name) skills.push({ name, source: 'profile', endorsements: s.endorsements ?? 0 });
+    });
 
-// ─── Main modal ───────────────────────────────────────────────────────────────
+    setActivitySkills(skills);
+  }, [currentUser.id]);
 
-export const SkillsGraphModal: React.FC<SkillsGraphModalProps> = ({
-  currentUser,
-  onSubmit,
-  onClose,
-}) => {
-  const [tab, setTab]               = useState<'activity' | 'endorsements'>('activity');
-  const [isLoading, setIsLoading]   = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [endorseMsg, setEndorseMsg] = useState<string | null>(null);
-
-  const derived = deriveSkillsFromActivity(currentUser);
-  const [selected, setSelected]     = useState<Set<string>>(
-    new Set(derived.map(d => d.skill))
-  );
-
-  // Endorsement tab state
-  const connections = [] as User[]; // would be passed as prop in a real wiring
-  const [endorsed, setEndorsed]     = useState<Record<string, string[]>>({}); // skill → endorser names
-  const [customSkill, setCustomSkill] = useState('');
-
-  function toggleSkill(skill: string) {
-    setSelected(prev => {
+  const toggleSkill = (name: string) => {
+    setSelectedSkills(prev => {
       const next = new Set(prev);
-      if (next.has(skill)) next.delete(skill);
-      else next.add(skill);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
       return next;
     });
-  }
+  };
 
-  function addCustomSkill() {
-    if (!customSkill.trim()) return;
-    const skill = customSkill.trim();
-    derived.push({ source: 'profile', skill, evidence: 'Added manually' });
-    setSelected(prev => new Set(prev).add(skill));
-    setCustomSkill('');
-  }
-
-  async function handleGenerate() {
-    if (selected.size === 0) {
-      setError('Select at least one skill to verify.');
-      return;
-    }
-    setError(null);
-    setIsLoading(true);
+  const handleAddManual = async () => {
+    const trimmed = manualSkill.trim();
+    if (!trimmed) return;
+    setAddingManual(true);
     try {
-      // Build a structured prompt from platform evidence
-      const skillList = Array.from(selected).join(', ');
-      const evidence  = derived
-        .filter(d => selected.has(d.skill))
-        .map(d => `${d.skill}: ${d.evidence}`)
-        .join('\n');
-
-      await onSubmit(
-        `Verified skills based on platform activity: ${skillList}`,
-        evidence,
-        Object.entries(endorsed)
-          .map(([skill, endorsers]) => `${skill} endorsed by: ${endorsers.join(', ')}`)
-          .join('\n')
-      );
-      onClose();
-    } catch (err) {
-      setError('Failed to generate skills. Please try again.');
+      // Manual skills → userAddedSkills (self-reported, NOT verified)
+      if (onAddUserSkill) await onAddUserSkill(trimmed);
+      setManualSkill('');
     } finally {
-      setIsLoading(false);
+      setAddingManual(false);
     }
-  }
+  };
+
+  const handleVerify = async () => {
+    if (selectedSkills.size === 0) return;
+    setSubmitting(true);
+    try {
+      // Build context from selected skills for Claude analysis
+      const skillList = Array.from(selectedSkills).join(', ');
+      await onSubmit(
+        resume || `Skills to verify: ${skillList}`,
+        digitalFP,
+        references
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4 backdrop-blur-sm"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+
         {/* Header */}
-        <div className="p-5 border-b border-stone-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <CheckCircle2 size={16} className="text-emerald-700" />
+        <div className="px-6 pt-6 pb-0">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT }}>
+              <svg className="w-6 h-6" style={{ color: GREEN }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              </svg>
             </div>
-            <div>
-              <p className="font-bold text-stone-900 text-sm">Verify your skills</p>
-              <p className="text-xs text-stone-500">Based on what you've built, not what you've claimed</p>
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-stone-900">Verify your skills</h2>
+              <p className="text-sm text-stone-500">Based on what you've built, not what you've claimed</p>
             </div>
-          </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-stone-100">
-          {[
-            { id: 'activity',     label: 'Platform activity', icon: Zap    },
-            { id: 'endorsements', label: 'Peer endorsements',  icon: Users  },
-          ].map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id as any)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold border-b-2 transition-colors ${
-                tab === id
-                  ? 'border-emerald-600 text-emerald-700'
-                  : 'border-transparent text-stone-500 hover:text-stone-700'
-              }`}
-            >
-              <Icon size={14} />{label}
+            <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors mt-1">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
-          ))}
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b mt-5" style={{ borderColor: '#e7e5e4' }}>
+            {[
+              { id: 'activity', label: 'Platform activity', icon: '⚡' },
+              { id: 'peers',    label: 'Peer endorsements', icon: '👤' },
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id as any)}
+                className="flex items-center gap-1.5 px-4 py-3 text-sm font-semibold transition-colors"
+                style={{
+                  color: tab === t.id ? GREEN : '#78716c',
+                  borderBottom: tab === t.id ? `2px solid ${GREEN}` : '2px solid transparent',
+                  marginBottom: -1,
+                }}>
+                <span>{t.icon}</span>{t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5">
+        {/* Body — scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-          {/* ── Activity tab ── */}
           {tab === 'activity' && (
-            <div className="space-y-4">
-              <p className="text-xs text-stone-500 leading-relaxed">
+            <>
+              <p className="text-sm text-stone-600">
                 These skills were found in your BeWatu activity. Select the ones you want to verify — they'll appear with a badge on your profile.
               </p>
 
-              {/* Legend */}
+              {/* Source legend */}
               <div className="flex flex-wrap gap-2">
-                {Object.entries(SOURCE_CONFIG).map(([key, cfg]) => {
-                  const Icon = cfg.icon;
-                  return (
-                    <span key={key} className="flex items-center gap-1 text-[10px] font-medium rounded-full px-2 py-0.5"
-                      style={{ backgroundColor: cfg.bg, color: cfg.color }}>
-                      <Icon size={9} />{cfg.label}
-                    </span>
-                  );
-                })}
-              </div>
-
-              {/* Skill chips */}
-              {derived.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2">
-                  {derived.map(({ skill, source, evidence }) => (
-                    <SkillChip
-                      key={skill}
-                      skill={skill}
-                      source={source}
-                      evidence={evidence}
-                      selected={selected.has(skill)}
-                      onToggle={() => toggleSkill(skill)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-stone-400">
-                  <Zap size={24} className="mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">No activity signals found yet.</p>
-                  <p className="text-xs mt-1">Post ideas, submit arena solutions, or upload a reel to generate skill signals.</p>
-                </div>
-              )}
-
-              {/* Add custom skill */}
-              <div>
-                <p className="text-xs font-semibold text-stone-500 mb-2">Add a skill manually</p>
-                <div className="flex gap-2">
-                  <input
-                    value={customSkill}
-                    onChange={e => setCustomSkill(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addCustomSkill()}
-                    placeholder="e.g. System Design"
-                    className="flex-1 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-stone-400"
-                  />
-                  <button onClick={addCustomSkill}
-                    className="flex items-center gap-1 text-sm font-semibold px-3 py-2 rounded-xl bg-stone-100 text-stone-700 hover:bg-stone-200 transition-colors">
-                    <Plus size={13} /> Add
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-xs text-stone-400 text-center">
-                {selected.size} skill{selected.size !== 1 ? 's' : ''} selected for verification
-              </p>
-            </div>
-          )}
-
-          {/* ── Endorsements tab ── */}
-          {tab === 'endorsements' && (
-            <div className="space-y-4">
-              <p className="text-xs text-stone-500 leading-relaxed">
-                Your circle members can vouch for your skills. Their endorsements carry more weight than self-declared skills — they signal real working relationships.
-              </p>
-
-              {/* How it works */}
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
-                <p className="text-xs font-semibold text-stone-700">How peer endorsements work</p>
-                {[
-                  'Your circle members see your skill list',
-                  'They endorse skills they\'ve personally witnessed',
-                  'Endorsed skills appear with a "Peer verified" badge',
-                  'The more endorsers, the stronger the signal',
-                ].map((step, i) => (
-                  <div key={i} className="flex items-start gap-2.5">
-                    <div className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 mt-0.5"
-                      style={{ backgroundColor: '#1a4a3a' }}>
-                      {i + 1}
-                    </div>
-                    <p className="text-xs text-stone-600">{step}</p>
-                  </div>
+                {Object.values(SOURCE_LABELS).map(s => (
+                  <span key={s.label} className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>
+                    {s.icon} {s.label}
+                  </span>
                 ))}
               </div>
 
-              {/* Skills available for endorsement */}
-              {derived.length > 0 ? (
-                <div>
-                  <p className="text-xs font-semibold text-stone-600 mb-2">
-                    Your skills open for endorsement
-                  </p>
-                  <div className="space-y-2">
-                    {Array.from(selected).map(skill => {
-                      const endorsers = endorsed[skill] ?? [];
-                      return (
-                        <div key={skill}
-                          className="flex items-center justify-between bg-white border border-stone-200 rounded-xl px-4 py-3">
-                          <div>
-                            <p className="text-sm font-semibold text-stone-800">{skill}</p>
-                            {endorsers.length > 0 ? (
-                              <p className="text-xs text-emerald-600 mt-0.5">
-                                ✓ Endorsed by {endorsers.join(', ')}
-                              </p>
-                            ) : (
-                              <p className="text-xs text-stone-400 mt-0.5">No endorsements yet</p>
-                            )}
-                          </div>
-                          <span className="text-xs font-semibold bg-stone-100 text-stone-500 rounded-full px-2.5 py-1">
-                            {endorsers.length} endorser{endorsers.length !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+              {/* Skill signals */}
+              {activitySkills.length > 0 ? (
+                <div className="space-y-2">
+                  {activitySkills.map(skill => (
+                    <button
+                      key={skill.name}
+                      onClick={() => toggleSkill(skill.name)}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all"
+                      style={{
+                        borderColor: selectedSkills.has(skill.name) ? GREEN : '#e7e5e4',
+                        backgroundColor: selectedSkills.has(skill.name) ? GREEN_LT : 'transparent',
+                      }}>
+                      <div className="flex-1">
+                        <span className="text-sm font-semibold text-stone-800">{skill.name}</span>
+                        {skill.endorsements > 0 && (
+                          <span className="ml-2 text-xs text-stone-400">{skill.endorsements} endorsements</span>
+                        )}
+                      </div>
+                      {selectedSkills.has(skill.name) && (
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: GREEN }} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
                 </div>
               ) : (
-                <div className="text-center py-6 text-stone-400">
-                  <Users size={24} className="mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Select skills on the Activity tab first.</p>
+                <div className="text-center py-8">
+                  <svg className="w-8 h-8 mx-auto mb-2 text-stone-200" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <p className="text-sm font-semibold text-stone-500">No activity signals found yet.</p>
+                  <p className="text-xs text-stone-400 mt-1">Post ideas, submit arena solutions, or upload a reel to generate skill signals.</p>
                 </div>
               )}
 
-              {endorseMsg && (
-                <p className="text-xs text-emerald-600 text-center">{endorseMsg}</p>
-              )}
-
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5">
-                <p className="text-xs text-emerald-800 leading-relaxed">
-                  Endorsements are requested automatically when your circles view your profile.
-                  You'll see them appear here as connections vouch for your work.
-                </p>
+              {/* Advanced: paste resume for Claude analysis */}
+              <div>
+                <button
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="text-xs font-semibold flex items-center gap-1 transition-colors"
+                  style={{ color: GREEN }}>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d={showAdvanced ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                  </svg>
+                  Add context for better results (resume, bio, references)
+                </button>
+                {showAdvanced && (
+                  <div className="mt-3 space-y-3">
+                    <textarea
+                      value={resume}
+                      onChange={e => setResume(e.target.value)}
+                      placeholder="Paste your resume or work history…"
+                      rows={4}
+                      className="w-full text-sm border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2"
+                      style={{ borderColor: '#e7e5e4' }}
+                    />
+                    <textarea
+                      value={digitalFP}
+                      onChange={e => setDigitalFP(e.target.value)}
+                      placeholder="Links to your work (GitHub, portfolio, articles)…"
+                      rows={2}
+                      className="w-full text-sm border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2"
+                      style={{ borderColor: '#e7e5e4' }}
+                    />
+                    <textarea
+                      value={references}
+                      onChange={e => setReferences(e.target.value)}
+                      placeholder="Testimonials or reference text…"
+                      rows={2}
+                      className="w-full text-sm border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2"
+                      style={{ borderColor: '#e7e5e4' }}
+                    />
+                  </div>
+                )}
               </div>
+
+              {/* Manual add — goes to userAddedSkills, NOT verifiedSkills */}
+              <div>
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Add a skill manually</p>
+                <p className="text-xs text-stone-400 mb-3">
+                  Manually added skills appear as <strong>self-reported</strong> on your profile. They need a peer endorsement to become verified.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    value={manualSkill}
+                    onChange={e => setManualSkill(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddManual()}
+                    placeholder="e.g. System Design"
+                    className="flex-1 text-sm border rounded-xl px-3 py-2 focus:outline-none focus:ring-2"
+                    style={{ borderColor: '#e7e5e4' }}
+                  />
+                  <button
+                    onClick={handleAddManual}
+                    disabled={!manualSkill.trim() || addingManual}
+                    className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold border hover:bg-stone-50 transition-colors disabled:opacity-40"
+                    style={{ borderColor: '#e7e5e4', color: '#374151' }}>
+                    {addingManual ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                      </svg>
+                    ) : '+ Add'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {tab === 'peers' && (
+            <div className="text-center py-10">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: GREEN_LT }}>
+                <svg className="w-7 h-7" style={{ color: GREEN }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <h3 className="font-bold text-stone-800 mb-2">Peer endorsements coming soon</h3>
+              <p className="text-sm text-stone-400 max-w-xs mx-auto">
+                Your connections will be able to endorse your skills directly from your profile. Endorsed skills appear with a verified badge.
+              </p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-stone-100 flex items-center justify-between gap-3">
-          {error && <p className="text-xs text-red-500 flex-1">{error}</p>}
-          <div className="flex gap-2 ml-auto">
-            <button onClick={onClose}
-              className="text-sm font-semibold text-stone-500 border border-stone-200 rounded-xl px-4 py-2.5 hover:bg-stone-50 transition-colors">
+        <div className="px-6 py-4 border-t flex items-center justify-between gap-3" style={{ borderColor: '#e7e5e4' }}>
+          <p className="text-xs text-stone-400">
+            {selectedSkills.size === 0
+              ? '0 skills selected for verification'
+              : `${selectedSkills.size} skill${selectedSkills.size > 1 ? 's' : ''} selected for verification`}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-sm font-semibold border hover:bg-stone-50 transition-colors"
+              style={{ borderColor: '#e7e5e4', color: '#374151' }}>
               Cancel
             </button>
             <button
-              onClick={handleGenerate}
-              disabled={isLoading || selected.size === 0}
-              className="flex items-center gap-2 text-sm font-bold text-white rounded-xl px-5 py-2.5 disabled:opacity-50 transition-colors hover:opacity-90"
-              style={{ backgroundColor: '#1a4a3a' }}
-            >
-              {isLoading ? (
-                <><RefreshCw size={13} className="animate-spin" /> Verifying…</>
+              onClick={handleVerify}
+              disabled={selectedSkills.size === 0 || submitting}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-40"
+              style={{ backgroundColor: GREEN }}>
+              {submitting ? (
+                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                </svg>
               ) : (
-                <><CheckCircle2 size={13} /> Verify {selected.size} skill{selected.size !== 1 ? 's' : ''}</>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                </svg>
               )}
+              Verify {selectedSkills.size} skill{selectedSkills.size !== 1 ? 's' : ''}
             </button>
           </div>
         </div>

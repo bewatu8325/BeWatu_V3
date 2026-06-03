@@ -577,32 +577,45 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         />
         {/* Skills Tile */}
         <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
-          {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
-            <div>
-              <h3 className="font-semibold text-stone-800 text-md mb-3 text-center flex items-center justify-center">
-                <VerifiedIcon className="w-5 h-5 mr-2 text-[#1a6b52]" />
-                {t('verifiedSkills')}
-              </h3>
+
+          {/* Verified skills — green check badge on each skill */}
+          {user.verifiedSkills && user.verifiedSkills.length > 0 && (
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-stone-800 text-sm flex items-center gap-1.5">
+                  <VerifiedIcon className="w-4 h-4 text-[#1a6b52]" />
+                  Verified Skills
+                </h3>
+                <span className="text-xs text-stone-400">Confirmed via platform activity</span>
+              </div>
               <div className="space-y-3">
-                {user.verifiedSkills.map(skill => (
+                {user.verifiedSkills.map((skill: any) => (
                   <div key={skill.name} className="group relative">
                     <div className="flex justify-between items-center mb-1">
-                      <p className="text-sm font-medium text-stone-700">{skill.name}</p>
-                      <p className="text-xs text-stone-500">{skill.proficiency}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-stone-700">{skill.name}</p>
+                        <VerifiedIcon className="w-3.5 h-3.5 text-[#1a6b52]" />
+                      </div>
+                      <p className="text-xs text-stone-500">{skill.proficiency ?? skill.level}</p>
                     </div>
                     <div className="w-full bg-stone-100 rounded-full h-1.5">
-                      <div className={`bg-[#1a4a3a] h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`}></div>
+                      <div className={`bg-[#1a4a3a] h-1.5 rounded-full ${proficiencyWidth[(skill.proficiency ?? skill.level) as keyof typeof proficiencyWidth] ?? 'w-2/4'}`}></div>
                     </div>
-                    <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-stone-50 border border-stone-200 rounded-md text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      <span className="font-bold">{t('evidence')}</span> {skill.evidence}
-                    </div>
+                    {skill.evidence && (
+                      <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-stone-50 border border-stone-200 rounded-md text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                        <span className="font-bold">{t('evidence')}</span> {skill.evidence}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
+              {((user as any).userAddedSkills?.length > 0 || isCurrentUser) && (
+                <hr className="mt-4 border-stone-100" />
+              )}
             </div>
-          ) : null}
+          )}
 
-          {/* Self-reported skills — user-added, not yet verified */}
+          {/* Self-reported skills + Add button — always shown for current user */}
           <SkillsSection
             skills={user.skills ?? []}
             userAddedSkills={(user as any).userAddedSkills ?? []}
