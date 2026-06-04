@@ -66,6 +66,12 @@ import { goToFactory } from './utils/factoryHandoff';
 import CookieBanner from './components/CookieBanner';
 import AccountDeletionModal from './components/AccountDeletionModal';
 import DataRequestModal from './components/DataRequestModal';
+import {
+  trackPodCreated, trackPodJoined, trackChallengeViewed,
+  trackCommentMade, trackReactionGiven, trackConnectionMade,
+  trackThreadStarted,
+} from './lib/analytics/track';
+import { computeAndStoreProfile, loadProfile } from './lib/recommendation/profile';
 const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
 const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
 const CommunityGuidelines = lazy(() => import('./components/legal/CommunityGuidelines'));
@@ -241,6 +247,19 @@ const MainApp: React.FC = () => {
     }).catch(() => {});
 
     return () => { unsub(); notifUnsub?.(); };
+  }, [fbUser?.uid, currentUser?.id]);
+
+  // ── Recommendation profile — compute once per session, max once per 24h ──
+  useEffect(() => {
+    if (!fbUser?.uid || !currentUser) return;
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    loadProfile(fbUser.uid).then(existing => {
+      const stale = !existing || (Date.now() - (existing.computedAt ?? 0)) > TWENTY_FOUR_HOURS;
+      if (stale) {
+        // Fire-and-forget — never blocks the UI
+        computeAndStoreProfile(fbUser.uid).catch(() => {});
+      }
+    }).catch(() => {});
   }, [fbUser?.uid, currentUser?.id]);
 
   // Uses a session-level flag so it never re-fires once dismissed this session
@@ -539,6 +558,42 @@ const MainApp: React.FC = () => {
       });
       const url = await getDownloadURL(storageRef);
       await handleSaveMicroIntroduction(url);
+
+      // ── AI verification (non-blocking — runs after upload completes) ──────
+      // Create a placeholder reelVibes doc for the micro intro so verification
+      // has a target document. If no reelId exists, write one now and store it
+      // on the user doc so AIVerificationBadge can reference it.
+      try {
+        const { addDoc, collection, doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+        const { db } = await import('./lib/firebase');
+        // Write a minimal reelVibes doc representing this micro intro
+        const reelRef = await addDoc(collection(db, 'reelVibes'), {
+          authorUid:   fbUser.uid,
+          authorId:    currentUser.id,
+          authorName:  currentUser.name,
+          authorAvatar: currentUser.avatarUrl ?? '',
+          authorHeadline: currentUser.headline ?? '',
+          videoUrl:    url,
+          caption:     'Vibe Clip',
+          skill:       '',
+          tags:        [],
+          likedByUids: [],
+          commentCount: 0,
+          viewCount:   0,
+          isMicroIntro: true,
+          aiVerification: { status: 'pending', verdict: null, confidence: null, checkedAt: serverTimestamp(), appeal: null },
+          createdAt:   serverTimestamp(),
+        });
+        // Store the reel doc ID on the user so we can retrieve the badge later
+        await updateDoc(doc(db, 'users', fbUser.uid), {
+          microIntroReelId: reelRef.id,
+        });
+        // Submit frame for analysis (non-blocking)
+        const { submitForVerification } = await import('./lib/videoUtils');
+        void submitForVerification({ reelId: reelRef.id, authorUid: fbUser.uid, file, type: 'microIntro' });
+      } catch (verifyErr) {
+        console.warn('[handleUploadVideo] verification setup failed (non-blocking):', verifyErr);
+      }
     } catch (err) {
       console.error('Video upload failed:', err);
     }
@@ -559,6 +614,7 @@ const MainApp: React.FC = () => {
     }
     try {
       const newPost = await fbCreatePost(content, currentUser, fbUser.uid, resolvedCircleId as any);
+      trackThreadStarted(fbUser.uid, circleId ? 'pod' : 'feed', (newPost as any)._firestoreId ?? String(newPost.id));
       if (resolvedCircleId !== undefined) return;
       setData({ ...data, posts: [newPost, ...data.posts] });
     } catch (err) {
@@ -707,6 +763,10 @@ const MainApp: React.FC = () => {
           req.senderUid ?? fbUser.uid,
           req.receiverUid ?? fbUser.uid
         );
+        if (status === 'accepted') {
+          const otherId = req.fromUserId === currentUser?.id ? req.toUserId : req.fromUserId;
+          trackConnectionMade(fbUser.uid, String(otherId));
+        }
       } catch (err) {
         console.error('respondToConnection failed:', err);
         // Revert local state if write failed
@@ -924,6 +984,7 @@ ${references || 'Not provided'}`;
       ...extra,
     }, fbUser.uid, currentUser.id);
     setData(d => d ? { ...d, circles: [newCircle, ...d.circles] } : null);
+    trackPodCreated(fbUser.uid, (newCircle as any)._firestoreId ?? String(newCircle.id), (extra as any)?.industry);
   };
 
   const handleAddMemberToCircle = (circleId: number, userId: number) => {
@@ -1050,6 +1111,7 @@ ${references || 'Not provided'}`;
       try {
         const { requestToJoinCircle, createPodNotification } = await import('./lib/firestoreService') as any;
         await requestToJoinCircle(circle._firestoreId, currentUser.id, fbUser?.uid);
+        trackPodJoined(fbUser.uid, circle._firestoreId, (circle as any).industry);
         const adminUid = (circle as any).adminUid ?? (circle as any).creatorUid;
         const adminFirestoreUid = adminUid ?? data.users.find(u =>
           (u as any)._firestoreUid === adminUid || u.id === circle.adminId
