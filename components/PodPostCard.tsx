@@ -183,10 +183,13 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
     }
   };
 
-  const displayName   = author?.name    ?? (post as any).authorName    ?? 'Unknown';
-  const displayAvatar = author?.avatarUrl ?? (post as any).avatarUrl    ?? null;
-  const displayHl     = author?.headline  ?? (post as any).authorHeadline ?? null;
-  const displayId     = author?.id ?? post.authorId;
+  // Prefer denormalized fields baked into the post; fall back to the live
+  // author lookup only as a freshness enhancement. This means the feed renders
+  // correctly for ALL authors, not just the top-50 held in data.users.
+  const displayName   = (post as any).authorName    ?? author?.name     ?? 'Unknown';
+  const displayAvatar = (post as any).avatarUrl     ?? author?.avatarUrl ?? null;
+  const displayHl     = (post as any).authorHeadline ?? author?.headline ?? null;
+  const displayId     = post.authorId ?? author?.id;
 
   const totalReactions = reactions.helpful + reactions.thoughtProvoking + reactions.collaborationReady;
 
