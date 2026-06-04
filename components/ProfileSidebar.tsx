@@ -153,12 +153,17 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
 
   // Resolve accepted connections to actual User objects for profile navigation
   const connectedUsers = useMemo(() => {
-    const connectedIds = connectionRequests
+    const seen = new Set<number>();
+    const connectedIds: number[] = [];
+    connectionRequests
       .filter(cr =>
         (cr.fromUserId === user.id || cr.toUserId === user.id) &&
         cr.status === 'accepted'
       )
-      .map(cr => cr.fromUserId === user.id ? cr.toUserId : cr.fromUserId);
+      .forEach(cr => {
+        const otherId = cr.fromUserId === user.id ? cr.toUserId : cr.fromUserId;
+        if (!seen.has(otherId)) { seen.add(otherId); connectedIds.push(otherId); }
+      });
     return connectedIds
       .map(id => allUsers.find(u => u.id === id))
       .filter(Boolean) as User[];
