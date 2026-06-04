@@ -1,7 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { User, ConnectionRequest, Circle, View } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, CirclesIcon, UsersIcon } from '../constants';
-
 interface ProfileSidebarProps {
   user: User;
   connectionRequests: ConnectionRequest[];
@@ -12,20 +11,17 @@ interface ProfileSidebarProps {
   onNavigate: (view: View) => void;
   onSelectCircle: (circleId: number) => void;
 }
-
 const proficiencyWidth = {
   'Beginner': 'w-1/4',
   'Intermediate': 'w-2/4',
   'Proficient': 'w-3/4',
   'Expert': 'w-4/4',
 };
-
 const getCircleColor = (name: string) => {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return `hsl(${hash % 360}, 50%, 40%)`;
 };
-
 // ─── Vibe Clip tile ───────────────────────────────────────────────────────────
 const VibeClipTile: React.FC<{
   user: User;
@@ -34,20 +30,16 @@ const VibeClipTile: React.FC<{
   onNavigate: (view: View) => void;
 }> = ({ user, onRecordVideo, onPlayVideo, onNavigate }) => {
   const hasVideo = !!user.microIntroductionUrl;
-
   const initials = user.name
     .split(' ')
     .map(w => w[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
-
-  // Always open modal on tap for full audio experience
   const handleTap = () => {
     if (!hasVideo) return;
     onPlayVideo(user.microIntroductionUrl!);
   };
-
   return (
     <div
       className="relative w-full overflow-hidden rounded-2xl shadow-md cursor-pointer select-none"
@@ -56,7 +48,6 @@ const VibeClipTile: React.FC<{
     >
       {hasVideo ? (
         <>
-          {/* Thumbnail — static image preview, no inline video playback */}
           {user.microIntroductionThumbnail ? (
             <img
               src={user.microIntroductionThumbnail}
@@ -71,21 +62,15 @@ const VibeClipTile: React.FC<{
               }}
             />
           )}
-
-          {/* Play overlay */}
           <div className="absolute inset-0 flex items-center justify-center bg-stone-900/25">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/40">
               <PlayIcon className="w-7 h-7 text-white ml-1" />
             </div>
           </div>
-
-          {/* Gradient overlay at bottom */}
           <div
             className="absolute bottom-0 left-0 right-0 h-2/5 pointer-events-none"
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)' }}
           />
-
-          {/* Name / headline overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4 pr-5 pointer-events-none">
             <p className="font-bold text-white text-lg leading-tight truncate">{user.name}</p>
             <p className="text-white/80 text-sm mt-0.5 truncate">{user.headline}</p>
@@ -98,8 +83,6 @@ const VibeClipTile: React.FC<{
               </p>
             )}
           </div>
-
-          {/* Update clip button */}
           <button
             onClick={e => { e.stopPropagation(); onRecordVideo(); }}
             className="absolute top-3 right-3 pointer-events-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors"
@@ -111,15 +94,12 @@ const VibeClipTile: React.FC<{
         </>
       ) : (
         <>
-          {/* Gradient bg */}
           <div
             className="absolute inset-0"
             style={{
               background: 'linear-gradient(160deg, #4db89a 0%, #1a6b52 45%, #1a4a3a 100%)',
             }}
           />
-
-          {/* Avatar circle */}
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-5">
             <div
               className="flex h-24 w-24 items-center justify-center rounded-full text-3xl font-black text-white shadow-lg ring-4 ring-white/20"
@@ -134,8 +114,6 @@ const VibeClipTile: React.FC<{
                 />
               ) : initials}
             </div>
-
-            {/* CTA button */}
             <button
               onClick={e => { e.stopPropagation(); onRecordVideo(); }}
               className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold shadow-lg hover:bg-stone-50 transition-all animate-pulse"
@@ -148,8 +126,6 @@ const VibeClipTile: React.FC<{
             </button>
             <p className="text-white/80 text-xs font-medium">Tap to record your 30s vibe</p>
           </div>
-
-          {/* Name / headline always visible at bottom */}
           <div
             className="absolute bottom-0 left-0 right-0 p-4"
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }}
@@ -162,7 +138,6 @@ const VibeClipTile: React.FC<{
     </div>
   );
 };
-
 // ─── Main sidebar ─────────────────────────────────────────────────────────────
 const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
   user, connectionRequests, circles,
@@ -173,14 +148,11 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
       cr => (cr.fromUserId === user.id || cr.toUserId === user.id) && cr.status === 'accepted'
     ).length,
   [user.id, connectionRequests]);
-
   const userCircles = useMemo(() =>
     circles.filter(c => c.members.includes(user.id)),
   [user.id, circles]);
-
   return (
     <div className="space-y-6">
-
       {/* ── Vibe Clip tile ── */}
       <VibeClipTile
         user={user}
@@ -188,7 +160,6 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         onPlayVideo={onPlayVideo}
         onNavigate={onNavigate}
       />
-
       {/* ── Profile strength ── */}
       {(() => {
         const checks = [
@@ -214,7 +185,6 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
                 {label}
               </span>
             </div>
-            {/* Progress bar */}
             <div className="h-2 w-full rounded-full bg-stone-100 overflow-hidden mb-3">
               <div className="h-full rounded-full transition-all duration-700"
                 style={{ width: `${score}%`, backgroundColor: color }} />
@@ -237,7 +207,6 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
           </div>
         );
       })()}
-
       {/* ── Lens — Career Intelligence ── */}
       <button
         onClick={() => onNavigate(View.AIChat)}
@@ -250,7 +219,6 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         </svg>
         Lens — Career Intelligence
       </button>
-
       {/* ── Skills ── */}
       <div className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
         {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
@@ -275,6 +243,17 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
                 </div>
               ))}
             </div>
+            {/* ── Add skill action ── */}
+            <button
+              onClick={onGenerateSkills}
+              className="mt-4 w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg border transition hover:opacity-80"
+              style={{ color: '#1a4a3a', borderColor: '#1a6b52', backgroundColor: '#e8f4f0' }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add / manage skills
+            </button>
           </div>
         ) : (
           <div className="text-center">
@@ -297,27 +276,58 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
           </div>
         )}
       </div>
-
       {/* ── Circles ── */}
       {userCircles.length > 0 && (
         <div className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
-          <h3 className="font-semibold text-stone-800 text-md mb-4 flex items-center justify-center">
-            <CirclesIcon className="w-5 h-5 mr-2 text-stone-500" />
-            My Circles
-          </h3>
+          {/* Header with add friend action */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-stone-800 text-md flex items-center">
+              <CirclesIcon className="w-5 h-5 mr-2 text-stone-500" />
+              My Circles
+            </h3>
+            <button
+              onClick={() => onNavigate(View.Connections)}
+              className="flex items-center gap-1 text-xs font-semibold transition hover:opacity-80"
+              style={{ color: '#1a4a3a' }}
+              title="Find people to connect with"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add
+            </button>
+          </div>
           <div className="flex flex-wrap gap-3 justify-center">
             {userCircles.slice(0, 5).map(circle => (
-              <button key={circle.id} onClick={() => onSelectCircle(circle.id)} title={circle.name}
-                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-md text-white transition-transform hover:scale-110 focus:outline-none"
-                style={{ backgroundColor: getCircleColor(circle.name) }}>
+              <button
+                key={circle.id}
+                onClick={() => onSelectCircle(circle.id)}
+                title={circle.name}
+                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-md text-white transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                style={{ backgroundColor: getCircleColor(circle.name) }}
+              >
                 {circle.name.charAt(0).toUpperCase()}
               </button>
             ))}
           </div>
         </div>
       )}
+      {/* ── Circles empty state: prompt to connect ── */}
+      {userCircles.length === 0 && (
+        <div className="bg-white rounded-2xl border p-6 shadow-sm text-center" style={{ borderColor: '#e7e5e4' }}>
+          <CirclesIcon className="w-8 h-8 mx-auto mb-2 text-stone-300" />
+          <p className="text-sm font-semibold text-stone-700 mb-1">No circles yet</p>
+          <p className="text-xs text-stone-400 mb-3">Join pods or connect with people to build your circles.</p>
+          <button
+            onClick={() => onNavigate(View.Connections)}
+            className="text-xs font-semibold px-4 py-1.5 rounded-lg border transition hover:opacity-80"
+            style={{ color: '#1a4a3a', borderColor: '#1a6b52', backgroundColor: '#e8f4f0' }}
+          >
+            Find people to connect with
+          </button>
+        </div>
+      )}
     </div>
   );
 };
-
 export default ProfileSidebar;
