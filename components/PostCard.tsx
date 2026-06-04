@@ -11,15 +11,13 @@ interface PostCardProps {
   isOwnPost?: boolean;
 }
 
-const ActionButton: React.FC<{icon: React.ReactNode, label: string | number, shortLabel?: string, onClick?: () => void, className?: string}> = ({ icon, label, shortLabel, onClick, className }) => (
+const ActionButton: React.FC<{icon: React.ReactNode, label: string, onClick?: () => void, className?: string}> = ({ icon, label, onClick, className }) => (
     <button 
       onClick={onClick} 
-      className={`flex items-center gap-1 sm:gap-1.5 text-stone-400 hover:bg-stone-50 rounded-lg px-2 py-2.5 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] ${className}`}
+      className={`flex items-center gap-1 sm:gap-1.5 text-stone-400 hover:bg-stone-50 rounded-lg px-2 py-2.5 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] whitespace-nowrap ${className}`}
     >
         {icon}
-        {/* Show short label on mobile, full label on sm+ */}
-        <span className="text-xs font-semibold sm:hidden">{shortLabel ?? label}</span>
-        <span className="text-sm font-semibold hidden sm:inline">{label}</span>
+        <span className="text-xs sm:text-sm font-semibold">{label}</span>
     </button>
 );
 
@@ -83,10 +81,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
           </div>
           {post.comments > 0 && <span>{post.comments} Comments</span>}
       </div>
-      <div className="border-t pt-2 flex flex-wrap justify-between sm:justify-around gap-1" style={{ borderColor: "#e7e5e4" }}>
-        <ActionButton icon={<HelpfulIcon className="w-5 h-5"/>} className="hover:text-orange-400" label="Fire" onClick={() => onAppreciatePost(post.id, 'helpful')}/>
-        <ActionButton icon={<ThoughtProvokingIcon className="w-5 h-5"/>} className="hover:text-purple-400" label="Big Brain" shortLabel="Brain" onClick={() => onAppreciatePost(post.id, 'thoughtProvoking')}/>
-        <ActionButton icon={<CollaborationReadyIcon className="w-5 h-5"/>} className="hover:text-green-400" label="Team Up" shortLabel="Team" onClick={() => onAppreciatePost(post.id, 'collaborationReady')}/>
+      <div className="border-t pt-2 flex justify-between sm:justify-around gap-1" style={{ borderColor: "#e7e5e4" }}>
+        <ActionButton icon={<HelpfulIcon className="w-5 h-5"/>} className="hover:text-orange-400" label="Like" onClick={() => onAppreciatePost(post.id, 'helpful')}/>
+        <ActionButton icon={<ThoughtProvokingIcon className="w-5 h-5"/>} className="hover:text-purple-400" label="Insightful" onClick={() => onAppreciatePost(post.id, 'thoughtProvoking')}/>
+        <ActionButton icon={<CollaborationReadyIcon className="w-5 h-5"/>} className="hover:text-green-400" label="Collab" onClick={() => onAppreciatePost(post.id, 'collaborationReady')}/>
         <ActionButton icon={<CommentIcon className="w-5 h-5"/>} className="hover:text-stone-600" label="Comment"/>
         <ActionButton icon={<ShareIcon className="w-5 h-5"/>} className="hover:text-stone-600" label="Share"/>
       </div>
