@@ -242,32 +242,34 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
       {/* Divider */}
       <div className="mx-4 border-t" style={{ borderColor: '#f5f5f4' }} />
 
-      {/* Action bar */}
-      <div className="flex items-center px-2 py-1 gap-1">
-        {REACTIONS.map(r => (
+      {/* Action bar — -mx-1 wrapper lets buttons use full card width */}
+      <div className="-mx-1">
+        <div className="flex items-center px-1.5 py-1 gap-0.5 overflow-x-auto scrollbar-hide">
+          {REACTIONS.map(r => (
+            <button
+              key={r.type}
+              onClick={() => handleReaction(r.type)}
+              className="flex items-center gap-1 px-2 py-2 rounded-xl text-[11px] font-medium transition-all hover:bg-stone-50 flex-1 justify-center flex-shrink-0"
+              style={{
+                color: reacted[r.type] ? r.color : '#9ca3af',
+                backgroundColor: reacted[r.type] ? r.color + '10' : 'transparent',
+              }}
+              title={r.label}
+            >
+              <span style={{ color: reacted[r.type] ? r.color : '#9ca3af' }}>{r.icon}</span>
+              <span className="hidden sm:inline whitespace-nowrap">{r.label}</span>
+            </button>
+          ))}
           <button
-            key={r.type}
-            onClick={() => handleReaction(r.type)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:bg-stone-50 flex-1 justify-center"
-            style={{
-              color: reacted[r.type] ? r.color : '#9ca3af',
-              backgroundColor: reacted[r.type] ? r.color + '10' : 'transparent',
-            }}
-            title={r.label}
+            onClick={() => setShowComments(s => !s)}
+            className="flex items-center gap-1 px-2 py-2 rounded-xl text-[11px] font-medium transition-all hover:bg-stone-50 flex-1 justify-center flex-shrink-0"
+            style={{ color: showComments ? GREEN : '#9ca3af' }}
           >
-            <span style={{ color: reacted[r.type] ? r.color : '#9ca3af' }}>{r.icon}</span>
-            <span className="hidden sm:inline">{r.label}</span>
+            <MessageCircle size={13} />
+            <span className="whitespace-nowrap">{commentCount > 0 ? commentCount : ''} {commentCount === 1 ? 'Comment' : 'Comment'}</span>
+            {commentCount > 0 && (showComments ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
           </button>
-        ))}
-        <button
-          onClick={() => setShowComments(s => !s)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:bg-stone-50 flex-1 justify-center"
-          style={{ color: showComments ? GREEN : '#9ca3af' }}
-        >
-          <MessageCircle size={13} />
-          <span>{commentCount > 0 ? commentCount : ''} {commentCount === 1 ? 'Comment' : 'Comment'}</span>
-          {commentCount > 0 && (showComments ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
-        </button>
+        </div>
       </div>
 
       {/* Comments section */}
