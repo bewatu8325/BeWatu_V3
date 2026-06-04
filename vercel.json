@@ -1,10 +1,13 @@
 {
-  "redirects": [
+  "headers": [
     {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "bewatu.com" }],
-      "destination": "https://www.bewatu.com/:path*",
-      "permanent": true
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        }
+      ]
     }
   ]
 }
