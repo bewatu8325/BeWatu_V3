@@ -1,12 +1,27 @@
 /**
- * lib/authService.ts
+ * lib/firebaseAuth.ts
  * Firebase auth wired to BeWatu's User type.
- * Replaces the fake handleLoginSuccess / handleRegisterSuccess logic in App.tsx.
+ *
+ * Two fixes in this version:
+ *
+ * FIX 1 — Safari popup → redirect fallback
+ *   Safari ITP blocks third-party popups in private browsing and strict
+ *   tracking-prevention mode. We detect Safari and use signInWithRedirect
+ *   instead. On redirect return, getRedirectResult() picks up the credential.
+ *
+ * FIX 2 — Race condition in onAuthChange for new Google users
+ *   signInWithPopup fires onAuthStateChanged before loginWithGoogle has written
+ *   the user's Firestore document. getUserFromFirestore threw "User document
+ *   not found", catch called callback(null, null), app showed error screen.
+ *   Fix: retry once (600ms delay) before treating a missing doc as an error.
  */
+
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut,
   sendEmailVerification,
@@ -32,10 +47,16 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 const freeEmailDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com'];
 
-// ── Convert Firestore doc → BeWatu User ───────────────────────────────────────
+// ── Safari detection ──────────────────────────────────────────────────────────
+function isSafari(): boolean {
+  const ua = navigator.userAgent;
+  return /^((?!chrome|android).)*safari/i.test(ua);
+}
+
+// ── Convert Firestore doc → BeWatu User ──────────────────────────────────────
 function docToUser(data: Record<string, any>): User {
   return {
-    id: data.numericId ?? 1,           // legacy numeric id kept for compatibility
+    id: data.numericId ?? 1,
     name: data.displayName ?? '',
     headline: data.headline ?? '',
     bio: data.bio ?? '',
@@ -82,7 +103,7 @@ function docToUser(data: Record<string, any>): User {
   } as any;
 }
 
-// ── Build default Firestore doc from registration inputs ──────────────────────
+// ── Build default Firestore doc ───────────────────────────────────────────────
 function buildNewUserDoc(
   uid: string,
   name: string,
@@ -92,158 +113,134 @@ function buildNewUserDoc(
 ) {
   const isVerified = !freeEmailDomains.some((d) => email.endsWith(d));
   return {
-    uid,
-    numericId: Date.now(), // simple unique numeric id for legacy component compatibility
-    displayName: name,
-    email,
-    photoURL: photoURL ?? '',
-    headline: '',
-    bio: '',
-    industry: '',
-    location: '',
-    website: '',
-    professionalGoals: [],
-    reputation: 0,
-    credits: 100,
-    isRecruiter,
-    isVerified,
-    portfolio: [],
-    verifiedAchievements: [],
-    thirdPartyIntegrations: [],
-    workStyle: {
-      collaboration: 'Thrives in pairs',
-      communication: 'Prefers asynchronous',
-      workPace: 'Fast-paced and iterative',
-    },
-    values: [],
-    availability: 'Exploring opportunities',
-    skills: [],
-    verifiedSkills: null,
-    microIntroductionUrl: null,
-    connectionCount: 0,
-    isPublic: true,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    uid, numericId: Date.now(), displayName: name, email,
+    photoURL: photoURL ?? '', headline: '', bio: '', industry: '',
+    location: '', website: '', professionalGoals: [], reputation: 0,
+    credits: 100, isRecruiter, isVerified, portfolio: [],
+    verifiedAchievements: [], thirdPartyIntegrations: [],
+    workStyle: { collaboration: 'Thrives in pairs', communication: 'Prefers asynchronous', workPace: 'Fast-paced and iterative' },
+    values: [], availability: 'Exploring opportunities', skills: [],
+    verifiedSkills: null, microIntroductionUrl: null, connectionCount: 0,
+    isPublic: true, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   };
+}
+
+// ── Shared Google upsert ──────────────────────────────────────────────────────
+// Creates the user doc on first sign-in; returns the User on every call.
+async function upsertGoogleUser(fbUser: FirebaseUser, isRecruiter: boolean): Promise<User> {
+  const ref  = doc(db, 'users', fbUser.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    const newDoc = buildNewUserDoc(
+      fbUser.uid, fbUser.displayName ?? 'New User',
+      fbUser.email ?? '', isRecruiter, fbUser.photoURL ?? undefined
+    );
+    await setDoc(ref, newDoc);
+    return docToUser(newDoc);
+  }
+  return docToUser(snap.data() as Record<string, any>);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUBLIC API
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Register with email + password. Returns a BeWatu User. */
 export async function registerWithEmail(
-  name: string,
-  email: string,
-  password: string,
-  isRecruiter: boolean
+  name: string, email: string, password: string, isRecruiter: boolean
 ): Promise<User> {
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
-  const { user: fbUser } = cred;
-
+  const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password);
   await sendEmailVerification(fbUser);
-
   const newDoc = buildNewUserDoc(fbUser.uid, name, email, isRecruiter);
   await setDoc(doc(db, 'users', fbUser.uid), newDoc);
-
   return docToUser(newDoc);
 }
 
-/** Sign in with email + password. Returns a BeWatu User. */
 export async function loginWithEmail(email: string, password: string): Promise<User> {
   const cred = await signInWithEmailAndPassword(auth, email, password);
   return getUserFromFirestore(cred.user);
 }
 
-/** Sign in with Google. Creates user doc on first sign-in. Returns a BeWatu User. */
-export async function loginWithGoogle(isRecruiter = false): Promise<User> {
-  const cred = await signInWithPopup(auth, googleProvider);
-  const { user: fbUser } = cred;
-
-  const ref = doc(db, 'users', fbUser.uid);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    const newDoc = buildNewUserDoc(
-      fbUser.uid,
-      fbUser.displayName ?? 'New User',
-      fbUser.email ?? '',
-      isRecruiter,
-      fbUser.photoURL ?? undefined
-    );
-    await setDoc(ref, newDoc);
-    return docToUser(newDoc);
+/**
+ * Sign in / register with Google.
+ * Safari → redirect (returns null; result arrives via onAuthChange on reload).
+ * Other browsers → popup (returns User immediately).
+ */
+export async function loginWithGoogle(isRecruiter = false): Promise<User | null> {
+  if (isSafari()) {
+    await signInWithRedirect(auth, googleProvider);
+    return null; // page reloads; result handled in onAuthChange
   }
-
-  return docToUser(snap.data() as Record<string, any>);
+  const cred = await signInWithPopup(auth, googleProvider);
+  return upsertGoogleUser(cred.user, isRecruiter);
 }
 
-/** Sign out. */
 export async function logout(): Promise<void> {
   await signOut(auth);
 }
 
-/** Send password reset email with actionCodeSettings.
- *
- * Root causes when reset emails don't arrive:
- *  1. bewatu.com must be added to Firebase Console → Authentication →
- *     Settings → Authorized domains  (one-time manual step)
- *  2. continueUrl tells Firebase where to redirect after the reset is complete
- *  3. Check spam folder — Firebase sends from noreply@PROJECT.firebaseapp.com
- */
 export async function forgotPassword(email: string): Promise<void> {
-  const actionCodeSettings = {
-    // After password reset the user is sent back to the app
-    url: `${window.location.origin}/`,
-    handleCodeInApp: false,
-  };
-  await sendPasswordResetEmail(auth, email, actionCodeSettings);
+  await sendPasswordResetEmail(auth, email, {
+    url: `${window.location.origin}/`, handleCodeInApp: false,
+  });
 }
 
-/** Change password — requires the current password for re-auth. */
-export async function changePassword(
-  currentPassword: string,
-  newPassword: string
-): Promise<void> {
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   const user = auth.currentUser;
   if (!user || !user.email) throw new Error('Not signed in');
-
-  const credential = EmailAuthProvider.credential(user.email, currentPassword);
-  await reauthenticateWithCredential(user, credential);
+  await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
   await updatePassword(user, newPassword);
 }
 
-/** Subscribe to auth state. Returns unsubscribe fn. */
+/**
+ * Subscribe to auth state.
+ *
+ * Handles the Safari redirect result on page load via getRedirectResult().
+ *
+ * Race condition fix: retries getUserFromFirestore once after 600ms when
+ * the user doc is missing — this covers new Google sign-ups where
+ * onAuthStateChanged fires before upsertGoogleUser has written the doc.
+ */
 export function onAuthChange(
   callback: (user: User | null, fbUser: FirebaseUser | null) => void
 ): () => void {
+  // Handle Safari redirect result on page load
+  getRedirectResult(auth)
+    .then(async result => {
+      if (result?.user) {
+        await upsertGoogleUser(result.user, false).catch(() => {});
+      }
+    })
+    .catch(() => {});
+
   return onAuthStateChanged(auth, async (fbUser) => {
-    if (!fbUser) {
-      callback(null, null);
-      return;
-    }
+    if (!fbUser) { callback(null, null); return; }
+
+    // First attempt
     try {
-      const bewatuUser = await getUserFromFirestore(fbUser);
-      callback(bewatuUser, fbUser);
+      callback(await getUserFromFirestore(fbUser), fbUser);
+      return;
     } catch {
+      // Doc may not exist yet — new Google user race condition. Retry once.
+    }
+
+    await new Promise(r => setTimeout(r, 600));
+
+    try {
+      callback(await getUserFromFirestore(fbUser), fbUser);
+    } catch (err) {
+      console.error('[onAuthChange] user doc not found after retry:', err);
       callback(null, null);
     }
   });
 }
 
-/** Fetch a BeWatu User from Firestore by Firebase UID. */
 export async function getUserFromFirestore(fbUser: FirebaseUser): Promise<User> {
   const snap = await getDoc(doc(db, 'users', fbUser.uid));
   if (!snap.exists()) throw new Error('User document not found');
   return docToUser(snap.data() as Record<string, any>);
 }
 
-/** Persist updated User fields to Firestore. */
-export async function updateUserInFirestore(
-  fbUid: string,
-  updates: Partial<User>
-): Promise<void> {
-  // Map BeWatu User fields → Firestore field names
+export async function updateUserInFirestore(fbUid: string, updates: Partial<User>): Promise<void> {
   const fsUpdates: Record<string, any> = {
     ...(updates.name !== undefined && { displayName: updates.name }),
     ...(updates.avatarUrl !== undefined && { photoURL: updates.avatarUrl }),
@@ -271,84 +268,58 @@ export async function updateUserInFirestore(
     ...(updates.trialEndsAt !== undefined && { trialEndsAt: updates.trialEndsAt }),
     ...(updates.currentPeriodEnd !== undefined && { currentPeriodEnd: updates.currentPeriodEnd }),
     ...(updates.factoryUnlocked !== undefined && { factoryUnlocked: updates.factoryUnlocked }),
-    ...((updates as any).employerName !== undefined && { employerName: (updates as any).employerName }),
-    ...((updates as any).showOnCompanyPage !== undefined && { showOnCompanyPage: (updates as any).showOnCompanyPage }),
     updatedAt: serverTimestamp(),
   };
   await updateDoc(doc(db, 'users', fbUid), fsUpdates);
 }
 
-/** Store Stripe customer ID on the user doc. */
 export async function setStripeCustomerId(fbUid: string, stripeCustomerId: string): Promise<void> {
   await updateDoc(doc(db, 'users', fbUid), { stripeCustomerId, updatedAt: serverTimestamp() });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ACCOUNT TAKEOVER PROTECTION
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Security ──────────────────────────────────────────────────────────────────
 
 import { multiFactor, PhoneMultiFactorGenerator, getMultiFactorResolver } from 'firebase/auth';
 
-/** Log a security event to Firestore (login, password change, suspicious activity). */
-export async function logSecurityEvent(
-  uid: string,
-  event: {
-    type: 'login' | 'password_change' | 'email_change' | 'suspicious_login' | 'session_revoked' | 'two_factor_enrolled' | 'two_factor_removed';
-    ip?: string;
-    userAgent?: string;
-    location?: string;
-    details?: string;
-  }
-): Promise<void> {
-  await import('firebase/firestore').then(async ({ addDoc, collection, serverTimestamp }) => {
-    const { db } = await import('./firebase');
-    await addDoc(collection(db, 'users', uid, 'securityEvents'), {
-      ...event,
-      timestamp: serverTimestamp(),
-      userAgent: event.userAgent ?? navigator.userAgent,
-    });
+export async function logSecurityEvent(uid: string, event: {
+  type: 'login' | 'password_change' | 'email_change' | 'suspicious_login' | 'session_revoked' | 'two_factor_enrolled' | 'two_factor_removed';
+  ip?: string; userAgent?: string; location?: string; details?: string;
+}): Promise<void> {
+  const { addDoc, collection, serverTimestamp: st } = await import('firebase/firestore');
+  const { db: fdb } = await import('./firebase');
+  await addDoc(collection(fdb, 'users', uid, 'securityEvents'), {
+    ...event, timestamp: st(), userAgent: event.userAgent ?? navigator.userAgent,
   });
 }
 
-/** Fetch the last N security events for the user. */
 export async function getSecurityEvents(uid: string, limit_ = 20): Promise<any[]> {
   const { getDocs, collection, query, orderBy, limit } = await import('firebase/firestore');
-  const { db } = await import('./firebase');
-  const snap = await getDocs(
-    query(collection(db, 'users', uid, 'securityEvents'), orderBy('timestamp', 'desc'), limit(limit_))
-  );
+  const { db: fdb } = await import('./firebase');
+  const snap = await getDocs(query(collection(fdb, 'users', uid, 'securityEvents'), orderBy('timestamp', 'desc'), limit(limit_)));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-/** Revoke all other sessions by rotating a session invalidation token. */
 export async function revokeOtherSessions(uid: string): Promise<void> {
-  const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
-  const { db } = await import('./firebase');
-  await updateDoc(doc(db, 'users', uid), {
-    sessionToken: `${uid}_${Date.now()}`,
-    sessionsRevokedAt: serverTimestamp(),
-  });
+  const { updateDoc: upd, doc: d, serverTimestamp: st } = await import('firebase/firestore');
+  const { db: fdb } = await import('./firebase');
+  await upd(d(fdb, 'users', uid), { sessionToken: `${uid}_${Date.now()}`, sessionsRevokedAt: st() });
   await logSecurityEvent(uid, { type: 'session_revoked', details: 'User manually revoked all other sessions' });
 }
 
-/** Send email verification to current user. */
 export async function sendVerificationEmail(): Promise<void> {
   const user = auth.currentUser;
   if (!user) throw new Error('Not signed in');
   await sendEmailVerification(user);
 }
 
-/** Check if email is verified. */
 export function isEmailVerified(): boolean {
   return auth.currentUser?.emailVerified ?? false;
 }
 
-/** Change email — requires re-authentication first. */
 export async function changeEmail(currentPassword: string, newEmail: string): Promise<void> {
   const user = auth.currentUser;
   if (!user || !user.email) throw new Error('Not signed in');
-  const credential = EmailAuthProvider.credential(user.email, currentPassword);
-  await reauthenticateWithCredential(user, credential);
+  await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
   const { updateEmail } = await import('firebase/auth');
   await updateEmail(user, newEmail);
   await sendEmailVerification(user);
