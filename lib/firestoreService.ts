@@ -64,6 +64,14 @@ function toPost(d: QueryDocumentSnapshot): Post {
     shares: data.shares ?? 0,
     timestamp: data.timestamp ?? 'Just now',
     circleId: data.circleId,
+    // Denormalized author fields — render the feed without an N+1 lookup
+    // against data.users (which only holds the top-50 public users).
+    // Note: write field is `authorPhoto`; surface it as `avatarUrl` for the card.
+    authorUid:      data.authorUid,
+    authorName:     data.authorName,
+    avatarUrl:      data.authorPhoto,
+    authorHeadline: data.authorHeadline,
+    createdAt:      data.createdAt?.toDate?.() ?? null,
     // store firebase doc id for updates
     _firestoreId: d.id,
   } as Post & { _firestoreId: string };
@@ -662,8 +670,10 @@ export async function createJob(job: Omit<Job, 'id'>, recruiterUid: string): Pro
 }
 
 export async function fetchJobs(): Promise<Job[]> {
+  // Cap at 200 most-recent active jobs to bound reads. Job board pagination
+  // is the eventual fix when listings exceed this.
   const snap = await getDocs(
-    query(collection(db, 'jobs'), where('status', '==', 'Active'), orderBy('createdAt', 'desc'))
+    query(collection(db, 'jobs'), where('status', '==', 'Active'), orderBy('createdAt', 'desc'), limit(200))
   );
   return snap.docs.map((d) => {
     const data = d.data();
@@ -742,12 +752,15 @@ export async function fetchCircles(): Promise<Circle[]> {
   const seen = new Set<string>();
 
   // Primary: pods collection (unified schema, Firebase UID members)
+  // Cap at 200 most-recent to prevent unbounded reads on every app load.
+  // At scale, Discover should move to a ranked/paginated search index
+  // (Typesense) rather than loading all pods into memory.
   try {
     let snap;
     try {
-      snap = await getDocs(query(collection(db, 'pods'), orderBy('createdAt', 'desc')));
+      snap = await getDocs(query(collection(db, 'pods'), orderBy('createdAt', 'desc'), limit(200)));
     } catch {
-      snap = await getDocs(collection(db, 'pods'));
+      snap = await getDocs(query(collection(db, 'pods'), limit(200)));
     }
     for (const d of snap.docs) {
       if (seen.has(d.id)) continue;
@@ -2307,10 +2320,10 @@ export async function getCompanyAuditLog(companyId: string, limit_ = 50): Promis
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-/** Fetch all companies (platform admin only). */
+/** Fetch companies for the admin panel (most recent 500). Paginate for more. */
 export async function getAllCompanies(): Promise<any[]> {
   const snap = await getDocs(
-    query(collection(db, 'companies'), orderBy('createdAt', 'desc'))
+    query(collection(db, 'companies'), orderBy('createdAt', 'desc'), limit(500))
   );
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
