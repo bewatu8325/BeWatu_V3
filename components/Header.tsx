@@ -296,17 +296,17 @@ function NotificationsPanel({
   );
 }
 
-// Simplified navigation: 7 core items (down from 11)
-// Community = Circles + Pods, Showcase = Prove + Arenas
-// Pricing & Lens moved to profile dropdown
 const NAV_ITEMS = [
-  { view: View.Feed,          label: 'Home',        icon: Home          },
-  { view: View.Connections,   label: 'Community',   icon: Users2        },
-  { view: View.Prove,         label: 'Showcase',    icon: Trophy        },
-  { view: View.Jobs,          label: 'Jobs',        icon: Briefcase     },
-  { view: View.Messaging,     label: 'Messages',    icon: MessageSquare },
-  { view: View.Companies,     label: 'Companies',   icon: Building2     },
-  { view: View.Bridge as any, label: 'Bridge',      icon: GitMerge      },
+  { view: View.Feed,        label: 'Home',          icon: Home          },
+  { view: View.Connections, label: 'Circles',        icon: Users2        },
+  { view: View.Circles,     label: 'Pods',           icon: Hexagon       },
+  { view: View.Prove,       label: 'Showcase',       icon: Sword         },
+  { view: View.Jobs,        label: 'Opportunities',  icon: Briefcase     },
+  { view: View.Messaging,   label: 'Messages',       icon: MessageSquare },
+  { view: View.AIChat as any, label: 'Lens',         icon: Zap           },
+  { view: View.Pricing,     label: 'Pricing',        icon: CreditCard    },
+  { view: View.Companies,   label: 'Companies',      icon: Building2     },
+  { view: View.Bridge as any, label: 'Bridge', icon:  GitMerge },
 ];
 
 interface HeaderProps {
@@ -479,15 +479,6 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
               <button onClick={() => { onNavigate(View.Settings ?? View.Profile); setMenuOpen(false); }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
                 <Settings className="h-4 w-4" />Settings
-              </button>
-              <div className="my-1 h-px bg-stone-100" />
-              <button onClick={() => { onNavigate(View.AIChat as any); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
-                <Zap className="h-4 w-4" />Lens AI
-              </button>
-              <button onClick={() => { onNavigate(View.Pricing); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
-                <CreditCard className="h-4 w-4" />Pricing & Plans
               </button>
               <button
   onClick={() => { handleGoToFactory(); setMenuOpen(false); }}
