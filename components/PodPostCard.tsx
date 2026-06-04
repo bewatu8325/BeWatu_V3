@@ -17,6 +17,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, ThumbsUp, Lightbulb, Users, ChevronDown, ChevronUp, Send, Loader2 } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { addComment, subscribeToComments, notifyPostAuthor, PostComment } from '../lib/firestoreService';
+import { trackCommentMade, trackReactionGiven } from '../lib/analytics/track';
 import type { Post, User, AppreciationType } from '../types';
 
 const GREEN    = '#1a4a3a';
@@ -145,6 +146,7 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
     setReacted(r => ({ ...r, [type]: true }));
     setReactions(r => ({ ...r, [type]: r[type] + 1 }));
     onAppreciatePost(post.id, type);
+    if (fbUser) trackReactionGiven(fbUser.uid, 'pod', post._firestoreId ?? String(post.id));
   };
 
   const handleComment = async () => {
@@ -162,6 +164,7 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
         },
         commentText.trim()
       );
+      trackCommentMade(fbUser.uid, 'pod', post._firestoreId ?? String(post.id));
       setCommentText('');
       setCommentCount(c => c + 1);
       // Notify post author (fire and forget)

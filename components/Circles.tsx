@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Circle, PodType, PodStage } from '../types';
+import { useFirebase } from '../contexts/FirebaseContext';
+import { useRecommendations } from '../hooks/useRecommendations';
+import { confidenceBanner } from '../lib/recommendation/recommend';
+import type { Candidate } from '../lib/recommendation/recommend';
 import {
   Users, Plus, X, ArrowRight, Hexagon, Sparkles,
   Lightbulb, GitMerge, Trophy, Globe,
@@ -753,6 +757,7 @@ const Circles: React.FC<CirclesProps> = ({
   circles, onSelectCircle, onCreateCircle, onJoinCircle,
   onApplyToCircle, onLeaveCircle, currentUserId, currentUserFirestoreUid,
 }) => {
+  const { fbUser } = useFirebase() as any;
   const [isModalOpen, setIsModalOpen]   = useState(false);
   const [activeFilter, setActiveFilter] = useState<PodType | 'all'>('all');
 
@@ -760,6 +765,42 @@ const Circles: React.FC<CirclesProps> = ({
   const otherPods = circles.filter(c => !currentUserId || !c.members.includes(currentUserId));
   const filteredOther = activeFilter === 'all' ? otherPods
     : otherPods.filter(c => (c.podType ?? 'community') === activeFilter);
+
+  // Convert pods to Candidates for recommendation scoring
+  const candidates: Candidate[] = useMemo(() => filteredOther.map(c => ({
+    id:          String((c as any)._firestoreId ?? c.id),
+    kind:        'pod' as const,
+    title:       c.name,
+    industry:    (c as any).industry,
+    createdAt:   (c as any).createdAt?.toDate
+                   ? (c as any).createdAt.toDate().getTime()
+                   : typeof (c as any).createdAt === 'number' ? (c as any).createdAt : undefined,
+    memberCount: c.members.length,
+  })), [filteredOther]);
+
+  const { recommendations, profile, banner } = useRecommendations(
+    fbUser?.uid ?? null,
+    candidates,
+    candidates.length  // rank all — we display the full list
+  );
+
+  // Map ranked IDs back to Circle objects, preserving recommendation metadata
+  const rankedOther = useMemo(() => {
+    if (!profile || profile.confidence === 'early') return filteredOther;
+    const scoreMap = new Map(recommendations.map(r => [r.id, r]));
+    return [...filteredOther].sort((a, b) => {
+      const aId = String((a as any)._firestoreId ?? a.id);
+      const bId = String((b as any)._firestoreId ?? b.id);
+      const aScore = scoreMap.get(aId)?.score ?? 0;
+      const bScore = scoreMap.get(bId)?.score ?? 0;
+      return bScore - aScore;
+    });
+  }, [filteredOther, recommendations, profile]);
+
+  const reasonMap = useMemo(
+    () => new Map(recommendations.map(r => [r.id, r.reasons])),
+    [recommendations]
+  );
 
   // Challenge IDs the current user already has a pod for — enforces one-per-challenge
   const existingChallengePodIds = myPods
@@ -855,6 +896,16 @@ const Circles: React.FC<CirclesProps> = ({
                 </div>
               </div>
 
+              {/* Recommendation banner — only show when profile has enough data */}
+              {profile && profile.confidence !== 'early' && (
+                <p className="text-[11px] text-stone-400 mb-3 flex items-center gap-1">
+                  <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                  </svg>
+                  {banner}
+                </p>
+              )}
+
               {filteredOther.length === 0 ? (
                 <div className="text-center py-12 border border-dashed border-stone-200 rounded-2xl">
                   <p className="text-stone-400 text-sm">No {activeFilter} pods yet</p>
@@ -864,12 +915,27 @@ const Circles: React.FC<CirclesProps> = ({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredOther.map(circle => (
-                    <PodCard key={circle.id} circle={circle} isMember={false} currentUserId={currentUserId}
-                      onSelect={() => onSelectCircle(circle.id)}
-                      onJoin={() => onJoinCircle?.(circle.id)}
-                      onApply={() => onApplyToCircle?.(circle.id)} />
-                  ))}
+                  {rankedOther.map(circle => {
+                    const cid = String((circle as any)._firestoreId ?? circle.id);
+                    const reasons = reasonMap.get(cid) ?? [];
+                    return (
+                      <div key={circle.id} className="flex flex-col gap-1">
+                        <PodCard circle={circle} isMember={false} currentUserId={currentUserId}
+                          onSelect={() => onSelectCircle(circle.id)}
+                          onJoin={() => onJoinCircle?.(circle.id)}
+                          onApply={() => onApplyToCircle?.(circle.id)} />
+                        {/* Recommendation reason — shown only when meaningful */}
+                        {reasons.length > 0 && reasons[0] && (
+                          <p className="text-[10px] text-stone-400 px-1 truncate flex items-center gap-1">
+                            <svg className="w-2.5 h-2.5 flex-shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 8 8">
+                              <circle cx="4" cy="4" r="4"/>
+                            </svg>
+                            {reasons[0]}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>

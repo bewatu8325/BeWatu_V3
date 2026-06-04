@@ -1,6 +1,8 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { User, ConnectionRequest, Circle, View } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, CirclesIcon, UsersIcon } from '../constants';
+import { useFirebase } from '../contexts/FirebaseContext';
+import RecommendationInsights from './RecommendationInsights';
 interface ProfileSidebarProps {
   user: User;
   connectionRequests: ConnectionRequest[];
@@ -145,6 +147,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
   user, connectionRequests, circles, allUsers,
   onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onViewProfile,
 }) => {
+  const { fbUser } = useFirebase() as any;
   const connectionCount = useMemo(() =>
     connectionRequests.filter(
       cr => (cr.fromUserId === user.id || cr.toUserId === user.id) && cr.status === 'accepted'
@@ -293,6 +296,10 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
           </div>
         )}
       </div>
+      {/* ── Content recommendations — shown only when profile has data ── */}
+      {fbUser?.uid && (
+        <RecommendationInsights uid={fbUser.uid} />
+      )}
       {/* ── My Circles: connected people ── */}
       {connectedUsers.length > 0 && (
         <div className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
