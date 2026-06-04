@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import SparksTray from './components/sparks/SparksTray';
 import ProveView from './components/ProveView';
-import { ShowcaseView } from './components/ShowcaseView';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
@@ -217,18 +216,22 @@ const MainApp: React.FC = () => {
           snap.docs.forEach(d => {
             const n = d.data();
             if (n.type === 'circle_approved' && n.circleFirestoreId) {
-              // Add current user to members in local state immediately
-              setData(prev => {
-                if (!prev) return null;
-                return {
-                  ...prev,
-                  circles: prev.circles.map(c => {
-                    if ((c as any)._firestoreId !== n.circleFirestoreId) return c;
-                    if (c.members.includes(currentUser.id)) return c;
-                    return { ...c, members: [...c.members, currentUser.id] };
-                  }),
-                };
-              });
+              // Defer setData to avoid "Cannot update a component while rendering
+              // a different component" (React error #306). onSnapshot can fire
+              // synchronously during a render cycle; setTimeout pushes it out.
+              setTimeout(() => {
+                setData(prev => {
+                  if (!prev) return null;
+                  return {
+                    ...prev,
+                    circles: prev.circles.map(c => {
+                      if ((c as any)._firestoreId !== n.circleFirestoreId) return c;
+                      if (c.members.includes(currentUser.id)) return c;
+                      return { ...c, members: [...c.members, currentUser.id] };
+                    }),
+                  };
+                });
+              }, 0);
             }
           });
         });
@@ -801,7 +804,6 @@ const MainApp: React.FC = () => {
   const handleGenerateSkillsGraph = async (resume: string, digitalFootprint: string, references: string) => {
     if (!data || !currentUser || !fbUser) return;
 
-    // Call Claude proxy instead of broken Gemini endpoint
     const prompt = `Analyse this professional's background and return a JSON array of verified skills.
 Each skill: { "name": string, "level": "beginner"|"intermediate"|"advanced"|"expert", "endorsements": 0, "source": "platform"|"resume"|"endorsement" }
 Return ONLY valid JSON — no markdown, no explanation.
@@ -833,7 +835,6 @@ ${references || 'Not provided'}`;
       }
     } catch (err) {
       console.error('Skills generation error:', err);
-      // Fall back to deriving from existing profile skills
       verifiedSkills = (currentUser.skills ?? []).map((s: any) => ({
         name:        typeof s === 'string' ? s : s.name,
         level:       'intermediate',
@@ -842,11 +843,25 @@ ${references || 'Not provided'}`;
       }));
     }
 
+    // AI/platform-derived skills → verifiedSkills (shown with green check)
     const updatedUser = { ...currentUser, verifiedSkills };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
     refreshUser(updatedUser);
     await updateUserInFirestore(fbUser.uid, { verifiedSkills });
     setIsSkillsGraphModalOpen(false);
+  };
+
+  // Manually added skills → userAddedSkills (shown without verification badge)
+  // Called when user types a skill in SkillsGraphModal's "Add manually" field
+  const handleAddUserSkill = async (skillName: string) => {
+    if (!data || !currentUser || !fbUser || !skillName.trim()) return;
+    const existing: string[] = (currentUser as any).userAddedSkills ?? [];
+    if (existing.includes(skillName.trim())) return;
+    const updated = [...existing, skillName.trim()];
+    const updatedUser = { ...currentUser, userAddedSkills: updated };
+    setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
+    refreshUser(updatedUser);
+    await updateUserInFirestore(fbUser.uid, { userAddedSkills: updated });
   };
 
   const handleSaveMicroIntroduction = async (videoUrl: string) => {
@@ -1321,20 +1336,13 @@ ${references || 'Not provided'}`;
           });
 
         content = (
-          <ShowcaseView
+          <ProveView
             currentUser={currentUser}
             onViewProfile={handleViewProfile}
             onStartMessage={startMessage}
             onConnect={handleSendConnection}
             allJobs={data.jobs}
             socialGraphUids={connectedUids}
-            onSelectArenaIndustry={(slug: string) => {
-              setActiveArenaIndustry(slug);
-              sessionStorage.setItem('beWatuArenaIndustry', slug);
-              setCurrentView('ARENA_INDUSTRY' as any);
-              sessionStorage.setItem('beWatuView', 'ARENA_INDUSTRY');
-            }}
-            currentUserCompany={selectedCompany}
           />
         );
         break;
@@ -1573,7 +1581,7 @@ ${references || 'Not provided'}`;
           />
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
-          {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
+          {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onAddUserSkill={handleAddUserSkill} onClose={() => setIsSkillsGraphModalOpen(false)} />}
           {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
           {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
           {reportModalOpen && fbUser && currentUser && (
