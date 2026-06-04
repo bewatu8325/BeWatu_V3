@@ -130,6 +130,7 @@ const MainApp: React.FC = () => {
     () => sessionStorage.getItem('beWatuArenaIndustry') ?? null
   );
   const [showcaseTab, setShowcaseTab] = useState<'prove' | 'arenas'>('prove');
+  const [communityTab, setCommunityTab] = useState<'pods' | 'bridge'>('pods');
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1441,28 +1442,77 @@ ${references || 'Not provided'}`;
         break;
 
       case View.Circles: {
+        // ── Community: tabbed Pods + Bridge ───────────────────────────
         if (activeCircleId) {
+          // When inside a pod, show CircleDetail directly (no tab strip)
           const circle = data.circles.find(c => c.id === activeCircleId);
           content = circle
             ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onInviteMember={handleInviteMemberToCircle} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onApproveJoinRequest={handleApproveJoinRequest} onDeclineJoinRequest={handleDeclineJoinRequest} onLeaveCircle={handleLeaveCircle} onViewProfile={handleViewProfile} onBack={() => setActiveCircleId(null)} onApplyToCircle={handleApplyToCircle} lastVisited={lastCircleVisited[activeCircleId] ?? undefined} />
             : <div>Circle not found</div>;
         } else {
-          content = <Circles
-            circles={data.circles}
-            onSelectCircle={handleSelectCircle}
-            onCreateCircle={handleCreateCircle}
-            onJoinCircle={async (circleId) => {
-              if (!fbUser || !currentUser) return;
-              handleAddMemberToCircle(circleId, currentUser.id);
-            }}
-            onApplyToCircle={handleApplyToCircle}
-            onLeaveCircle={handleLeaveCircle}
-            currentUserId={currentUser.id}
-            currentUserFirestoreUid={fbUser?.uid}
-          />;
+          const GREEN = '#1a4a3a';
+          content = (
+            <div className="space-y-0">
+              {/* ── Community tab strip ──────────────────────────────── */}
+              <div className="flex border-b border-stone-200 bg-white sticky top-0 z-10">
+                {(['pods', 'bridge'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setCommunityTab(tab)}
+                    className="flex items-center gap-2 px-6 py-3.5 text-sm font-semibold transition-colors capitalize"
+                    style={{
+                      color: communityTab === tab ? GREEN : '#78716c',
+                      borderBottom: communityTab === tab ? `2px solid ${GREEN}` : '2px solid transparent',
+                      marginBottom: -1,
+                    }}>
+                    {tab === 'pods'
+                      ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                      : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                    }
+                    {tab === 'pods' ? 'Pods' : 'Bridge'}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── Tab content ────────────────────────────────────────── */}
+              {communityTab === 'pods' ? (
+                <Circles
+                  circles={data.circles}
+                  onSelectCircle={handleSelectCircle}
+                  onCreateCircle={handleCreateCircle}
+                  onJoinCircle={async (circleId) => {
+                    if (!fbUser || !currentUser) return;
+                    handleAddMemberToCircle(circleId, currentUser.id);
+                  }}
+                  onApplyToCircle={handleApplyToCircle}
+                  onLeaveCircle={handleLeaveCircle}
+                  currentUserId={currentUser.id}
+                  currentUserFirestoreUid={fbUser?.uid}
+                />
+              ) : (
+                <Suspense fallback={<div />}>
+                  <GenerationalFeed
+                    currentUser={currentUser}
+                    fbUserUid={fbUser.uid}
+                    onViewProfile={setPublicProfileUserId}
+                    onSelectCircle={(circleId) => {
+                      handleSelectCircle(circleId);
+                      setCommunityTab('pods');
+                    }}
+                  />
+                </Suspense>
+              )}
+            </div>
+          );
         }
         break;
       }
+
+      case (View.Bridge as any):
+        // Redirect into Community with Bridge tab active
+        setCommunityTab('bridge');
+        setCurrentView(View.Circles);
+        break;
 
       case View.Pricing:
         content = (
@@ -1482,19 +1532,6 @@ ${references || 'Not provided'}`;
           </div>
         );
         break;
-        case View.Bridge:
-  content = (
-    <GenerationalFeed
-      currentUser={currentUser}
-      fbUserUid={fbUser.uid}
-      onViewProfile={setPublicProfileUserId}
-      onSelectCircle={(circleId) => {
-        handleSelectCircle(circleId);
-        handleSetView(View.Circles);
-      }}
-    />
-  );
-  break;
 
       case View.Companies:
         content = (
