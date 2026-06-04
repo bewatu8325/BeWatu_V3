@@ -299,14 +299,11 @@ function NotificationsPanel({
 const NAV_ITEMS = [
   { view: View.Feed,        label: 'Home',          icon: Home          },
   { view: View.Connections, label: 'Circles',        icon: Users2        },
-  { view: View.Circles,     label: 'Pods',           icon: Hexagon       },
+  { view: View.Circles,     label: 'Community',      icon: Hexagon       },
   { view: View.Prove,       label: 'Showcase',       icon: Sword         },
   { view: View.Jobs,        label: 'Opportunities',  icon: Briefcase     },
   { view: View.Messaging,   label: 'Messages',       icon: MessageSquare },
-  { view: View.AIChat as any, label: 'Lens',         icon: Zap           },
-  { view: View.Pricing,     label: 'Pricing',        icon: CreditCard    },
   { view: View.Companies,   label: 'Companies',      icon: Building2     },
-  { view: View.Bridge as any, label: 'Bridge', icon:  GitMerge },
 ];
 
 interface HeaderProps {
@@ -489,6 +486,15 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
   {factoryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Factory className="h-4 w-4" />}
   {factoryLoading ? "Launching…" : "Go to Factory →"}
 </button>
+              <div className="my-1 h-px bg-stone-100" />
+              <button onClick={() => { onNavigate(View.AIChat as any); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
+                <Zap className="h-4 w-4" />Lens
+              </button>
+              <button onClick={() => { onNavigate(View.Pricing); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
+                <CreditCard className="h-4 w-4" />Pricing
+              </button>
               <div className="my-1 h-px bg-stone-100" />
               <button onClick={() => { setMenuOpen(false); onLogout(); }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 transition-colors">
