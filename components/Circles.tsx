@@ -92,6 +92,157 @@ function PodTypeBadge({ type }: { type: PodType }) {
   );
 }
 
+// ── Pod info modal (shown when non-member clicks a pod) ───────────────────────
+
+function PodInfoModal({ circle, onClose, onJoin, onApply, currentUserId }: {
+  circle: Circle;
+  onClose: () => void;
+  onJoin?: () => void;
+  onApply?: () => void;
+  currentUserId?: number;
+}) {
+  const pal        = getPalette(circle.name);
+  const type       = circle.podType ?? 'community';
+  const cfg        = POD_TYPE_CONFIG[type];
+  const isPending  = currentUserId && (circle.pendingMembers ?? []).includes(currentUserId);
+  const visibility = circle.visibility ?? 'open';
+
+  // Close on backdrop click
+  function handleBackdrop(e: React.MouseEvent) {
+    if (e.target === e.currentTarget) onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+      onClick={handleBackdrop}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+        style={{ border: `2px solid ${pal.border}` }}
+      >
+        {/* Coloured header strip */}
+        <div className="px-5 pt-5 pb-4" style={{ backgroundColor: pal.bg }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-base font-black flex-shrink-0"
+                style={{ backgroundColor: 'white', color: pal.text, border: `2px solid ${pal.border}` }}
+              >
+                {getInitials(circle.name)}
+              </div>
+              <div className="min-w-0">
+                <p className="font-extrabold text-stone-900 text-base leading-tight">{circle.name}</p>
+                <p className="text-xs text-stone-500 mt-0.5">{circle.members.length} member{circle.members.length !== 1 ? 's' : ''}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <PodTypeBadge type={type} />
+              <button
+                onClick={onClose}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-black/10 transition-colors text-stone-500"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-4">
+          {/* Description */}
+          <p className="text-sm text-stone-700 leading-relaxed">
+            {circle.description || cfg.description}
+          </p>
+
+          {/* Innovation extras */}
+          {type === 'innovation' && circle.problemStatement && (
+            <div className="px-3 py-2 rounded-xl text-sm text-stone-600 italic"
+              style={{ backgroundColor: cfg.bg, borderLeft: `3px solid ${cfg.border}` }}>
+              "{circle.problemStatement}"
+            </div>
+          )}
+          {type === 'innovation' && (circle.stage || (circle.rolesNeeded ?? []).length > 0) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {circle.stage && (
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                  style={{ backgroundColor: STAGE_CONFIG[circle.stage].bg, color: STAGE_CONFIG[circle.stage].color }}>
+                  {circle.stage}
+                </span>
+              )}
+              {(circle.rolesNeeded ?? []).length > 0 && (
+                <span className="text-xs text-stone-500">
+                  Seeking: {circle.rolesNeeded!.join(', ')}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Challenge */}
+          {type === 'challenge' && circle.challengeTitle && (
+            <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: cfg.color }}>
+              <Trophy size={13} /> {circle.challengeTitle}
+            </div>
+          )}
+
+          {/* Generational */}
+          {type === 'generational' && (circle.minExperienceYears !== undefined || circle.maxExperienceYears !== undefined) && (
+            <div className="flex items-center gap-2 text-sm text-stone-500">
+              <GitMerge size={13} />
+              {circle.minExperienceYears !== undefined && circle.maxExperienceYears !== undefined
+                ? `Open to ${circle.minExperienceYears}–${circle.maxExperienceYears} years experience`
+                : circle.minExperienceYears !== undefined
+                  ? `${circle.minExperienceYears}+ years experience`
+                  : `Up to ${circle.maxExperienceYears} years experience`}
+            </div>
+          )}
+
+          {/* Member ring preview */}
+          <div className="flex items-center gap-2">
+            <MemberRings count={circle.members.length} />
+            {circle.members.length === 0 && (
+              <span className="text-xs text-stone-400">Be the first to join</span>
+            )}
+          </div>
+        </div>
+
+        {/* CTA footer */}
+        <div className="px-5 pb-5">
+          {isPending ? (
+            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-amber-600 bg-amber-50">
+              <Clock size={14} /> Request pending — you'll be notified when reviewed
+            </div>
+          ) : visibility === 'open' ? (
+            <button
+              onClick={() => { onJoin?.(); onClose(); }}
+              className="w-full py-3 rounded-xl text-sm font-bold text-white hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: GREEN }}
+            >
+              Join pod
+            </button>
+          ) : visibility === 'apply' ? (
+            <div className="space-y-2">
+              <button
+                onClick={() => { onApply?.(); onClose(); }}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold border hover:bg-stone-50 transition-colors"
+                style={{ borderColor: GREEN, color: GREEN }}
+              >
+                <UserPlus size={14} /> Request to join
+              </button>
+              <p className="text-center text-xs text-stone-400">The pod admin will review your request</p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm text-stone-400 bg-stone-50">
+              <Lock size={14} /> This pod is invite-only
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Pod card ──────────────────────────────────────────────────────────────────
 
 function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave, currentUserId }: {
@@ -102,6 +253,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
   const [hovered,       setHovered]       = useState(false);
   const [confirmLeave,  setConfirmLeave]  = useState(false);
   const [leaving,       setLeaving]       = useState(false);
+  const [showInfo,      setShowInfo]      = useState(false);
   const pal        = getPalette(circle.name);
   const type       = circle.podType ?? 'community';
   const cfg        = POD_TYPE_CONFIG[type];
@@ -115,19 +267,43 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
     try { await onLeave?.(); } finally { setLeaving(false); setConfirmLeave(false); }
   }
 
+  // Members navigate directly; non-members see the info modal first
+  function handleCardClick() {
+    if (isMember) { onSelect(); } else { setShowInfo(true); }
+  }
+
   return (
-    <div
-      className="rounded-2xl border-2 transition-all duration-200 flex flex-col overflow-hidden cursor-pointer"
-      style={{
-        backgroundColor: hovered ? pal.bg : '#ffffff',
-        borderColor:     hovered ? pal.border : '#e7e5e4',
-        transform:       hovered ? 'translateY(-2px)' : 'none',
-        boxShadow:       hovered ? '0 8px 24px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={onSelect}
-    >
+    <>
+      {showInfo && (
+        <PodInfoModal
+          circle={circle}
+          currentUserId={currentUserId}
+          onClose={() => setShowInfo(false)}
+          onJoin={onJoin}
+          onApply={onApply}
+        />
+      )}
+
+  async function handleLeave(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirmLeave) { setConfirmLeave(true); return; }
+    setLeaving(true);
+    try { await onLeave?.(); } finally { setLeaving(false); setConfirmLeave(false); }
+  }
+
+  return (
+      <div
+        className="rounded-2xl border-2 transition-all duration-200 flex flex-col overflow-hidden cursor-pointer"
+        style={{
+          backgroundColor: hovered ? pal.bg : '#ffffff',
+          borderColor:     hovered ? pal.border : '#e7e5e4',
+          transform:       hovered ? 'translateY(-2px)' : 'none',
+          boxShadow:       hovered ? '0 8px 24px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={handleCardClick}
+      >
       <div className="p-5 flex flex-col gap-3 flex-1">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
@@ -239,7 +415,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -266,15 +442,6 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
   const [challengeFilter,   setChallengeFilter]   = useState('');
   const [minExp, setMinExp]             = useState('');
   const [maxExp, setMaxExp]             = useState('');
-
-  // Reset type-specific fields when pod type changes
-  const handleTypeSelect = (type: any) => {
-    setSelectedType(type);
-    setMinExp(''); setMaxExp('');
-    setPodStage(''); setRolesNeeded([]);
-    setProblemStatement(''); setSelectedChallenge(null);
-    setVisibility('open');
-  };
   const [creating, setCreating]         = useState(false);
   const [error, setError]               = useState('');
 
@@ -368,7 +535,7 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
             {(Object.keys(POD_TYPE_CONFIG) as PodType[]).map(type => {
               const cfg = POD_TYPE_CONFIG[type];
               return (
-                <button key={type} onClick={() => { handleTypeSelect(type); setStep('details'); }}
+                <button key={type} onClick={() => { setSelectedType(type); setStep('details'); }}
                   className="w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all hover:border-stone-300 hover:bg-stone-50"
                   style={{ borderColor: '#e7e5e4' }}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
