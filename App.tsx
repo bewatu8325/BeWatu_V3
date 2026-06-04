@@ -129,6 +129,7 @@ const MainApp: React.FC = () => {
   const [activeArenaIndustry, setActiveArenaIndustry] = useState<string | null>(
     () => sessionStorage.getItem('beWatuArenaIndustry') ?? null
   );
+  const [showcaseTab, setShowcaseTab] = useState<'prove' | 'arenas'>('prove');
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1326,7 +1327,6 @@ ${references || 'Not provided'}`;
             if (r.senderUid && r.senderUid !== fbUser?.uid) connectedUids.add(r.senderUid);
             if (r.receiverUid && r.receiverUid !== fbUser?.uid) connectedUids.add(r.receiverUid);
           });
-        // Add circle/pod member Firestore UIDs
         data.circles
           .filter(c => currentUser && c.members.includes(currentUser.id))
           .forEach(c => {
@@ -1335,34 +1335,63 @@ ${references || 'Not provided'}`;
               .forEach(u => { if ((u as any)._firestoreUid) connectedUids.add((u as any)._firestoreUid); });
           });
 
+        const GREEN = '#1a4a3a';
         content = (
-          <ProveView
-            currentUser={currentUser}
-            onViewProfile={handleViewProfile}
-            onStartMessage={startMessage}
-            onConnect={handleSendConnection}
-            allJobs={data.jobs}
-            socialGraphUids={connectedUids}
-          />
+          <div className="space-y-0">
+            {/* ── Showcase tab strip ──────────────────────────────────────── */}
+            <div className="flex border-b border-stone-200 bg-white sticky top-0 z-10">
+              {(['prove', 'arenas'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setShowcaseTab(tab)}
+                  className="flex items-center gap-2 px-6 py-3.5 text-sm font-semibold transition-colors capitalize"
+                  style={{
+                    color: showcaseTab === tab ? GREEN : '#78716c',
+                    borderBottom: showcaseTab === tab ? `2px solid ${GREEN}` : '2px solid transparent',
+                    marginBottom: -1,
+                  }}>
+                  {tab === 'prove'
+                    ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                  }
+                  {tab === 'prove' ? 'Prove' : 'Arenas'}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Tab content ─────────────────────────────────────────────── */}
+            {showcaseTab === 'prove' ? (
+              <ProveView
+                currentUser={currentUser}
+                onViewProfile={handleViewProfile}
+                onStartMessage={startMessage}
+                onConnect={handleSendConnection}
+                allJobs={data.jobs}
+                socialGraphUids={connectedUids}
+              />
+            ) : (
+              <Suspense fallback={<div />}>
+                <ArenaDiscovery
+                  onSelectIndustry={(slug: string) => {
+                    setActiveArenaIndustry(slug);
+                    sessionStorage.setItem('beWatuArenaIndustry', slug);
+                    setCurrentView('ARENA_INDUSTRY' as any);
+                    sessionStorage.setItem('beWatuView', 'ARENA_INDUSTRY');
+                  }}
+                  onPostChallenge={() => {}}
+                  currentUserCompany={selectedCompany}
+                />
+              </Suspense>
+            )}
+          </div>
         );
         break;
       }
 
       case View.Arenas as any:
-        content = (
-          <Suspense fallback={<div />}>
-            <ArenaDiscovery
-              onSelectIndustry={(slug: string) => {
-                setActiveArenaIndustry(slug);
-                sessionStorage.setItem('beWatuArenaIndustry', slug);
-                setCurrentView('ARENA_INDUSTRY' as any);
-                sessionStorage.setItem('beWatuView', 'ARENA_INDUSTRY');
-              }}
-              onPostChallenge={() => {}}
-              currentUserCompany={selectedCompany}
-            />
-          </Suspense>
-        );
+        // Redirect into the Showcase with the Arenas tab active
+        setShowcaseTab('arenas');
+        setCurrentView(View.Prove);
         break;
 
       case 'ARENA_INDUSTRY' as any:
@@ -1370,7 +1399,7 @@ ${references || 'Not provided'}`;
           <Suspense fallback={<div />}>
             <ArenaIndustryView
               industry={activeArenaIndustry as any}
-              onBack={() => setCurrentView(View.Arenas as any)}
+              onBack={() => { setShowcaseTab('arenas'); setCurrentView(View.Prove); }}
               onSelectChallenge={async (id: string) => {
                 try {
                   const { fetchArenaChallengeById } = await import('./lib/firestoreService');
