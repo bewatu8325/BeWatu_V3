@@ -407,6 +407,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
           )}
         </div>
       </div>
+      </div>
     </>
   );
 }
