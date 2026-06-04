@@ -284,14 +284,6 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
         />
       )}
 
-  async function handleLeave(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!confirmLeave) { setConfirmLeave(true); return; }
-    setLeaving(true);
-    try { await onLeave?.(); } finally { setLeaving(false); setConfirmLeave(false); }
-  }
-
-  return (
       <div
         className="rounded-2xl border-2 transition-all duration-200 flex flex-col overflow-hidden cursor-pointer"
         style={{
