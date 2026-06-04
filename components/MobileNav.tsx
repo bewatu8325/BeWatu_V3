@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Home, Users2, User, Briefcase, MessageSquare,
-  Trophy, Building2, MoreHorizontal, X, GitMerge, Hexagon, Sword,
+  Trophy, Building2, MoreHorizontal, X, GitMerge, Hexagon,
 } from 'lucide-react';
 import { View } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -19,9 +19,8 @@ const PRIMARY_NAV = [
 // Secondary nav — shown in "More" drawer
 // Grouped logically for easy scanning
 const MORE_NAV = [
-  { view: View.Prove,            label: 'Showcase',  icon: Trophy,    description: 'Prove your skills' },
+  { view: View.Prove,            label: 'Showcase',  icon: Trophy,    description: 'Prove skills & Arenas' },
   { view: View.Circles,          label: 'Pods',      icon: Hexagon,   description: 'Team collaboration' },
-  { view: View.Arenas as any,    label: 'Arenas',    icon: Sword,     description: 'Live competitions' },
   { view: View.Companies,        label: 'Companies', icon: Building2, description: 'Explore employers' },
   { view: View.Bridge,           label: 'Bridge',    icon: GitMerge,  description: 'Cross-platform' },
 ];

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import SparksTray from './components/sparks/SparksTray';
 import ProveView from './components/ProveView';
+import { ShowcaseView } from './components/ShowcaseView';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
@@ -1320,13 +1321,20 @@ ${references || 'Not provided'}`;
           });
 
         content = (
-          <ProveView
+          <ShowcaseView
             currentUser={currentUser}
             onViewProfile={handleViewProfile}
             onStartMessage={startMessage}
             onConnect={handleSendConnection}
             allJobs={data.jobs}
             socialGraphUids={connectedUids}
+            onSelectArenaIndustry={(slug: string) => {
+              setActiveArenaIndustry(slug);
+              sessionStorage.setItem('beWatuArenaIndustry', slug);
+              setCurrentView('ARENA_INDUSTRY' as any);
+              sessionStorage.setItem('beWatuView', 'ARENA_INDUSTRY');
+            }}
+            currentUserCompany={selectedCompany}
           />
         );
         break;
