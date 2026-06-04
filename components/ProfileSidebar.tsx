@@ -5,11 +5,13 @@ interface ProfileSidebarProps {
   user: User;
   connectionRequests: ConnectionRequest[];
   circles: Circle[];
+  allUsers: User[];
   onGenerateSkills: () => void;
   onRecordVideo: () => void;
   onPlayVideo: (url: string) => void;
   onNavigate: (view: View) => void;
   onSelectCircle: (circleId: number) => void;
+  onViewProfile: (userId: number) => void;
 }
 const proficiencyWidth = {
   'Beginner': 'w-1/4',
@@ -140,17 +142,27 @@ const VibeClipTile: React.FC<{
 };
 // ─── Main sidebar ─────────────────────────────────────────────────────────────
 const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
-  user, connectionRequests, circles,
-  onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle,
+  user, connectionRequests, circles, allUsers,
+  onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onViewProfile,
 }) => {
   const connectionCount = useMemo(() =>
     connectionRequests.filter(
       cr => (cr.fromUserId === user.id || cr.toUserId === user.id) && cr.status === 'accepted'
     ).length,
   [user.id, connectionRequests]);
-  const userCircles = useMemo(() =>
-    circles.filter(c => c.members.includes(user.id)),
-  [user.id, circles]);
+
+  // Resolve accepted connections to actual User objects for profile navigation
+  const connectedUsers = useMemo(() => {
+    const connectedIds = connectionRequests
+      .filter(cr =>
+        (cr.fromUserId === user.id || cr.toUserId === user.id) &&
+        cr.status === 'accepted'
+      )
+      .map(cr => cr.fromUserId === user.id ? cr.toUserId : cr.fromUserId);
+    return connectedIds
+      .map(id => allUsers.find(u => u.id === id))
+      .filter(Boolean) as User[];
+  }, [user.id, connectionRequests, allUsers]);
   return (
     <div className="space-y-6">
       {/* ── Vibe Clip tile ── */}
@@ -276,8 +288,8 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
           </div>
         )}
       </div>
-      {/* ── Circles ── */}
-      {userCircles.length > 0 && (
+      {/* ── My Circles: connected people ── */}
+      {connectedUsers.length > 0 && (
         <div className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
           {/* Header with add friend action */}
           <div className="flex items-center justify-between mb-4">
@@ -298,22 +310,43 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
             </button>
           </div>
           <div className="flex flex-wrap gap-3 justify-center">
-            {userCircles.slice(0, 5).map(circle => (
+            {connectedUsers.slice(0, 8).map(person => (
               <button
-                key={circle.id}
-                onClick={() => onSelectCircle(circle.id)}
-                title={circle.name}
-                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-md text-white transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                style={{ backgroundColor: getCircleColor(circle.name) }}
+                key={person.id}
+                onClick={() => onViewProfile(person.id)}
+                title={person.name}
+                className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                style={{ '--tw-ring-color': '#1a4a3a' } as any}
               >
-                {circle.name.charAt(0).toUpperCase()}
+                {person.avatarUrl ? (
+                  <img
+                    src={person.avatarUrl}
+                    alt={person.name}
+                    className="w-10 h-10 rounded-full object-cover"
+                    onError={e => {
+                      const t = e.currentTarget;
+                      t.style.display = 'none';
+                      const next = t.nextElementSibling as HTMLElement | null;
+                      if (next) next.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <span
+                  className="w-10 h-10 rounded-full items-center justify-center font-bold text-sm text-white"
+                  style={{
+                    backgroundColor: getCircleColor(person.name),
+                    display: person.avatarUrl ? 'none' : 'flex',
+                  }}
+                >
+                  {person.name.charAt(0).toUpperCase()}
+                </span>
               </button>
             ))}
           </div>
         </div>
       )}
       {/* ── Circles empty state: prompt to connect ── */}
-      {userCircles.length === 0 && (
+      {connectedUsers.length === 0 && (
         <div className="bg-white rounded-2xl border p-6 shadow-sm text-center" style={{ borderColor: '#e7e5e4' }}>
           <CirclesIcon className="w-8 h-8 mx-auto mb-2 text-stone-300" />
           <p className="text-sm font-semibold text-stone-700 mb-1">No circles yet</p>
