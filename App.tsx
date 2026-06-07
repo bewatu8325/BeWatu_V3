@@ -866,9 +866,33 @@ const MainApp: React.FC = () => {
   const handleGenerateSkillsGraph = async (resume: string, digitalFootprint: string, references: string) => {
     if (!data || !currentUser || !fbUser) return;
 
+    // Enrich evidence with AI Workflows and Learning Logs
+    let workflowContext = '';
+    let logContext = '';
+    try {
+      const { getDocs, collection, query, where, orderBy, limit } = await import('firebase/firestore');
+      const { db: fdb } = await import('./lib/firebase');
+      const wfSnap = await getDocs(query(collection(fdb, 'aiWorkflows'), where('authorUid', '==', fbUser.uid), limit(5)));
+      if (!wfSnap.empty) {
+        workflowContext = wfSnap.docs.map(d => {
+          const w: any = d.data();
+          const steps = (w.steps ?? []).map((s: any) => `  [${s.type}] ${s.content}`).join('\n');
+          return `Workflow: ${w.title}\nTask: ${w.task}\nTools: ${(w.tools ?? []).join(', ')}\nSteps:\n${steps}\nOutcome: ${w.outcome}`;
+        }).join('\n\n');
+      }
+      const logSnap = await getDocs(query(collection(fdb, 'learningLogs'), where('authorUid', '==', fbUser.uid), orderBy('createdAt', 'desc'), limit(10)));
+      if (!logSnap.empty) {
+        logContext = logSnap.docs.map(d => {
+          const l: any = d.data();
+          return `Built: ${l.built}\nBroke: ${l.broke}\nNext: ${l.next}`;
+        }).join('\n---\n');
+      }
+    } catch { /* non-blocking */ }
+
     const prompt = `Analyse this professional's background and return a JSON array of verified skills.
-Each skill: { "name": string, "level": "beginner"|"intermediate"|"advanced"|"expert", "endorsements": 0, "source": "platform"|"resume"|"endorsement" }
+Each skill: { "name": string, "level": "beginner"|"intermediate"|"advanced"|"expert", "endorsements": 0, "source": "platform"|"resume"|"endorsement", "evidence": "brief one-sentence rationale citing specific evidence" }
 Return ONLY valid JSON — no markdown, no explanation.
+IMPORTANT: Only include skills supported by concrete evidence. "Verified" means the user has shown evidence — not a guarantee of proficiency.
 
 Background:
 ${resume || 'No resume provided'}
@@ -877,7 +901,10 @@ Digital presence:
 ${digitalFootprint || 'Not provided'}
 
 References/testimonials:
-${references || 'Not provided'}`;
+${references || 'Not provided'}
+
+${workflowContext ? `AI Workflow Showcase:\n${workflowContext}` : ''}
+${logContext ? `Learning Log:\n${logContext}` : ''}`;
 
     let verifiedSkills: any[] = [];
     try {
@@ -902,10 +929,10 @@ ${references || 'Not provided'}`;
         level:       'intermediate',
         endorsements: 0,
         source:      'platform',
+        evidence:    'Derived from platform activity',
       }));
     }
 
-    // AI/platform-derived skills → verifiedSkills (shown with green check)
     const updatedUser = { ...currentUser, verifiedSkills };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
     refreshUser(updatedUser);
@@ -913,17 +940,32 @@ ${references || 'Not provided'}`;
     setIsSkillsGraphModalOpen(false);
   };
 
-  // Manually added skills → userAddedSkills (shown without verification badge)
-  // Called when user types a skill in SkillsGraphModal's "Add manually" field
-  const handleAddUserSkill = async (skillName: string) => {
-    if (!data || !currentUser || !fbUser || !skillName.trim()) return;
-    const existing: string[] = (currentUser as any).userAddedSkills ?? [];
-    if (existing.includes(skillName.trim())) return;
-    const updated = [...existing, skillName.trim()];
-    const updatedUser = { ...currentUser, userAddedSkills: updated };
+  // Saves a batch of new skills to user.skills (not userAddedSkills — which was never rendered).
+  // Immediate local state update ensures ProfilePage/Sidebar re-render without a page refresh.
+  const handleSaveUserSkills = async (newSkillNames: string[]) => {
+    if (!data || !currentUser || !fbUser || newSkillNames.length === 0) return;
+    const existing: any[] = currentUser.skills ?? [];
+    const existingNames = new Set(existing.map((s: any) => (typeof s === 'string' ? s : s.name).toLowerCase()));
+    const toAdd = newSkillNames
+      .map(n => n.trim()).filter(n => n && !existingNames.has(n.toLowerCase()))
+      .map(n => ({ name: n, endorsements: 0 }));
+    if (toAdd.length === 0) return;
+    const updated = [...existing, ...toAdd];
+    const updatedUser = { ...currentUser, skills: updated };
     setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
     refreshUser(updatedUser);
-    await updateUserInFirestore(fbUser.uid, { userAddedSkills: updated });
+    await updateUserInFirestore(fbUser.uid, { skills: updated });
+  };
+
+  const handleRemoveUserSkill = async (skillName: string) => {
+    if (!data || !currentUser || !fbUser) return;
+    const updated = (currentUser.skills ?? []).filter((s: any) =>
+      (typeof s === 'string' ? s : s.name).toLowerCase() !== skillName.toLowerCase()
+    );
+    const updatedUser = { ...currentUser, skills: updated };
+    setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
+    refreshUser(updatedUser);
+    await updateUserInFirestore(fbUser.uid, { skills: updated });
   };
 
   const handleSaveMicroIntroduction = async (videoUrl: string) => {
@@ -1709,7 +1751,7 @@ ${references || 'Not provided'}`;
           />
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
-          {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onAddUserSkill={handleAddUserSkill} onClose={() => setIsSkillsGraphModalOpen(false)} />}
+          {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onSaveUserSkills={handleSaveUserSkills} onRemoveUserSkill={handleRemoveUserSkill} onClose={() => setIsSkillsGraphModalOpen(false)} />}
           {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
           {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
           {reportModalOpen && fbUser && currentUser && (
