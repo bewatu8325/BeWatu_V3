@@ -241,13 +241,26 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
       </button>
       {/* ── Skills ── */}
       <div className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
-        {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
-          <div>
-            <h3 className="font-semibold text-stone-800 text-md mb-3 text-center flex items-center justify-center">
-              <VerifiedIcon className="w-5 h-5 mr-2" style={{ color: '#1a4a3a' }} />
-              Verified Skills
-            </h3>
-            <div className="space-y-3">
+        {/* Verified skills — shown when present */}
+        {user.verifiedSkills && user.verifiedSkills.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-stone-800 text-sm flex items-center gap-1.5">
+                <VerifiedIcon className="w-4 h-4" style={{ color: '#1a4a3a' }} />
+                Verified Skills
+              </h3>
+              {/* Disclaimer inline — small, not alarming */}
+              <span className="group relative cursor-default">
+                <svg className="w-3.5 h-3.5 text-stone-300 hover:text-stone-500 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="absolute right-0 top-5 z-20 w-64 rounded-xl border bg-white p-3 shadow-lg text-xs text-stone-600 leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{ borderColor: '#e7e5e4' }}>
+                  <strong className="block text-stone-800 mb-1">What "verified" means</strong>
+                  BeWatu has reviewed evidence you've provided towards these skills. This is <strong>not</strong> a certification or guarantee of proficiency — employers should conduct their own due diligence.
+                </div>
+              </span>
+            </div>
+            <div className="space-y-2.5">
               {user.verifiedSkills.slice(0, 3).map(skill => (
                 <div key={skill.name} className="group relative">
                   <div className="flex justify-between items-center mb-1">
@@ -257,44 +270,60 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
                   <div className="w-full bg-stone-100 rounded-full h-1.5">
                     <div className={`h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`} style={{ backgroundColor: '#1a4a3a' }} />
                   </div>
-                  <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-white border rounded-lg text-stone-700 shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                    <span className="font-bold">Evidence:</span> {skill.evidence}
-                  </div>
+                  {skill.evidence && (
+                    <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-white border rounded-lg text-stone-700 shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10" style={{ borderColor: '#e7e5e4' }}>
+                      <span className="font-bold">Evidence:</span> {skill.evidence}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-            {/* ── Add skill action ── */}
-            <button
-              onClick={onGenerateSkills}
-              className="mt-4 w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg border transition hover:opacity-80"
-              style={{ color: '#1a4a3a', borderColor: '#1a6b52', backgroundColor: '#e8f4f0' }}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Add / manage skills
-            </button>
-          </div>
-        ) : (
-          <div className="text-center">
-            <h3 className="font-semibold text-stone-800 text-md mb-2">Top Skills</h3>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {user.skills?.slice(0, 3).map(skill => (
-                <div key={skill.name} className="flex items-center text-sm rounded-full px-3 py-1 font-medium border"
-                  style={{ backgroundColor: '#e8f4f0', color: '#1a4a3a', borderColor: '#1a6b52' }}>
-                  {skill.name}
-                  <span className="ml-1.5 font-semibold" style={{ color: '#1a4a3a' }}>{skill.endorsements}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={onGenerateSkills}
-              className="mt-4 w-full font-semibold px-4 py-2 rounded-xl text-sm flex items-center justify-center border transition hover:opacity-80"
-              style={{ backgroundColor: '#e8f4f0', color: '#1a4a3a', borderColor: '#1a6b52' }}>
-              <SparklesIcon className="w-4 h-4 mr-2" />
-              Generate Verified Skills
-            </button>
           </div>
         )}
+
+        {/* Self-reported skills — always shown when present */}
+        {(user.skills?.length ?? 0) > 0 && (
+          <div className={user.verifiedSkills && user.verifiedSkills.length > 0 ? 'border-t pt-4' : ''} style={user.verifiedSkills && user.verifiedSkills.length > 0 ? { borderColor: '#f0efee' } : {}}>
+            {(user.verifiedSkills?.length ?? 0) > 0 && (
+              <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-2">Self-reported</p>
+            )}
+            {!(user.verifiedSkills?.length) && (
+              <h3 className="font-semibold text-stone-800 text-sm mb-3">Skills</h3>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {(user.skills ?? []).slice(0, 6).map(skill => {
+                const name = typeof skill === 'string' ? skill : skill.name;
+                const isVerif = (user.verifiedSkills ?? []).some((v: any) => (v.name ?? '').toLowerCase() === name.toLowerCase());
+                if (isVerif) return null; // already shown above
+                return (
+                  <span key={name} className="text-xs font-medium rounded-full px-2.5 py-1 border"
+                    style={{ backgroundColor: '#f5f5f4', color: '#44403c', borderColor: '#e7e5e4' }}>
+                    {name}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {(user.skills?.length ?? 0) === 0 && !(user.verifiedSkills?.length) && (
+          <div className="text-center py-2">
+            <p className="text-sm text-stone-400">No skills added yet</p>
+          </div>
+        )}
+
+        {/* Add / manage action */}
+        <button
+          onClick={onGenerateSkills}
+          className="mt-4 w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg border transition hover:opacity-80"
+          style={{ color: '#1a4a3a', borderColor: '#1a6b52', backgroundColor: '#e8f4f0' }}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Add / manage skills
+        </button>
       </div>
       {/* ── Content recommendations — shown only when profile has data ── */}
       {fbUser?.uid && (
