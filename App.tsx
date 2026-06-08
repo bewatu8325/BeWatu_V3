@@ -111,6 +111,7 @@ const RecruiterUpgradeBanner = lazy(() => import('./components/recruiter/Recruit
 const GenerationalFeed = lazy(() => import('./components/GenerationalFeed'));
 const CompaniesPage = lazy(() => import('./components/CompaniesPage'));
 import ProfileOverlay from './components/ProfileOverlay';
+import PullToRefresh from './components/PullToRefresh';
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
@@ -1446,7 +1447,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
       case View.Profile: {
         const userToShow = profileUserId ? data.users.find(u => u.id === profileUserId) : currentUser;
         content = userToShow
-          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} onSaveProfile={handleSaveCurrentUserProfile} />
+          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} onSaveProfile={handleSaveCurrentUserProfile} onAddSkill={(name) => handleSaveUserSkills([name])} onRemoveSkill={handleRemoveUserSkill} onViewCompany={handleViewCompany} />
           : <div>User not found.</div>;
         break;
       }
@@ -1761,7 +1762,11 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               handleSetView(View.People);
             }}
           />
-          <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">{content}</main>
+          <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
+            <PullToRefresh onRefresh={async () => { if (currentUser) await loadAppData(currentUser); }}>
+              {content}
+            </PullToRefresh>
+          </main>
           {successBanner && <SuccessBanner message={successBanner} onClose={() => setSuccessBanner(null)} />}
           <Footer
             onNavigateToConnect={handleNavigateToConnect}
