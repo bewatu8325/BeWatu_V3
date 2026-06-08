@@ -119,6 +119,7 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({ onRegisterSuccess, 
   return (
     <AuthLayout title={t('createYourAccount')} onNavigateToConnect={onNavigateToConnect} onNavigateToLanding={onNavigateToLanding}>
       {isPolicyVisible && <BillingPolicyModal onClose={() => setIsPolicyVisible(false)} />}
+      <p className="text-sm text-center text-stone-500 -mt-3 mb-6 text-pretty">{t('registerSubtitle')}</p>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <p className="text-red-600 text-sm text-center bg-red-50 border border-red-200 p-3 rounded-xl">{error}</p>}
         <div>
