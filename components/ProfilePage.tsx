@@ -367,7 +367,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         <SkillsTrajectory
           profileUid={profileUid}
           isOwn={isCurrentUser}
-          skills={(user.verifiedSkills?.length ? user.verifiedSkills.map(s => s.name) : (user.skills ?? []).map(s => s.name))}
+          skills={
+            (user.verifiedSkills?.length
+              ? user.verifiedSkills.map((s: any) => (typeof s === 'string' ? s : s?.name ?? '')).filter(Boolean)
+              : (user.skills ?? []).map((s: any) => (typeof s === 'string' ? s : s?.name ?? '')).filter(Boolean)
+            )
+          }
           industry={user.industry}
         />
         {/* FEATURE 1 — AI Workflows (public proof surface) */}
