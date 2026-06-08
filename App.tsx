@@ -110,6 +110,7 @@ const ArenaIndustryView = lazy(() => import('./components/arenas/ArenaIndustryVi
 const RecruiterUpgradeBanner = lazy(() => import('./components/recruiter/RecruiterUpgradeBanner'));
 const GenerationalFeed = lazy(() => import('./components/GenerationalFeed'));
 const CompaniesPage = lazy(() => import('./components/CompaniesPage'));
+import ProfileOverlay from './components/ProfileOverlay';
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
@@ -1720,32 +1721,26 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         )}
 
         {/* Public profile overlay */}
-        {publicProfileUserId && data && (
+        {publicProfileUserId && data && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
               <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
-                  {(() => {
-                    const pubUser = data.users.find(u => u.id === publicProfileUserId);
-                    if (!pubUser) return <p className="text-stone-500 p-8">User not found.</p>;
-                    const isConn = data.connectionRequests.some(r =>
-                      r.status === 'accepted' && ((r.fromUserId === currentUser!.id && r.toUserId === publicProfileUserId) || (r.toUserId === currentUser!.id && r.fromUserId === publicProfileUserId))
-                    );
-                    return (
-                      <PublicProfilePage
-                        user={pubUser}
-                        isConnected={isConn}
-                        isFollowing={followedUserIds.has(publicProfileUserId)}
-                        onBack={() => setPublicProfileUserId(null)}
-                        onConnect={(uid) => { fbSendConnectionRequest(currentUser!.id, uid); }}
-                        onFollow={handleFollowUser}
-                        onViewCompany={handleViewCompany}
-                        onMessage={(uid) => { setPublicProfileUserId(null); startMessage(uid); }}
-                        onPlayVideo={url => setPlayingVideoUrl(url)}
-                      />
-                    );
-                  })()}
+                  <ProfileOverlay
+                    userId={publicProfileUserId}
+                    cachedUsers={data.users}
+                    currentUserId={currentUser.id}
+                    connectionRequests={data.connectionRequests}
+                    followedUserIds={followedUserIds}
+                    onBack={() => setPublicProfileUserId(null)}
+                    onConnect={(uid) => { fbSendConnectionRequest(currentUser!.id, uid); }}
+                    onFollow={handleFollowUser}
+                    onViewCompany={handleViewCompany}
+                    onMessage={(uid) => { setPublicProfileUserId(null); startMessage(uid); }}
+                    onPlayVideo={url => setPlayingVideoUrl(url)}
+                    PublicProfilePageComponent={PublicProfilePage}
+                  />
                 </Suspense>
               </main>
               <MobileNav currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} />
