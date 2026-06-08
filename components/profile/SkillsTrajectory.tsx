@@ -79,27 +79,40 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
   }, [profileUid, isActive]);
 
   async function runAnalysis() {
-    if (skills.length === 0) { setError('Add some skills first to see your trajectory.'); return; }
+    // Guard: skills prop may be empty or contain only empty strings after sanitisation
+    const validSkills = skills.filter(s => typeof s === 'string' && s.trim());
+    if (validSkills.length === 0) {
+      setError('Add some skills to your profile first, then come back to see your trajectory.');
+      return;
+    }
     setAnalyzing(true);
     setError('');
     try {
       const res = await fetch('/api/skills-trajectory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skills, industry }),
+        body: JSON.stringify({ skills: validSkills, industry }),
       });
-      if (!res.ok) throw new Error('analysis failed');
       const data = await res.json();
+      if (!res.ok) {
+        // Surface a helpful message for the no_skills case
+        if (data?.error === 'no_skills') {
+          setError('Add some skills to your profile first, then come back to see your trajectory.');
+        } else {
+          setError(data?.message ?? data?.error ?? 'Analysis failed. Please try again.');
+        }
+        return;
+      }
       const cached: CachedInsight = {
         trajectories: data.trajectories ?? [],
         summary: data.summary ?? '',
         computedAt: Date.now(),
-        skillsHash: hashSkills(skills),
+        skillsHash: hashSkills(validSkills),
       };
       await setDoc(doc(db, 'users', profileUid, 'insights', 'skillTrajectory'), { ...cached, updatedAt: serverTimestamp() });
       setInsight(cached);
     } catch {
-      setError('Could not analyze right now. Please try again.');
+      setError('Could not reach the analysis service. Please try again.');
     } finally {
       setAnalyzing(false);
     }
@@ -107,7 +120,8 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
 
   if (!isActive || loading) return null;
 
-  const stale = insight && insight.skillsHash !== hashSkills(skills);
+  const validSkills = skills.filter(s => typeof s === 'string' && s.trim());
+  const stale = insight && insight.skillsHash !== hashSkills(validSkills);
 
   const sorted = insight?.trajectories
     ? [...insight.trajectories].sort((a, b) => TRAJ_META[a.trajectory].order - TRAJ_META[b.trajectory].order)
@@ -139,15 +153,24 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
       {/* No analysis yet */}
       {!insight ? (
         <div className="rounded-xl border border-dashed p-4 text-center" style={{ borderColor: '#d6d3d1' }}>
-          <p className="text-sm text-stone-600 mb-1">See which of your skills are growing — and which AI is absorbing first.</p>
-          <p className="text-xs text-stone-400 mb-3">Based on WEF Future of Jobs research, personalised to your skills.</p>
-          <button onClick={runAnalysis} disabled={analyzing}
-            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60 transition"
-            style={{ backgroundColor: GREEN }}>
-            {analyzing
-              ? <><svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Analyzing…</>
-              : <>Analyze my skills</>}
-          </button>
+          {validSkills.length === 0 ? (
+            <>
+              <p className="text-sm font-medium text-stone-700 mb-1">No skills on your profile yet</p>
+              <p className="text-xs text-stone-400">Add skills to your profile first — then come back here to see how AI is affecting each one.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-stone-600 mb-1">See which of your skills are growing — and which AI is absorbing first.</p>
+              <p className="text-xs text-stone-400 mb-3">Based on WEF Future of Jobs research, personalised to your {validSkills.length} skill{validSkills.length !== 1 ? 's' : ''}.</p>
+              <button onClick={runAnalysis} disabled={analyzing}
+                className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60 transition"
+                style={{ backgroundColor: GREEN }}>
+                {analyzing
+                  ? <><svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Analyzing…</>
+                  : <>Analyze my {validSkills.length} skill{validSkills.length !== 1 ? 's' : ''}</>}
+              </button>
+            </>
+          )}
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
         </div>
       ) : (
