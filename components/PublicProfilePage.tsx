@@ -16,6 +16,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { fetchPublicProfileByUsername } from '../lib/firebaseAuth';
+import ProfileUnavailablePage from './ProfileUnavailablePage';
 
 const GREEN     = '#1a4a3a';
 const GREEN_LT  = '#e8f4f0';
@@ -27,112 +28,33 @@ function initials(name: string): string {
   return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'BW';
 }
 
-// ── Shell ─────────────────────────────────────────────────────────────────────
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f5f5f4' }}>
-      {/* Minimal nav */}
-      <nav className="bg-white border-b" style={{ borderColor: '#e7e5e4' }}>
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <a href="/" className="font-bold text-base tracking-tight" style={{ color: GREEN }}>BeWatu</a>
-          <a href="/" className="rounded-xl px-4 py-1.5 text-sm font-semibold text-white transition hover:opacity-90"
-            style={{ backgroundColor: GREEN }}>
-            Sign up free
-          </a>
-        </div>
-      </nav>
-      <main className="max-w-2xl mx-auto px-4 py-10">
-        {children}
-      </main>
-    </div>
-  );
-}
-
-// ── Loading skeleton ──────────────────────────────────────────────────────────
+// ── Loading skeleton (matches ProfileUnavailablePage nav/bg style) ─────────────
 
 function LoadingSkeleton() {
   return (
-    <Shell>
-      <div className="bg-white rounded-2xl border p-6 animate-pulse" style={{ borderColor: '#e7e5e4' }}>
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-20 h-20 rounded-full bg-stone-100 flex-shrink-0" />
-          <div className="flex-1 space-y-2">
-            <div className="h-5 bg-stone-100 rounded-lg w-40" />
-            <div className="h-3 bg-stone-100 rounded-lg w-56" />
+    <div className="min-h-screen" style={{ backgroundColor: '#f0ede6' }}>
+      <header className="sticky top-0 z-20 border-b" style={{ backgroundColor: '#f0ede6', borderColor: '#e8e4dc' }}>
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+          <span className="font-bold text-base tracking-tight" style={{ color: GREEN }}>BeWatu</span>
+        </div>
+      </header>
+      <main className="max-w-2xl mx-auto px-4 py-10">
+        <div className="bg-white rounded-3xl border p-6 animate-pulse" style={{ borderColor: '#e8e4dc' }}>
+          <div className="h-1.5 w-full rounded-t-3xl mb-6" style={{ backgroundColor: GREEN }} />
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-20 h-20 rounded-full bg-stone-100 flex-shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-5 bg-stone-100 rounded-lg w-40" />
+              <div className="h-3 bg-stone-100 rounded-lg w-56" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="h-3 bg-stone-100 rounded-lg w-full" />
+            <div className="h-3 bg-stone-100 rounded-lg w-4/5" />
           </div>
         </div>
-        <div className="space-y-2">
-          <div className="h-3 bg-stone-100 rounded-lg w-full" />
-          <div className="h-3 bg-stone-100 rounded-lg w-4/5" />
-        </div>
-      </div>
-    </Shell>
-  );
-}
-
-// ── Not-found / private gate ──────────────────────────────────────────────────
-
-function GatePage({ mode, username }: { mode: 'private' | 'not-found'; username: string }) {
-  return (
-    <Shell>
-      <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: '#e7e5e4' }}>
-        {/* Decorative top strip */}
-        <div className="h-2 w-full" style={{ background: `linear-gradient(90deg, ${GREEN} 0%, ${GREEN_MID} 100%)` }} />
-
-        <div className="px-8 py-12 text-center">
-          {/* Icon */}
-          <div className="mx-auto mb-5 w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{ backgroundColor: GREEN_LT }}>
-            {mode === 'private' ? (
-              <svg className="w-7 h-7" style={{ color: GREEN }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-              </svg>
-            ) : (
-              <svg className="w-7 h-7" style={{ color: GREEN }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-              </svg>
-            )}
-          </div>
-
-          <h1 className="text-xl font-bold text-stone-900 mb-2">
-            {mode === 'private'
-              ? `@${username} keeps their profile private`
-              : `@${username} isn't on BeWatu yet`}
-          </h1>
-          <p className="text-stone-500 text-sm leading-relaxed mb-8 max-w-sm mx-auto">
-            {mode === 'private'
-              ? 'This person has chosen to keep their profile private. Sign up to connect with professionals who share your goals.'
-              : 'This profile link doesn\'t match an active BeWatu account. Join to build your own verified professional presence.'}
-          </p>
-
-          {/* CTA */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <a href="/?signup=1"
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white transition hover:opacity-90"
-              style={{ backgroundColor: GREEN }}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-              </svg>
-              Join BeWatu free
-            </a>
-            <a href="/"
-              className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold border transition hover:bg-stone-50"
-              style={{ borderColor: '#e7e5e4', color: '#374151' }}>
-              Learn more
-            </a>
-          </div>
-        </div>
-
-        {/* Footer — what BeWatu is */}
-        <div className="px-8 py-6 border-t" style={{ borderColor: '#f0efee', backgroundColor: '#fafaf9' }}>
-          <p className="text-xs text-stone-500 text-center leading-relaxed">
-            BeWatu is a professional network where your capabilities speak louder than your CV.
-            Verified skills, live challenges, and real communities — built for the skills economy.
-          </p>
-        </div>
-      </div>
-    </Shell>
+      </main>
+    </div>
   );
 }
 
@@ -307,8 +229,22 @@ const PublicProfilePage: React.FC<Props> = ({ username, onSignUp }) => {
   }, [username]);
 
   if (state.status === 'loading')    return <LoadingSkeleton />;
-  if (state.status === 'private')    return <GatePage mode="private"   username={username} />;
-  if (state.status === 'not-found')  return <GatePage mode="not-found" username={username} />;
+  if (state.status === 'private')   return (
+    <ProfileUnavailablePage
+      handle={username}
+      isPrivate={true}
+      onSignUp={onSignUp}
+      onLearnMore={() => { window.location.href = '/'; }}
+    />
+  );
+  if (state.status === 'not-found') return (
+    <ProfileUnavailablePage
+      handle={username}
+      isPrivate={false}
+      onSignUp={onSignUp}
+      onLearnMore={() => { window.location.href = '/'; }}
+    />
+  );
 
   return (
     <PublicProfileCard
