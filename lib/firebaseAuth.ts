@@ -169,8 +169,43 @@ export async function registerWithEmail(
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<User> {
-  const cred = await signInWithEmailAndPassword(auth, email, password);
-  return getUserFromFirestore(cred.user);
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    return getUserFromFirestore(cred.user);
+  } catch (err: any) {
+    // Firebase auth errors have a `code` field. Translate to plain English so
+    // the UI can display something useful instead of the raw SDK message.
+    throw new Error(translateAuthError(err?.code ?? err?.message ?? ''));
+  }
+}
+
+/** Map Firebase auth error codes → plain-English messages for display in UI. */
+function translateAuthError(code: string): string {
+  switch (code) {
+    // Wrong password or email (Firebase v9+ consolidates these)
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+    case 'auth/invalid-email':
+      return 'Incorrect email or password. Please try again.';
+    case 'auth/user-not-found':
+      return 'No account found with that email address.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact support.';
+    case 'auth/too-many-requests':
+      return 'Too many failed attempts. Please wait a few minutes and try again.';
+    case 'auth/network-request-failed':
+      return 'Network error — please check your connection and try again.';
+    case 'auth/email-already-in-use':
+      return 'An account with this email already exists.';
+    case 'auth/weak-password':
+      return 'Password must be at least 6 characters.';
+    case 'auth/popup-closed-by-user':
+      return 'Sign-in was cancelled. Please try again.';
+    case 'auth/account-exists-with-different-credential':
+      return 'An account already exists with this email. Try signing in with a different method.';
+    default:
+      return 'Incorrect email or password. Please try again.';
+  }
 }
 
 /**
