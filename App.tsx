@@ -968,6 +968,33 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
     await updateUserInFirestore(fbUser.uid, { skills: updated });
   };
 
+  /**
+   * Generic profile save — call this from any component that edits the
+   * current user's profile (bio, headline, name, experiences, etc.).
+   *
+   * It writes to Firestore AND immediately syncs both currentUser (via
+   * refreshUser) and data.users so the profile re-renders with fresh data
+   * without needing a page reload. Errors are surfaced as thrown exceptions
+   * so callers can catch and display them — no silent swallowing.
+   */
+  const handleSaveCurrentUserProfile = async (updates: Record<string, any>) => {
+    if (!data || !currentUser || !fbUser) return;
+    // Optimistic local update — happens before the network call so the UI
+    // feels instant. If the write fails, the caller's catch should revert.
+    const userTypeUpdates: Partial<typeof currentUser> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      // Map Firestore field names back to User type field names for local state
+      if (key === 'displayName') (userTypeUpdates as any).name = value;
+      else if (key === 'photoURL') (userTypeUpdates as any).avatarUrl = value;
+      else (userTypeUpdates as any)[key] = value;
+    }
+    const updatedUser = { ...currentUser, ...userTypeUpdates };
+    setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
+    refreshUser(updatedUser);
+    // Network write — updateUserInFirestore now passes all fields through
+    await updateUserInFirestore(fbUser.uid, updates);
+  };
+
   const handleSaveMicroIntroduction = async (videoUrl: string) => {
     if (!data || !currentUser || !fbUser) return;
     const updatedUser = { ...currentUser, microIntroductionUrl: videoUrl };
@@ -1418,7 +1445,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
       case View.Profile: {
         const userToShow = profileUserId ? data.users.find(u => u.id === profileUserId) : currentUser;
         content = userToShow
-          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} />
+          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} onSaveProfile={handleSaveCurrentUserProfile} />
           : <div>User not found.</div>;
         break;
       }
