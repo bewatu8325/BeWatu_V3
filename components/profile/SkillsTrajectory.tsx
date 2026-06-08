@@ -61,18 +61,22 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState('');
 
-  // Only the owner sees this — it's personal guidance
-  if (!isOwn) return null;
+  // Owner-only — guard BEFORE all hooks so non-owners never trigger a Firestore
+  // read against another user's private insights subcollection (permission-denied).
+  // React rules: hooks must not be called conditionally, so we keep all useState
+  // above this point and use a ref-guarded effect below instead of returning early.
+  const isActive = isOwn;
 
   useEffect(() => {
+    if (!isActive) { setLoading(false); return; }
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'users', profileUid, 'insights', 'skillTrajectory'));
         if (snap.exists()) setInsight(snap.data() as CachedInsight);
-      } catch { /* none yet */ }
+      } catch { /* none yet — user hasn't run analysis */ }
       finally { setLoading(false); }
     })();
-  }, [profileUid]);
+  }, [profileUid, isActive]);
 
   async function runAnalysis() {
     if (skills.length === 0) { setError('Add some skills first to see your trajectory.'); return; }
@@ -101,7 +105,7 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
     }
   }
 
-  if (loading) return null;
+  if (!isActive || loading) return null;
 
   const stale = insight && insight.skillsHash !== hashSkills(skills);
 
