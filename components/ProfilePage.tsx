@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { User, ConnectionRequest, Circle, View, Experience } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
@@ -12,6 +12,7 @@ import { useFirebase } from '../contexts/FirebaseContext';
 import ProfileReelsStrip from './ProfileReelsStrip';
 import { uploadAvatar } from '../lib/storageService';
 import { updateUserInFirestore } from '../lib/firebaseAuth';
+import { getFollowingCompanies } from '../lib/firestoreService';
 
 interface ProfilePageProps {
   user: User;
@@ -30,6 +31,12 @@ interface ProfilePageProps {
    *  Use for all profile edits — prevents stale-data revert without reload. */
   onSaveProfile?: (updates: Record<string, any>) => Promise<void>;
   onUploadVideo?: (file: File) => void;
+  /** Add a single skill name to the user's skills list */
+  onAddSkill?: (skillName: string) => void;
+  /** Remove a skill by name from the user's skills list */
+  onRemoveSkill?: (skillName: string) => void;
+  /** Open a company profile modal by firestoreId */
+  onViewCompany?: (companyId: string) => void;
 }
 
 const proficiencyWidth = {
@@ -56,9 +63,48 @@ const getCircleColor = (circleName: string) => {
     return color;
 };
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity, onReportUser, onSaveProfile, onUploadVideo }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity, onReportUser, onSaveProfile, onUploadVideo, onAddSkill, onRemoveSkill, onViewCompany }) => {
   const { t } = useTranslation();
   const { fbUser } = useFirebase();
+
+  // ── Inline skill adding ──────────────────────────────────────────────────
+  const [skillInput, setSkillInput]   = useState('');
+
+  // ── Followed companies (owner only) ─────────────────────────────────────
+  const [followedCompanies, setFollowedCompanies] = useState<any[]>([]);
+  useEffect(() => {
+    if (!isCurrentUser || !fbUser?.uid) return;
+    getFollowingCompanies(fbUser.uid)
+      .then(setFollowedCompanies)
+      .catch(() => setFollowedCompanies([]));
+  }, [isCurrentUser, fbUser?.uid]);
+
+  // ── Item 4: auto-ensure username + isPublic for public profile URL ───────
+  // When an existing user visits their own profile, if they don't yet have a
+  // username slug or isPublic is not set, derive and save both silently.
+  // This is a one-time migration — runs at most once per user.
+  useEffect(() => {
+    if (!isCurrentUser || !fbUser?.uid || !onSaveProfile) return;
+    const u = user as any;
+    const needsUsername = !u.username;
+    const needsPublic   = u.isPublic !== true;
+    if (!needsUsername && !needsPublic) return;
+
+    const derived = u.username ?? (user.name
+      ? (() => {
+          const parts = user.name.trim().split(/\s+/).filter(Boolean);
+          return parts.length >= 2
+            ? (parts[0][0] + parts[parts.length - 1]).toLowerCase().replace(/[^a-z0-9]/g, '')
+            : parts[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? 'user';
+        })()
+      : '');
+    if (!derived) return;
+
+    const patch: Record<string, any> = {};
+    if (needsUsername) patch.username = derived;
+    if (needsPublic)   patch.isPublic = true;
+    onSaveProfile(patch).catch(() => {});
+  }, [isCurrentUser, fbUser?.uid, (user as any).username, (user as any).isPublic]);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -260,48 +306,107 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           isCurrentUser={isCurrentUser}
           onNavigate={onNavigate}
         />
-        {/* Skills Tile */}
-        <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
-          {user.verifiedSkills && user.verifiedSkills.length > 0 ? (
-            <div>
-              <h3 className="font-semibold text-stone-800 text-md mb-3 text-center flex items-center justify-center">
-                <VerifiedIcon className="w-5 h-5 mr-2 text-[#1a6b52]" />
-                {t('verifiedSkills')}
-              </h3>
-              <div className="space-y-3">
-                {user.verifiedSkills.map(skill => (
-                  <div key={skill.name} className="group relative">
-                    <div className="flex justify-between items-center mb-1">
-                      <p className="text-sm font-medium text-stone-700">{skill.name}</p>
-                      <p className="text-xs text-stone-500">{skill.proficiency}</p>
-                    </div>
-                    <div className="w-full bg-stone-100 rounded-full h-1.5">
-                      <div className={`bg-[#1a4a3a] h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`}></div>
-                    </div>
-                    <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-stone-50 border border-stone-200 rounded-md text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      <span className="font-bold">{t('evidence')}</span> {skill.evidence}
-                    </div>
+        {/* Skills Tile — with inline add/remove for owner */}
+        <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-stone-800 text-sm flex items-center gap-1.5">
+              {user.verifiedSkills?.length
+                ? <><VerifiedIcon className="w-4 h-4 text-[#1a6b52]" /> {t('verifiedSkills')}</>
+                : t('topSkills')}
+            </h3>
+            {isCurrentUser && (
+              <button
+                onClick={onGenerateSkills}
+                className="text-xs font-semibold hover:opacity-70 transition-opacity flex items-center gap-1"
+                style={{ color: '#1a6b52' }}
+                title="Verify skills with AI"
+              >
+                <SparklesIcon className="w-3.5 h-3.5" />
+                Verify
+              </button>
+            )}
+          </div>
+
+          {/* Existing skills chips */}
+          {user.verifiedSkills?.length ? (
+            <div className="space-y-2.5 mb-3">
+              {user.verifiedSkills.map((skill: any) => (
+                <div key={skill.name} className="group relative">
+                  <div className="flex justify-between items-center mb-1">
+                    <p className="text-sm font-medium text-stone-700">{skill.name}</p>
+                    <p className="text-xs text-stone-500">{skill.proficiency}</p>
                   </div>
-                ))}
-              </div>
+                  <div className="w-full bg-stone-100 rounded-full h-1.5">
+                    <div className={`bg-[#1a4a3a] h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`} />
+                  </div>
+                  <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-stone-50 border border-stone-200 rounded-md text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                    <span className="font-bold">{t('evidence')}</span> {skill.evidence}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="text-center">
-              <h3 className="font-semibold text-stone-800 text-md mb-2">{t('topSkills')}</h3>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {user.skills?.map(skill => (
-                  <div key={skill.name} className="flex items-center text-sm bg-[#e8f4f0]/50 text-[#1a6b52] rounded-full px-3 py-1 font-medium border border-[#1a4a3a]/20">
-                    {skill.name}
-                    <span className="ml-1.5 text-[#1a6b52] font-semibold">{skill.endorsements}</span>
-                  </div>
-                ))}
-              </div>
-              {isCurrentUser && (
-                <button onClick={onGenerateSkills} className="mt-4 w-full bg-[#1a4a3a]/10 text-[#1a6b52] font-semibold px-4 py-2 rounded-lg hover:bg-[#1a4a3a]/20 transition-colors text-sm flex items-center justify-center border border-[#1a4a3a]/20">
-                  <SparklesIcon className="w-4 h-4 mr-2" />
-                  {t('generateVerifiedSkills')}
-                </button>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {(user.skills ?? []).length === 0 && !isCurrentUser && (
+                <p className="text-sm text-stone-400">No skills listed yet.</p>
               )}
+              {(user.skills ?? []).map((skill: any) => {
+                const name = typeof skill === 'string' ? skill : skill?.name ?? '';
+                if (!name) return null;
+                return (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1 text-sm bg-[#e8f4f0]/60 text-[#1a6b52] rounded-full px-3 py-1 font-medium border border-[#1a4a3a]/20"
+                  >
+                    {name}
+                    {typeof skill !== 'string' && (skill.endorsements ?? 0) > 0 && (
+                      <span className="text-xs font-semibold text-[#1a6b52]">{skill.endorsements}</span>
+                    )}
+                    {isCurrentUser && onRemoveSkill && (
+                      <button
+                        onClick={() => onRemoveSkill(name)}
+                        className="ml-0.5 text-[#1a6b52]/50 hover:text-red-500 transition-colors"
+                        aria-label={`Remove ${name}`}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Inline add-skill input — owner only */}
+          {isCurrentUser && onAddSkill && (
+            <div className="flex gap-2 mt-1">
+              <input
+                type="text"
+                value={skillInput}
+                onChange={e => setSkillInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && skillInput.trim()) {
+                    e.preventDefault();
+                    onAddSkill(skillInput.trim());
+                    setSkillInput('');
+                  }
+                }}
+                placeholder="Add a skill…"
+                className="flex-1 min-w-0 text-sm border rounded-xl px-3 py-2 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30"
+                style={{ borderColor: '#e7e5e4' }}
+              />
+              <button
+                onClick={() => {
+                  if (skillInput.trim()) { onAddSkill(skillInput.trim()); setSkillInput(''); }
+                }}
+                disabled={!skillInput.trim()}
+                className="px-3 py-2 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-40"
+                style={{ backgroundColor: '#1a4a3a' }}
+              >
+                Add
+              </button>
             </div>
           )}
         </div>
@@ -387,6 +492,68 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           isOwn={isCurrentUser}
           authorName={user.name}
         />
+
+        {/* ── Followed companies (owner only, mobile entry point) ── */}
+        {isCurrentUser && followedCompanies.length > 0 && (
+          <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
+            <h3 className="font-semibold text-stone-800 text-sm mb-3 flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              Companies you follow
+            </h3>
+            <div className="space-y-2">
+              {followedCompanies.map((co: any) => (
+                <button
+                  key={co.id}
+                  onClick={() => onViewCompany?.(co.id)}
+                  className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-stone-100 transition-colors text-left"
+                >
+                  {co.logoUrl ? (
+                    <img src={co.logoUrl} alt={co.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0 border border-stone-200" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center text-sm font-bold text-white"
+                      style={{ backgroundColor: '#1a4a3a' }}>
+                      {(co.name ?? 'C')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-stone-800 truncate">{co.name}</p>
+                    {co.industry && <p className="text-xs text-stone-500 truncate">{co.industry}</p>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Public profile URL (owner only) ── */}
+        {isCurrentUser && (user as any).username && (
+          <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
+            <h3 className="font-semibold text-stone-800 text-sm mb-2 flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Your public profile
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-stone-500 truncate flex-1">
+                bewatu.com/be/{(user as any).username}
+              </span>
+              <button
+                onClick={() => {
+                  const url = `https://www.bewatu.com/be/${(user as any).username}`;
+                  navigator.clipboard?.writeText(url).catch(() => {});
+                  window.open(url, '_blank', 'noopener');
+                }}
+                className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-stone-100"
+                style={{ borderColor: '#e7e5e4', color: '#1a4a3a' }}
+              >
+                Open
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Circles Tile */}
         {userCircles.length > 0 && (
