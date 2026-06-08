@@ -1,25 +1,21 @@
 /**
  * api/skills-trajectory.ts
- * ─────────────────────────────────────────────────────────────────────────────
- * Classifies the user's skills by AI-impact trajectory (growing / stable /
- * declining) using WEF Future of Jobs framing.
+ *
+ * Root cause of FUNCTION_INVOCATION_FAILED:
+ *   import Anthropic from '@anthropic-ai/sdk'  ← package not in project dependencies.
+ *   Vercel crashes the function at module load before the handler runs.
+ *
+ * Fix: call the Anthropic REST API directly via fetch() — no SDK needed,
+ * no package dependency, same pattern as every other working AI call in this project.
  *
  * POST /api/skills-trajectory
  * Body: { skills: string[], industry?: string }
  * Returns: { trajectories: [{ skill, trajectory, rationale }], summary }
- *
- * Fixed:
- *  - Model name corrected to 'claude-sonnet-4-6' (was 'claude-sonnet-4-20250514'
- *    which is not a valid Anthropic model ID and caused FUNCTION_INVOCATION_FAILED)
- *  - Input sanitised server-side: non-string / empty entries are stripped before
- *    building the prompt, so undefined/null values from client don't crash the call
- *  - Returns 400 with a clear message when no valid skills remain after sanitising,
- *    rather than letting an empty prompt reach the Anthropic API
- * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import Anthropic from '@anthropic-ai/sdk';
+
+const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
 const SYSTEM = `You are a labor-market analyst using the World Economic Forum Future of Jobs
 report and 2025-2026 AI labor research.
@@ -50,18 +46,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    console.error('[skills-trajectory] ANTHROPIC_API_KEY is not set');
-    return res.status(500).json({ error: 'Server configuration error — API key missing' });
+    console.error('[skills-trajectory] ANTHROPIC_API_KEY not set');
+    return res.status(500).json({ error: 'Server configuration error' });
   }
 
-  // ── Input sanitisation ────────────────────────────────────────────────────
-  // Client may send undefined/null entries if skills are stored as objects
-  // and the name extraction produced undefined (e.g. s.name on a plain string).
-  // Strip anything that isn't a non-empty string before touching the API.
+  // Sanitise input — skills can be strings or {name, endorsements} objects
+  // depending on how they were stored; strip anything that isn't a real string.
   const rawSkills: unknown = (req.body ?? {}).skills;
-  const industry: string = typeof (req.body ?? {}).industry === 'string'
-    ? (req.body.industry as string).slice(0, 100)
-    : 'general professional';
+  const industry: string =
+    typeof (req.body ?? {}).industry === 'string'
+      ? (req.body.industry as string).slice(0, 100)
+      : 'general professional';
 
   if (!Array.isArray(rawSkills)) {
     return res.status(400).json({ error: 'skills must be an array' });
@@ -78,24 +73,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const prompt = `Industry: ${industry}
-Skills to classify:
-${skills.map(s => `- ${s}`).join('\n')}`;
+  const prompt = `Industry: ${industry}\nSkills to classify:\n${skills.map(s => `- ${s}`).join('\n')}`;
 
   try {
-    const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',  // corrected from 'claude-sonnet-4-20250514'
-      max_tokens: 1200,
-      system: SYSTEM,
-      messages: [{ role: 'user', content: prompt }],
+    const response = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: {
+        'x-api-key':         apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type':      'application/json',
+      },
+      body: JSON.stringify({
+        model:      'claude-sonnet-4-6',
+        max_tokens: 1200,
+        system:     SYSTEM,
+        messages:   [{ role: 'user', content: prompt }],
+      }),
     });
 
-    const text = response.content.find((b: any) => b.type === 'text')?.text ?? '{}';
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[skills-trajectory] Anthropic API error:', response.status, errText);
+      return res.status(502).json({ error: 'AI service error', detail: errText });
+    }
+
+    const data: any = await response.json();
+    const text: string = data?.content?.[0]?.text ?? '{}';
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
 
-    // Validate the response has the expected shape before returning
     if (!Array.isArray(parsed.trajectories)) {
       throw new Error('Unexpected response shape from AI');
     }
@@ -103,8 +109,7 @@ ${skills.map(s => `- ${s}`).join('\n')}`;
     return res.status(200).json(parsed);
 
   } catch (err: any) {
-    const message = err?.message ?? String(err);
-    console.error('[skills-trajectory] error:', message);
-    return res.status(500).json({ error: 'Analysis failed', detail: message });
+    console.error('[skills-trajectory] error:', err?.message ?? err);
+    return res.status(500).json({ error: 'Analysis failed', detail: err?.message });
   }
 }
