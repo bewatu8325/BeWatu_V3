@@ -253,36 +253,37 @@ export async function getUserFromFirestore(fbUser: FirebaseUser): Promise<User> 
   return docToUser(snap.data() as Record<string, any>);
 }
 
-export async function updateUserInFirestore(fbUid: string, updates: Partial<User>): Promise<void> {
-  const fsUpdates: Record<string, any> = {
-    ...(updates.name !== undefined && { displayName: updates.name }),
-    ...(updates.avatarUrl !== undefined && { photoURL: updates.avatarUrl }),
-    ...(updates.headline !== undefined && { headline: updates.headline }),
-    ...(updates.bio !== undefined && { bio: updates.bio }),
-    ...(updates.industry !== undefined && { industry: updates.industry }),
-    ...(updates.professionalGoals !== undefined && { professionalGoals: updates.professionalGoals }),
-    ...(updates.skills !== undefined && { skills: updates.skills }),
-    ...(updates.verifiedSkills !== undefined && { verifiedSkills: updates.verifiedSkills }),
-    ...(updates.microIntroductionUrl !== undefined && { microIntroductionUrl: updates.microIntroductionUrl }),
-    ...(updates.microIntroductionThumbnail !== undefined && { microIntroductionThumbnail: updates.microIntroductionThumbnail }),
-    ...(updates.portfolio !== undefined && { portfolio: updates.portfolio }),
-    ...(updates.availability !== undefined && { availability: updates.availability }),
-    ...(updates.values !== undefined && { values: updates.values }),
-    ...(updates.workStyle !== undefined && { workStyle: updates.workStyle }),
-    ...(updates.reputation !== undefined && { reputation: updates.reputation }),
-    ...(updates.credits !== undefined && { credits: updates.credits }),
-    ...((updates as any).careerArc !== undefined && { careerArc: (updates as any).careerArc }),
-    ...((updates as any).isRecruiter !== undefined && { isRecruiter: (updates as any).isRecruiter }),
-    ...((updates as any).recruiterProfile !== undefined && { recruiterProfile: (updates as any).recruiterProfile }),
-    ...(updates.subscriptionTier !== undefined && { subscriptionTier: updates.subscriptionTier }),
-    ...(updates.subscriptionStatus !== undefined && { subscriptionStatus: updates.subscriptionStatus }),
-    ...(updates.subscriptionId !== undefined && { subscriptionId: updates.subscriptionId }),
-    ...(updates.subscriptionPriceId !== undefined && { subscriptionPriceId: updates.subscriptionPriceId }),
-    ...(updates.trialEndsAt !== undefined && { trialEndsAt: updates.trialEndsAt }),
-    ...(updates.currentPeriodEnd !== undefined && { currentPeriodEnd: updates.currentPeriodEnd }),
-    ...(updates.factoryUnlocked !== undefined && { factoryUnlocked: updates.factoryUnlocked }),
-    updatedAt: serverTimestamp(),
+/**
+ * Persist updated User fields to Firestore.
+ *
+ * Root-cause fix: the previous version had an explicit allowlist that silently
+ * dropped any field not in the list (e.g. experiences, resumeUrl, careerArc,
+ * and fields from inline edit forms cast as `any`). When those fields were
+ * passed, fsUpdates contained only { updatedAt } — the write appeared to
+ * succeed but only touched the timestamp, so data reverted on refresh.
+ *
+ * This version passes every field through directly. The only renaming needed
+ * is User.name → "displayName" and User.avatarUrl → "photoURL", because those
+ * two field names differ between the User type and the Firestore schema.
+ * Everything else writes under its own key.
+ */
+export async function updateUserInFirestore(
+  fbUid: string,
+  updates: Partial<User> & Record<string, any>
+): Promise<void> {
+  // The only two fields whose User-type name differs from Firestore field name.
+  const RENAME: Record<string, string> = {
+    name:      'displayName',
+    avatarUrl: 'photoURL',
   };
+
+  const fsUpdates: Record<string, any> = { updatedAt: serverTimestamp() };
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (value === undefined) continue;
+    fsUpdates[RENAME[key] ?? key] = value;
+  }
+
   await updateDoc(doc(db, 'users', fbUid), fsUpdates);
 }
 
