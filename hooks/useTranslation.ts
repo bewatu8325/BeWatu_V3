@@ -43,7 +43,19 @@ type TranslationKey =
   | 'jobs'
   | 'discover'
   | 'pods'
-  | 'welcome';
+  | 'welcome'
+  | 'createYourAccount'
+  | 'registerSubtitle'
+  | 'fullName'
+  | 'email'
+  | 'password'
+  | 'wantRecruiterAccess'
+  | 'recruiterTrialInfo'
+  | 'agreeToPolicy'
+  | 'billingPolicy'
+  | 'createAccount'
+  | 'alreadyHaveAccount'
+  | 'signIn';
 
 type Translations = Record<TranslationKey, string>;
 
@@ -78,6 +90,18 @@ const translations: Record<Language, Translations> = {
     discover:               'Discover',
     pods:                   'Pods',
     welcome:                'Welcome',
+    createYourAccount:      'Create your account',
+    registerSubtitle:       'Join BeWatu and let your verified skills do the talking.',
+    fullName:               'Full name',
+    email:                  'Email',
+    password:               'Password',
+    wantRecruiterAccess:    'I want recruiter access',
+    recruiterTrialInfo:     'Start your recruiter trial today — cancel anytime, no surprises.',
+    agreeToPolicy:          'I agree to the',
+    billingPolicy:          'Billing & Payment Policy',
+    createAccount:          'Create my account',
+    alreadyHaveAccount:     'Already have an account?',
+    signIn:                 'Sign in',
   },
 
   pt: {
@@ -110,6 +134,18 @@ const translations: Record<Language, Translations> = {
     discover:               'Descobrir',
     pods:                   'Pods',
     welcome:                'Bem-vindo',
+    createYourAccount:      'Crie sua conta',
+    registerSubtitle:       'Junte-se à BeWatu e deixe suas habilidades verificadas falarem por você.',
+    fullName:               'Nome completo',
+    email:                  'E-mail',
+    password:               'Senha',
+    wantRecruiterAccess:    'Quero acesso de recrutador',
+    recruiterTrialInfo:     'Comece seu teste de recrutador hoje — cancele quando quiser, sem surpresas.',
+    agreeToPolicy:          'Concordo com a',
+    billingPolicy:          'Política de Cobrança e Pagamento',
+    createAccount:          'Criar minha conta',
+    alreadyHaveAccount:     'Já tem uma conta?',
+    signIn:                 'Entrar',
   },
 
   hi: {
@@ -142,6 +178,18 @@ const translations: Record<Language, Translations> = {
     discover:               'खोजें',
     pods:                   'पॉड्स',
     welcome:                'स्वागत है',
+    createYourAccount:      'अपना खाता बनाएं',
+    registerSubtitle:       'BeWatu से जुड़ें और अपने सत्यापित कौशल को बोलने दें।',
+    fullName:               'पूरा नाम',
+    email:                  'ईमेल',
+    password:               'पासवर्ड',
+    wantRecruiterAccess:    'मुझे रिक्रूटर एक्सेस चाहिए',
+    recruiterTrialInfo:     'आज ही अपना रिक्रूटर ट्रायल शुरू करें — कभी भी रद्द करें, कोई आश्चर्य नहीं।',
+    agreeToPolicy:          'मैं सहमत हूं',
+    billingPolicy:          'बिलिंग और भुगतान नीति',
+    createAccount:          'मेरा खाता बनाएं',
+    alreadyHaveAccount:     'पहले से ही खाता है?',
+    signIn:                 'साइन इन करें',
   },
 };
 
