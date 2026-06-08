@@ -94,7 +94,8 @@ const CircleDetail = lazy(() => import('./components/CircleDetail'));
 const CareerIntelligence = lazy(() => import('./components/CareerIntelligence'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const SecurityPrivacyPage = lazy(() => import('./components/SecurityPrivacyPage'));
-const PublicProfilePage = lazy(() => import('./components/PublicProfilePage'));
+// PublicSharePage: the /be/:username unauthenticated sharing page
+const PublicSharePage = lazy(() => import('./components/PublicSharePage'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const LoginPage = lazy(() => import('./components/auth/LoginPage'));
@@ -1740,7 +1741,6 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                     onViewCompany={handleViewCompany}
                     onMessage={(uid) => { setPublicProfileUserId(null); startMessage(uid); }}
                     onPlayVideo={url => setPlayingVideoUrl(url)}
-                    PublicProfilePageComponent={PublicProfilePage}
                   />
                 </Suspense>
               </main>
@@ -1993,7 +1993,7 @@ const App: React.FC = () => {
           </nav>
         </div>
       }>
-        <PublicProfilePage
+        <PublicSharePage
           username={username}
           onSignUp={() => { window.location.href = '/?signup=1'; }}
         />
