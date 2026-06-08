@@ -110,6 +110,7 @@ const ArenaIndustryView = lazy(() => import('./components/arenas/ArenaIndustryVi
 const RecruiterUpgradeBanner = lazy(() => import('./components/recruiter/RecruiterUpgradeBanner'));
 const GenerationalFeed = lazy(() => import('./components/GenerationalFeed'));
 const CompaniesPage = lazy(() => import('./components/CompaniesPage'));
+const PublicProfilePage = lazy(() => import('./components/PublicProfilePage'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
@@ -1946,12 +1947,39 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT
 // ─────────────────────────────────────────────────────────────────────────────
-const App: React.FC = () => (
-  <FirebaseProvider>
-    <LanguageProvider>
-      <MainApp />
-    </LanguageProvider>
-  </FirebaseProvider>
-);
+
+// Detect /be/:username before mounting the full app — public profiles are
+// accessible without authentication so we render them outside FirebaseProvider.
+const beMatch = window.location.pathname.match(/^\/be\/([a-z0-9_-]+)$/i);
+
+const App: React.FC = () => {
+  if (beMatch) {
+    const username = beMatch[1].toLowerCase();
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen" style={{ backgroundColor: '#f5f5f4' }}>
+          <nav className="bg-white border-b h-14" style={{ borderColor: '#e7e5e4' }}>
+            <div className="max-w-4xl mx-auto px-4 h-14 flex items-center">
+              <span className="font-bold" style={{ color: '#1a4a3a' }}>BeWatu</span>
+            </div>
+          </nav>
+        </div>
+      }>
+        <PublicProfilePage
+          username={username}
+          onSignUp={() => { window.location.href = '/?signup=1'; }}
+        />
+      </Suspense>
+    );
+  }
+
+  return (
+    <FirebaseProvider>
+      <LanguageProvider>
+        <MainApp />
+      </LanguageProvider>
+    </FirebaseProvider>
+  );
+};
 
 export default App;
