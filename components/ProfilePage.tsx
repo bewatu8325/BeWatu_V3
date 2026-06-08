@@ -26,6 +26,10 @@ interface ProfilePageProps {
   onChangePassword: () => void;
   onOpenSecurity: () => void;
   onReportUser?: (firestoreId: string, name: string) => void;
+  /** Saves profile fields AND syncs App.tsx data.users/currentUser immediately.
+   *  Use for all profile edits — prevents stale-data revert without reload. */
+  onSaveProfile?: (updates: Record<string, any>) => Promise<void>;
+  onUploadVideo?: (file: File) => void;
 }
 
 const proficiencyWidth = {
@@ -52,7 +56,7 @@ const getCircleColor = (circleName: string) => {
     return color;
 };
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity, onReportUser }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity, onReportUser, onSaveProfile, onUploadVideo }) => {
   const { t } = useTranslation();
   const { fbUser } = useFirebase();
   const [newPassword, setNewPassword] = useState('');
@@ -116,7 +120,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 
   const handleSaveExperiences = async (experiences: Experience[]) => {
     setLocalExperiences(experiences);
-    if (fbUser) await updateUserInFirestore(fbUser.uid, { experiences } as any);
+    if (onSaveProfile) {
+      await onSaveProfile({ experiences });
+    } else if (fbUser) {
+      // Fallback: direct write (no local state sync — use onSaveProfile when possible)
+      await updateUserInFirestore(fbUser.uid, { experiences } as any);
+    }
   };
 
   const handlePasswordChangeSubmit = (e: React.FormEvent) => {
