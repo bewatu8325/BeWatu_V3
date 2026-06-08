@@ -109,7 +109,7 @@ const ProfileUnavailablePage: React.FC<ProfileUnavailablePageProps> = ({
             style={{ borderColor: '#e8e4dc', backgroundColor: '#faf9f6' }}
           >
             <p className="mx-auto max-w-lg text-sm text-stone-500 leading-relaxed text-pretty">
-              BeWatu is a professional network where your capabilities speak louder than your CV.
+              BeWatu is a professional network where your capabilities speak louder than your Resume.
               Verified skills, live challenges, and real communities — built for the skills economy.
             </p>
           </div>
