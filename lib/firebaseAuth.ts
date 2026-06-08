@@ -103,6 +103,17 @@ function docToUser(data: Record<string, any>): User {
   } as any;
 }
 
+// ── Username derivation ───────────────────────────────────────────────────────
+// Converts a display name to a URL-safe lowercase slug, e.g. "Eve Mwangi" → "emwangi"
+// Uses first-initial + last-name (LinkedIn-style), falls back to first word if single name.
+function deriveUsername(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1]).toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+  return parts[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? 'user';
+}
+
 // ── Build default Firestore doc ───────────────────────────────────────────────
 function buildNewUserDoc(
   uid: string,
@@ -112,12 +123,14 @@ function buildNewUserDoc(
   photoURL?: string
 ) {
   const isVerified = !freeEmailDomains.some((d) => email.endsWith(d));
+  const baseUsername = deriveUsername(name);
   return {
     uid, numericId: Date.now(), displayName: name, email,
     photoURL: photoURL ?? '', headline: '', bio: '', industry: '',
     location: '', website: '', professionalGoals: [], reputation: 0,
     credits: 100, isRecruiter, isVerified, portfolio: [],
     verifiedAchievements: [], thirdPartyIntegrations: [],
+    username: baseUsername,  // URL slug — /be/:username
     workStyle: { collaboration: 'Thrives in pairs', communication: 'Prefers asynchronous', workPace: 'Fast-paced and iterative' },
     values: [], availability: 'Exploring opportunities', skills: [],
     verifiedSkills: null, microIntroductionUrl: null, connectionCount: 0,
@@ -277,7 +290,27 @@ export async function setStripeCustomerId(fbUid: string, stripeCustomerId: strin
   await updateDoc(doc(db, 'users', fbUid), { stripeCustomerId, updatedAt: serverTimestamp() });
 }
 
-// ── Security ──────────────────────────────────────────────────────────────────
+/** Fetch a public profile by URL username slug. Returns null if not found or private. */
+export async function fetchPublicProfileByUsername(username: string): Promise<{
+  found: true; isPublic: true; profile: Record<string, any>; firestoreUid: string;
+} | { found: false } | { found: true; isPublic: false }> {
+  try {
+    const { getDocs, collection, query, where, limit } = await import('firebase/firestore');
+    const { db: fdb } = await import('./firebase');
+    const snap = await getDocs(
+      query(collection(fdb, 'users'), where('username', '==', username.toLowerCase()), limit(1))
+    );
+    if (snap.empty) return { found: false };
+    const d = snap.docs[0];
+    const data = d.data();
+    if (!data.isPublic) return { found: true, isPublic: false };
+    return { found: true, isPublic: true, profile: { ...data, _firestoreUid: d.id }, firestoreUid: d.id };
+  } catch {
+    return { found: false };
+  }
+}
+
+// ── Account takeover protection
 
 import { multiFactor, PhoneMultiFactorGenerator, getMultiFactorResolver } from 'firebase/auth';
 
