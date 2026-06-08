@@ -3,9 +3,11 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * FEATURE 2 — "Declining-vs-growing skills insight"
  *
- * Calls the existing /api/claude proxy (same pattern as handleGenerateSkillsGraph
- * in App.tsx) rather than importing @anthropic-ai/sdk directly. This avoids the
- * env-var / runtime dependency issue that caused the 500 error.
+ * Calls the Anthropic API directly (same pattern as verify-reel.ts which works).
+ * Previous version tried to chain through /api/claude which fails server-side
+ * because Vercel functions cannot reliably call sibling functions via HTTP.
+ *
+ * Requires: ANTHROPIC_API_KEY env var (already set for verify-reel.ts).
  *
  * POST /api/skills-trajectory
  * Body: { skills: string[], industry?: string }
@@ -14,6 +16,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import Anthropic from '@anthropic-ai/sdk';
 
 const SYSTEM = `You are a labor-market analyst using the World Economic Forum Future of Jobs
 report and 2025-2026 AI labor research.
@@ -45,37 +48,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'skills array required' });
   }
 
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error('[skills-trajectory] ANTHROPIC_API_KEY is not set');
+    return res.status(500).json({ error: 'Server configuration error' });
+  }
+
   const prompt = `Industry: ${industry || 'general professional'}
 Skills to classify:
-${skills.map((s: string) => `- ${s}`).join('\n')}`;
+${(skills as string[]).map(s => `- ${s}`).join('\n')}`;
 
   try {
-    // Use the platform's existing Claude proxy — same pattern as App.tsx handleGenerateSkillsGraph
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000';
-
-    const claudeRes = await fetch(`${baseUrl}/api/claude`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system: SYSTEM,
-        prompt,
-        maxTokens: 1200,
-      }),
+    const client = new Anthropic({ apiKey });
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1200,
+      system: SYSTEM,
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    if (!claudeRes.ok) {
-      throw new Error(`/api/claude returned ${claudeRes.status}`);
-    }
-
-    const { text } = await claudeRes.json();
+    const text = response.content.find((b: any) => b.type === 'text')?.text ?? '{}';
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
     return res.status(200).json(parsed);
 
   } catch (err: any) {
-    console.error('[skills-trajectory]', err);
-    return res.status(500).json({ error: 'Analysis failed', detail: err.message });
+    console.error('[skills-trajectory] error:', err?.message ?? err);
+    return res.status(500).json({ error: 'Analysis failed', detail: err?.message });
   }
 }
