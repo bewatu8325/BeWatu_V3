@@ -110,7 +110,6 @@ const ArenaIndustryView = lazy(() => import('./components/arenas/ArenaIndustryVi
 const RecruiterUpgradeBanner = lazy(() => import('./components/recruiter/RecruiterUpgradeBanner'));
 const GenerationalFeed = lazy(() => import('./components/GenerationalFeed'));
 const CompaniesPage = lazy(() => import('./components/CompaniesPage'));
-const PublicProfilePage = lazy(() => import('./components/PublicProfilePage'));
 
 type AuthState = 'landing' | 'login' | 'register' | 'forgot_password' | 'authenticated' | 'about' | 'connect';
 type ActiveProfile = 'user' | 'recruiter' | 'admin';
