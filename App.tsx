@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import SparksTray from './components/sparks/SparksTray';
 import ProveView from './components/ProveView';
-import ProfileUnavailablePage from './components/ProfileUnavailablePage';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
@@ -1729,12 +1728,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                 <Suspense fallback={<div />}>
                   {(() => {
                     const pubUser = data.users.find(u => u.id === publicProfileUserId);
-                    if (!pubUser) return (
-                      <ProfileUnavailablePage
-                        onSignUp={() => { setPublicProfileUserId(null); handleSetView(View.Feed); }}
-                        onLearnMore={() => { setPublicProfileUserId(null); setShowAboutPage(true); }}
-                      />
-                    );
+                    if (!pubUser) return <p className="text-stone-500 p-8">User not found.</p>;
                     const isConn = data.connectionRequests.some(r =>
                       r.status === 'accepted' && ((r.fromUserId === currentUser!.id && r.toUserId === publicProfileUserId) || (r.toUserId === currentUser!.id && r.fromUserId === publicProfileUserId))
                     );
@@ -1853,6 +1847,8 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             onNavigateToForgotPassword={() => setAuthState('forgot_password')}
             onNavigateToConnect={handleNavigateToConnect}
             onNavigateToLanding={handleNavigateToLanding}
+            authError={error}
+            onClearAuthError={() => setError(null)}
           />
         );
       case 'register':
