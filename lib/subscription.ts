@@ -5,13 +5,9 @@
  * Import these anywhere in the app to gate features by subscription tier.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-
 // ── Tier definitions ──────────────────────────────────────────────────────────
-
 export type SubscriptionTier = 'free' | 'pro' | 'factory' | 'investor';
-
 export type AccessLevel = 1 | 2 | 3 | 4 | 5;
-
 export interface TierConfig {
   id:          SubscriptionTier;
   label:       string;
@@ -21,7 +17,6 @@ export interface TierConfig {
   color:       string;       // tailwind color class
   features:    string[];
 }
-
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
   free: {
     id:          'free',
@@ -32,7 +27,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     color:       'text-stone-500',
     features: [
       'Full network access',
-      'Up to 3 circle memberships',
+      'Unlimited pod memberships',
       'Browse ideas & arenas',
       'Basic profile',
       'Follow people & companies',
@@ -46,8 +41,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     level:       3,
     color:       'text-blue-500',
     features: [
-      'Everything in Free',
-      'Unlimited circle memberships',
+      'Everything in Explorer',
       'Expert marketplace access',
       'Advanced people discovery',
       'Arena priority access',
@@ -95,33 +89,26 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     ],
   },
 };
-
 // ── Access checks ─────────────────────────────────────────────────────────────
-
 /** Returns true if the user's tier grants access to the required tier */
 export function hasAccess(userTier: SubscriptionTier, requiredTier: SubscriptionTier): boolean {
   // Investor is a parallel track — only investors can access investor features
   if (requiredTier === 'investor') return userTier === 'investor';
-
   const order: SubscriptionTier[] = ['free', 'pro', 'factory'];
   return order.indexOf(userTier) >= order.indexOf(requiredTier);
 }
-
 /** Returns true if the user can access Factory */
 export function canAccessFactory(userTier: SubscriptionTier): boolean {
   return userTier === 'factory' || userTier === 'investor';
 }
-
 /** Returns true if the user can access the expert marketplace */
 export function canAccessExpertMarketplace(userTier: SubscriptionTier): boolean {
   return userTier !== 'free';
 }
-
 /** Returns true if the user can form teams */
 export function canFormTeams(userTier: SubscriptionTier): boolean {
   return userTier !== 'free';
 }
-
 /** Returns the next tier the user should upgrade to */
 export function getNextTier(userTier: SubscriptionTier): SubscriptionTier | null {
   const order: SubscriptionTier[] = ['free', 'pro', 'factory'];
@@ -129,7 +116,6 @@ export function getNextTier(userTier: SubscriptionTier): SubscriptionTier | null
   if (idx === -1 || idx === order.length - 1) return null;
   return order[idx + 1];
 }
-
 /** Returns a human-readable upgrade prompt */
 export function getUpgradeMessage(requiredTier: SubscriptionTier): string {
   switch (requiredTier) {

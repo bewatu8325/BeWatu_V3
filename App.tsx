@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import SparksTray from './components/sparks/SparksTray';
 import ProveView from './components/ProveView';
-import { ShowcaseView } from './components/ShowcaseView';
 import ProfileUnavailablePage from './components/ProfileUnavailablePage';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
@@ -68,6 +67,12 @@ import { goToFactory } from './utils/factoryHandoff';
 import CookieBanner from './components/CookieBanner';
 import AccountDeletionModal from './components/AccountDeletionModal';
 import DataRequestModal from './components/DataRequestModal';
+import {
+  trackPodCreated, trackPodJoined, trackChallengeViewed,
+  trackCommentMade, trackReactionGiven, trackConnectionMade,
+  trackThreadStarted,
+} from './lib/analytics/track';
+import { computeAndStoreProfile, loadProfile } from './lib/recommendation/profile';
 const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
 const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
 const CommunityGuidelines = lazy(() => import('./components/legal/CommunityGuidelines'));
@@ -131,6 +136,8 @@ const MainApp: React.FC = () => {
   const [activeArenaIndustry, setActiveArenaIndustry] = useState<string | null>(
     () => sessionStorage.getItem('beWatuArenaIndustry') ?? null
   );
+  const [showcaseTab, setShowcaseTab] = useState<'prove' | 'arenas'>('prove');
+  const [communityTab, setCommunityTab] = useState<'pods' | 'bridge'>('pods');
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,18 +225,22 @@ const MainApp: React.FC = () => {
           snap.docs.forEach(d => {
             const n = d.data();
             if (n.type === 'circle_approved' && n.circleFirestoreId) {
-              // Add current user to members in local state immediately
-              setData(prev => {
-                if (!prev) return null;
-                return {
-                  ...prev,
-                  circles: prev.circles.map(c => {
-                    if ((c as any)._firestoreId !== n.circleFirestoreId) return c;
-                    if (c.members.includes(currentUser.id)) return c;
-                    return { ...c, members: [...c.members, currentUser.id] };
-                  }),
-                };
-              });
+              // Defer setData to avoid "Cannot update a component while rendering
+              // a different component" (React error #306). onSnapshot can fire
+              // synchronously during a render cycle; setTimeout pushes it out.
+              setTimeout(() => {
+                setData(prev => {
+                  if (!prev) return null;
+                  return {
+                    ...prev,
+                    circles: prev.circles.map(c => {
+                      if ((c as any)._firestoreId !== n.circleFirestoreId) return c;
+                      if (c.members.includes(currentUser.id)) return c;
+                      return { ...c, members: [...c.members, currentUser.id] };
+                    }),
+                  };
+                });
+              }, 0);
             }
           });
         });
@@ -237,6 +248,19 @@ const MainApp: React.FC = () => {
     }).catch(() => {});
 
     return () => { unsub(); notifUnsub?.(); };
+  }, [fbUser?.uid, currentUser?.id]);
+
+  // ── Recommendation profile — compute once per session, max once per 24h ──
+  useEffect(() => {
+    if (!fbUser?.uid || !currentUser) return;
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    loadProfile(fbUser.uid).then(existing => {
+      const stale = !existing || (Date.now() - (existing.computedAt ?? 0)) > TWENTY_FOUR_HOURS;
+      if (stale) {
+        // Fire-and-forget — never blocks the UI
+        computeAndStoreProfile(fbUser.uid).catch(() => {});
+      }
+    }).catch(() => {});
   }, [fbUser?.uid, currentUser?.id]);
 
   // Uses a session-level flag so it never re-fires once dismissed this session
@@ -535,6 +559,42 @@ const MainApp: React.FC = () => {
       });
       const url = await getDownloadURL(storageRef);
       await handleSaveMicroIntroduction(url);
+
+      // ── AI verification (non-blocking — runs after upload completes) ──────
+      // Create a placeholder reelVibes doc for the micro intro so verification
+      // has a target document. If no reelId exists, write one now and store it
+      // on the user doc so AIVerificationBadge can reference it.
+      try {
+        const { addDoc, collection, doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+        const { db } = await import('./lib/firebase');
+        // Write a minimal reelVibes doc representing this micro intro
+        const reelRef = await addDoc(collection(db, 'reelVibes'), {
+          authorUid:   fbUser.uid,
+          authorId:    currentUser.id,
+          authorName:  currentUser.name,
+          authorAvatar: currentUser.avatarUrl ?? '',
+          authorHeadline: currentUser.headline ?? '',
+          videoUrl:    url,
+          caption:     'Vibe Clip',
+          skill:       '',
+          tags:        [],
+          likedByUids: [],
+          commentCount: 0,
+          viewCount:   0,
+          isMicroIntro: true,
+          aiVerification: { status: 'pending', verdict: null, confidence: null, checkedAt: serverTimestamp(), appeal: null },
+          createdAt:   serverTimestamp(),
+        });
+        // Store the reel doc ID on the user so we can retrieve the badge later
+        await updateDoc(doc(db, 'users', fbUser.uid), {
+          microIntroReelId: reelRef.id,
+        });
+        // Submit frame for analysis (non-blocking)
+        const { submitForVerification } = await import('./lib/videoUtils');
+        void submitForVerification({ reelId: reelRef.id, authorUid: fbUser.uid, file, type: 'microIntro' });
+      } catch (verifyErr) {
+        console.warn('[handleUploadVideo] verification setup failed (non-blocking):', verifyErr);
+      }
     } catch (err) {
       console.error('Video upload failed:', err);
     }
@@ -555,6 +615,7 @@ const MainApp: React.FC = () => {
     }
     try {
       const newPost = await fbCreatePost(content, currentUser, fbUser.uid, resolvedCircleId as any);
+      trackThreadStarted(fbUser.uid, circleId ? 'pod' : 'feed', (newPost as any)._firestoreId ?? String(newPost.id));
       if (resolvedCircleId !== undefined) return;
       setData({ ...data, posts: [newPost, ...data.posts] });
     } catch (err) {
@@ -703,6 +764,10 @@ const MainApp: React.FC = () => {
           req.senderUid ?? fbUser.uid,
           req.receiverUid ?? fbUser.uid
         );
+        if (status === 'accepted') {
+          const otherId = req.fromUserId === currentUser?.id ? req.toUserId : req.fromUserId;
+          trackConnectionMade(fbUser.uid, String(otherId));
+        }
       } catch (err) {
         console.error('respondToConnection failed:', err);
         // Revert local state if write failed
@@ -802,10 +867,33 @@ const MainApp: React.FC = () => {
   const handleGenerateSkillsGraph = async (resume: string, digitalFootprint: string, references: string) => {
     if (!data || !currentUser || !fbUser) return;
 
-    // Call Claude proxy instead of broken Gemini endpoint
+    // Enrich evidence with AI Workflows and Learning Logs
+    let workflowContext = '';
+    let logContext = '';
+    try {
+      const { getDocs, collection, query, where, orderBy, limit } = await import('firebase/firestore');
+      const { db: fdb } = await import('./lib/firebase');
+      const wfSnap = await getDocs(query(collection(fdb, 'aiWorkflows'), where('authorUid', '==', fbUser.uid), limit(5)));
+      if (!wfSnap.empty) {
+        workflowContext = wfSnap.docs.map(d => {
+          const w: any = d.data();
+          const steps = (w.steps ?? []).map((s: any) => `  [${s.type}] ${s.content}`).join('\n');
+          return `Workflow: ${w.title}\nTask: ${w.task}\nTools: ${(w.tools ?? []).join(', ')}\nSteps:\n${steps}\nOutcome: ${w.outcome}`;
+        }).join('\n\n');
+      }
+      const logSnap = await getDocs(query(collection(fdb, 'learningLogs'), where('authorUid', '==', fbUser.uid), orderBy('createdAt', 'desc'), limit(10)));
+      if (!logSnap.empty) {
+        logContext = logSnap.docs.map(d => {
+          const l: any = d.data();
+          return `Built: ${l.built}\nBroke: ${l.broke}\nNext: ${l.next}`;
+        }).join('\n---\n');
+      }
+    } catch { /* non-blocking */ }
+
     const prompt = `Analyse this professional's background and return a JSON array of verified skills.
-Each skill: { "name": string, "level": "beginner"|"intermediate"|"advanced"|"expert", "endorsements": 0, "source": "platform"|"resume"|"endorsement" }
+Each skill: { "name": string, "level": "beginner"|"intermediate"|"advanced"|"expert", "endorsements": 0, "source": "platform"|"resume"|"endorsement", "evidence": "brief one-sentence rationale citing specific evidence" }
 Return ONLY valid JSON — no markdown, no explanation.
+IMPORTANT: Only include skills supported by concrete evidence. "Verified" means the user has shown evidence — not a guarantee of proficiency.
 
 Background:
 ${resume || 'No resume provided'}
@@ -814,7 +902,10 @@ Digital presence:
 ${digitalFootprint || 'Not provided'}
 
 References/testimonials:
-${references || 'Not provided'}`;
+${references || 'Not provided'}
+
+${workflowContext ? `AI Workflow Showcase:\n${workflowContext}` : ''}
+${logContext ? `Learning Log:\n${logContext}` : ''}`;
 
     let verifiedSkills: any[] = [];
     try {
@@ -834,12 +925,12 @@ ${references || 'Not provided'}`;
       }
     } catch (err) {
       console.error('Skills generation error:', err);
-      // Fall back to deriving from existing profile skills
       verifiedSkills = (currentUser.skills ?? []).map((s: any) => ({
         name:        typeof s === 'string' ? s : s.name,
         level:       'intermediate',
         endorsements: 0,
         source:      'platform',
+        evidence:    'Derived from platform activity',
       }));
     }
 
@@ -848,6 +939,61 @@ ${references || 'Not provided'}`;
     refreshUser(updatedUser);
     await updateUserInFirestore(fbUser.uid, { verifiedSkills });
     setIsSkillsGraphModalOpen(false);
+  };
+
+  // Saves a batch of new skills to user.skills (not userAddedSkills — which was never rendered).
+  // Immediate local state update ensures ProfilePage/Sidebar re-render without a page refresh.
+  const handleSaveUserSkills = async (newSkillNames: string[]) => {
+    if (!data || !currentUser || !fbUser || newSkillNames.length === 0) return;
+    const existing: any[] = currentUser.skills ?? [];
+    const existingNames = new Set(existing.map((s: any) => (typeof s === 'string' ? s : s.name).toLowerCase()));
+    const toAdd = newSkillNames
+      .map(n => n.trim()).filter(n => n && !existingNames.has(n.toLowerCase()))
+      .map(n => ({ name: n, endorsements: 0 }));
+    if (toAdd.length === 0) return;
+    const updated = [...existing, ...toAdd];
+    const updatedUser = { ...currentUser, skills: updated };
+    setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
+    refreshUser(updatedUser);
+    await updateUserInFirestore(fbUser.uid, { skills: updated });
+  };
+
+  const handleRemoveUserSkill = async (skillName: string) => {
+    if (!data || !currentUser || !fbUser) return;
+    const updated = (currentUser.skills ?? []).filter((s: any) =>
+      (typeof s === 'string' ? s : s.name).toLowerCase() !== skillName.toLowerCase()
+    );
+    const updatedUser = { ...currentUser, skills: updated };
+    setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
+    refreshUser(updatedUser);
+    await updateUserInFirestore(fbUser.uid, { skills: updated });
+  };
+
+  /**
+   * Generic profile save — call this from any component that edits the
+   * current user's profile (bio, headline, name, experiences, etc.).
+   *
+   * It writes to Firestore AND immediately syncs both currentUser (via
+   * refreshUser) and data.users so the profile re-renders with fresh data
+   * without needing a page reload. Errors are surfaced as thrown exceptions
+   * so callers can catch and display them — no silent swallowing.
+   */
+  const handleSaveCurrentUserProfile = async (updates: Record<string, any>) => {
+    if (!data || !currentUser || !fbUser) return;
+    // Optimistic local update — happens before the network call so the UI
+    // feels instant. If the write fails, the caller's catch should revert.
+    const userTypeUpdates: Partial<typeof currentUser> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      // Map Firestore field names back to User type field names for local state
+      if (key === 'displayName') (userTypeUpdates as any).name = value;
+      else if (key === 'photoURL') (userTypeUpdates as any).avatarUrl = value;
+      else (userTypeUpdates as any)[key] = value;
+    }
+    const updatedUser = { ...currentUser, ...userTypeUpdates };
+    setData({ ...data, users: data.users.map(u => u.id === currentUser.id ? updatedUser : u) });
+    refreshUser(updatedUser);
+    // Network write — updateUserInFirestore now passes all fields through
+    await updateUserInFirestore(fbUser.uid, updates);
   };
 
   const handleSaveMicroIntroduction = async (videoUrl: string) => {
@@ -908,6 +1054,7 @@ ${references || 'Not provided'}`;
       ...extra,
     }, fbUser.uid, currentUser.id);
     setData(d => d ? { ...d, circles: [newCircle, ...d.circles] } : null);
+    trackPodCreated(fbUser.uid, (newCircle as any)._firestoreId ?? String(newCircle.id), (extra as any)?.industry);
   };
 
   const handleAddMemberToCircle = (circleId: number, userId: number) => {
@@ -1034,6 +1181,7 @@ ${references || 'Not provided'}`;
       try {
         const { requestToJoinCircle, createPodNotification } = await import('./lib/firestoreService') as any;
         await requestToJoinCircle(circle._firestoreId, currentUser.id, fbUser?.uid);
+        trackPodJoined(fbUser.uid, circle._firestoreId, (circle as any).industry);
         const adminUid = (circle as any).adminUid ?? (circle as any).creatorUid;
         const adminFirestoreUid = adminUid ?? data.users.find(u =>
           (u as any)._firestoreUid === adminUid || u.id === circle.adminId
@@ -1298,7 +1446,7 @@ ${references || 'Not provided'}`;
       case View.Profile: {
         const userToShow = profileUserId ? data.users.find(u => u.id === profileUserId) : currentUser;
         content = userToShow
-          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} />
+          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} onSaveProfile={handleSaveCurrentUserProfile} />
           : <div>User not found.</div>;
         break;
       }
@@ -1312,7 +1460,6 @@ ${references || 'Not provided'}`;
             if (r.senderUid && r.senderUid !== fbUser?.uid) connectedUids.add(r.senderUid);
             if (r.receiverUid && r.receiverUid !== fbUser?.uid) connectedUids.add(r.receiverUid);
           });
-        // Add circle/pod member Firestore UIDs
         data.circles
           .filter(c => currentUser && c.members.includes(currentUser.id))
           .forEach(c => {
@@ -1321,41 +1468,63 @@ ${references || 'Not provided'}`;
               .forEach(u => { if ((u as any)._firestoreUid) connectedUids.add((u as any)._firestoreUid); });
           });
 
+        const GREEN = '#1a4a3a';
         content = (
-          <ShowcaseView
-            currentUser={currentUser}
-            onViewProfile={handleViewProfile}
-            onStartMessage={startMessage}
-            onConnect={handleSendConnection}
-            allJobs={data.jobs}
-            socialGraphUids={connectedUids}
-            onSelectArenaIndustry={(slug: string) => {
-              setActiveArenaIndustry(slug);
-              sessionStorage.setItem('beWatuArenaIndustry', slug);
-              setCurrentView('ARENA_INDUSTRY' as any);
-              sessionStorage.setItem('beWatuView', 'ARENA_INDUSTRY');
-            }}
-            currentUserCompany={selectedCompany}
-          />
+          <div className="space-y-0">
+            {/* ── Showcase tab strip ──────────────────────────────────────── */}
+            <div className="flex border-b border-stone-200 bg-white sticky top-0 z-10">
+              {(['prove', 'arenas'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setShowcaseTab(tab)}
+                  className="flex items-center gap-2 px-6 py-3.5 text-sm font-semibold transition-colors capitalize"
+                  style={{
+                    color: showcaseTab === tab ? GREEN : '#78716c',
+                    borderBottom: showcaseTab === tab ? `2px solid ${GREEN}` : '2px solid transparent',
+                    marginBottom: -1,
+                  }}>
+                  {tab === 'prove'
+                    ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                  }
+                  {tab === 'prove' ? 'Prove' : 'Arenas'}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Tab content ─────────────────────────────────────────────── */}
+            {showcaseTab === 'prove' ? (
+              <ProveView
+                currentUser={currentUser}
+                onViewProfile={handleViewProfile}
+                onStartMessage={startMessage}
+                onConnect={handleSendConnection}
+                allJobs={data.jobs}
+                socialGraphUids={connectedUids}
+              />
+            ) : (
+              <Suspense fallback={<div />}>
+                <ArenaDiscovery
+                  onSelectIndustry={(slug: string) => {
+                    setActiveArenaIndustry(slug);
+                    sessionStorage.setItem('beWatuArenaIndustry', slug);
+                    setCurrentView('ARENA_INDUSTRY' as any);
+                    sessionStorage.setItem('beWatuView', 'ARENA_INDUSTRY');
+                  }}
+                  onPostChallenge={() => {}}
+                  currentUserCompany={selectedCompany}
+                />
+              </Suspense>
+            )}
+          </div>
         );
         break;
       }
 
       case View.Arenas as any:
-        content = (
-          <Suspense fallback={<div />}>
-            <ArenaDiscovery
-              onSelectIndustry={(slug: string) => {
-                setActiveArenaIndustry(slug);
-                sessionStorage.setItem('beWatuArenaIndustry', slug);
-                setCurrentView('ARENA_INDUSTRY' as any);
-                sessionStorage.setItem('beWatuView', 'ARENA_INDUSTRY');
-              }}
-              onPostChallenge={() => {}}
-              currentUserCompany={selectedCompany}
-            />
-          </Suspense>
-        );
+        // Redirect into the Showcase with the Arenas tab active
+        setShowcaseTab('arenas');
+        setCurrentView(View.Prove);
         break;
 
       case 'ARENA_INDUSTRY' as any:
@@ -1363,7 +1532,7 @@ ${references || 'Not provided'}`;
           <Suspense fallback={<div />}>
             <ArenaIndustryView
               industry={activeArenaIndustry as any}
-              onBack={() => setCurrentView(View.Arenas as any)}
+              onBack={() => { setShowcaseTab('arenas'); setCurrentView(View.Prove); }}
               onSelectChallenge={async (id: string) => {
                 try {
                   const { fetchArenaChallengeById } = await import('./lib/firestoreService');
@@ -1405,28 +1574,77 @@ ${references || 'Not provided'}`;
         break;
 
       case View.Circles: {
+        // ── Community: tabbed Pods + Bridge ───────────────────────────
         if (activeCircleId) {
+          // When inside a pod, show CircleDetail directly (no tab strip)
           const circle = data.circles.find(c => c.id === activeCircleId);
           content = circle
             ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onInviteMember={handleInviteMemberToCircle} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onApproveJoinRequest={handleApproveJoinRequest} onDeclineJoinRequest={handleDeclineJoinRequest} onLeaveCircle={handleLeaveCircle} onViewProfile={handleViewProfile} onBack={() => setActiveCircleId(null)} onApplyToCircle={handleApplyToCircle} lastVisited={lastCircleVisited[activeCircleId] ?? undefined} />
             : <div>Circle not found</div>;
         } else {
-          content = <Circles
-            circles={data.circles}
-            onSelectCircle={handleSelectCircle}
-            onCreateCircle={handleCreateCircle}
-            onJoinCircle={async (circleId) => {
-              if (!fbUser || !currentUser) return;
-              handleAddMemberToCircle(circleId, currentUser.id);
-            }}
-            onApplyToCircle={handleApplyToCircle}
-            onLeaveCircle={handleLeaveCircle}
-            currentUserId={currentUser.id}
-            currentUserFirestoreUid={fbUser?.uid}
-          />;
+          const GREEN = '#1a4a3a';
+          content = (
+            <div className="space-y-0">
+              {/* ── Community tab strip ──────────────────────────────── */}
+              <div className="flex border-b border-stone-200 bg-white sticky top-0 z-10">
+                {(['pods', 'bridge'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setCommunityTab(tab)}
+                    className="flex items-center gap-2 px-6 py-3.5 text-sm font-semibold transition-colors capitalize"
+                    style={{
+                      color: communityTab === tab ? GREEN : '#78716c',
+                      borderBottom: communityTab === tab ? `2px solid ${GREEN}` : '2px solid transparent',
+                      marginBottom: -1,
+                    }}>
+                    {tab === 'pods'
+                      ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                      : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                    }
+                    {tab === 'pods' ? 'Pods' : 'Bridge'}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── Tab content ────────────────────────────────────────── */}
+              {communityTab === 'pods' ? (
+                <Circles
+                  circles={data.circles}
+                  onSelectCircle={handleSelectCircle}
+                  onCreateCircle={handleCreateCircle}
+                  onJoinCircle={async (circleId) => {
+                    if (!fbUser || !currentUser) return;
+                    handleAddMemberToCircle(circleId, currentUser.id);
+                  }}
+                  onApplyToCircle={handleApplyToCircle}
+                  onLeaveCircle={handleLeaveCircle}
+                  currentUserId={currentUser.id}
+                  currentUserFirestoreUid={fbUser?.uid}
+                />
+              ) : (
+                <Suspense fallback={<div />}>
+                  <GenerationalFeed
+                    currentUser={currentUser}
+                    fbUserUid={fbUser.uid}
+                    onViewProfile={setPublicProfileUserId}
+                    onSelectCircle={(circleId) => {
+                      handleSelectCircle(circleId);
+                      setCommunityTab('pods');
+                    }}
+                  />
+                </Suspense>
+              )}
+            </div>
+          );
         }
         break;
       }
+
+      case (View.Bridge as any):
+        // Redirect into Community with Bridge tab active
+        setCommunityTab('bridge');
+        setCurrentView(View.Circles);
+        break;
 
       case View.Pricing:
         content = (
@@ -1446,19 +1664,6 @@ ${references || 'Not provided'}`;
           </div>
         );
         break;
-        case View.Bridge:
-  content = (
-    <GenerationalFeed
-      currentUser={currentUser}
-      fbUserUid={fbUser.uid}
-      onViewProfile={setPublicProfileUserId}
-      onSelectCircle={(circleId) => {
-        handleSelectCircle(circleId);
-        handleSetView(View.Circles);
-      }}
-    />
-  );
-  break;
 
       case View.Companies:
         content = (
@@ -1579,7 +1784,7 @@ ${references || 'Not provided'}`;
           />
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
-          {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onClose={() => setIsSkillsGraphModalOpen(false)} />}
+          {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onSaveUserSkills={handleSaveUserSkills} onRemoveUserSkill={handleRemoveUserSkill} onClose={() => setIsSkillsGraphModalOpen(false)} />}
           {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
           {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
           {reportModalOpen && fbUser && currentUser && (
@@ -1774,12 +1979,39 @@ ${references || 'Not provided'}`;
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT
 // ─────────────────────────────────────────────────────────────────────────────
-const App: React.FC = () => (
-  <FirebaseProvider>
-    <LanguageProvider>
-      <MainApp />
-    </LanguageProvider>
-  </FirebaseProvider>
-);
+
+// Detect /be/:username before mounting the full app — public profiles are
+// accessible without authentication so we render them outside FirebaseProvider.
+const beMatch = window.location.pathname.match(/^\/be\/([a-z0-9_-]+)$/i);
+
+const App: React.FC = () => {
+  if (beMatch) {
+    const username = beMatch[1].toLowerCase();
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen" style={{ backgroundColor: '#f5f5f4' }}>
+          <nav className="bg-white border-b h-14" style={{ borderColor: '#e7e5e4' }}>
+            <div className="max-w-4xl mx-auto px-4 h-14 flex items-center">
+              <span className="font-bold" style={{ color: '#1a4a3a' }}>BeWatu</span>
+            </div>
+          </nav>
+        </div>
+      }>
+        <PublicProfilePage
+          username={username}
+          onSignUp={() => { window.location.href = '/?signup=1'; }}
+        />
+      </Suspense>
+    );
+  }
+
+  return (
+    <FirebaseProvider>
+      <LanguageProvider>
+        <MainApp />
+      </LanguageProvider>
+    </FirebaseProvider>
+  );
+};
 
 export default App;

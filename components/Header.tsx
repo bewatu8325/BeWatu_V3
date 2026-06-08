@@ -296,17 +296,14 @@ function NotificationsPanel({
   );
 }
 
-// Simplified navigation: 7 core items (down from 11)
-// Community = Circles + Pods, Showcase = Prove + Arenas
-// Pricing & Lens moved to profile dropdown
 const NAV_ITEMS = [
-  { view: View.Feed,          label: 'Home',        icon: Home          },
-  { view: View.Connections,   label: 'Community',   icon: Users2        },
-  { view: View.Prove,         label: 'Showcase',    icon: Trophy        },
-  { view: View.Jobs,          label: 'Jobs',        icon: Briefcase     },
-  { view: View.Messaging,     label: 'Messages',    icon: MessageSquare },
-  { view: View.Companies,     label: 'Companies',   icon: Building2     },
-  { view: View.Bridge as any, label: 'Bridge',      icon: GitMerge      },
+  { view: View.Feed,        label: 'Home',          icon: Home          },
+  { view: View.Connections, label: 'Circles',        icon: Users2        },
+  { view: View.Circles,     label: 'Community',      icon: Hexagon       },
+  { view: View.Prove,       label: 'Showcase',       icon: Sword         },
+  { view: View.Jobs,        label: 'Opportunities',  icon: Briefcase     },
+  { view: View.Messaging,   label: 'Messages',       icon: MessageSquare },
+  { view: View.Companies,   label: 'Companies',      icon: Building2     },
 ];
 
 interface HeaderProps {
@@ -480,15 +477,6 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
                 <Settings className="h-4 w-4" />Settings
               </button>
-              <div className="my-1 h-px bg-stone-100" />
-              <button onClick={() => { onNavigate(View.AIChat as any); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
-                <Zap className="h-4 w-4" />Lens AI
-              </button>
-              <button onClick={() => { onNavigate(View.Pricing); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
-                <CreditCard className="h-4 w-4" />Pricing & Plans
-              </button>
               <button
   onClick={() => { handleGoToFactory(); setMenuOpen(false); }}
   disabled={factoryLoading}
@@ -498,6 +486,15 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
   {factoryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Factory className="h-4 w-4" />}
   {factoryLoading ? "Launching…" : "Go to Factory →"}
 </button>
+              <div className="my-1 h-px bg-stone-100" />
+              <button onClick={() => { onNavigate(View.AIChat as any); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
+                <Zap className="h-4 w-4" />Lens
+              </button>
+              <button onClick={() => { onNavigate(View.Pricing); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
+                <CreditCard className="h-4 w-4" />Pricing
+              </button>
               <div className="my-1 h-px bg-stone-100" />
               <button onClick={() => { setMenuOpen(false); onLogout(); }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 transition-colors">
