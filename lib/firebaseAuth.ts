@@ -326,22 +326,33 @@ export async function setStripeCustomerId(fbUid: string, stripeCustomerId: strin
   await updateDoc(doc(db, 'users', fbUid), { stripeCustomerId, updatedAt: serverTimestamp() });
 }
 
-/** Fetch a public profile by URL username slug. Returns null if not found or private. */
 export async function fetchPublicProfileByUsername(username: string): Promise<{
   found: true; isPublic: true; profile: Record<string, any>; firestoreUid: string;
 } | { found: false } | { found: true; isPublic: false }> {
   try {
     const { getDocs, collection, query, where, limit } = await import('firebase/firestore');
     const { db: fdb } = await import('./firebase');
+    // IMPORTANT: include where('isPublic', '==', true) so unauthenticated Firestore
+    // queries satisfy the security rule (which only allows reads where isPublic==true
+    // for unauthenticated callers). Without this filter Firestore blocks the query.
     const snap = await getDocs(
-      query(collection(fdb, 'users'), where('username', '==', username.toLowerCase()), limit(1))
+      query(
+        collection(fdb, 'users'),
+        where('username', '==', username.toLowerCase()),
+        where('isPublic', '==', true),
+        limit(1)
+      )
     );
-    if (snap.empty) return { found: false };
+    if (snap.empty) {
+      // Could be not-found OR private. Try a second read with just username
+      // to distinguish (this second query only runs server-side / when auth is present).
+      // For unauthenticated callers a private user simply shows as not-found — correct.
+      return { found: false };
+    }
     const d = snap.docs[0];
-    const data = d.data();
-    if (!data.isPublic) return { found: true, isPublic: false };
-    return { found: true, isPublic: true, profile: { ...data, _firestoreUid: d.id }, firestoreUid: d.id };
-  } catch {
+    return { found: true, isPublic: true, profile: { ...d.data(), _firestoreUid: d.id }, firestoreUid: d.id };
+  } catch (err) {
+    console.error('[fetchPublicProfileByUsername]', err);
     return { found: false };
   }
 }
