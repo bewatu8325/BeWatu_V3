@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { User, ConnectionRequest, Circle, View, Experience } from '../types';
-import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon } from '../constants';
+import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon, ShareIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import ExperienceSection from './ExperienceSection';
 import ReputationPanel from './profile/ReputationPanel';
@@ -10,6 +10,7 @@ import LearningLog from './profile/LearningLog';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFirebase } from '../contexts/FirebaseContext';
 import ProfileReelsStrip from './ProfileReelsStrip';
+import ShareProfileModal from './ShareProfileModal';
 import { uploadAvatar } from '../lib/storageService';
 import { updateUserInFirestore } from '../lib/firebaseAuth';
 import { getFollowingCompanies } from '../lib/firestoreService';
@@ -69,6 +70,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 
   // ── Inline skill adding ──────────────────────────────────────────────────
   const [skillInput, setSkillInput]   = useState('');
+
+  // ── Share public profile ─────────────────────────────────────────────────
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showShareInfo, setShowShareInfo]   = useState(false);
 
   // ── Followed companies (owner only) ─────────────────────────────────────
   const [followedCompanies, setFollowedCompanies] = useState<any[]>([]);
@@ -275,6 +280,47 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           </div>
           <p className="text-sm text-stone-500 mt-1 break-words">{user.headline}</p>
           <p className="text-stone-700 text-sm mt-4 break-words">{user.bio}</p>
+
+          {/* Share public profile — owner only */}
+          {isCurrentUser && (user as any).username && (
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="group inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
+                style={{ backgroundColor: '#1a4a3a' }}
+                title="Share your public profile"
+              >
+                <ShareIcon className="w-4 h-4 transition-transform group-hover:scale-110" />
+                Share profile
+              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowShareInfo(v => !v)}
+                  onBlur={() => setTimeout(() => setShowShareInfo(false), 150)}
+                  aria-label="About sharing your profile"
+                  aria-expanded={showShareInfo}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700"
+                  style={{ borderColor: '#e7e5e4' }}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </button>
+                {showShareInfo && (
+                  <div
+                    className="absolute left-1/2 top-10 z-20 w-60 -translate-x-1/2 rounded-xl border bg-white p-3 text-left shadow-lg"
+                    style={{ borderColor: '#e7e5e4' }}
+                  >
+                    <div className="absolute -top-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-l border-t bg-white" style={{ borderColor: '#e7e5e4' }} />
+                    <p className="text-xs font-semibold text-stone-800 mb-1">About your public profile</p>
+                    <p className="text-xs leading-relaxed text-stone-500">
+                      Anyone with your link can view a read-only version of your verified profile — no login required. Manage visibility anytime in Security &amp; Privacy.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {!isCurrentUser && onReportUser && (
             <button
@@ -527,34 +573,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           </div>
         )}
 
-        {/* ── Public profile URL (owner only) ── */}
-        {isCurrentUser && (user as any).username && (
-          <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
-            <h3 className="font-semibold text-stone-800 text-sm mb-2 flex items-center gap-1.5">
-              <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              Your public profile
-            </h3>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-stone-500 truncate flex-1">
-                bewatu.com/be/{(user as any).username}
-              </span>
-              <button
-                onClick={() => {
-                  const url = `https://www.bewatu.com/be/${(user as any).username}`;
-                  navigator.clipboard?.writeText(url).catch(() => {});
-                  window.open(url, '_blank', 'noopener');
-                }}
-                className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-stone-100"
-                style={{ borderColor: '#e7e5e4', color: '#1a4a3a' }}
-              >
-                Open
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Circles Tile */}
         {userCircles.length > 0 && (
           <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
@@ -598,6 +616,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           </button>
         )}
       </div>
+
+      {/* Share public profile modal */}
+      {showShareModal && (user as any).username && (
+        <ShareProfileModal
+          username={(user as any).username}
+          name={user.name}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
     </div>
   );
 };
