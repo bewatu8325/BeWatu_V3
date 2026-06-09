@@ -58,6 +58,26 @@ function LoadingSkeleton() {
   );
 }
 
+// ── Shell (page layout with nav) ─────────────────────────────────────────────
+
+function Shell({ children, onSignUp }: { children: React.ReactNode; onSignUp?: () => void }) {
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: '#f0ede6' }}>
+      <header className="sticky top-0 z-20 border-b" style={{ backgroundColor: '#f0ede6', borderColor: '#e8e4dc' }}>
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+          <a href="/" className="font-bold text-base tracking-tight" style={{ color: GREEN }}>BeWatu</a>
+          <button onClick={onSignUp ?? (() => { window.location.href = '/?signup=1'; })}
+            className="rounded-full px-4 py-2 text-sm font-bold text-white hover:opacity-90 transition-opacity sm:px-5"
+            style={{ backgroundColor: GREEN }}>
+            Sign up free
+          </button>
+        </div>
+      </header>
+      <main className="max-w-2xl mx-auto px-4 py-10">{children}</main>
+    </div>
+  );
+}
+
 // ── Public profile card ───────────────────────────────────────────────────────
 
 function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
