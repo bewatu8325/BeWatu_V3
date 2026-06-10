@@ -14,6 +14,7 @@ import ShareProfileModal from './ShareProfileModal';
 import { uploadAvatar } from '../lib/storageService';
 import { updateUserInFirestore } from '../lib/firebaseAuth';
 import { getFollowingCompanies } from '../lib/firestoreService';
+import SkillResume from './profile/SkillResume';
 
 interface ProfilePageProps {
   user: User;
@@ -505,6 +506,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           onSave={handleSaveExperiences}
         />
 
+        {/* ── Skill-based resume — owner only, reuses all existing profile data ── */}
+        <SkillResume
+          user={user as any}
+          isOwn={isCurrentUser}
+        />
+
         <SkillDNA
           user={user}
           profileUid={(user as any)._firestoreUid ?? String(user.id)}
@@ -573,6 +580,34 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           </div>
         )}
 
+        {/* ── Public profile URL (owner only) ── */}
+        {isCurrentUser && (user as any).username && (
+          <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
+            <h3 className="font-semibold text-stone-800 text-sm mb-2 flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Your public profile
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-stone-500 truncate flex-1">
+                bewatu.com/be/{(user as any).username}
+              </span>
+              <button
+                onClick={() => {
+                  const url = `https://www.bewatu.com/be/${(user as any).username}`;
+                  navigator.clipboard?.writeText(url).catch(() => {});
+                  window.open(url, '_blank', 'noopener');
+                }}
+                className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-stone-100"
+                style={{ borderColor: '#e7e5e4', color: '#1a4a3a' }}
+              >
+                Open
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Circles Tile */}
         {userCircles.length > 0 && (
           <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
@@ -616,7 +651,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           </button>
         )}
       </div>
-
       {/* Share public profile modal */}
       {showShareModal && (user as any).username && (
         <ShareProfileModal
