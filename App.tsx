@@ -316,6 +316,49 @@ const MainApp: React.FC = () => {
         u.id !== user.id && (u as any)._firestoreUid !== currentUid
       );
 
+      // ── Connection request hygiene ────────────────────────────────────────
+      // 1. Mark pending requests older than 5 days as expired (client-side;
+      //    the Firestore doc is left as-is until the sender cancels or refreshes).
+      // 2. Remove any "expired" entry where the two users are now connected —
+      //    accepted connections must never appear in the expired list.
+      const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+
+      // Collect accepted-connection pairs so we can cross-check below
+      const acceptedPairs = new Set<string>();
+      firestoreConnections
+        .filter((r: any) => r.status === 'accepted')
+        .forEach((r: any) => {
+          acceptedPairs.add(`${r.fromUserId}-${r.toUserId}`);
+          acceptedPairs.add(`${r.toUserId}-${r.fromUserId}`);
+        });
+
+      const hygieneConnections = firestoreConnections.map((r: any) => {
+        if (r.status !== 'pending') return r;
+        const createdMs = r.createdAt?.toDate?.()?.getTime?.()
+          ?? r.createdAt?.getTime?.()
+          ?? (typeof r.createdAt === 'number' ? r.createdAt : null);
+        if (createdMs && now - createdMs > FIVE_DAYS_MS) {
+          // Only mark expired if neither user is already connected
+          const pairKey = `${r.fromUserId}-${r.toUserId}`;
+          if (!acceptedPairs.has(pairKey)) {
+            return { ...r, status: 'expired' };
+          }
+        }
+        return r;
+      });
+
+      const filteredConnections = hygieneConnections.filter((r: any) => {
+        // Drop expired requests — they've been pending too long, keep UI clean
+        if (r.status === 'expired') return false;
+        // Drop pending/expired entries where the pair is already connected
+        if (r.status === 'pending') {
+          const pairKey = `${r.fromUserId}-${r.toUserId}`;
+          if (acceptedPairs.has(pairKey)) return false;
+        }
+        return true;
+      });
+
       // Only fetch company for approved recruiters — never auto-create.
       // Company creation happens explicitly in Gate 4 of recruiter registration.
       const company = (user as any).isRecruiter === true
@@ -366,7 +409,7 @@ const MainApp: React.FC = () => {
         companies: [company],
         messages: firestoreMessages,
         notifications: [],
-        connectionRequests: firestoreConnections,
+        connectionRequests: filteredConnections,
         followRequests: firestoreFollowRequests,
         circles: normalizedCircles,
         articles: [],
