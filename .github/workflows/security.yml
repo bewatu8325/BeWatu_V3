@@ -131,31 +131,30 @@ jobs:
           BEWATU_SECURITY_TOKEN: ${{ secrets.BEWATU_SECURITY_TOKEN }}
           BEWATU_SECURITY_URL: https://www.bewatu.com/api/security/finding
 
-  # ── 4. Firestore rules lint ────────────────────────────────────────────────
+  # ── 4. Firestore rules — real behavioral tests, not a text lint ───────────
+  # Deliberately NOT gated on `needs: secrets` — that job has been failing
+  # independently for months (gitleaks finds something in git history that
+  # needs its own investigation) and rules correctness doesn't depend on it.
+  # A regex "no `if true`" lint used to live here; it would not have caught
+  # any of the real bugs found in the 2026-09 rules review (a missing brace
+  # that silently dead-ended ~48 collections, open-write rules on several
+  # factory_* collections, a field-name mismatch that would have blocked
+  # every investor application). This runs the actual rule engine instead.
   firestore-rules:
-    name: Firestore rules lint
-    needs: secrets
+    name: Firestore rules test (emulator)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
-      - name: Lint rules
-        run: |
-          node -e "
-            const fs=require('fs');
-            if(!fs.existsSync('firestore.rules')){console.log('No firestore.rules — skipping.');process.exit(0);}
-            const rules=fs.readFileSync('firestore.rules','utf-8');
-            let errors=0;
-            rules.split('\n').forEach((line,i)=>{
-              if(/allow\s+\w.*:\s*if\s+true/.test(line)){
-                console.error('CRITICAL line '+(i+1)+': Unconditional allow — '+line.trim());
-                errors++;
-              }
-            });
-            if(errors>0){console.error(errors+' critical issue(s).');process.exit(1);}
-            else console.log('Firestore rules lint passed.');
-          "
+      - uses: actions/setup-java@v4
+        with: { distribution: 'temurin', java-version: '21' }
+      - name: Install firebase-tools
+        run: npm install -g firebase-tools
+      - name: Install rules-test dependencies
+        run: npm install --prefix test/rules
+      - name: Run rules tests against the Firestore emulator
+        run: firebase emulators:exec --project demo-bewatu --only firestore "node test/rules/run-tests.js"
 
   # ── 5. Cloud posture ───────────────────────────────────────────────────────
   posture:

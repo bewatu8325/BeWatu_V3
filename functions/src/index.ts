@@ -643,6 +643,55 @@ export const syncUserProfileToPosts = functions.firestore
   });
 
 // ===================================================================
+// Factory — investor onboarding (Decision 4: reviewed, not self-serve)
+// ===================================================================
+
+// firestore.rules sets factory_investors.create to `false` — a client can
+// never create their own investor profile. This is the only path that can:
+// ops/admin approves an investor_applications doc, and this trigger
+// provisions the factory_investors profile from it, once.
+export const provisionInvestorOnApproval = functions.firestore
+  .document('investor_applications/{applicationId}')
+  .onUpdate(async (change: functions.Change<functions.firestore.QueryDocumentSnapshot>, context: functions.EventContext) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    // Only act on the pending -> approved transition, not every edit to an
+    // already-approved application.
+    if (before.status === 'approved' || after.status !== 'approved') {
+      return null;
+    }
+
+    const uid = after.uid;
+    if (!uid) {
+      console.error(`investor_applications/${context.params.applicationId} approved with no uid field`);
+      return null;
+    }
+
+    const investorRef = db.collection('factory_investors').doc(uid);
+    const existing = await investorRef.get();
+    if (existing.exists) {
+      // Already provisioned — don't clobber an edited profile on a re-save
+      // of the application (e.g. ops correcting a typo after approval).
+      return null;
+    }
+
+    await investorRef.set({
+      user: { id: uid, name: after.name ?? '', email: after.email ?? '' },
+      type: after.type ?? null,
+      firm: after.firm ?? '',
+      thesis: after.thesis ?? '',
+      stages: after.stages ?? [],
+      sectors: after.sectors ?? [],
+      approvedFrom: context.params.applicationId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`Provisioned factory_investors/${uid} from investor_applications/${context.params.applicationId}`);
+    return null;
+  });
+
+// ===================================================================
 // AI Analysis Caching
 // ===================================================================
 
