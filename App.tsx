@@ -1159,6 +1159,27 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
     }
   };
 
+  // P0 11: accepting a pod invite from the notification bell (Header's
+  // NotificationsPanel) writes the membership straight to Firestore, but
+  // this session's own `data.circles` (loaded once at boot) has no way to
+  // find out — without this, the pod you just joined doesn't appear in your
+  // own pods list until a full reload. Mirrors the existing circle_approved
+  // patch below.
+  const handleCircleInviteAccepted = (circleFirestoreId: string) => {
+    if (!currentUser) return;
+    setData(d => {
+      if (!d) return null;
+      return {
+        ...d,
+        circles: d.circles.map(c => {
+          if ((c as any)._firestoreId !== circleFirestoreId) return c;
+          if (c.members.includes(currentUser.id)) return c;
+          return { ...c, members: [...c.members, currentUser.id] };
+        }),
+      };
+    });
+  };
+
   const handleRemoveMemberFromCircle = async (circleId: number, userId: number) => {
     if (!data) return;
     const circle = data.circles.find(c => c.id === circleId) as any;
@@ -1790,7 +1811,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {showSecurityPage && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} />
+              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} onCircleInviteAccepted={handleCircleInviteAccepted} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   <SecurityPrivacyPage
@@ -1831,7 +1852,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {publicProfileUserId && data && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} />
+              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} onCircleInviteAccepted={handleCircleInviteAccepted} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   <ProfileOverlay
