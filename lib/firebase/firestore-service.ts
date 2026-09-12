@@ -253,6 +253,10 @@ export async function createTeam(
 ): Promise<string> {
   const ref = await addDoc(collection(db, "factory_teams"), {
     ...data,
+    // Flat uid array — firestore.rules checks this (not members[], an array
+    // of objects it can't map over) to authorise team updates. Keep in sync
+    // with `members` on every add/remove (see joinTeam below).
+    memberUids: data.members.map((m) => m.user.id),
     createdAt: serverTimestamp(),
   });
   return ref.id;
@@ -266,6 +270,7 @@ export async function joinTeam(
   const ref = doc(db, "factory_teams", teamId);
   await updateDoc(ref, {
     members: arrayUnion({ user, role, joinedAt: new Date().toISOString() }),
+    memberUids: arrayUnion(user.id),
   });
   await awardXP(user.id, 25, "Joined a team");
 }
@@ -366,6 +371,9 @@ export async function createStartup(
 ): Promise<string> {
   const ref = await addDoc(collection(db, "factory_startups"), {
     ...data,
+    // Flat uid array — firestore.rules checks this, not founders[], to
+    // authorise startup updates. Keep in sync if founders ever change.
+    founderUids: data.founders.map((f) => f.id),
     createdAt: serverTimestamp(),
   });
   // Award big XP to each founder
