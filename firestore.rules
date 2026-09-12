@@ -397,6 +397,15 @@ service cloud.firestore {
         allow read, write: if isAuth() && request.auth.uid == uid;
       }
 
+      // P0 2 fix: email, phone, location and stripeCustomerId used to live on
+      // the users/{uid} doc itself, readable by ANY authenticated user (the
+      // parent read rule above is isPublic==true || isAuth() — necessarily
+      // whole-document, since rules can't restrict individual fields on one
+      // doc). Split into this owner/ops-only subcollection instead.
+      match /private/{docId} {
+        allow read, write: if isAuth() && (request.auth.uid == uid || isPlatformAdmin() || isOpsStaff());
+      }
+
       // Security audit events
       match /securityEvents/{eventId} {
         allow read:           if isAuth() && request.auth.uid == uid;

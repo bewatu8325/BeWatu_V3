@@ -53,8 +53,43 @@ function isSafari(): boolean {
   return /^((?!chrome|android).)*safari/i.test(ua);
 }
 
+// ── Owner-only PII: users/{uid}/private/contact ───────────────────────────────
+// email, phone, location and stripeCustomerId used to live on the users/{uid}
+// doc itself — readable by any authenticated caller (isPublic==true || isAuth()
+// covers the whole document, not per field; Firestore rules can't restrict
+// individual fields on one doc). Split out so a stranger reading someone
+// else's profile never gets these, while the owner (and ops) still can.
+interface PrivateContact {
+  email?: string;
+  phone?: string;
+  location?: string;
+  stripeCustomerId?: string;
+}
+
+async function getPrivateContact(uid: string): Promise<PrivateContact> {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'private', 'contact'));
+    return snap.exists() ? (snap.data() as PrivateContact) : {};
+  } catch {
+    // Reading another user's contact doc correctly denies — return empty
+    // rather than surface a permission error to a caller that doesn't need it.
+    return {};
+  }
+}
+
+async function setPrivateContact(uid: string, fields: PrivateContact): Promise<void> {
+  await setDoc(doc(db, 'users', uid, 'private', 'contact'), {
+    ...fields,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
 // ── Convert Firestore doc → BeWatu User ──────────────────────────────────────
-function docToUser(data: Record<string, any>): User {
+// Async: merges in users/{uid}/private/contact for the CURRENT user's own
+// doc. Every call site below is loading the signed-in user's own profile —
+// none of this is used to render another user's card.
+async function docToUser(data: Record<string, any>): Promise<User> {
+  const contact = await getPrivateContact(data.uid);
   return {
     id: data.numericId ?? 1,
     name: data.displayName ?? '',
@@ -67,8 +102,10 @@ function docToUser(data: Record<string, any>): User {
     credits: data.credits ?? 100,
     isRecruiter: data.isRecruiter ?? false,
     isVerified: data.isVerified ?? false,
-    phone: data.phone ?? '',
-    stripeCustomerId: data.stripeCustomerId,
+    email: contact.email ?? '',
+    location: contact.location ?? '',
+    phone: contact.phone ?? '',
+    stripeCustomerId: contact.stripeCustomerId,
     subscriptionTier:      data.subscriptionTier     ?? 'free',
     subscriptionStatus:    data.subscriptionStatus   ?? 'active',
     subscriptionId:        data.subscriptionId,
@@ -115,6 +152,9 @@ function deriveUsername(name: string): string {
 }
 
 // ── Build default Firestore doc ───────────────────────────────────────────────
+// email and location no longer go on the main doc — see getPrivateContact
+// above. Callers write them to users/{uid}/private/contact separately
+// (setPrivateContact, right after this doc is created).
 function buildNewUserDoc(
   uid: string,
   name: string,
@@ -125,9 +165,9 @@ function buildNewUserDoc(
   const isVerified = !freeEmailDomains.some((d) => email.endsWith(d));
   const baseUsername = deriveUsername(name);
   return {
-    uid, numericId: Date.now(), displayName: name, email,
+    uid, numericId: Date.now(), displayName: name,
     photoURL: photoURL ?? '', headline: '', bio: '', industry: '',
-    location: '', website: '', professionalGoals: [], reputation: 0,
+    website: '', professionalGoals: [], reputation: 0,
     credits: 100, isRecruiter, isVerified, portfolio: [],
     verifiedAchievements: [], thirdPartyIntegrations: [],
     username: baseUsername,  // URL slug — /be/:username
@@ -144,11 +184,13 @@ async function upsertGoogleUser(fbUser: FirebaseUser, isRecruiter: boolean): Pro
   const ref  = doc(db, 'users', fbUser.uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
+    const email = fbUser.email ?? '';
     const newDoc = buildNewUserDoc(
       fbUser.uid, fbUser.displayName ?? 'New User',
-      fbUser.email ?? '', isRecruiter, fbUser.photoURL ?? undefined
+      email, isRecruiter, fbUser.photoURL ?? undefined
     );
     await setDoc(ref, newDoc);
+    await setPrivateContact(fbUser.uid, { email, location: '' });
     return docToUser(newDoc);
   }
   return docToUser(snap.data() as Record<string, any>);
@@ -165,6 +207,7 @@ export async function registerWithEmail(
   await sendEmailVerification(fbUser);
   const newDoc = buildNewUserDoc(fbUser.uid, name, email, isRecruiter);
   await setDoc(doc(db, 'users', fbUser.uid), newDoc);
+  await setPrivateContact(fbUser.uid, { email, location: '' });
   return docToUser(newDoc);
 }
 
@@ -312,18 +355,31 @@ export async function updateUserInFirestore(
     avatarUrl: 'photoURL',
   };
 
+  // email/phone/location/stripeCustomerId live in users/{uid}/private/contact,
+  // not on the main doc — route them there instead of leaking them back onto
+  // the doc every other authenticated user can read.
+  const PRIVATE_FIELDS = new Set(['email', 'phone', 'location', 'stripeCustomerId']);
+
   const fsUpdates: Record<string, any> = { updatedAt: serverTimestamp() };
+  const privateUpdates: PrivateContact = {};
 
   for (const [key, value] of Object.entries(updates)) {
     if (value === undefined) continue;
-    fsUpdates[RENAME[key] ?? key] = value;
+    if (PRIVATE_FIELDS.has(key)) {
+      (privateUpdates as any)[key] = value;
+    } else {
+      fsUpdates[RENAME[key] ?? key] = value;
+    }
   }
 
   await updateDoc(doc(db, 'users', fbUid), fsUpdates);
+  if (Object.keys(privateUpdates).length > 0) {
+    await setPrivateContact(fbUid, privateUpdates);
+  }
 }
 
 export async function setStripeCustomerId(fbUid: string, stripeCustomerId: string): Promise<void> {
-  await updateDoc(doc(db, 'users', fbUid), { stripeCustomerId, updatedAt: serverTimestamp() });
+  await setPrivateContact(fbUid, { stripeCustomerId });
 }
 
 export async function fetchPublicProfileByUsername(username: string): Promise<{
