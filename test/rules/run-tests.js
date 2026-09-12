@@ -51,12 +51,14 @@ async function main() {
     await db.doc("factory_investors/inv1").set({ user: { id: "inv1" }, firm: "Acme" });
     await db.doc("circles/c1").set({ adminId: "owner", members: ["owner"] });
     await db.doc("circles/c1/members/owner").set({ notifyOnPost: true });
-    await db.doc("content_reports/r1").set({ reporterUid: "someone", reason: "x" });
+    await db.doc("content_reports/r1").set({ reportedBy: "someone", reason: "x" });
     await db.doc("users/victim").set({ isPublic: false, displayName: "Victim" });
     await db.doc("users/victim/private/contact").set({ email: "victim@x.com", phone: "555-1234", location: "SF", stripeCustomerId: "cus_abc" });
+    await db.doc("ops_staff/ops1").set({ role: "trust_agent", isActive: true });
   });
 
   const atk = testEnv.authenticatedContext("atk").firestore();
+  const ops1 = testEnv.authenticatedContext("ops1").firestore();
   const f1  = testEnv.authenticatedContext("f1").firestore();
   const f2  = testEnv.authenticatedContext("f2").firestore();
   const inv1 = testEnv.authenticatedContext("inv1").firestore();
@@ -108,8 +110,13 @@ async function main() {
   await check("users/private/contact: the owner CAN update their own", testEnv.authenticatedContext("victim").firestore().doc("users/victim/private/contact").update({ phone: "555-9999" }), "ALLOW");
 
   console.log("\n== Still-open findings (not fixed in this draft) ==");
-  await check("content_reports: any authed user can still read all reports (KNOWN, unfixed)", atk.doc("content_reports/r1").get(), "ALLOW");
   await check("circles/challenges: still open pending postedByUid app fix (KNOWN, flagged)", atk.collection("circles/c1/challenges").add({ postedBy: "Some Name" }), "ALLOW");
+
+  console.log("\n== P0 4 fix: content_reports locked to the reporter or ops ==");
+  await check("content_reports: a stranger CANNOT read someone else's report", atk.doc("content_reports/r1").get(), "DENY");
+  await check("content_reports: the reporter CAN read their own", testEnv.authenticatedContext("someone").firestore().doc("content_reports/r1").get(), "ALLOW");
+  await check("content_reports: ops staff CAN read a report that isn't theirs", ops1.doc("content_reports/r1").get(), "ALLOW");
+  await check("content_reports: any authed user can still file a new report", atk.collection("content_reports").add({ reportedBy: "atk", reason: "spam" }), "ALLOW");
 
   console.log(`\n${pass} passed, ${fail} failed (of ${pass + fail})`);
   await testEnv.cleanup();

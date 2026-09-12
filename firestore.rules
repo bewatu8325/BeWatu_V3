@@ -111,7 +111,12 @@ service cloud.firestore {
     }
 
     match /content_reports/{reportId} {
-      allow read:   if isAuth();
+      // P0 4 fix: was `if isAuth()` — any signed-in user could read every
+      // abuse report and the identity of who filed it. Now: the reporter
+      // sees their own report's status, ops sees everything.
+      allow read:   if isAuth() && (
+        resource.data.reportedBy == request.auth.uid || isOpsStaff()
+      );
       allow create: if isAuth();
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'trust_agent',
