@@ -46,10 +46,16 @@ export async function POST(req: NextRequest) {
       subscriptionTier:          tier,
       factoryUnlocked:           true,
       subscriptionActivatedAt:   new Date().toISOString(),
-      stripeCustomerId:          session.customer,
       stripeSubscriptionId:      session.subscription,
       updatedAt:                 FieldValue.serverTimestamp(),
     });
+
+    // stripeCustomerId is PII-adjacent — lives in users/{uid}/private/contact,
+    // not the main doc every authenticated user can read.
+    await db.collection("users").doc(uid).collection("private").doc("contact").set({
+      stripeCustomerId: session.customer,
+      updatedAt:        FieldValue.serverTimestamp(),
+    }, { merge: true });
 
     // Mirror to factory_users
     await db.collection("factory_users").doc(uid).set({

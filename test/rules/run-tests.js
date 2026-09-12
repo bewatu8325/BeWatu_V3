@@ -6,6 +6,8 @@ const {
   assertFails,
 } = require("@firebase/rules-unit-testing");
 
+// Reads the repo's real firestore.rules (the same file firebase.json and a
+// real deploy use) — not a copy inside test/rules/.
 const RULES_PATH = path.join(__dirname, "..", "..", "firestore.rules");
 
 let pass = 0, fail = 0;
@@ -50,7 +52,8 @@ async function main() {
     await db.doc("circles/c1").set({ adminId: "owner", members: ["owner"] });
     await db.doc("circles/c1/members/owner").set({ notifyOnPost: true });
     await db.doc("content_reports/r1").set({ reporterUid: "someone", reason: "x" });
-    await db.doc("users/victim").set({ isPublic: false, email: "victim@x.com" });
+    await db.doc("users/victim").set({ isPublic: false, displayName: "Victim" });
+    await db.doc("users/victim/private/contact").set({ email: "victim@x.com", phone: "555-1234", location: "SF", stripeCustomerId: "cus_abc" });
   });
 
   const atk = testEnv.authenticatedContext("atk").firestore();
@@ -97,8 +100,14 @@ async function main() {
   await check("circles/members: self CAN write own prefs",         testEnv.authenticatedContext("owner").firestore().doc("circles/c1/members/owner").update({ notifyOnPost: false }), "ALLOW");
   await check("circles/members: stranger CANNOT write another member's prefs", atk.doc("circles/c1/members/owner").update({ notifyOnPost: false }), "DENY");
 
-  console.log("\n== Still-open findings (should remain vulnerable — not fixed in this draft) ==");
-  await check("users: any authed user can still read a private profile (KNOWN, unfixed)", atk.doc("users/victim").get(), "ALLOW");
+  console.log("\n== P0 2 fix: users PII split into users/{uid}/private/contact ==");
+  await check("users: the main doc (no PII left) is still readable by any authed user", atk.doc("users/victim").get(), "ALLOW");
+  await check("users/private/contact: a stranger CANNOT read someone else's email/phone/location", atk.doc("users/victim/private/contact").get(), "DENY");
+  await check("users/private/contact: the owner CAN read their own", testEnv.authenticatedContext("victim").firestore().doc("users/victim/private/contact").get(), "ALLOW");
+  await check("users/private/contact: a stranger CANNOT write into someone else's", atk.doc("users/victim/private/contact").set({ email: "hacked@x.com" }), "DENY");
+  await check("users/private/contact: the owner CAN update their own", testEnv.authenticatedContext("victim").firestore().doc("users/victim/private/contact").update({ phone: "555-9999" }), "ALLOW");
+
+  console.log("\n== Still-open findings (not fixed in this draft) ==");
   await check("content_reports: any authed user can still read all reports (KNOWN, unfixed)", atk.doc("content_reports/r1").get(), "ALLOW");
   await check("circles/challenges: still open pending postedByUid app fix (KNOWN, flagged)", atk.collection("circles/c1/challenges").add({ postedBy: "Some Name" }), "ALLOW");
 
