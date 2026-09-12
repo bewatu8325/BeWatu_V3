@@ -6,7 +6,9 @@ const {
   assertFails,
 } = require("@firebase/rules-unit-testing");
 
-const RULES_PATH = path.join(__dirname, "firestore.rules");
+// Reads the repo's real firestore.rules (the same file firebase.json and a
+// real deploy use) — not a copy inside test/rules/.
+const RULES_PATH = path.join(__dirname, "..", "..", "firestore.rules");
 
 let pass = 0, fail = 0;
 async function check(label, promise, expect) {
