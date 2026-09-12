@@ -1140,14 +1140,38 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
     trackPodCreated(fbUser.uid, (newCircle as any)._firestoreId ?? String(newCircle.id), (extra as any)?.industry);
   };
 
-  const handleAddMemberToCircle = (circleId: number, userId: number) => {
+  // P0 11: these two used to be setData(...)-only — no Firestore write, so
+  // joining an open pod or an admin removing a member looked like it worked
+  // but silently reverted on reload. Now optimistic-update-then-persist,
+  // same pattern as handleLeaveCircle/handleApplyToCircle below.
+  const handleAddMemberToCircle = async (circleId: number, userId: number) => {
     if (!data) return;
+    const circle = data.circles.find(c => c.id === circleId) as any;
     setData({ ...data, circles: data.circles.map(c => c.id === circleId && !c.members.includes(userId) ? { ...c, members: [...c.members, userId] } : c) });
+    if (circle?._firestoreId) {
+      try {
+        const { joinOpenCircle } = await import('./lib/firestoreService');
+        await joinOpenCircle(circle._firestoreId, userId);
+      } catch (err) {
+        console.error('joinOpenCircle failed:', err);
+        setData(d => d ? { ...d, circles: d.circles.map(c => c.id === circleId ? { ...c, members: c.members.filter(id => id !== userId) } : c) } : null);
+      }
+    }
   };
 
-  const handleRemoveMemberFromCircle = (circleId: number, userId: number) => {
+  const handleRemoveMemberFromCircle = async (circleId: number, userId: number) => {
     if (!data) return;
+    const circle = data.circles.find(c => c.id === circleId) as any;
     setData({ ...data, circles: data.circles.map(c => c.id === circleId && c.adminId !== userId ? { ...c, members: c.members.filter(id => id !== userId) } : c) });
+    if (circle?._firestoreId) {
+      try {
+        const { removeMemberFromCircle } = await import('./lib/firestoreService');
+        await removeMemberFromCircle(circle._firestoreId, userId);
+      } catch (err) {
+        console.error('removeMemberFromCircle failed:', err);
+        setData(d => d ? { ...d, circles: d.circles.map(c => c.id === circleId ? { ...c, members: [...c.members, userId] } : c) } : null);
+      }
+    }
   };
 
   const handleInviteMemberToCircle = async (circleId: number, userId: number) => {
@@ -1697,7 +1721,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                   onCreateCircle={handleCreateCircle}
                   onJoinCircle={async (circleId) => {
                     if (!fbUser || !currentUser) return;
-                    handleAddMemberToCircle(circleId, currentUser.id);
+                    await handleAddMemberToCircle(circleId, currentUser.id);
                   }}
                   onApplyToCircle={handleApplyToCircle}
                   onLeaveCircle={handleLeaveCircle}
