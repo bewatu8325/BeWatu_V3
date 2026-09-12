@@ -28,8 +28,18 @@ interface NotifItem {
 
 // ── NotificationsPanel ────────────────────────────────────────────────────────
 function NotificationsPanel({
-  uid, onClose, onNavigate,
-}: { uid: string; onClose: () => void; onNavigate: (v: View) => void }) {
+  uid, onClose, onNavigate, onCircleInviteAccepted,
+}: {
+  uid: string;
+  onClose: () => void;
+  onNavigate: (v: View) => void;
+  // P0 11: accepting here writes membership straight to Firestore, but the
+  // app's own `data.circles` (loaded once at boot) has no way to know that
+  // happened — without this, the pod you just joined doesn't show up in
+  // your own pods list until a full reload. Mirrors the existing
+  // circle_approved handling in App.tsx.
+  onCircleInviteAccepted?: (circleFirestoreId: string) => void;
+}) {
   const [notifs,  setNotifs]  = useState<NotifItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting,  setActing]  = useState<Record<string, boolean>>({});
@@ -97,6 +107,9 @@ function NotificationsPanel({
       });
       setNotifs(ns => ns.map(n => n.id === notif.id
         ? { ...n, actioned: accept ? 'accepted' : 'declined' } as any : n));
+      // Firestore has the membership now — tell App.tsx so it shows up in
+      // this session's own pods list right away, not just after a reload.
+      if (accept) onCircleInviteAccepted?.(notif.circleFirestoreId);
     } catch (e) {
       console.error('Circle invite action failed:', e);
     } finally {
@@ -315,9 +328,10 @@ interface HeaderProps {
   notificationCount?: number;
   pendingConnectionCount?: number;
   onSearch?: (query: string) => void;
+  onCircleInviteAccepted?: (circleFirestoreId: string) => void;
 }
 
-export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch }: HeaderProps) {
+export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch, onCircleInviteAccepted }: HeaderProps) {
   const { currentUser, fbUser } = useFirebase() as any;
   const [menuOpen,  setMenuOpen]  = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -430,6 +444,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
               uid={fbUser.uid}
               onClose={() => setNotifOpen(false)}
               onNavigate={onNavigate}
+              onCircleInviteAccepted={onCircleInviteAccepted}
             />
           )}
         </div>
