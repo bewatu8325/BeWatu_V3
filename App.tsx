@@ -31,7 +31,7 @@ import {
   fetchPosts,
   appreciatePost as fbAppreciatePost,
   sendMessage as fbSendMessage,
-  fetchAllMessagesForUser,
+  subscribeToMessageThreads,
   subscribeToMessages,
   sendConnectionRequest as fbSendConnectionRequest,
   respondToConnectionRequest as fbRespondToConnection,
@@ -300,16 +300,21 @@ const MainApp: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [firestorePosts, firestoreJobs, firestoreCircles, firestoreMessages, firestoreConnections, firestoreFollowRequests, firestoreUsers] =
+      const [firestorePosts, firestoreJobs, firestoreCircles, firestoreConnections, firestoreFollowRequests, firestoreUsers] =
         await Promise.all([
           fetchPosts(50).catch(() => ({ posts: [], lastDoc: null })),
           fetchJobs().catch(() => []),
           fetchCircles().catch(() => []),
-          fetchAllMessagesForUser(fbUser?.uid ?? '', user.id).catch(() => []),
           fetchConnectionRequests(fbUser?.uid ?? '').catch(() => []),
           fetchFollowRequests(fbUser?.uid ?? '').catch(() => []),
           fetchUsers().catch(() => []),
         ]);
+      // Messages are no longer fetched here (P0 11: this used to be an
+      // unbounded N+1 fetch — every thread, then every message in every
+      // thread, sequentially, on every boot). The dedicated live
+      // subscribeToMessageThreads effect below populates them instead, as
+      // soon as `data` exists, and keeps them live for the whole session.
+      const firestoreMessages: Message[] = [];
 
       const currentUid = fbUser?.uid ?? '';
       const otherUsers = firestoreUsers.filter(u =>
@@ -710,6 +715,39 @@ const MainApp: React.FC = () => {
     if (!data) return;
     setData({ ...data, users: data.users.map(u => u.id === userId ? { ...u, skills: u.skills.map(s => s.name === skillName ? { ...s, endorsements: s.endorsements + 1 } : s) } : u) });
   };
+
+  // ── Live subscription for the message-thread previews (inbox list) ───────
+  // P0 11: replaces the old one-shot, N+1 fetchAllMessagesForUser. This is
+  // one bounded, live query for the whole session — new threads and new
+  // messages on threads you don't currently have open now appear in the
+  // conversation list without a full app reload.
+  useEffect(() => {
+    if (!fbUser?.uid || !currentUser) return;
+    const myNumericId = currentUser.id;
+
+    const unsub = subscribeToMessageThreads(fbUser.uid, myNumericId, (previewMessages) => {
+      setData(d => {
+        if (!d) return null;
+        // Real messages (optimistic sends, or the full history loaded by the
+        // active-thread subscription below) never carry _isPreview — keep
+        // those untouched and only replace the synthetic preview rows.
+        const nonPreview = d.messages.filter(m => !(m as any)._isPreview);
+        // The active thread already gets its full, live history from the
+        // subscription below — don't let a stale preview row for that same
+        // pair sit alongside it.
+        const previews = previewMessages.filter(pm => {
+          if (activeChatUserId == null) return true;
+          const isActivePair =
+            (pm.senderId === myNumericId && pm.receiverId === activeChatUserId) ||
+            (pm.senderId === activeChatUserId && pm.receiverId === myNumericId);
+          return !isActivePair;
+        });
+        return { ...d, messages: [...nonPreview, ...previews] };
+      });
+    });
+
+    return () => unsub();
+  }, [fbUser?.uid, currentUser?.id, activeChatUserId]);
 
   // ── Real-time subscription for active message thread ─────────────────────
   useEffect(() => {
