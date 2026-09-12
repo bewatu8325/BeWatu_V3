@@ -291,6 +291,10 @@ export async function createTeamFormationPost(
 ): Promise<string> {
   const ref = await addDoc(collection(db, "factory_team_posts"), {
     ...data,
+    // Flat owner field — TeamFormationPost has no top-level author of its
+    // own (only a nested team.members[]), and firestore.rules needs a plain
+    // field to authorise edits/deletes. The team's founder is members[0].
+    authorUid: data.team.members[0]?.user.id ?? "",
     createdAt: serverTimestamp(),
   });
   return ref.id;
