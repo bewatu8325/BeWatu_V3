@@ -742,6 +742,51 @@ export async function leaveCircle(
   }
 }
 
+// P0 11 (pods not persisting, part 2): the "Join" button on an open pod
+// called a handler that only ever did setData(...) — no Firestore write at
+// all. It looked like it worked (optimistic local state), but a reload (or
+// opening on another device) silently dropped the membership. This is the
+// write half of that flow; both `pods` and `circles` already allow any
+// authed user to change just `members`+`updatedAt` (see firestore.rules),
+// so no rules change is needed.
+export async function joinOpenCircle(
+  firestoreId: string,
+  userNumericId: number
+): Promise<void> {
+  for (const col of ['pods', 'circles']) {
+    const ref = doc(db, col, firestoreId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) continue;
+    const members: any[] = snap.data().members ?? [];
+    if (members.includes(userNumericId)) return;
+    await updateDoc(ref, {
+      members: [...members, userNumericId],
+      updatedAt: serverTimestamp(),
+    });
+    return;
+  }
+}
+
+// P0 11 (pods not persisting, part 3): the admin "Remove" button on a
+// member row had the exact same bug — setData(...) only, no write. A
+// removed member stayed a member in Firestore and reappeared on reload.
+export async function removeMemberFromCircle(
+  firestoreId: string,
+  memberNumericId: number
+): Promise<void> {
+  for (const col of ['pods', 'circles']) {
+    const ref = doc(db, col, firestoreId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) continue;
+    const members: any[] = snap.data().members ?? [];
+    await updateDoc(ref, {
+      members: members.filter(m => m !== memberNumericId),
+      updatedAt: serverTimestamp(),
+    });
+    return;
+  }
+}
+
 export async function createCircle(
   circle: Omit<Circle, 'id'>,
   creatorUid: string,
