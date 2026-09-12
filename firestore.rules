@@ -1,0 +1,1309 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOpsStaff() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/ops_staff/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/ops_staff/$(request.auth.uid)).data.isActive == true;
+    }
+
+    function opsRole() {
+      return get(/databases/$(database)/documents/ops_staff/$(request.auth.uid)).data.role;
+    }
+
+    function isOpsAdmin() {
+      return isOpsStaff() && opsRole() == 'platform_admin';
+    }
+
+    function isOpsManager() {
+      return isOpsStaff() && opsRole() in [
+        'support_manager', 'trust_manager', 'legal_manager',
+        'finance_manager', 'verification_manager'
+      ];
+    }
+
+    function isOpsAdminOrManager() {
+      return isOpsAdmin() || isOpsManager();
+    }
+
+    function onlyFields(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    function isPlatformAdmin() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isPlatformAdmin', false) == true;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    // ── Factory identity helpers (Decision 4) ──────────────────────────────
+    // A Factory-only investor account: a Firebase Auth user with a
+    // factory_investors doc but NO users/{uid} BeWatu profile.
+    function isFactoryInvestor() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/factory_investors/$(request.auth.uid));
+    }
+    // A BeWatu member whose project has been promoted into Factory.
+    function isFactoryMember() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/factory_users/$(request.auth.uid));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // OPS PORTAL — ops.bewatu.com
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /ops_staff/{uid} {
+      allow read: if isOpsStaff() || (isAuth() && request.auth.uid == uid);
+
+      allow create: if isAuth() && (
+        isOpsAdmin()
+        || (
+          request.resource.data.keys().hasAll([
+            'email', 'name', 'role', 'invitedBy', 'isActive', 'mfaEnabled'
+          ]) &&
+          request.resource.data.isActive == true &&
+          request.resource.data.invitedBy != null &&
+          exists(/databases/$(database)/documents/ops_staff/$(request.resource.data.invitedBy)) &&
+          get(/databases/$(database)/documents/ops_staff/$(request.resource.data.invitedBy)).data.isActive == true &&
+          get(/databases/$(database)/documents/ops_staff/$(request.resource.data.invitedBy)).data.role == 'platform_admin'
+        )
+      );
+
+      allow update: if isOpsAdmin() || (
+        isOpsManager() &&
+        resource.data.assignedQueue ==
+          get(/databases/$(database)/documents/ops_staff/$(request.auth.uid)).data.assignedQueue &&
+        request.resource.data.role in [
+          'support_agent', 'trust_agent', 'legal_agent',
+          'finance_agent', 'verification_agent', 'auditor'
+        ]
+      );
+
+      allow delete: if isOpsAdmin();
+    }
+
+    match /audit_log/{entryId} {
+      allow read:           if isOpsStaff();
+      allow create:         if isOpsStaff();
+      allow update, delete: if false;
+    }
+
+    match /support_tickets/{ticketId} {
+      allow read:  if isOpsStaff();
+      allow write: if isOpsStaff();
+    }
+
+    match /fraud_cases/{caseId} {
+      allow read: if isOpsStaff();
+      allow write: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'trust_agent'
+      ];
+    }
+
+    match /content_reports/{reportId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'trust_agent',
+        'support_manager', 'support_agent'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+
+    match /credential_change_requests/{reqId} {
+      allow read: if isAuth() && (
+        resource.data.uid == request.auth.uid
+        || (isOpsStaff() && opsRole() in [
+             'platform_admin', 'legal_manager', 'support_manager'
+           ])
+      );
+      allow create: if isAuth();
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'legal_manager', 'support_manager'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+
+    match /appeals/{appealId} {
+      allow read:   if isOpsStaff();
+      allow create: if isAuth();
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
+        'trust_agent', 'legal_agent'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+
+    match /ops_bulletins/{bulletinId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsAdminOrManager();
+      allow update: if isOpsAdminOrManager();
+      allow delete: if isOpsAdminOrManager();
+    }
+
+    match /ticket_macros/{macroId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsAdminOrManager();
+      allow delete: if isOpsAdminOrManager();
+    }
+
+    match /ops_config/{configId} {
+      allow read:  if isOpsStaff();
+      allow write: if isOpsAdmin();
+    }
+
+    match /report_runs/{runId} {
+      allow read:  if isOpsAdminOrManager();
+      allow write: if isOpsAdmin();
+    }
+
+    match /report_trigger_requests/{reqId} {
+      allow read:   if isOpsAdminOrManager();
+      allow create: if isOpsAdminOrManager();
+      allow update: if isOpsAdmin();
+      allow delete: if isOpsAdmin();
+    }
+
+    match /kb_articles/{articleId} {
+      allow read:   if isAuth();
+      allow create: if isOpsStaff();
+      allow update: if isOpsAdminOrManager();
+      allow delete: if isOpsAdmin();
+    }
+
+    match /ticket_presence/{ticketId}/viewers/{viewerUid} {
+      allow read:  if isOpsStaff();
+      allow write: if isOpsStaff() && request.auth.uid == viewerUid;
+    }
+
+    match /ticket_time_logs/{ticketId}/sessions/{sessionId} {
+      allow read:   if isOpsAdminOrManager();
+      allow create: if isOpsStaff();
+      allow update: if false;
+      allow delete: if isOpsAdmin();
+    }
+
+    match /ticket_emails/{emailId} {
+      allow read:  if isOpsStaff();
+      allow write: if false;
+    }
+
+    match /csat_tokens/{tokenId} {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+
+    match /watchlist_fraud/{entryId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
+        'trust_agent', 'legal_agent', 'investigator'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+    match /watchlist_identity/{entryId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
+        'trust_agent', 'legal_agent', 'investigator'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+    match /watchlist_payment/{entryId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'finance_manager',
+        'trust_agent', 'legal_agent', 'finance_agent', 'investigator'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+    match /watchlist_platform/{entryId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'support_manager',
+        'trust_agent', 'support_agent', 'investigator'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+    match /watchlist_safety/{entryId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager',
+        'trust_agent', 'legal_agent', 'investigator'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+    match /watchlist_legal/{entryId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'legal_manager', 'legal_agent', 'investigator'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+    match /watchlist_aml/{entryId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'legal_manager', 'finance_manager',
+        'legal_agent', 'finance_agent', 'investigator'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+    match /watchlist_dsr/{entryId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'legal_manager', 'support_manager',
+        'legal_agent', 'support_agent', 'investigator'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+
+    match /fraud_list/{userId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'investigator'
+      ];
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'investigator'
+      ];
+      allow delete: if false;
+    }
+
+    match /investigations/{caseId} {
+      allow read:   if isOpsStaff();
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
+        'trust_agent', 'legal_agent', 'investigator'
+      ];
+      allow delete: if isOpsAdmin();
+    }
+
+    match /ops_staff/{uid}/policy_acks/{policyCode} {
+      allow read: if isAuth() && (request.auth.uid == uid || isOpsAdminOrManager());
+      allow create: if isAuth() && request.auth.uid == uid
+        && request.resource.data.staffUid == uid;
+      allow update: if isAuth() && request.auth.uid == uid;
+      allow delete: if isOpsAdmin();
+    }
+
+    match /ops_config/policy_versions {
+      allow read:  if isOpsStaff();
+      allow write: if isOpsAdmin();
+    }
+
+    // ── SECURITY PLATFORM ─────────────────────────────────────────────
+
+    match /security_findings/{findingId} {
+      allow read: if isOpsStaff() || isPlatformAdmin();
+      allow write: if false;
+
+      match /evidence/{evidenceId} {
+        allow read: if isOpsStaff() || isPlatformAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /remediation_plans/{planId} {
+      allow read: if isOpsStaff() || isPlatformAdmin();
+      allow write: if false;
+    }
+
+    match /approval_requests/{requestId} {
+      allow read:   if isOpsStaff() || isPlatformAdmin();
+      allow update: if isOpsStaff() && (
+        request.resource.data.status == 'approved' ||
+        request.resource.data.status == 'rejected'
+      );
+      allow create, delete: if false;
+    }
+
+    match /asset_graph/{assetId} {
+      allow read:  if isOpsStaff() || isPlatformAdmin();
+      allow write: if false;
+    }
+
+    match /asset_edges/{edgeId} {
+      allow read:  if isOpsStaff() || isPlatformAdmin();
+      allow write: if false;
+    }
+
+    match /security_events/{eventId} {
+      allow read:  if isOpsStaff() || isPlatformAdmin();
+      allow write: if false;
+    }
+
+    match /security_config/{configId} {
+      allow read:  if isOpsStaff() || isPlatformAdmin();
+      allow write: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BEWATU.COM — CORE PLATFORM
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /trust_edges/{edgeId} {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+
+    match /reputation_profiles/{uid} {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      // Unauthenticated reads allowed only for public profiles (required for /be/:username).
+      // Any authenticated user can read any user document — the UI enforces what
+      // is displayed based on isPublic (name+pic only for private; full profile for public).
+      // This mirrors standard professional-network behaviour: you can see someone exists
+      // and request to connect, but their full profile is gated on their privacy setting.
+      allow read:   if (resource.data.isPublic == true)
+                    || isAuth();
+      allow create: if isAuth() && request.auth.uid == uid;
+      allow update: if isAuth() && (
+        request.auth.uid == uid || isPlatformAdmin() || isOpsStaff()
+      );
+      allow delete: if false;
+
+      // Notifications subcollection — pod invites, approvals, activity
+      match /notifications/{notifId} {
+        allow read:   if isAuth() && request.auth.uid == uid;
+        allow create: if isAuth();  // any authenticated user can send a notification
+        allow update: if isAuth() && request.auth.uid == uid;
+        allow delete: if isAuth() && request.auth.uid == uid;
+      }
+
+      // Per-pod notification preferences
+      match /podPrefs/{podId} {
+        allow read, write: if isAuth() && request.auth.uid == uid;
+      }
+
+      // Security audit events
+      match /securityEvents/{eventId} {
+        allow read:           if isAuth() && request.auth.uid == uid;
+        allow create:         if isAuth() && request.auth.uid == uid;
+        allow update, delete: if false;
+      }
+
+      // Behavioral telemetry — the user writes their own events; only the user
+      // and platform/ops can read. These are personalization data gated on the
+      // user's Analytics consent at the client (see eventLogger.ts). No client
+      // can read another user's event stream. Append-only.
+      match /events/{eventId} {
+        allow create:         if isAuth() && request.auth.uid == uid
+                              && request.resource.data.userId == request.auth.uid;
+        allow read:           if isAuth() && (request.auth.uid == uid || isPlatformAdmin() || isOpsStaff());
+        allow update, delete: if false;
+      }
+
+      // Cached recommendation profile — content preferences only, owner-private.
+      // Never readable by other users; never exposed to recruiter surfaces.
+      match /recommendation/{docId} {
+        allow read:  if isAuth() && request.auth.uid == uid;
+        allow write: if isAuth() && request.auth.uid == uid;
+      }
+    }
+
+    match /posts/{postId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read:   if isAuth();
+        allow create: if isAuth()
+          && request.resource.data.authorUid == request.auth.uid;
+        allow update, delete: if isAuth()
+          && resource.data.authorUid == request.auth.uid;
+      }
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || onlyFields(['appreciations', 'comments', 'shares', 'updatedAt'])
+        || (isOpsStaff() && opsRole() in ['platform_admin','trust_manager','trust_agent','support_manager','support_agent'])
+      );
+      allow delete: if isAuth() && resource.data.authorUid == request.auth.uid
+        || (isOpsStaff() && opsRole() in ['platform_admin','trust_manager','trust_agent']);
+    }
+
+    match /connections/{connectionId} {
+      allow read: if isAuth() && (
+        resource.data.senderUid == request.auth.uid
+        || resource.data.receiverUid == request.auth.uid
+      );
+      allow create: if isAuth()
+        && request.resource.data.senderUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.senderUid == request.auth.uid
+        || resource.data.receiverUid == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    // ── CIRCLES (new pods schema) ──────────────────────────────────────
+
+    match /circles/{circleId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (
+        request.resource.data.adminId == request.resource.data.members[0]
+        || isPlatformAdmin()
+      );
+      // P0 3 fix: was `if isAuth()` — any signed-in user could rewrite any
+      // circle (adminId, members, name). Same convention as pods below:
+      // admin can change anything; members can only change their own
+      // membership.
+      allow update: if isAuth() && (
+        resource.data.adminId == request.auth.uid
+        || isPlatformAdmin()
+        || isOpsStaff()
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'updatedAt'])
+      );
+      allow delete: if false;
+
+      // Pod challenges subcollection.
+      // NOT fixed here: CircleDetail.tsx's handlePostChallenge writes
+      // `postedBy: currentUser.name` — a display name, not a uid — so
+      // there is no field to check ownership against yet. Needs an
+      // app-side `postedByUid` field (same pattern as the
+      // factory_team_posts.authorUid fix) before this can be scoped.
+      // Left open (if isAuth()) rather than guessed at or broken.
+      match /challenges/{challengeId} {
+        allow read:  if isAuth();
+        allow write: if isAuth();
+      }
+
+      // Per-member preferences subcollection — memberId is the member's
+      // own uid, so this can be scoped directly off the path.
+      match /members/{memberId} {
+        allow read, write: if isAuth() && request.auth.uid == memberId;
+      }
+    }
+
+    // ── PODS (legacy pods schema with Firebase UID members) ───────────
+
+    match /pods/{podId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        // Admin can update anything
+        resource.data.adminUid == request.auth.uid
+        || resource.data.creatorUid == request.auth.uid
+        || isPlatformAdmin()
+        || isOpsStaff()
+        // Any authenticated user can add themselves to pendingMembers (request to join)
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingMembers', 'updatedAt'])
+        )
+        // Any authenticated user can remove themselves from pendingInvites (accept/decline invite)
+        // or add themselves to members (if they were invited)
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingInvites', 'members', 'updatedAt'])
+        )
+        // Members can update their own membership (leave)
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'updatedAt'])
+        )
+      );
+      allow delete: if isAuth() && (
+        resource.data.adminUid == request.auth.uid
+        || resource.data.adminId == request.auth.uid
+        || isPlatformAdmin()
+      );
+
+      // Same gap as circles/challenges above — no ownership field to check
+      // yet (pod challenges use the same postedBy-name-not-uid shape).
+      // Left open pending the same app-side field fix.
+      match /challenges/{challengeId} {
+        allow read:  if isAuth();
+        allow write: if isAuth();
+      }
+    }
+
+    match /messages/{threadId} {
+      allow read: if isAuth() && (
+        resource == null
+        || resource.data.participants.hasAny([request.auth.uid])
+      );
+      allow create: if isAuth()
+        && request.resource.data.participants.hasAny([request.auth.uid]);
+      allow update: if isAuth()
+        && resource.data.participants.hasAny([request.auth.uid]);
+      allow delete: if false;
+
+      match /messages/{msgId} {
+        allow read: if isAuth() && (
+          resource == null
+          || resource.data.senderUid == request.auth.uid
+          || resource.data.receiverUid == request.auth.uid
+        );
+        allow create: if isAuth()
+          && request.resource.data.senderUid == request.auth.uid;
+        allow update: if isAuth()
+          && resource.data.receiverUid == request.auth.uid
+          && onlyFields(['isRead', 'updatedAt']);
+        allow delete: if false;
+      }
+    }
+
+    // Legacy top-level notifications collection
+    match /notifications/{notifId} {
+      allow read:   if isAuth() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuth();
+      allow update: if isAuth()
+        && resource.data.userId == request.auth.uid
+        && onlyFields(['read', 'readAt']);
+      allow delete: if false;
+
+      match /items/{itemId} {
+        allow read:   if isAuth() && isOwner(notifId);
+        allow create: if isAuth();
+        allow update: if isAuth()
+          && isOwner(notifId)
+          && onlyFields(['read', 'readAt']);
+        allow delete: if false;
+      }
+    }
+
+    match /companies/{companyId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.adminUid == request.auth.uid
+        || onlyFields(['verifiedRecruiters', 'updatedAt'])
+        || isOpsStaff()
+        || isPlatformAdmin()
+      );
+      allow delete: if isAuth() && resource.data.adminUid == request.auth.uid;
+    }
+
+    match /companyAdmins/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /jobs/{jobId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.recruiterId == request.auth.uid;
+      allow update: if isAuth()
+        && resource.data.recruiterId == request.auth.uid;
+      allow delete: if isAuth()
+        && resource.data.recruiterId == request.auth.uid;
+    }
+
+    // ── TOP-LEVEL CHALLENGES ──────────────────────────────────────────────────
+    // getChallenges() and getChallengesForCompany() both query this collection.
+    // Without this rule Firestore denies all reads (default deny), which caused
+    // permission-denied errors on the Showcase and Company pages.
+    match /challenges/{challengeId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.createdBy == request.auth.uid
+        || resource.data.companyId != null
+        || isPlatformAdmin()
+        || isOpsStaff()
+      );
+      allow delete: if isAuth() && (
+        resource.data.createdBy == request.auth.uid
+        || isPlatformAdmin()
+      );
+
+      // Submissions subcollection
+      match /submissions/{submissionId} {
+        allow read:   if isAuth();
+        allow create: if isAuth();
+        allow update: if isAuth() && (
+          resource.data.userId == request.auth.uid
+          || isPlatformAdmin()
+          || isOpsStaff()
+        );
+        allow delete: if false;
+      }
+    }
+
+    // ── AI-era proof features (profile showcase) ───────────────────────────
+    // FEATURE 1 — AI Workflows: persistent AI orchestration recipes.
+    // Public read (proof surface); author-only write.
+    match /aiWorkflows/{workflowId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && resource.data.authorUid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
+    }
+
+    // FEATURE 3 — Learning Log: persistent weekly build-in-public entries.
+    // Public read (proof surface); author-only write.
+    match /learningLogs/{logId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && resource.data.authorUid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
+    }
+
+    // FEATURE 2 — Skills Trajectory insight: personal career guidance cache.
+    // Owner-only read AND write (never shown to others — it's private guidance).
+    match /users/{uid}/insights/{docId} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+
+    match /sparks/{sparkId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && (request.resource.data.authorUid == request.auth.uid
+            || request.resource.data.authorId  == request.auth.uid);
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || resource.data.authorId  == request.auth.uid
+        || onlyFields(['reactions', 'updatedAt'])
+      );
+      allow delete: if isAuth()
+        && (resource.data.authorUid == request.auth.uid
+            || resource.data.authorId  == request.auth.uid);
+    }
+
+    // Playbooks — repeatable AI workflows. Persistent (no expiry).
+    // Anyone signed in can read; only the author can create/edit/delete.
+    // Non-owners may toggle the helpfulByUids array only.
+    match /aiPlaybooks/{playbookId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || onlyFields(['helpfulByUids'])
+        || onlyFields(['viewCount'])
+      );
+      allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
+    }
+
+    // Build Logs — persistent build-in-public entries.
+    // Anyone signed in can read; only the author can create/edit/delete.
+    // Non-owners may toggle the reactions map only.
+    match /buildLogs/{logId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || onlyFields(['reactions'])
+      );
+      allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
+    }
+    match /reels/{reelId} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || onlyFields(['sparks', 'views', 'updatedAt'])
+      );
+      allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
+    }
+
+    match /reelVibes/{reelId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      // Author can update their own reel (captions, etc.).
+      // aiVerification is written by the server (admin SDK, verify-reel
+      // endpoint) which bypasses rules entirely — no client rule needed for
+      // it, and none should exist: the removed third branch here let the
+      // author set their own aiVerification.hasOnly(['aiVerification']),
+      // which is a self-attested verification bug, not a fix. It also used
+      // a bare affectedKeys() call with no diff() receiver, which is a
+      // runtime error under real Firestore (silently denies) — two reasons
+      // to remove rather than repair it.
+      // Other users can update only likedByUids/viewCount (social signals).
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || onlyFields(['likedByUids', 'commentCount', 'viewCount'])
+      );
+      allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
+    }
+
+    // AI verification ops queue — written by server (admin SDK), read by ops only
+    match /reel_verification_queue/{docId} {
+      allow read:   if isAuth() && (isPlatformAdmin() || isOpsStaff());
+      allow create: if false;  // server-side only via admin SDK
+      allow update: if isAuth() && (isPlatformAdmin() || isOpsStaff());
+      allow delete: if false;
+    }
+
+    match /perspective_posts/{postId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || onlyFields(['responses', 'updatedAt'])
+      );
+      allow delete: if false;
+    }
+
+    match /wisdom_threads/{threadId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || onlyFields(['hearts', 'saves', 'updatedAt'])
+      );
+      allow delete: if false;
+    }
+
+    match /ideas/{ideaId} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || onlyFields(['sparkCount', 'sparkedByUids', 'stage', 'updatedAt'])
+        || onlyFields(['commentCount', 'updatedAt'])
+        || onlyFields(['forkCount', 'updatedAt'])
+      );
+      allow delete: if false;
+    }
+
+    match /ideas/{ideaId}/comments/{commentId} {
+      allow read:           if isAuth();
+      allow create:         if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /idea_activity/{activityId} {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+
+    match /opportunities/{opportunityId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.recruiterId == request.auth.uid;
+      allow update: if isAuth()
+        && resource.data.recruiterId == request.auth.uid;
+      allow delete: if isAuth()
+        && resource.data.recruiterId == request.auth.uid;
+    }
+
+    match /opportunities/{opportunityId}/applicants/{applicantUid} {
+      allow read: if isAuth() && (
+        request.auth.uid == applicantUid
+        || request.auth.uid ==
+           get(/databases/$(database)/documents/opportunities/$(opportunityId)).data.recruiterId
+      );
+      allow create: if isAuth() && request.auth.uid == applicantUid;
+      allow update, delete: if false;
+    }
+
+    match /opportunity_matches/{matchId} {
+      allow read:  if isAuth() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /applications/{applicationId} {
+      allow read: if isAuth() && (
+        resource == null
+        || resource.data.applicantUid == request.auth.uid
+        || resource.data.recruiterUid == request.auth.uid
+        || resource.data.recruiterId == request.auth.uid
+        || isOpsStaff()
+        || isPlatformAdmin()
+      );
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.applicantUid == request.auth.uid
+        || resource.data.recruiterUid == request.auth.uid
+        || resource.data.recruiterId == request.auth.uid
+        || isOpsStaff()
+        || isPlatformAdmin()
+      );
+      allow delete: if false;
+    }
+
+    match /interviews/{interviewId} {
+      allow read: if isAuth() && (
+        resource == null
+        || resource.data.recruiterId == request.auth.uid
+        || resource.data.applicantUid == request.auth.uid
+        || isOpsStaff()
+        || isPlatformAdmin()
+      );
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.recruiterId == request.auth.uid
+        || resource.data.applicantUid == request.auth.uid
+      );
+      allow delete: if isAuth() && resource.data.recruiterId == request.auth.uid;
+    }
+
+    match /submissions/{submissionId} {
+      allow read: if isAuth() && (
+        resource == null
+        || resource.data.authorUid == request.auth.uid
+        || resource.data.recruiterUid == request.auth.uid
+        || isPlatformAdmin()
+      );
+      allow create: if isAuth() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || resource.data.recruiterUid == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    match /talentPool/{entryId} {
+      allow read: if isAuth() && (
+        resource == null
+        || resource.data.recruiterId == request.auth.uid
+      );
+      allow create: if isAuth()
+        && request.resource.data.recruiterId == request.auth.uid;
+      allow update: if isAuth()
+        && resource.data.recruiterId == request.auth.uid;
+      allow delete: if isAuth()
+        && resource.data.recruiterId == request.auth.uid;
+    }
+
+    match /outreachTemplates/{templateId} {
+      allow read: if isAuth() && (
+        resource == null
+        || resource.data.recruiterId == request.auth.uid
+      );
+      allow create: if isAuth()
+        && request.resource.data.recruiterId == request.auth.uid;
+      allow update: if isAuth()
+        && resource.data.recruiterId == request.auth.uid;
+      allow delete: if isAuth()
+        && resource.data.recruiterId == request.auth.uid;
+    }
+
+    match /verificationRequests/{requestId} {
+      allow read: if isAuth() && (
+        resource == null
+        || resource.data.recruiterUid == request.auth.uid
+        || resource.data.requestedBy == request.auth.uid
+        || isOpsStaff()
+        || isPlatformAdmin()
+      );
+      allow create: if isAuth() && (
+        request.resource.data.recruiterUid == request.auth.uid
+        || request.resource.data.requestedBy == request.auth.uid
+      );
+      allow update: if isOpsStaff() || isPlatformAdmin();
+      allow delete: if isAuth() && (
+        isOpsStaff()
+        || isPlatformAdmin()
+        || exists(/databases/$(database)/documents/companies/$(resource.data.companyId))
+           && get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUid == request.auth.uid
+      );
+    }
+
+    // ── DATA EXPORT REQUESTS ──────────────────────────────────────────────────
+    // Users submit export requests; ops staff reviews and approves
+    match /data_requests/{requestId} {
+      allow read:   if isAuth() && (resource.data.uid == request.auth.uid || isOpsStaff());
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow update: if isOpsStaff();  // ops approves, sets downloadUrl
+      allow delete: if false;
+    }
+
+    match /recruiter_applications/{appId} {
+      allow read: if isAuth() && (
+        resource.data.uid == request.auth.uid
+        || isOpsStaff()
+        || isPlatformAdmin()
+      );
+      allow create: if isAuth()
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if isOpsStaff() || isPlatformAdmin();
+      allow delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BRANDED ARENAS
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /arena_industries/{industryId} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    match /industry_verifications/{verificationId} {
+      allow read:           if isAuth()
+                              && resource.data.recruiterUid == request.auth.uid;
+      allow create:         if isAuth();
+      allow update, delete: if false;
+    }
+
+    match /arena_challenge_drafts/{draftId} {
+      allow read:   if isAuth() && resource.data.recruiterId == request.auth.uid;
+      allow create: if isAuth()
+                      && request.resource.data.recruiterId == request.auth.uid;
+      allow update: if isAuth() && resource.data.recruiterId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /arena_challenges/{challengeId} {
+      allow read: if isAuth() && (
+        resource == null
+        || resource.data.verificationStatus == 'live'
+        || resource.data.recruiterId == request.auth.uid
+      );
+      allow create: if isAuth()
+        && request.resource.data.recruiterId == request.auth.uid
+        && (
+          request.resource.data.verificationStatus == 'pending_ops'
+          || (
+            request.resource.data.verificationStatus == 'live'
+            && isPlatformAdmin()
+          )
+        );
+      allow update: if isAuth() && (
+        (
+          resource.data.recruiterId == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+               'verificationStatus', 'stripePaymentIntentId', 'stripeSessionId',
+               'shortlistedUids', 'isVerifiedPoster', 'isRegulatedPoster',
+               'companyId', 'recruiterId', 'arenaIndustry', 'liveDate', 'closedAt'
+             ])
+        )
+        || onlyFields(['viewCount'])
+        || (
+          resource.data.recruiterId == request.auth.uid
+          && onlyFields(['shortlistedUids', 'updatedAt'])
+        )
+        || isPlatformAdmin()
+      );
+      allow delete: if false;
+    }
+
+    match /arena_challenges/{challengeId}/submissions/{submissionId} {
+      allow read: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || resource.data.challengeRecruiterId == request.auth.uid
+      );
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth()
+        && resource.data.authorUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FACTORY PIPELINE — factory.bewatu.com
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /factory_users/{uid} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && isOwner(uid);
+      allow update: if isAuth() && isOwner(uid);
+      allow delete: if false;
+
+      match /notifications/{notifId} {
+        allow read:   if isAuth() && isOwner(uid);
+        allow update: if isAuth() && isOwner(uid);
+        allow write:  if false;
+      }
+    }
+
+    match /factory_problems/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || request.resource.data.diff(resource.data)
+             .affectedKeys().hasOnly(['views', 'upvotes'])
+      );
+      allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
+    }
+
+    match /factory_solutions/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.author.id == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
+      );
+      allow delete: if false;
+    }
+
+    match /factory_ideas/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.author.id == request.auth.uid
+        || request.resource.data.diff(resource.data)
+             .affectedKeys().hasOnly(['upvotes', 'votedBy', 'updatedAt'])
+      );
+      allow delete: if false;
+    }
+
+    match /factory_teams/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.createdBy == request.auth.uid;
+      // TODO(confirm): requires a flat memberUids: string[] written alongside
+      // the existing members:[{user,role,joinedAt}] array — rules cannot map
+      // over an array of maps, so a flat uid array is needed to check membership
+      // (same pattern already used by funding_offers.founderUids below).
+      allow update: if isAuth() && (
+        resource.data.createdBy == request.auth.uid
+        || (resource.data.memberUids is list && resource.data.memberUids.hasAny([request.auth.uid]))
+      );
+      allow delete: if false;
+    }
+
+    match /factory_team_posts/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && resource.data.authorUid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
+    }
+
+    match /factory_projects/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.createdBy == request.auth.uid
+        // team members (via the parent team's memberUids) can update project status
+        || (
+          resource.data.teamId != null &&
+          get(/databases/$(database)/documents/factory_teams/$(resource.data.teamId)).data.memberUids.hasAny([request.auth.uid])
+        )
+      );
+      allow delete: if false;
+    }
+
+    match /factory_startups/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.createdBy == request.auth.uid;
+      // TODO(confirm): requires a flat founderUids: string[] written alongside
+      // the existing founders:[{id,name,avatar,role}] array (same convention
+      // funding_offers.founderUids already uses).
+      allow update: if isAuth() && (
+        resource.data.createdBy == request.auth.uid
+        || (resource.data.founderUids is list && resource.data.founderUids.hasAny([request.auth.uid]))
+        // anyone can bump view-style counters
+        || onlyFields(['viewCount', 'updatedAt'])
+      );
+      allow delete: if false;
+    }
+
+    match /factory_investors/{id} {
+      // Decision 4: REVIEWED onboarding. An investor profile is created
+      // only by the server, after ops/admin approves the applicant's
+      // investor_applications doc — consistent with the recruiter 4-gate
+      // flow and "Factory is invite-only at launch." No client create.
+      allow read:   if isAuth();
+      allow create: if false;
+      allow update: if isAuth() && (
+        resource.data.user.id == request.auth.uid
+        || isPlatformAdmin()
+      );
+      allow delete: if false;
+    }
+
+    match /factory_funding_rounds/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.createdBy == request.auth.uid
+        || request.resource.data.diff(resource.data)
+             .affectedKeys().hasOnly(['raisedAmount', 'investors'])
+      );
+      allow delete: if false;
+    }
+
+    match /factory_incubators/{id} {
+      // Curated program content — no client ever creates/updates these
+      // (confirmed: no addDoc/updateDoc call in the app touches this doc,
+      // only the applications subcollection below). Ops/admin only.
+      allow read:   if isAuth();
+      allow create: if isAuth() && (isPlatformAdmin() || isOpsStaff());
+      allow update: if isAuth() && (isPlatformAdmin() || isOpsStaff());
+      allow delete: if false;
+
+      match /applications/{applicationId} {
+        allow read:   if isAuth() && (
+          resource.data.founderUid == request.auth.uid
+          || isPlatformAdmin() || isOpsStaff()
+        );
+        allow create: if isAuth()
+          && request.resource.data.founderUid == request.auth.uid;
+        // Only ops/admin change application status — the founder cannot
+        // self-approve.
+        allow update: if isAuth() && (isPlatformAdmin() || isOpsStaff());
+        allow delete: if false;
+      }
+    }
+
+    match /factory_activities/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow delete: if false;
+    }
+
+    match /factory_reputation/{uid} {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+
+    match /factory_invites/{id} {
+      allow read:   if isAuth() && resource.data.targetUid == request.auth.uid;
+      allow create: if false;
+      allow update: if isAuth()
+        && resource.data.targetUid == request.auth.uid
+        && onlyFields(['acceptedAt']);
+      allow delete: if false;
+    }
+
+    match /factory_notifications/{notifId} {
+      allow read: if isAuth() && resource.data.uid == request.auth.uid;
+      allow update: if isAuth()
+        && resource.data.uid == request.auth.uid
+        && onlyFields(['read', 'readAt']);
+      allow create: if false;
+      allow delete: if false;
+    }
+
+    match /investor_applications/{id} {
+      // Field-name fix: the rule checked `applicantUid`, but
+      // InvestorOnboarding.tsx writes `uid` (matching the convention its
+      // sibling recruiter_applications already uses — that one correctly
+      // checks `uid`, not `applicantUid`). As written, no investor could
+      // ever submit an application once this collection came alive — every
+      // create would deny.
+      allow read: if isAuth() && (
+        resource.data.uid == request.auth.uid
+        || isOpsStaff()
+        || isPlatformAdmin()
+      );
+      allow create: if isAuth()
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if isOpsStaff() || isPlatformAdmin();
+      allow delete: if false;
+    }
+
+    match /funding_offers/{offerId} {
+      allow read: if isAuth() && (
+        resource.data.investorUid == request.auth.uid
+        || resource.data.founderUids.hasAny([request.auth.uid])
+      );
+      allow create: if isAuth() && isFactoryInvestor()
+        && request.resource.data.investorUid == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update: if isAuth() && (
+        (
+          resource.data.investorUid == request.auth.uid
+          && request.resource.data.status == 'withdrawn'
+          && onlyFields(['status', 'history', 'updatedAt'])
+        )
+        || (
+          resource.data.founderUids.hasAny([request.auth.uid])
+          && request.resource.data.status in ['accepted', 'declined', 'countered']
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+               'investorUid', 'investorName', 'startupId', 'createdAt'
+             ])
+        )
+      );
+      allow delete: if false;
+    }
+
+    match /funding_rounds/{roundId} {
+      allow read: if isAuth() && (
+        resource.data.investorUid == request.auth.uid
+        || resource.data.founderUids.hasAny([request.auth.uid])
+      );
+      allow write: if false;
+    }
+
+    match /demo_availability/{uid} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+
+    match /availability/{uid} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+
+    match /demo_sessions/{sessionId} {
+      allow read: if isAuth() && (
+        resource.data.investorUid == request.auth.uid
+        || resource.data.founderUids.hasAny([request.auth.uid])
+      );
+      allow create: if isAuth() && isFactoryInvestor()
+        && request.resource.data.investorUid == request.auth.uid;
+      allow update: if isAuth() && (
+        (
+          resource.data.investorUid == request.auth.uid
+          && onlyFields(['outcome', 'outcomeRecordedAt', 'updatedAt'])
+        )
+        || (
+          resource.data.founderUids.hasAny([request.auth.uid])
+          && onlyFields(['founderNote', 'updatedAt'])
+        )
+      );
+      allow delete: if false;
+    }
+
+    match /demo_requests/{id} {
+      allow read: if isAuth() && (
+        resource.data.investorUid == request.auth.uid
+        || resource.data.founderUid == request.auth.uid
+      );
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.investorUid == request.auth.uid
+        || resource.data.founderUid == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    match /xp/{uid} {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+
+    match /reputation/{uid} {
+      allow read:  if isAuth();
+      allow write: if false;
+    }
+
+    match /startups/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+  }
+  }
+
