@@ -22,7 +22,12 @@ function setCors(req: VercelRequest, res: VercelResponse) {
 
 function initAdmin() {
   if (!getApps().length) {
-    const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
+    // P0 7 (least privilege): this endpoint only ever reads/writes Firestore
+    // (security_findings, remediation_plans, audit_log, etc.) — never calls
+    // Auth-admin, Cloud Functions, or service-account impersonation APIs. It
+    // should run on a Firestore-read-write-only identity, not the shared
+    // FIREBASE_SERVICE_ACCOUNT every function also used to use.
+    const sa = process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER ?? process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!sa) throw new Error('FIREBASE_SERVICE_ACCOUNT not set');
     initializeApp({ credential: cert(JSON.parse(sa)) });
   }
