@@ -585,26 +585,51 @@ export function subscribeToMessages(
   );
 }
 
-export async function fetchAllMessagesForUser(
+// P0 11 (perf + "not delivering"): the old fetchAllMessagesForUser did one
+// unbounded query for the user's threads, then a SEPARATE sequential
+// unbounded query per thread for that thread's entire message history — an
+// N+1 fetch that ran on every app boot and got slower the more a user had
+// messaged over time. It was also one-shot: a new message (or a whole new
+// thread) landing while the app was open never appeared in the inbox list
+// without a full reload, which is what "messages not delivering" actually
+// was — 1:1 delivery itself worked fine via subscribeToMessages.
+//
+// Fixed by a single bounded, LIVE subscription over the thread docs
+// themselves. Each thread doc already carries lastMessage/lastMessageAt/
+// lastSenderUid (written by sendMessage), so one synthetic preview
+// "message" per thread is enough to drive Messaging.tsx's
+// conversationPartners derivation — it only looks at senderId/receiverId
+// to find which users the current user has a thread with. The moment a
+// thread becomes the active chat, App.tsx's subscribeToMessages effect
+// replaces these synthetic rows with the real, full message history for
+// that pair, so no rendering path is affected.
+export function subscribeToMessageThreads(
   uid: string,
-  numericId: number
-): Promise<Message[]> {
-  // Fetch all threads where user participates, then flatten messages
-  const snap = await getDocs(
-    query(collection(db, 'messages'), where('participants', 'array-contains', uid))
+  numericId: number,
+  callback: (previewMessages: Message[]) => void
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, 'messages'), where('participants', 'array-contains', uid)),
+    (snap) => {
+      const previews: Message[] = snap.docs.map((threadDoc) => {
+        const data = threadDoc.data() as any;
+        const participantNumericIds: number[] = data.participantNumericIds ?? [];
+        const partnerNumericId = participantNumericIds.find((id) => id !== numericId) ?? numericId;
+        const lastSenderIsMe = data.lastSenderUid === uid;
+        return {
+          id: data.lastMessageAt?.toMillis?.() ?? Date.now(),
+          senderId: lastSenderIsMe ? numericId : partnerNumericId,
+          receiverId: lastSenderIsMe ? partnerNumericId : numericId,
+          text: data.lastMessage ?? '',
+          timestamp: data.lastMessageAt?.toDate?.()?.toLocaleTimeString() ?? 'Just now',
+          isRead: false,
+          _firestoreId: threadDoc.id,
+          _isPreview: true,
+        } as Message & { _firestoreId: string; _isPreview: true };
+      });
+      callback(previews);
+    }
   );
-
-  const allMessages: Message[] = [];
-  for (const threadDoc of snap.docs) {
-    const msgSnap = await getDocs(
-      query(
-        collection(db, 'messages', threadDoc.id, 'messages'),
-        orderBy('createdAt', 'asc')
-      )
-    );
-    allMessages.push(...msgSnap.docs.map(toMessage));
-  }
-  return allMessages;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
