@@ -14,9 +14,19 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
+// P0 7 (least privilege): this endpoint only ever reads (applications,
+// interviews, jobs, users) — confirmed no .set()/.update()/.add()/.delete()
+// anywhere in this file. It should run on a read-only-Firestore service
+// account (roles/datastore.viewer), not the shared FIREBASE_SERVICE_ACCOUNT
+// every other function also uses for full read/write.
+//
+// FIREBASE_SERVICE_ACCOUNT_ANALYTICS_RO is optional — falls back to the
+// shared key until it's provisioned, so this ships safely ahead of that.
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0];
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!);
+  const serviceAccount = JSON.parse(
+    process.env.FIREBASE_SERVICE_ACCOUNT_ANALYTICS_RO ?? process.env.FIREBASE_SERVICE_ACCOUNT!
+  );
   return initializeApp({ credential: cert(serviceAccount) });
 }
 
