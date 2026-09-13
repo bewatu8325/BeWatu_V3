@@ -249,7 +249,12 @@ service cloud.firestore {
 
     match /kb_articles/{articleId} {
       allow read:   if isAuth();
-      allow create: if isOpsStaff();
+      // P1 follow-up (same gap as support_tickets/audit_log): auditor's
+      // own role definition is "read-only access to all modules... no
+      // write permissions" — a blanket statement, not scoped to any one
+      // collection, so it applies here even though kb_articles has no
+      // dedicated PERMISSIONS domain of its own.
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsAdminOrManager();
       allow delete: if isOpsAdmin();
     }
@@ -261,7 +266,8 @@ service cloud.firestore {
 
     match /ticket_time_logs/{ticketId}/sessions/{sessionId} {
       allow read:   if isOpsAdminOrManager();
-      allow create: if isOpsStaff();
+      // P1 follow-up (same gap as support_tickets/audit_log/kb_articles).
+      allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if false;
       allow delete: if isOpsAdmin();
     }
@@ -1240,7 +1246,11 @@ service cloud.firestore {
       allow read:   if isAuth() && (resource.data.uid == request.auth.uid || isOpsStaff());
       allow create: if isAuth() && request.resource.data.uid == request.auth.uid
                     && request.resource.data.status == 'pending';
-      allow update: if isOpsStaff();  // ops approves, sets downloadUrl
+      // P1 follow-up (same gap as support_tickets/audit_log/kb_articles/
+      // ticket_time_logs): bewatu-ops's own PERMISSIONS.datareqs lists
+      // auditor as read-only for this exact domain — ops approves, sets
+      // downloadUrl.
+      allow update: if isOpsStaff() && opsRole() != 'auditor';
       allow delete: if false;
     }
 
