@@ -342,9 +342,32 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
       createdAt:   new Date(),
       upvotes:     0,
     };
+    // Optimistic append — the live subscription above reconciles this with
+    // the real doc moments later, same pattern as handlePostChallenge.
     setChallenges(cs => cs.map(c => c.id === challengeId
       ? { ...c, responses: [...c.responses, newResponse] } : c));
-  }, [currentUser, currentUserStage]);
+    // Bug fix (P1): this only ever touched local React state — responses
+    // never persisted to Firestore, so they vanished on reload or never
+    // reached any other pod member. firestore.rules already scopes
+    // non-author updates to responses/upvotes/synthesis/status only (see
+    // the challenges match block), so this write needs no rules change.
+    // arrayUnion, not a plain array field overwrite, so concurrent
+    // responses from different members don't clobber each other.
+    const firestoreId = (circle as any)._firestoreId;
+    if (!firestoreId) return;
+    try {
+      const { doc, updateDoc, arrayUnion } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      await updateDoc(doc(db, 'circles', firestoreId, 'challenges', challengeId), {
+        responses: arrayUnion(newResponse),
+      });
+    } catch (err) {
+      console.error('Failed to save challenge response:', err);
+      // Revert optimistic update on failure
+      setChallenges(cs => cs.map(c => c.id === challengeId
+        ? { ...c, responses: c.responses.filter(r => r.id !== newResponse.id) } : c));
+    }
+  }, [circle, currentUser, currentUserStage]);
 
   const handleChallengeSynthesise = useCallback(async (challengeId: string) => {
     const challenge = challenges.find(c => c.id === challengeId);
@@ -377,15 +400,56 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
       const synthesis = (data.text ?? data.content ?? '').trim();
       setChallenges(cs => cs.map(c => c.id === challengeId
         ? { ...c, synthesis, status: 'synthesised' } : c));
+      // Bug fix (P1): this only ever touched local React state — the
+      // synthesis vanished on reload and no other pod member ever saw it.
+      const firestoreId = (circle as any)._firestoreId;
+      if (firestoreId) {
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
+        await updateDoc(doc(db, 'circles', firestoreId, 'challenges', challengeId), {
+          synthesis,
+          status: 'synthesised',
+        });
+      }
     } catch (err) { console.error('Synthesis failed:', err); }
-  }, [challenges]);
+  }, [challenges, circle]);
 
   const handleChallengeUpvote = useCallback(async (challengeId: string, responseId: string) => {
+    // Optimistic update — reconciled by the live subscription.
     setChallenges(cs => cs.map(c => c.id === challengeId ? {
       ...c,
       responses: c.responses.map(r => r.id === responseId ? { ...r, upvotes: r.upvotes + 1 } : r),
     } : c));
-  }, []);
+    // Bug fix (P1): this only ever touched local React state. Persisted
+    // via a transaction rather than a plain read-then-write: arrayUnion
+    // can't target one element inside an array of objects, and two members
+    // upvoting the same response back-to-back would otherwise be a lost
+    // update (both read upvotes=N, both write upvotes=N+1).
+    const firestoreId = (circle as any)._firestoreId;
+    if (!firestoreId) return;
+    try {
+      const { doc, runTransaction } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      const ref = doc(db, 'circles', firestoreId, 'challenges', challengeId);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists()) return;
+        const responses = (snap.data().responses ?? []) as any[];
+        tx.update(ref, {
+          responses: responses.map(r =>
+            r.id === responseId ? { ...r, upvotes: (r.upvotes ?? 0) + 1 } : r
+          ),
+        });
+      });
+    } catch (err) {
+      console.error('Failed to upvote response:', err);
+      // Revert optimistic update on failure
+      setChallenges(cs => cs.map(c => c.id === challengeId ? {
+        ...c,
+        responses: c.responses.map(r => r.id === responseId ? { ...r, upvotes: r.upvotes - 1 } : r),
+      } : c));
+    }
+  }, [circle]);
     
 
   const circlePosts = useMemo(
