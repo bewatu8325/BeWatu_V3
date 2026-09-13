@@ -35,6 +35,41 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    // P1 fix — "engagement counters are freely writable": these two
+    // predicates replace bare onlyFields([...]) escape hatches (which let
+    // any authed non-owner set a counter/list to *any* value) on
+    // posts/sparks/ideas/reels/buildLogs/aiPlaybooks/reelVibes/
+    // wisdom_threads/arena_challenges/factory_startups.
+    //
+    // isSelfUidToggle: for a *ByUids-style list, requires the diff be
+    // exactly the caller adding or removing their own uid — nobody can
+    // touch another uid's membership or smuggle other changes in.
+    function isSelfUidToggle(before, after) {
+      return (after.size() == before.size() + 1
+              && after.hasAll(before)
+              && after.hasAny([request.auth.uid])
+              && !before.hasAny([request.auth.uid]))
+          || (before.size() == after.size() + 1
+              && before.hasAll(after)
+              && before.hasAny([request.auth.uid])
+              && !after.hasAny([request.auth.uid]));
+    }
+
+    // isCounterBump: for a plain numeric counter (no per-user tracking
+    // exists on these docs to key a toggle off), requires the write move
+    // it up by exactly 1 — blocks setting it to an arbitrary/negative
+    // value or a bulk jump. NOTE: this does not by itself stop one
+    // authenticated user from calling the same write many times across
+    // separate requests to farm the counter — closing that fully needs
+    // per-user tracking (like isSelfUidToggle's fields) or a Cloud
+    // Function, which not every counter fixed here has; each call site
+    // below notes which is which.
+    function isCounterBump(before, after) {
+      return (before is int || before is float)
+          && (after is int || after is float)
+          && after == before + 1;
+    }
+
     function isPlatformAdmin() {
       return isAuth() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -449,9 +484,31 @@ service cloud.firestore {
         allow update, delete: if isAuth()
           && resource.data.authorUid == request.auth.uid;
       }
+      // P1 fix: appreciations/comments/shares used to be a blanket
+      // onlyFields() escape hatch — any authed non-owner could set any of
+      // the three to any value in one write (including a full-map
+      // overwrite of appreciations, or a negative/bulk jump on comments/
+      // shares). appreciatePost() only ever bumps exactly one
+      // appreciations.<type> sub-field by 1; comments/shares have no
+      // current app write site at all (dead counters as of this pass, but
+      // still reachable by any raw client, so still worth closing).
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
-        || onlyFields(['appreciations', 'comments', 'shares', 'updatedAt'])
+        || (onlyFields(['comments', 'updatedAt'])
+            && isCounterBump(resource.data.comments, request.resource.data.comments))
+        || (onlyFields(['shares', 'updatedAt'])
+            && isCounterBump(resource.data.shares, request.resource.data.shares))
+        || (onlyFields(['appreciations', 'updatedAt']) && (
+              (isCounterBump(resource.data.appreciations.get('helpful', 0), request.resource.data.appreciations.get('helpful', 0))
+                && request.resource.data.appreciations.get('thoughtProvoking', 0) == resource.data.appreciations.get('thoughtProvoking', 0)
+                && request.resource.data.appreciations.get('collaborationReady', 0) == resource.data.appreciations.get('collaborationReady', 0))
+           || (isCounterBump(resource.data.appreciations.get('thoughtProvoking', 0), request.resource.data.appreciations.get('thoughtProvoking', 0))
+                && request.resource.data.appreciations.get('helpful', 0) == resource.data.appreciations.get('helpful', 0)
+                && request.resource.data.appreciations.get('collaborationReady', 0) == resource.data.appreciations.get('collaborationReady', 0))
+           || (isCounterBump(resource.data.appreciations.get('collaborationReady', 0), request.resource.data.appreciations.get('collaborationReady', 0))
+                && request.resource.data.appreciations.get('helpful', 0) == resource.data.appreciations.get('helpful', 0)
+                && request.resource.data.appreciations.get('thoughtProvoking', 0) == resource.data.appreciations.get('thoughtProvoking', 0))
+           ))
         || (isOpsStaff() && opsRole() in ['platform_admin','trust_manager','trust_agent','support_manager','support_agent'])
       );
       allow delete: if isAuth() && resource.data.authorUid == request.auth.uid
@@ -707,10 +764,27 @@ service cloud.firestore {
       allow create: if isAuth()
         && (request.resource.data.authorUid == request.auth.uid
             || request.resource.data.authorId  == request.auth.uid);
+      // P1 fix: reactions is {relate:[],inspire:[],collab:[]} (uids) — was
+      // a blanket onlyFields() escape hatch letting anyone set any of the
+      // three arrays to anything. toggleSparkReaction() always
+      // arrayUnion/arrayRemove's exactly the caller's own uid into exactly
+      // one sub-array, leaving the other two untouched; require that here
+      // too (each branch below pins the other two arrays unchanged, so a
+      // valid toggle on one can't smuggle a change into the others).
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
         || resource.data.authorId  == request.auth.uid
-        || onlyFields(['reactions', 'updatedAt'])
+        || (onlyFields(['reactions', 'updatedAt']) && (
+              (isSelfUidToggle(resource.data.reactions.get('relate', []), request.resource.data.reactions.get('relate', []))
+                && request.resource.data.reactions.get('inspire', []) == resource.data.reactions.get('inspire', [])
+                && request.resource.data.reactions.get('collab', [])  == resource.data.reactions.get('collab', []))
+           || (isSelfUidToggle(resource.data.reactions.get('inspire', []), request.resource.data.reactions.get('inspire', []))
+                && request.resource.data.reactions.get('relate', [])  == resource.data.reactions.get('relate', [])
+                && request.resource.data.reactions.get('collab', [])  == resource.data.reactions.get('collab', []))
+           || (isSelfUidToggle(resource.data.reactions.get('collab', []), request.resource.data.reactions.get('collab', []))
+                && request.resource.data.reactions.get('relate', [])  == resource.data.reactions.get('relate', [])
+                && request.resource.data.reactions.get('inspire', []) == resource.data.reactions.get('inspire', []))
+           ))
       );
       allow delete: if isAuth()
         && (resource.data.authorUid == request.auth.uid
@@ -724,10 +798,17 @@ service cloud.firestore {
       allow read:   if isAuth();
       allow create: if isAuth()
         && request.resource.data.authorUid == request.auth.uid;
+      // P1 fix: helpfulByUids/viewCount were each a blanket onlyFields()
+      // escape hatch. helpfulByUids is a real self-toggle (arrayUnion/
+      // arrayRemove of the caller's own uid) — enforce that. viewCount has
+      // no current app write site for this collection (dead counter as of
+      // this pass, still closed defensively) — require a plain +1 bump.
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
-        || onlyFields(['helpfulByUids'])
-        || onlyFields(['viewCount'])
+        || (onlyFields(['helpfulByUids'])
+            && isSelfUidToggle(resource.data.helpfulByUids, request.resource.data.helpfulByUids))
+        || (onlyFields(['viewCount'])
+            && isCounterBump(resource.data.viewCount, request.resource.data.viewCount))
       );
       allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
     }
@@ -739,9 +820,22 @@ service cloud.firestore {
       allow read:   if isAuth();
       allow create: if isAuth()
         && request.resource.data.authorUid == request.auth.uid;
+      // P1 fix: reactions is {relate:[],inspire:[],collab:[]} (uids), same
+      // shape and same toggleBuildLogReaction() write pattern as sparks
+      // above — was a blanket onlyFields() escape hatch.
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
-        || onlyFields(['reactions'])
+        || (onlyFields(['reactions']) && (
+              (isSelfUidToggle(resource.data.reactions.get('relate', []), request.resource.data.reactions.get('relate', []))
+                && request.resource.data.reactions.get('inspire', []) == resource.data.reactions.get('inspire', [])
+                && request.resource.data.reactions.get('collab', [])  == resource.data.reactions.get('collab', []))
+           || (isSelfUidToggle(resource.data.reactions.get('inspire', []), request.resource.data.reactions.get('inspire', []))
+                && request.resource.data.reactions.get('relate', [])  == resource.data.reactions.get('relate', [])
+                && request.resource.data.reactions.get('collab', [])  == resource.data.reactions.get('collab', []))
+           || (isSelfUidToggle(resource.data.reactions.get('collab', []), request.resource.data.reactions.get('collab', []))
+                && request.resource.data.reactions.get('relate', [])  == resource.data.reactions.get('relate', [])
+                && request.resource.data.reactions.get('inspire', []) == resource.data.reactions.get('inspire', []))
+           ))
       );
       allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
     }
@@ -749,9 +843,18 @@ service cloud.firestore {
       allow read: if isAuth();
       allow create: if isAuth()
         && request.resource.data.authorUid == request.auth.uid;
+      // P1 fix: this `reels` collection (distinct from the live
+      // `reelVibes` below) has no app write site at all — appears fully
+      // superseded/dead — but sparks/views was still a blanket
+      // onlyFields() escape hatch reachable by any raw client. Closed
+      // defensively to a plain +1 bump each, same as other dead counters
+      // in this pass.
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
-        || onlyFields(['sparks', 'views', 'updatedAt'])
+        || (onlyFields(['sparks', 'updatedAt'])
+            && isCounterBump(resource.data.sparks, request.resource.data.sparks))
+        || (onlyFields(['views', 'updatedAt'])
+            && isCounterBump(resource.data.views, request.resource.data.views))
       );
       allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
     }
@@ -769,10 +872,21 @@ service cloud.firestore {
       // a bare affectedKeys() call with no diff() receiver, which is a
       // runtime error under real Firestore (silently denies) — two reasons
       // to remove rather than repair it.
-      // Other users can update only likedByUids/viewCount (social signals).
+      // Other users can update only likedByUids/commentCount/viewCount
+      // (social signals). P1 fix: this used to be a blanket onlyFields()
+      // escape hatch — any of the three could be set to any value in one
+      // write. likedByUids is a real self-toggle (arrayUnion/arrayRemove
+      // of the caller's own uid); commentCount/viewCount are always
+      // bumped by exactly 1 by the real write sites (a new comment /
+      // a view ping) — require each of those properties explicitly.
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
-        || onlyFields(['likedByUids', 'commentCount', 'viewCount'])
+        || (onlyFields(['likedByUids'])
+            && isSelfUidToggle(resource.data.likedByUids, request.resource.data.likedByUids))
+        || (onlyFields(['commentCount'])
+            && isCounterBump(resource.data.commentCount, request.resource.data.commentCount))
+        || (onlyFields(['viewCount'])
+            && isCounterBump(resource.data.viewCount, request.resource.data.viewCount))
       );
       allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
     }
@@ -789,9 +903,24 @@ service cloud.firestore {
       allow read:   if isAuth();
       allow create: if isAuth()
         && request.resource.data.authorUid == request.auth.uid;
+      // P1 fix (partial — see note): responses holds real, attributed
+      // content objects (addPerspectiveResponse's arrayUnion), not a
+      // counter, so this used to let any authed non-owner overwrite the
+      // whole array with anything — delete every existing response,
+      // tamper with one, or inject several fake ones in a single write.
+      // Firestore's rules language can't extract "the newly added
+      // element" from a list diff, so the new entry's authorUid can't be
+      // verified here — that needs a real schema change (a responses
+      // subcollection, mirroring the already-correct posts/{id}/comments
+      // and ideas/{id}/comments pattern) to close fully. What IS
+      // enforceable, and now enforced: every existing response must
+      // survive byte-for-byte, and the array can only grow by exactly one
+      // element per write — no deletions, no tampering, no bulk-inject.
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
-        || onlyFields(['responses', 'updatedAt'])
+        || (onlyFields(['responses', 'updatedAt'])
+            && request.resource.data.responses.size() == resource.data.responses.size() + 1
+            && request.resource.data.responses.hasAll(resource.data.responses))
       );
       allow delete: if false;
     }
@@ -800,9 +929,15 @@ service cloud.firestore {
       allow read:   if isAuth();
       allow create: if isAuth()
         && request.resource.data.authorUid == request.auth.uid;
+      // P1 fix: hearts/saves were a blanket onlyFields() escape hatch —
+      // any authed non-owner could set either to any value. Both are
+      // always bumped by exactly 1 by the real write sites; require that.
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
-        || onlyFields(['hearts', 'saves', 'updatedAt'])
+        || (onlyFields(['hearts', 'updatedAt'])
+            && isCounterBump(resource.data.hearts, request.resource.data.hearts))
+        || (onlyFields(['saves', 'updatedAt'])
+            && isCounterBump(resource.data.saves, request.resource.data.saves))
       );
       allow delete: if false;
     }
@@ -811,11 +946,31 @@ service cloud.firestore {
       allow read: if isAuth();
       allow create: if isAuth()
         && request.resource.data.authorUid == request.auth.uid;
+      // P1 fix: each of these three branches was a blanket onlyFields()
+      // escape hatch — sparkCount/sparkedByUids/stage could be set to
+      // anything in one write (including flipping stage straight to
+      // 'shipped'), and commentCount/forkCount to any value.
+      // sparkIdea() always toggles sparkedByUids by exactly the caller's
+      // own uid, moves sparkCount by the matching +1/-1, and may also
+      // move stage forward past a spark-count threshold — that threshold
+      // math belongs in app code, not re-derived here, but stage is at
+      // least pinned to a real IdeaStage value so it can't be set to
+      // arbitrary garbage. commentCount/forkCount are always bumped by 1.
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
-        || onlyFields(['sparkCount', 'sparkedByUids', 'stage', 'updatedAt'])
-        || onlyFields(['commentCount', 'updatedAt'])
-        || onlyFields(['forkCount', 'updatedAt'])
+        || (onlyFields(['sparkCount', 'sparkedByUids', 'stage', 'updatedAt'])
+            && isSelfUidToggle(resource.data.sparkedByUids, request.resource.data.sparkedByUids)
+            && ( (request.resource.data.sparkedByUids.size() > resource.data.sparkedByUids.size()
+                    && isCounterBump(resource.data.sparkCount, request.resource.data.sparkCount))
+              || (request.resource.data.sparkedByUids.size() < resource.data.sparkedByUids.size()
+                    && request.resource.data.sparkCount == resource.data.sparkCount - 1)
+               )
+            && request.resource.data.stage in
+                 ['seed', 'developing', 'arena_ready', 'in_progress', 'shipped', 'archived'])
+        || (onlyFields(['commentCount', 'updatedAt'])
+            && isCounterBump(resource.data.commentCount, request.resource.data.commentCount))
+        || (onlyFields(['forkCount', 'updatedAt'])
+            && isCounterBump(resource.data.forkCount, request.resource.data.forkCount))
       );
       allow delete: if false;
     }
@@ -1025,7 +1180,11 @@ service cloud.firestore {
                'companyId', 'recruiterId', 'arenaIndustry', 'liveDate', 'closedAt'
              ])
         )
-        || onlyFields(['viewCount'])
+        // P1 fix: viewCount was a blanket onlyFields() escape hatch — any
+        // authed user could set it to any value. The real write site
+        // (arenaService.ts) always bumps it by exactly 1.
+        || (onlyFields(['viewCount'])
+            && isCounterBump(resource.data.viewCount, request.resource.data.viewCount))
         || (
           resource.data.recruiterId == request.auth.uid
           && onlyFields(['shortlistedUids', 'updatedAt'])
@@ -1141,11 +1300,15 @@ service cloud.firestore {
       // TODO(confirm): requires a flat founderUids: string[] written alongside
       // the existing founders:[{id,name,avatar,role}] array (same convention
       // funding_offers.founderUids already uses).
+      // P1 fix: viewCount was a blanket onlyFields() escape hatch. No
+      // write site for it was found in either BeWatu_V3 or bewatu-factory
+      // (dead counter as of this pass) — closed defensively to a plain
+      // +1 bump, same as the other dead viewCount fields in this pass.
       allow update: if isAuth() && (
         resource.data.createdBy == request.auth.uid
         || (resource.data.founderUids is list && resource.data.founderUids.hasAny([request.auth.uid]))
-        // anyone can bump view-style counters
-        || onlyFields(['viewCount', 'updatedAt'])
+        || (onlyFields(['viewCount', 'updatedAt'])
+            && isCounterBump(resource.data.viewCount, request.resource.data.viewCount))
       );
       allow delete: if false;
     }

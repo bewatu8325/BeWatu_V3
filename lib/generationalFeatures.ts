@@ -78,11 +78,14 @@ export async function addPerspectiveResponse(
     helpful:      0,
   };
 
+  // Bug fix: this used to override `response.createdAt` (already a plain
+  // `new Date()` above) with `serverTimestamp()` right here — but the
+  // Firebase SDK rejects a serverTimestamp() sentinel nested inside an
+  // arrayUnion() element outright ("FieldValue.serverTimestamp() cannot
+  // be used inside an array"), so every call to this function threw
+  // immediately. No one could ever add a response to a Perspective Post.
   await updateDoc(doc(db, 'perspective_posts', postId), {
-    responses: arrayUnion({
-      ...response,
-      createdAt: serverTimestamp(),
-    }),
+    responses: arrayUnion(response),
     updatedAt: serverTimestamp(),
   });
 
