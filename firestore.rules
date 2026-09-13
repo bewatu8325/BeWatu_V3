@@ -1024,6 +1024,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // P1 fix (rate limiting): api/send-recruiter-otp.ts's OTP hash, send
+    // count, and verify-attempt counters — server-side only via Admin SDK.
+    // Would already default-deny with no rule at all (v2 defaults closed),
+    // but explicit for the same reason every other server-only collection
+    // in this file is: so it's not mistaken for an oversight later.
+    match /otp_verifications/{docId} {
+      allow read, write: if false;
+    }
+
     match /perspective_posts/{postId} {
       allow read:   if isAuth();
       allow create: if isAuth()
