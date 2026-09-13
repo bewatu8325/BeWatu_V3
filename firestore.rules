@@ -424,10 +424,31 @@ service cloud.firestore {
       );
       allow delete: if false;
 
-      // Notifications subcollection — pod invites, approvals, activity
+      // Notifications subcollection — pod invites, approvals, activity.
+      // P1 fix: create used to be a blanket `if isAuth()` — literally any
+      // signed-in user could write anything into any other user's
+      // notification feed (fake approvals, arbitrary junk `type`/
+      // `message` values, pre-marked-read entries). The sender is
+      // legitimately a different user than the recipient (`uid` in the
+      // path) by design, so this can't be an ownership check — it's
+      // restricted instead to the real shape every current write site
+      // (createPodNotification, the post-comment/circle-approval/
+      // -denial/-join-request/-invite notifiers) actually produces: a
+      // known `type`, a string `message`, unread at creation, and a
+      // server-stamped `createdAt`. This doesn't stop a determined
+      // authed user from calling it repeatedly to spam legitimate-shaped
+      // notifications — closing that needs rate limiting or a Cloud
+      // Function, not something rules alone can do.
       match /notifications/{notifId} {
         allow read:   if isAuth() && request.auth.uid == uid;
-        allow create: if isAuth();  // any authenticated user can send a notification
+        allow create: if isAuth()
+          && request.resource.data.type in [
+               'circle_invite', 'circle_approved', 'circle_denied',
+               'circle_join_request', 'post_comment'
+             ]
+          && request.resource.data.message is string
+          && request.resource.data.isRead == false
+          && request.resource.data.createdAt == request.time;
         allow update: if isAuth() && request.auth.uid == uid;
         allow delete: if isAuth() && request.auth.uid == uid;
       }
@@ -655,18 +676,40 @@ service cloud.firestore {
       }
     }
 
-    // Legacy top-level notifications collection
+    // Legacy top-level notifications collection. The parent notifications/{uid}
+    // doc itself is never created or written by any app code — only its
+    // items subcollection below is ever used (createNotification() writes
+    // straight to notifications/{recipientUid}/items) — so create is
+    // closed outright here rather than left open for nothing to use.
     match /notifications/{notifId} {
       allow read:   if isAuth() && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isAuth();
+      allow create: if false;
       allow update: if isAuth()
         && resource.data.userId == request.auth.uid
         && onlyFields(['read', 'readAt']);
       allow delete: if false;
 
+      // P1 fix: create used to be a blanket `if isAuth()` — any signed-in
+      // user could write anything into any other user's items feed. The
+      // sender is legitimately a different user than the recipient
+      // (notifId here) by design, so restricted instead to the real
+      // shape createNotification() actually produces: a known
+      // NotificationType, a string message, unread at creation, a
+      // server-stamped createdAt. Same residual gap as the sibling
+      // users/{uid}/notifications fix above: this can't stop a
+      // determined authed user from calling it repeatedly to spam
+      // legitimate-shaped notifications.
       match /items/{itemId} {
         allow read:   if isAuth() && isOwner(notifId);
-        allow create: if isAuth();
+        allow create: if isAuth()
+          && request.resource.data.type in [
+               'MESSAGE', 'ENDORSEMENT', 'CONNECTION_REQUEST',
+               'CONNECTION_ACCEPTED', 'FOLLOW_REQUEST', 'FOLLOW_ACCEPTED',
+               'SECURITY_ALERT'
+             ]
+          && request.resource.data.message is string
+          && request.resource.data.read == false
+          && request.resource.data.createdAt == request.time;
         allow update: if isAuth()
           && isOwner(notifId)
           && onlyFields(['read', 'readAt']);
