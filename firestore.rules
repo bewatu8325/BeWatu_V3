@@ -139,14 +139,35 @@ service cloud.firestore {
     }
 
     match /audit_log/{entryId} {
-      allow read:           if isOpsStaff();
-      allow create:         if isOpsStaff();
+      allow read: if isOpsStaff();
+      // P1 fix: create didn't bind actorUid to the real caller —
+      // writeAuditEntry() (bewatu-ops/src/App.jsx) takes actorUid as a
+      // plain parameter rather than deriving it server-side, so nothing
+      // stopped any ops staff member writing an entry that misattributes
+      // an action to a different staffer, undermining the audit trail's
+      // own integrity.
+      allow create: if isOpsStaff()
+        && request.resource.data.actorUid == request.auth.uid;
       allow update, delete: if false;
     }
 
+    // P1 fix ("ops role tiers not enforced"): create/update was a blanket
+    // `if isOpsStaff()` — bewatu-ops's own ROLES definition documents
+    // auditor as "Read-only access to all modules and audit log. No
+    // write permissions" and doesn't grant cyber_agent the tickets
+    // domain at all (its domain is Security), but nothing at the data
+    // layer enforced either restriction — both roles could create/
+    // update/delete any ticket directly through the client SDK,
+    // bypassing the UI-level restriction entirely.
     match /support_tickets/{ticketId} {
-      allow read:  if isOpsStaff();
-      allow write: if isOpsStaff();
+      allow read: if isOpsStaff();
+      allow create, update: if isOpsStaff()
+        && opsRole() != 'auditor' && opsRole() != 'cyber_agent';
+      // Tickets are resolved/closed by the app, never actually deleted —
+      // restrict delete to platform_admin, matching the same
+      // immutable-trail posture audit_log/ops_staff deletion already
+      // has elsewhere in this file.
+      allow delete: if isOpsAdmin();
     }
 
     match /fraud_cases/{caseId} {
