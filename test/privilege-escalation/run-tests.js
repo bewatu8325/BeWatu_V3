@@ -83,10 +83,18 @@ async function main() {
     }));
   });
 
-  await check("a brand-new signup CANNOT create their own doc with isRecruiter:true baked in", async () => {
-    await assertFails(setDoc(doc(testEnv.authenticatedContext("brand-new-uid-2").firestore(), "users", "brand-new-uid-2"), {
-      id: 998, name: "Evil2", isPublic: true, isRecruiter: true,
+  await check("a brand-new signup CAN check 'I'm a recruiter' at registration (real buildNewUserDoc() behavior)", async () => {
+    await assertSucceeds(setDoc(doc(testEnv.authenticatedContext("brand-new-uid-2").firestore(), "users", "brand-new-uid-2"), {
+      id: 998, name: "New Recruiter", isPublic: true, isRecruiter: true,
     }));
+  });
+
+  await check("...but CANNOT later flip isRecruiter to true via update once created", async () => {
+    const recruiterCtx = testEnv.authenticatedContext("brand-new-uid-4").firestore();
+    await setDoc(doc(recruiterCtx, "users", "brand-new-uid-4"), {
+      id: 996, name: "Fence-Sitter", isPublic: true, isRecruiter: false,
+    });
+    await assertFails(updateDoc(doc(recruiterCtx, "users", "brand-new-uid-4"), { isRecruiter: true }));
   });
 
   await check("a normal signup with neither field present still succeeds", async () => {

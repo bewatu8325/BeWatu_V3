@@ -425,20 +425,31 @@ service cloud.firestore {
       // client SDK. isPlatformAdmin() is then read as an escalated-
       // privilege bypass in ~40 other rules across this file — this was
       // a full platform-admin self-grant, confirmed empirically against
-      // the real emulator before this fix. isRecruiter had the same gap;
-      // grepped every write site in both BeWatu_V3 and bewatu-ops and
-      // found none that ever legitimately sets either field — the
-      // recruiter "upgrade" flow (RecruiterUpgradeModal) only ever
-      // writes recruiterStatus: 'pending_ops' and a recruiter_applications
-      // doc, never isRecruiter itself (a separate, real bug — nothing
-      // anywhere processes that application or ever sets isRecruiter to
-      // true; flagged separately). Since neither field has any
-      // legitimate client write path today, both are frozen from every
-      // client write below — owner, platform admin, and ops staff alike
-      // — leaving only Admin SDK / Firebase Console to set them.
+      // the real emulator before this fix. Grepped every write site in
+      // both BeWatu_V3 and bewatu-ops and found none that ever
+      // legitimately sets isPlatformAdmin at all — it's frozen from
+      // every client write below, owner and admin/ops alike, leaving
+      // only Admin SDK / Firebase Console to set it.
+      //
+      // isRecruiter is a different case — CORRECTING an earlier version
+      // of this fix that wrongly froze it the same way. It DOES have a
+      // real, legitimate, currently-working client write path: the
+      // plain "I'm a recruiter" checkbox on RegistrationPage, which
+      // registerWithEmail()/upsertGoogleUser() (lib/firebaseAuth.ts) bake
+      // straight into buildNewUserDoc()'s create write, unverified by
+      // design. Freezing it at create would have rejected every new
+      // recruiter signup — caught before this shipped anywhere but
+      // bewatu-dev. So: isRecruiter may be set to anything at create
+      // time (matching real signup behavior), but — like
+      // isPlatformAdmin — can never be changed by a later update. The
+      // separate OTP+application "upgrade" flow (RecruiterUpgradeModal)
+      // only ever writes recruiterStatus: 'pending_ops' and a
+      // recruiter_applications doc, never isRecruiter itself, and
+      // nothing anywhere processes that application — a real,
+      // previously-unknown functional gap, flagged separately, not
+      // something this rule needs to accommodate today.
       allow create: if isAuth() && request.auth.uid == uid
-        && request.resource.data.get('isPlatformAdmin', false) == false
-        && request.resource.data.get('isRecruiter', false) == false;
+        && request.resource.data.get('isPlatformAdmin', false) == false;
       allow update: if isAuth() && (
         request.auth.uid == uid || isPlatformAdmin() || isOpsStaff()
       ) && !request.resource.data.diff(resource.data).affectedKeys()
