@@ -76,6 +76,17 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isPlatformAdmin', false) == true;
     }
 
+    // P1 fix ("no verified-recruiter check on jobs/opportunities create"):
+    // isRecruiter is now safe to gate on — it can only be set at account
+    // creation (the real signup checkbox) and can never be flipped by a
+    // later update (see the users/{uid} block below), so a plain user
+    // can no longer self-escalate into this check after the fact.
+    function isRecruiter() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isRecruiter', false) == true;
+    }
+
     function isOwner(uid) {
       return request.auth.uid == uid;
     }
@@ -770,12 +781,24 @@ service cloud.firestore {
 
     match /jobs/{jobId} {
       allow read:   if isAuth();
+      // Real bug fix, found investigating the P1 recruiter-check gap
+      // below: this checked recruiterId == request.auth.uid, but
+      // recruiterId is the app-level numeric id (Job.recruiterId:
+      // number) — the real write site (lib/firestoreService.ts's
+      // createJob) stamps the actual caller uid onto a separate field,
+      // recruiterUid. A number can never equal request.auth.uid (a
+      // string), so this rule denied every real job create/update/
+      // delete outright — confirmed empirically against the real write
+      // shape before this fix. Also adds the missing recruiter check
+      // this P1 was actually about: create now requires isRecruiter()
+      // in addition to ownership.
       allow create: if isAuth()
-        && request.resource.data.recruiterId == request.auth.uid;
+        && request.resource.data.recruiterUid == request.auth.uid
+        && isRecruiter();
       allow update: if isAuth()
-        && resource.data.recruiterId == request.auth.uid;
+        && resource.data.recruiterUid == request.auth.uid;
       allow delete: if isAuth()
-        && resource.data.recruiterId == request.auth.uid;
+        && resource.data.recruiterUid == request.auth.uid;
     }
 
     // ── TOP-LEVEL CHALLENGES ──────────────────────────────────────────────────
@@ -1064,8 +1087,13 @@ service cloud.firestore {
 
     match /opportunities/{opportunityId} {
       allow read:   if isAuth();
+      // P1 fix: create now also requires isRecruiter(), same as jobs
+      // above. Opportunity.recruiterId is already the real uid string
+      // (unlike Job.recruiterId's numeric-id mismatch) — no separate
+      // bug to fix here.
       allow create: if isAuth()
-        && request.resource.data.recruiterId == request.auth.uid;
+        && request.resource.data.recruiterId == request.auth.uid
+        && isRecruiter();
       allow update: if isAuth()
         && resource.data.recruiterId == request.auth.uid;
       allow delete: if isAuth()
