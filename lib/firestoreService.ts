@@ -8,6 +8,7 @@ import {
   collection,
   doc,
   addDoc,
+  setDoc,
   getDoc,
   getDocs,
   updateDoc,
@@ -39,6 +40,7 @@ import {
   Article,
   AppreciationType,
   NotificationType,
+  FollowRequest,
 } from '../types';
 import type { 
   Arena, 
@@ -469,8 +471,12 @@ export async function sendFollowRequest(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  // Notify the receiver
-  await createNotification(receiverUid, senderNumericId, 'FOLLOW_REQUEST', ref.id);
+  // Notify the receiver. Bug fix: this call was missing two required
+  // arguments (message, senderName) and passed the wrong numeric id
+  // (senderNumericId instead of the recipient's own) — a call-signature
+  // mismatch that tsc catches but JS doesn't throw on, so it silently wrote
+  // a garbled notification doc instead of erroring.
+  await createNotification(receiverUid, receiverNumericId, 'FOLLOW_REQUEST', 'You have a new follow request', '');
   return {
     id: Date.now(),
     fromUserId: senderNumericId,
@@ -492,7 +498,8 @@ export async function respondToFollowRequest(
     updatedAt: serverTimestamp(),
   });
   if (response === 'accepted') {
-    await createNotification(senderUid, senderNumericId, 'FOLLOW_ACCEPTED', firestoreDocId);
+    // Same missing-arguments bug as sendFollowRequest above.
+    await createNotification(senderUid, senderNumericId, 'FOLLOW_ACCEPTED', 'Your follow request was accepted', '');
   }
 }
 

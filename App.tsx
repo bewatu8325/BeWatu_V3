@@ -1205,10 +1205,14 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
       : c) });
     try {
       const { inviteMemberToCircle } = await import('./lib/firestoreService');
-      await inviteMemberToCircle(circle._firestoreId, userId, invitedUid);
+      await inviteMemberToCircle(circle._firestoreId, userId);
       // Send notification to invited user
       const invitedUser = data.users.find(u => u.id === userId) as any;
-      // _firestoreUid may be missing — look it up from Firestore if needed
+      // _firestoreUid may be missing — look it up from Firestore if needed.
+      // Bug fix: `invitedUid` used to be read one line above this `let`
+      // declared it (a block-scope temporal-dead-zone violation) — every
+      // invite threw a ReferenceError, silently swallowed by the catch
+      // below, so this Firestore write never actually ran.
       let invitedUid = invitedUser?._firestoreUid;
       if (!invitedUid) {
         try {
@@ -1862,7 +1866,20 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                     connectionRequests={data.connectionRequests}
                     followedUserIds={followedUserIds}
                     onBack={() => setPublicProfileUserId(null)}
-                    onConnect={(uid) => { fbSendConnectionRequest(currentUser!.id, uid); }}
+                    onConnect={(numericId) => {
+                      // Bug fix: this used to call fbSendConnectionRequest with
+                      // 2 args (the current user's own numeric id, and the
+                      // other numeric id) against a signature that needs 4
+                      // (both parties' Firebase UIDs and numeric ids) — every
+                      // "Connect" click from a public profile threw at
+                      // runtime. Mirrors the working call site in
+                      // handleConnect above.
+                      if (!fbUser) return;
+                      const receiver = data.users.find(u => u.id === numericId) as any;
+                      fbSendConnectionRequest(fbUser.uid, currentUser!.id, receiver?._firestoreUid ?? String(numericId), numericId)
+                        .then(newRequest => setData(d => d ? { ...d, connectionRequests: [...d.connectionRequests, newRequest] } : null))
+                        .catch(err => console.error('sendConnectionRequest failed:', err));
+                    }}
                     onFollow={handleFollowUser}
                     onViewCompany={handleViewCompany}
                     onMessage={(uid) => { setPublicProfileUserId(null); startMessage(uid); }}
