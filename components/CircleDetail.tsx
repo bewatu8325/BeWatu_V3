@@ -9,7 +9,6 @@ import {
   PodNotificationPrefs,
   PodCatchUp,
   GenerationalInsight,
-  PodChallenge,
   PodChallengeCard,
   PostChallengeForm,
   SmartMemberSuggestions,
@@ -390,9 +389,11 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
 
   const circlePosts = useMemo(
     () => allPosts.filter(post => {
-      const cid = post.circleId;
+      const cid = post.circleId as any;
       if (!cid) return false;
-      // Match numeric id, string numeric, or Firestore string ID
+      // Match numeric id, string numeric, or Firestore string ID — posts can
+      // carry any of the three depending on when they were written, so this
+      // deliberately compares across types rather than assuming one shape.
       return cid === circle.id ||
         cid === String(circle.id) ||
         cid === (circle as any)._firestoreId;
@@ -412,9 +413,9 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
 
   const circleArticles = useMemo(
       () => allArticles.filter(article =>
-        article.circleId === circle.id ||
-        article.circleId === String(circle.id) ||
-        article.circleId === (circle as any)._firestoreId
+        (article.circleId as any) === circle.id ||
+        (article.circleId as any) === String(circle.id) ||
+        (article.circleId as any) === (circle as any)._firestoreId
       ).sort((a,b) => b.id - a.id),
       [allArticles, circle.id]
   );

@@ -239,21 +239,44 @@ Return a JSON array of matches (best first). Each object:
 {
   "userId": number,
   "aiAnalysis": {
-    "summary": string,
+    "matchReasoning": string,
     "predictiveScores": { "roleFit": number, "cultureFit": number, "mutualSuccessPotential": number },
-    "keyStrengths": string[],
-    "potentialConcerns": string[],
+    "strengths": string[],
+    "potentialRedFlags": string[],
+    "cultureFitAnalysis": string,
+    "personalityMarkers": string[],
     "interviewQuestions": string[]
   }
 }
 
 Include only candidates that are genuinely relevant. Max 5 results.`;
 
+  // Bug fix: this used to ask Claude for (and the fallback below produced)
+  // summary/keyStrengths/potentialConcerns — field names that don't exist
+  // on CandidateSearchResult at all. Every recruiter search result's "why
+  // this candidate" text and red-flags list has been rendering blank in
+  // ExpandedCandidateView/CandidateDetailView/RecruiterConsole, which all
+  // read matchReasoning/potentialRedFlags/etc. Prompt and fallback now
+  // produce the real shape; `??` defaults guard against Claude not
+  // perfectly complying with the requested shape.
   try {
     const results = await callClaudeJson<Array<{ userId: number; aiAnalysis: any }>>(prompt);
     return results.map(r => {
       const user = allUsers.find(u => u.id === r.userId);
-      return user ? { user, aiAnalysis: r.aiAnalysis } : null;
+      if (!user) return null;
+      const a = r.aiAnalysis ?? {};
+      return {
+        user,
+        aiAnalysis: {
+          matchReasoning:     a.matchReasoning ?? '',
+          strengths:          a.strengths ?? [],
+          potentialRedFlags:  a.potentialRedFlags ?? [],
+          cultureFitAnalysis: a.cultureFitAnalysis ?? '',
+          personalityMarkers: a.personalityMarkers ?? [],
+          predictiveScores:   a.predictiveScores ?? { roleFit: 0, cultureFit: 0, mutualSuccessPotential: 0 },
+          interviewQuestions: a.interviewQuestions ?? [],
+        },
+      };
     }).filter(Boolean) as CandidateSearchResult[];
   } catch {
     // Fallback: simple skill-based matching without AI
@@ -271,10 +294,12 @@ Include only candidates that are genuinely relevant. Max 5 results.`;
       .map(user => ({
         user,
         aiAnalysis: {
-          summary: `${user.name} may be relevant to your search for "${query}".`,
+          matchReasoning: `${user.name} may be relevant to your search for "${query}".`,
           predictiveScores: { roleFit: 70, cultureFit: 70, mutualSuccessPotential: 70 },
-          keyStrengths: user.skills?.slice(0, 3).map((s: any) => typeof s === 'string' ? s : s.name) ?? [],
-          potentialConcerns: [],
+          strengths: user.skills?.slice(0, 3).map((s: any) => typeof s === 'string' ? s : s.name) ?? [],
+          potentialRedFlags: [],
+          cultureFitAnalysis: '',
+          personalityMarkers: [],
           interviewQuestions: ['Tell me about your most relevant experience for this role.'],
         },
       }));

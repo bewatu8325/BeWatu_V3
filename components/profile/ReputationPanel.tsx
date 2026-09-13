@@ -188,7 +188,10 @@ const ReputationPanel: React.FC<ReputationPanelProps> = ({ uid, isOwn, compact =
       );
     }
     const score = profile ? profile.overallScore : 0;
-    const traj  = (profile && profile.trajectory) ?? 'stable';
+    // `??` alone doesn't fall through on an empty-string trajectory (only
+    // null/undefined) — `||` does, closing that gap rather than just
+    // silencing the type error.
+    const traj  = (profile && profile.trajectory) || 'stable';
     return (
       <div style={{
         background: profile ? GLT : '#f5f5f4',

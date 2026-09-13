@@ -113,7 +113,13 @@ const TalentPipelines: React.FC<TalentPipelinesProps> = ({ pipelineData }) => {
   );
 };
 
-// Named export wrapping the default component so RecruiterConsole can import it
+// Named export wrapping the default component so RecruiterConsole can import it.
+// NOTE (pre-existing gap, not introduced by this typecheck pass): this wrapper
+// only forwards `stages`/`pipelineData` into TalentPipelines — `candidates` and
+// every callback below (onMoveCandidate, onAddNote, onScheduleInterview,
+// onReject, onViewProfile, isBlindMode/onToggleBlindMode) are accepted for
+// type-compatibility with RecruiterConsole's call site but never read, so the
+// pipeline UI can't actually be interacted with yet. Flagged separately.
 export const TalentPipeline: React.FC<{
   stages?: string[];
   candidates?: PipelineCandidate[];
@@ -122,6 +128,9 @@ export const TalentPipeline: React.FC<{
   onAddNote?: (id: string, note: string) => Promise<void>;
   onScheduleInterview?: (id: string) => void;
   onReject?: (id: string, reason: string) => Promise<void>;
+  onViewProfile?: (userId: string) => void;
+  isBlindMode?: boolean;
+  onToggleBlindMode?: () => void;
 }> = ({ stages = DEFAULT_PIPELINE_STAGES, pipelineData = {} }) => {
   const data: { [key: string]: User[] } = {};
   stages.forEach(s => { data[s] = pipelineData[s] ?? []; });

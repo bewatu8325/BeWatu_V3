@@ -769,7 +769,11 @@ export default function ProveView({
               <p className="text-stone-500 text-sm mb-1">
                 {activeTab === 'mine'
                   ? "You haven't uploaded a reel yet."
-                  : activeTab === 'matches'
+                  // Bug fix: this checked a tab id ('matches') that was
+                  // never a real value of activeTab — dead code, so this
+                  // more specific message (which is what 'discover', the
+                  // actual skill-matching tab, wants) never showed.
+                  : activeTab === 'discover'
                   ? "No matching reels found. Update your profile skills to improve matches."
                   : "No reels match your search."}
               </p>

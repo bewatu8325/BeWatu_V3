@@ -202,7 +202,9 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
 
   // Always use Firestore document ID — numeric .id is NOT the doc ID
   const companyId    = company?._firestoreId ?? '';
-  const isAdmin      = company?.adminUid === fbUser?.uid || company?.adminId === fbUser?.uid;
+  // `adminId` was checked here too, but no company doc has ever had that
+  // field (only adminUid) — it was always undefined, contributing nothing.
+  const isAdmin      = company?.adminUid === fbUser?.uid;
 
   const verifStatus: CompanyVerificationStatus = company?.verificationStatus ?? 'unverified';
   const restrictions = getRestrictions(verifStatus);

@@ -15,6 +15,7 @@ import {
   CreditCard, Building2, Shield, Heart, TrendingUp,
   BarChart3, FileCheck, Home, Trophy, Users, Zap,
   ChevronRight, Star, Lock, BadgeCheck,
+  type LucideIcon,
 } from "lucide-react";
 import {
   getArenaIndustries,
@@ -149,7 +150,7 @@ function IndustryCard({
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon: Icon }: { label: string; value: string | number; icon: React.FC<{size?: number}> }) {
+function StatCard({ label, value, icon: Icon }: { label: string; value: string | number; icon: LucideIcon }) {
   return (
     <div className="bg-stone-50 rounded-xl border border-stone-200 px-5 py-4">
       <div className="flex items-center gap-2 mb-1">
@@ -166,7 +167,10 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: string |
 interface ArenaDiscoveryProps {
   onSelectIndustry: (slug: IndustrySlug) => void;
   onPostChallenge?: () => void;
-  currentUserCompany?: { id: string; verifiedIndustries?: string[] } | null;
+  // id is only used for a truthiness check ("does the user have a company")
+  // below, never read — widened to string | number to accept the real
+  // Company shape (numeric id) from App.tsx's selectedCompany state.
+  currentUserCompany?: { id: string | number; verifiedIndustries?: string[] } | null;
 }
 
 export default function ArenaDiscovery({

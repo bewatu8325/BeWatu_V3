@@ -15,7 +15,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User } from '../types';
+import { User, View } from '../types';
 import {
   Sparkles, TrendingUp, Users, Trophy, Zap,
   ChevronRight, RefreshCw, CheckCircle2, AlertCircle,
@@ -241,7 +241,9 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
         iconBg={profile.score >= 80 ? '#d1fae5' : profile.score >= 60 ? '#fef3c7' : '#fee2e2'}
         title={`Profile strength: ${profile.label} (${profile.score}/100)`}
         action={profile.missing.length > 0 ? 'Go to profile' : undefined}
-        onAction={() => onNavigate?.('Profile' as any)}
+        // Bug fix: was 'Profile' (wrong case vs. the real View.Profile =
+        // 'PROFILE' enum value) — onNavigate silently no-op'd on every click.
+        onAction={() => onNavigate?.(View.Profile)}
       >
         {/* Progress bar */}
         <div className="h-2 w-full rounded-full bg-stone-100 overflow-hidden mb-3">
@@ -275,7 +277,7 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
           iconBg="#fef3c7"
           title="Arenas matched to your skills"
           action="Browse arenas"
-          onAction={() => onNavigate?.('ARENAS' as any)}
+          onAction={() => onNavigate?.(View.Arenas)}
         >
           <div className="space-y-2.5 mt-1">
             {arenaMatches.map(({ arena, matchCount, matchedSkills }) => (
@@ -308,7 +310,9 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
         iconBg="#d1fae5"
         title="Network health"
         action="Find connections"
-        onAction={() => onNavigate?.('Connections' as any)}
+        // Bug fix: was 'Connections' (wrong case vs. the real
+        // View.Connections = 'CONNECTIONS' enum value).
+        onAction={() => onNavigate?.(View.Connections)}
       >
         <div className="grid grid-cols-3 gap-3 mt-1">
           {[
@@ -340,7 +344,7 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
           that only someone with decades of experience can answer.
         </p>
         <button
-          onClick={() => onNavigate?.(View?.Feed as any)}
+          onClick={() => onNavigate?.(View.Feed)}
           className="text-xs font-semibold flex items-center gap-1 transition-colors"
           style={{ color: '#1a4a3a' }}
         >

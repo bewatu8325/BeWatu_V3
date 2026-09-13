@@ -39,11 +39,6 @@ function getAdminApp() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Only allow POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   // CORS — only bewatu.com can call this
   const origin = req.headers.origin;
   const allowedOrigins = [
@@ -60,8 +55,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // Handle preflight
+  // Bug fix: this used to run AFTER a `req.method !== 'POST'` 405 check, so
+  // every OPTIONS preflight got rejected before ever reaching this branch —
+  // dead code, exactly what tsc's "no overlap" error on the comparison
+  // below was pointing at. Reordered to match every other api/ endpoint's
+  // (correct) CORS-then-preflight-then-method-check pattern.
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Only allow POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {

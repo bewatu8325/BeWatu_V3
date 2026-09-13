@@ -105,7 +105,14 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   // ── Load pipeline candidates from Firestore ───────────────────────────────
   useEffect(() => {
     if (fbUser) {
-      getPipelineCandidates(fbUser.uid).then(setCandidates).catch(console.error);
+      // getPipelineCandidates returns raw `applications` docs (loosely typed
+      // as { id: string } & DocumentData) — cast to the shape this console
+      // expects to render. NOTE: applications are never actually written
+      // with a `recruiterId` field anywhere in lib/firestoreService.ts, so
+      // this query (`where('recruiterId', '==', recruiterId)`) matches zero
+      // documents today — the pipeline always loads empty. Pre-existing,
+      // not introduced by this typecheck pass; flagged separately.
+      getPipelineCandidates(fbUser.uid).then(data => setCandidates(data as unknown as PipelineCandidate[])).catch(console.error);
     }
   }, [fbUser]);
 
@@ -321,19 +328,24 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
           <TalentPipeline
             stages={DEFAULT_PIPELINE_STAGES}
             candidates={candidates}
-            onMoveCandidate={async (id, from, to) => {
+            onMoveCandidate={async (id, to) => {
               await movePipelineCandidate(id, to);
               setCandidates(c => c.map(x => x.id === id ? { ...x, stage: to } : x));
             }}
             onAddNote={async (id, note) => {
               await addPipelineNote(id, note);
-              if (fbUser) setCandidates(await getPipelineCandidates(fbUser.uid));
+              if (fbUser) setCandidates((await getPipelineCandidates(fbUser.uid)) as unknown as PipelineCandidate[]);
             }}
-            onScheduleInterview={async (id, date) => {
-              await schedulePipelineInterview(id, date);
-              setCandidates(c => c.map(x => x.id === id ? { ...x, interviewDate: date } : x));
+            onScheduleInterview={(id: string) => {
+              // TalentPipeline's declared signature is (id) => void — it
+              // never actually invokes this prop today (see TalentPipeline.tsx,
+              // where the exported wrapper only forwards `stages`/`pipelineData`
+              // and drops every other prop, so no interview date ever reaches
+              // here in practice). Kept as a no-op stub matching the real type
+              // rather than silently widening it to imply this is wired up.
+              console.warn('onScheduleInterview: not wired up in TalentPipeline yet', id);
             }}
-            onRejectCandidate={async (id, reason) => {
+            onReject={async (id, reason) => {
               await rejectPipelineCandidate(id, reason);
               setCandidates(c => c.map(x => x.id === id ? { ...x, status: 'rejected' } : x));
             }}

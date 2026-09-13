@@ -488,7 +488,13 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
                   <Shield className="h-4 w-4 text-stone-500" />Platform Admin
                 </button>
               )}
-              <button onClick={() => { onNavigate(View.Settings ?? View.Profile); setMenuOpen(false); }}
+              {/* There's no dedicated Settings view yet — this intentionally
+                  goes to Profile as the closest stand-in. View.Settings never
+                  existed on the enum (a string-enum member access on a
+                  missing key is `undefined` at runtime, not a crash, so the
+                  `?? View.Profile` fallback silently did the right thing —
+                  this just makes that explicit instead of relying on it). */}
+              <button onClick={() => { onNavigate(View.Profile); setMenuOpen(false); }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
                 <Settings className="h-4 w-4" />Settings
               </button>

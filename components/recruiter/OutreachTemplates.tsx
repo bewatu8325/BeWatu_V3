@@ -340,13 +340,21 @@ export function OutreachTemplates() {
 
   async function handleSave(t: Omit<OutreachTemplate, 'id' | 'usageCount' | 'createdAt'>) {
     if (!fbUser) return;
-    await saveOutreachTemplate(fbUser.uid, t, editing?.id);
+    // Bug fix: saveOutreachTemplate takes (recruiterId, template) — the
+    // editing id was passed as a 3rd, nonexistent argument instead of being
+    // merged into the template object, so it was always undefined inside
+    // the function. Editing a template silently created a new one every
+    // time instead of updating the original.
+    await saveOutreachTemplate(fbUser.uid, { ...t, id: editing?.id });
     await load();
   }
 
   async function handleDelete(id: string) {
     if (!fbUser || !window.confirm('Delete this template?')) return;
-    await deleteOutreachTemplate(fbUser.uid, id);
+    // Bug fix: deleteOutreachTemplate takes only (templateId) — fbUser.uid
+    // was being passed as that single argument and the real id was ignored,
+    // so this never actually deleted the template that was clicked.
+    await deleteOutreachTemplate(id);
     setTemplates(prev => prev.filter(t => t.id !== id));
   }
 

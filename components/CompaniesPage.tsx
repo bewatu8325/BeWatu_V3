@@ -12,7 +12,7 @@ import { fetchCompanies, claimCompany } from '../lib/firestoreService';
 import { Company } from '../types';
 
 interface CompaniesPageProps {
-  onViewCompany: (companyId: number) => void;
+  onViewCompany: (companyId: number | string) => void;
 }
 
 type ExtendedCompany = Company & {
