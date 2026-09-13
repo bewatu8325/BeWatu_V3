@@ -17,7 +17,6 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import Anthropic from '@anthropic-ai/sdk';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
@@ -78,26 +77,52 @@ Respond ONLY as JSON — no preamble, no markdown fences:
 If the image is too blurry, too dark, or does not contain a face, return:
 { "verdict": "uncertain", "confidence": "low", "reasoning": "Cannot assess — frame quality insufficient or no face visible", "signals": [] }`;
 
+// Real bug fix: this called the @anthropic-ai/sdk client, but that package
+// isn't in project dependencies — Vercel crashes the whole function at
+// module load (FUNCTION_INVOCATION_FAILED) before the handler even runs, so
+// every reel/micro-intro upload's AI verification has been failing at the
+// infrastructure level, never even reaching this function's own graceful
+// "uncertain, queue for manual review" fallback. Same root cause api/
+// skills-trajectory.ts already hit and fixed the same way (see its own
+// header comment) — call the Anthropic REST API directly via fetch(), no
+// SDK, matching api/claude.js's established pattern. The request body is
+// identical either way (the SDK is a thin wrapper over this same endpoint),
+// so the vision content blocks are unchanged.
 async function analyseFrame(frameBase64: string, mediaType: string): Promise<VerificationResult> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
 
-  const response = await client.messages.create({
-    model: 'claude-opus-4-6',
-    max_tokens: 500,
-    system: SYSTEM_PROMPT,
-    messages: [{
-      role: 'user',
-      content: [{
-        type: 'image',
-        source: { type: 'base64', media_type: mediaType as any, data: frameBase64 },
-      }, {
-        type: 'text',
-        text: 'Assess whether this video frame shows a real person or AI-generated content.',
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':      'application/json',
+      'x-api-key':         apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-6',
+      max_tokens: 500,
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'image',
+          source: { type: 'base64', media_type: mediaType, data: frameBase64 },
+        }, {
+          type: 'text',
+          text: 'Assess whether this video frame shows a real person or AI-generated content.',
+        }],
       }],
-    }],
+    }),
   });
 
-  const text = response.content.find(b => b.type === 'text')?.text ?? '{}';
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Anthropic API error ${response.status}: ${errText}`);
+  }
+
+  const data: any = await response.json();
+  const text: string = data?.content?.find((b: any) => b.type === 'text')?.text ?? '{}';
   const clean = text.replace(/```json|```/g, '').trim();
   return JSON.parse(clean) as VerificationResult;
 }
