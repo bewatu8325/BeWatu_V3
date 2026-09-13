@@ -496,12 +496,23 @@ service cloud.firestore {
       // NOT fixed here: CircleDetail.tsx's handlePostChallenge writes
       // `postedBy: currentUser.name` — a display name, not a uid — so
       // there is no field to check ownership against yet. Needs an
-      // app-side `postedByUid` field (same pattern as the
-      // factory_team_posts.authorUid fix) before this can be scoped.
-      // Left open (if isAuth()) rather than guessed at or broken.
+      // P0 3 fix: the app now writes postedByUid alongside postedBy
+      // (same pattern as the factory_team_posts.authorUid fix). Create
+      // requires it to match the caller; only the author can edit the
+      // question/context or delete; any authed user can still update
+      // responses/upvotes/synthesis/status (not implemented in the app
+      // yet, but scoped now so it's not a blanket `if isAuth()` update
+      // once it is).
       match /challenges/{challengeId} {
-        allow read:  if isAuth();
-        allow write: if isAuth();
+        allow read: if isAuth();
+        allow create: if isAuth()
+          && request.resource.data.postedByUid == request.auth.uid;
+        allow update: if isAuth() && (
+          resource.data.postedByUid == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['responses', 'upvotes', 'synthesis', 'status'])
+        );
+        allow delete: if isAuth() && resource.data.postedByUid == request.auth.uid;
       }
 
       // Per-member preferences subcollection — memberId is the member's
@@ -542,12 +553,22 @@ service cloud.firestore {
         || isPlatformAdmin()
       );
 
-      // Same gap as circles/challenges above — no ownership field to check
-      // yet (pod challenges use the same postedBy-name-not-uid shape).
-      // Left open pending the same app-side field fix.
+      // P0 3 fix: same as circles/challenges above. The app always writes
+      // pod challenges under circles/{id}/challenges regardless of whether
+      // the pod's doc actually lives in `pods` or `circles` (see
+      // lib/firestoreService.ts fetchCircles' unified-id convention), so
+      // this block is currently unreached in practice — kept in sync with
+      // the circles version rather than left stale, in case that changes.
       match /challenges/{challengeId} {
-        allow read:  if isAuth();
-        allow write: if isAuth();
+        allow read: if isAuth();
+        allow create: if isAuth()
+          && request.resource.data.postedByUid == request.auth.uid;
+        allow update: if isAuth() && (
+          resource.data.postedByUid == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['responses', 'upvotes', 'synthesis', 'status'])
+        );
+        allow delete: if isAuth() && resource.data.postedByUid == request.auth.uid;
       }
     }
 
