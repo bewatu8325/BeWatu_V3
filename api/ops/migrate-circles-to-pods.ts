@@ -16,8 +16,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
+// P0 7 (least privilege): reads/writes only `circles` and `pods` — Firestore
+// only, no Auth-admin or Cloud Functions calls.
 if (!getApps().length) {
-  initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!)) });
+  const sa = process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER ?? process.env.FIREBASE_SERVICE_ACCOUNT!;
+  initializeApp({ credential: cert(JSON.parse(sa)) });
 }
 const db = getFirestore();
 

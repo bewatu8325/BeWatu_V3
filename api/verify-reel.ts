@@ -25,7 +25,10 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 function getAdminDb() {
   if (!getApps().length) {
-    initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!)) });
+    // P0 7 (least privilege): only ever writes reelVibes/{reelId} and
+    // users/{uid} — Firestore only, no Auth-admin or Cloud Functions calls.
+    const sa = process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER ?? process.env.FIREBASE_SERVICE_ACCOUNT!;
+    initializeApp({ credential: cert(JSON.parse(sa)) });
   }
   return getFirestore();
 }
