@@ -22,25 +22,27 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  // The three files below are excluded from the CI typecheck gate, not fixed,
-  // because fixing them for real means either rewriting payment-critical
-  // webhook code or resolving an undecided AI-provider question — neither is
-  // appropriate to do silently as part of a typecheck cleanup:
+  // The two files below are excluded from the CI typecheck gate, not fixed,
+  // because fixing them for real means rewriting payment-critical webhook
+  // code — not appropriate to do silently as part of a typecheck cleanup:
   //
-  // - api/subscribe/factory/route.ts and api/webhooks/stripe/route.ts use the
-  //   Next.js App Router handler convention (`export async function POST` from
-  //   'next/server'), but this project has no `next` dependency at all — these
-  //   are almost certainly non-functional on Vercel's actual Node/Edge runtime.
-  //   api/webhooks/stripe/route.ts claims to be "the" Stripe webhook and is the
-  //   only handler for `checkout.session.completed`; the real, working,
-  //   signature-verified webhook (api/stripe-webhook.ts, a correct Vercel Edge
-  //   Function, untouched) only handles `customer.subscription.*`. This means
-  //   Stripe Checkout completions for Factory/Investor subscriptions may never
-  //   actually unlock the purchased tier — flagged prominently to the user,
-  //   not fixed here.
-  // - api/verify-reel.ts imports '@anthropic-ai/sdk', which isn't installed —
-  //   an AI-provider decision (Anthropic vs. the Claude-via-fetch proxy used
-  //   elsewhere in services/claudeService.ts) that isn't this PR's to make.
+  // api/subscribe/factory/route.ts and api/webhooks/stripe/route.ts use the
+  // Next.js App Router handler convention (`export async function POST` from
+  // 'next/server'), but this project has no `next` dependency at all — both
+  // are confirmed dead (404/500 against the live domain). api/webhooks/
+  // stripe/route.ts claims to be "the" Stripe webhook and is the only
+  // handler for `checkout.session.completed`; the real, working,
+  // signature-verified webhook (api/stripe-webhook.ts, a correct Vercel Edge
+  // Function, untouched) only handles `customer.subscription.*`. This means
+  // Stripe Checkout completions for Factory/Investor subscriptions may never
+  // actually unlock the purchased tier — flagged prominently to the user,
+  // not fixed here.
+  //
+  // (api/verify-reel.ts previously excluded here for importing
+  // '@anthropic-ai/sdk', which isn't installed — fixed by calling the
+  // Anthropic REST API directly via fetch(), the same pattern already
+  // established in api/claude.js and api/skills-trajectory.ts. No longer
+  // excluded; typechecks cleanly on its own merits now.)
   //
   // functions/ is excluded because it's a genuinely separate TypeScript
   // project — its own tsconfig.json (strict: true) and its own
@@ -53,7 +55,6 @@
   "exclude": [
     "api/subscribe/factory/route.ts",
     "api/webhooks/stripe/route.ts",
-    "api/verify-reel.ts",
     "functions"
   ]
 }
