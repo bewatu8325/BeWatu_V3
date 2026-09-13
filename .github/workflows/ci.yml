@@ -43,4 +43,11 @@ jobs:
       - name: Install functions/ dependencies
         run: npm install --prefix functions
       - name: Typecheck functions/ (tsc --noEmit)
-        run: npx tsc --noEmit -p functions
+        # Must run from inside functions/ — this job never installs the
+        # root's node_modules, so a root-relative `npx tsc` finds no local
+        # `typescript` and falls back to fetching an unrelated npm package
+        # literally named "tsc" from the registry (confirmed on this exact
+        # job: "This is not the tsc command you are looking for"). Running
+        # from functions/ resolves functions/node_modules/typescript, which
+        # functions/package.json already depends on directly.
+        run: cd functions && npx tsc --noEmit -p .
