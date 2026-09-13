@@ -418,10 +418,31 @@ service cloud.firestore {
       // and request to connect, but their full profile is gated on their privacy setting.
       allow read:   if (resource.data.isPublic == true)
                     || isAuth();
-      allow create: if isAuth() && request.auth.uid == uid;
+      // CRITICAL fix — self-escalation to platform admin: create and
+      // update here had zero field restrictions, so any authenticated
+      // user (including a brand-new signup, via create) could set
+      // isPlatformAdmin: true on their own doc directly through the
+      // client SDK. isPlatformAdmin() is then read as an escalated-
+      // privilege bypass in ~40 other rules across this file — this was
+      // a full platform-admin self-grant, confirmed empirically against
+      // the real emulator before this fix. isRecruiter had the same gap;
+      // grepped every write site in both BeWatu_V3 and bewatu-ops and
+      // found none that ever legitimately sets either field — the
+      // recruiter "upgrade" flow (RecruiterUpgradeModal) only ever
+      // writes recruiterStatus: 'pending_ops' and a recruiter_applications
+      // doc, never isRecruiter itself (a separate, real bug — nothing
+      // anywhere processes that application or ever sets isRecruiter to
+      // true; flagged separately). Since neither field has any
+      // legitimate client write path today, both are frozen from every
+      // client write below — owner, platform admin, and ops staff alike
+      // — leaving only Admin SDK / Firebase Console to set them.
+      allow create: if isAuth() && request.auth.uid == uid
+        && request.resource.data.get('isPlatformAdmin', false) == false
+        && request.resource.data.get('isRecruiter', false) == false;
       allow update: if isAuth() && (
         request.auth.uid == uid || isPlatformAdmin() || isOpsStaff()
-      );
+      ) && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['isPlatformAdmin', 'isRecruiter']);
       allow delete: if false;
 
       // Notifications subcollection — pod invites, approvals, activity.
