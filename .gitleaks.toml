@@ -1,7 +1,12 @@
-# sensors/gitleaks.toml
+# .gitleaks.toml — repo root, all three BeWatu repos.
 # Gitleaks configuration for BeWatu.
 # Extends default rules with BeWatu-specific patterns.
-# Place this file at the repo root as .gitleaks.toml in each of the three repos.
+#
+# P0 6: this file used to be committed as `gitleaks.toml` (no leading dot) in
+# all three repos — gitleaks' own default config discovery only looks for
+# `.gitleaks.toml`, so this custom ruleset (and, just as importantly, the
+# [allowlist] below) was never actually loaded. `gitleaks-action` fell back
+# to pure default rules the whole time. Renamed to fix that.
 
 title = "BeWatu Gitleaks Config"
 

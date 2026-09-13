@@ -40,6 +40,17 @@ View your app in AI Studio: https://ai.studio/apps/drive/1B8zy2-aCM2fOfblfZcKzTY
 
 The application will be available at `http://localhost:3000`.
 
+## Secret scanning (pre-push)
+
+`npm install` automatically points git at `.githooks/` (`core.hooksPath`), so
+every `git push` runs a local [gitleaks](https://github.com/gitleaks/gitleaks)
+scan against `.gitleaks.toml` before anything leaves your machine — the same
+scan CI runs, just earlier. Install the CLI once: `brew install gitleaks`
+(or see the [gitleaks install docs](https://github.com/gitleaks/gitleaks#installing)
+for other platforms). A real finding blocks the push; a false positive
+should be added to `.gitleaks.toml`'s `[allowlist]` with a comment, not
+skipped with `--no-verify`.
+
 
  
  
