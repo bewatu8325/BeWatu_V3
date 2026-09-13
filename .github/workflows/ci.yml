@@ -3,9 +3,12 @@
 # verbatim across BeWatu_V3, bewatu-factory, and bewatu-ops).
 #
 # Typechecks and builds the app on every push/PR. Three API route files are
-# excluded from the typecheck via tsconfig.json's "exclude" (with a comment
-# there explaining why — see that file); every other errored file was either
-# genuinely dead code (deleted) or a real bug (fixed), not cast away.
+# excluded from the app typecheck via tsconfig.json's "exclude" (with a
+# comment there explaining why — see that file); every other errored file
+# was either genuinely dead code (deleted) or a real bug (fixed), not cast
+# away. functions/ (Cloud Functions) is a separate TS project with its own
+# tsconfig/package.json/node_modules — it gets its own install + typecheck
+# job below rather than being swept into the root one.
 
 name: CI
 
@@ -29,3 +32,15 @@ jobs:
         run: npx tsc --noEmit -p .
       - name: Build
         run: npm run build
+
+  functions-typecheck:
+    name: Typecheck functions/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Install functions/ dependencies
+        run: npm install --prefix functions
+      - name: Typecheck functions/ (tsc --noEmit)
+        run: npx tsc --noEmit -p functions

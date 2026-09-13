@@ -41,9 +41,19 @@
   // - api/verify-reel.ts imports '@anthropic-ai/sdk', which isn't installed —
   //   an AI-provider decision (Anthropic vs. the Claude-via-fetch proxy used
   //   elsewhere in services/claudeService.ts) that isn't this PR's to make.
+  //
+  // functions/ is excluded because it's a genuinely separate TypeScript
+  // project — its own tsconfig.json (strict: true) and its own
+  // package.json/node_modules (Cloud Functions runtime deps like
+  // firebase-functions, not installed by the root `npm install`). Without
+  // this, `tsc -p .` from the root picks up functions/src/index.ts too and
+  // fails on "cannot find module" for every functions-only dependency. It
+  // gets its own install + typecheck step in .github/workflows/ci.yml
+  // instead, and passes cleanly there (0 errors, verified locally).
   "exclude": [
     "api/subscribe/factory/route.ts",
     "api/webhooks/stripe/route.ts",
-    "api/verify-reel.ts"
+    "api/verify-reel.ts",
+    "functions"
   ]
 }
