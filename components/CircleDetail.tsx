@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import PeerLearning from './PeerLearning';
 import { Circle, Post, User, AppreciationType, Article } from '../types';
 import CreatePost from './CreatePost';
@@ -261,6 +261,44 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
     return u?.careerStage ?? undefined;
   };
 
+  // Bug fix: challenges only ever lived in local React state — this
+  // component wrote a new challenge to Firestore but never read the
+  // subcollection back, so posted challenges vanished on reload or for any
+  // other member opening the pod. Subscribe live instead.
+  useEffect(() => {
+    const firestoreId = (circle as any)._firestoreId;
+    if (!firestoreId) return;
+    let unsub: (() => void) | undefined;
+    let cancelled = false;
+    import('firebase/firestore').then(({ collection, query, orderBy, onSnapshot }) => {
+      import('../lib/firebase').then(({ db }) => {
+        if (cancelled) return;
+        const q = query(
+          collection(db, 'circles', firestoreId, 'challenges'),
+          orderBy('postedAt', 'desc')
+        );
+        unsub = onSnapshot(q, snap => {
+          setChallenges(snap.docs.map(d => {
+            const data = d.data() as any;
+            return {
+              id: d.id,
+              podId: String(circle.id),
+              question: data.question,
+              context: data.context,
+              postedBy: data.postedBy,
+              postedAt: data.postedAt?.toDate?.() ?? new Date(),
+              deadline: data.deadline?.toDate?.() ?? undefined,
+              responses: data.responses ?? [],
+              synthesis: data.synthesis,
+              status: data.status ?? 'open',
+            } as PodChallengeData;
+          }));
+        }, err => console.error('challenges subscription failed:', err));
+      });
+    });
+    return () => { cancelled = true; unsub?.(); };
+  }, [(circle as any)._firestoreId, circle.id]);
+
   // Pod challenge handlers
   const handlePostChallenge = useCallback(async (question: string, context: string, deadline?: Date) => {
     const newChallenge: PodChallengeData = {
@@ -274,6 +312,8 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
       responses: [],
       status:    'open',
     };
+    // Optimistic append — the live subscription above reconciles this with
+    // the real doc (and real id) moments later.
     setChallenges(cs => [newChallenge, ...cs]);
     setShowChallengeForm(false);
     // Persist to Firestore
@@ -281,10 +321,16 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
       const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('../lib/firebase');
       await addDoc(collection(db, 'circles', (circle as any)._firestoreId, 'challenges'), {
-        ...newChallenge, postedAt: serverTimestamp(), deadline: deadline ?? null,
+        ...newChallenge,
+        // Bug fix (P0 3): only a display name was ever stored, so the
+        // rules had no field to check ownership against and were left at
+        // `if isAuth()`. postedByUid lets the rules require the poster to
+        // be who they claim, and lets an author edit/delete their own post.
+        postedByUid: fbUser?.uid ?? null,
+        postedAt: serverTimestamp(), deadline: deadline ?? null,
       });
     } catch (err) { console.error('Failed to save challenge:', err); }
-  }, [circle, currentUser]);
+  }, [circle, currentUser, fbUser]);
 
   const handleChallengeResponse = useCallback(async (challengeId: string, responseContent: string) => {
     const newResponse = {

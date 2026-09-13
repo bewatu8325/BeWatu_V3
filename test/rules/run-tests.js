@@ -51,6 +51,7 @@ async function main() {
     await db.doc("factory_investors/inv1").set({ user: { id: "inv1" }, firm: "Acme" });
     await db.doc("circles/c1").set({ adminId: "owner", members: ["owner"] });
     await db.doc("circles/c1/members/owner").set({ notifyOnPost: true });
+    await db.doc("circles/c1/challenges/ch1").set({ question: "q", postedBy: "F1", postedByUid: "f1", responses: [], status: "open" });
     await db.doc("content_reports/r1").set({ reportedBy: "someone", reason: "x" });
     await db.doc("users/victim").set({ isPublic: false, displayName: "Victim" });
     await db.doc("users/victim/private/contact").set({ email: "victim@x.com", phone: "555-1234", location: "SF", stripeCustomerId: "cus_abc" });
@@ -109,8 +110,14 @@ async function main() {
   await check("users/private/contact: a stranger CANNOT write into someone else's", atk.doc("users/victim/private/contact").set({ email: "hacked@x.com" }), "DENY");
   await check("users/private/contact: the owner CAN update their own", testEnv.authenticatedContext("victim").firestore().doc("users/victim/private/contact").update({ phone: "555-9999" }), "ALLOW");
 
-  console.log("\n== Still-open findings (not fixed in this draft) ==");
-  await check("circles/challenges: still open pending postedByUid app fix (KNOWN, flagged)", atk.collection("circles/c1/challenges").add({ postedBy: "Some Name" }), "ALLOW");
+  console.log("\n== circles/challenges fix (this pass, P0 3): postedByUid ownership ==");
+  await check("circles/challenges: create with a spoofed postedByUid is denied", atk.collection("circles/c1/challenges").add({ postedBy: "Some Name", postedByUid: "someone-else" }), "DENY");
+  await check("circles/challenges: create with your own postedByUid is allowed", atk.collection("circles/c1/challenges").add({ postedBy: "Attacker", postedByUid: "atk" }), "ALLOW");
+  await check("circles/challenges: author CAN update their own question", f1.doc("circles/c1/challenges/ch1").update({ question: "edited" }), "ALLOW");
+  await check("circles/challenges: non-author CANNOT update the question", atk.doc("circles/c1/challenges/ch1").update({ question: "hacked" }), "DENY");
+  await check("circles/challenges: non-author CAN update responses-only (future feature, scoped now)", atk.doc("circles/c1/challenges/ch1").update({ responses: [{ id: "r1" }] }), "ALLOW");
+  await check("circles/challenges: non-author CANNOT delete someone else's challenge", atk.doc("circles/c1/challenges/ch1").delete(), "DENY");
+  await check("circles/challenges: author CAN delete their own challenge", f1.doc("circles/c1/challenges/ch1").delete(), "ALLOW");
 
   console.log("\n== P0 4 fix: content_reports locked to the reporter or ops ==");
   await check("content_reports: a stranger CANNOT read someone else's report", atk.doc("content_reports/r1").get(), "DENY");
