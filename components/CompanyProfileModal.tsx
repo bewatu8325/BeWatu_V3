@@ -497,7 +497,9 @@ function ChallengeCard({
 
   return (
     <div className={`bg-white rounded-2xl border overflow-hidden transition-shadow hover:shadow-md ${hasSkillMatch ? 'ring-1' : ''}`}
-      style={{ borderColor: hasSkillMatch ? '#b6ddd2' : '#e7e5e4', ringColor: GREEN }}>
+      // Bug fix: same as AdminPanel — `ringColor` isn't real CSS; Tailwind's
+      // `ring-1` reads `--tw-ring-color` instead.
+      style={{ borderColor: hasSkillMatch ? '#b6ddd2' : '#e7e5e4', '--tw-ring-color': GREEN } as React.CSSProperties}>
 
       {/* Type gradient header */}
       <div className={`bg-gradient-to-r ${type.gradient} px-4 py-3 flex items-center justify-between`}>

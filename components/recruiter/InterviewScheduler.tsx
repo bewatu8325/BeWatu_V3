@@ -175,17 +175,21 @@ function ProposeModal({
     if (!fbUser || !currentUser) return;
     setSending(true);
     try {
-      await proposeInterviewSlots({
+      // Bug fix: this called proposeInterviewSlots(...) with a single options
+      // object against a signature that takes 6 positional arguments — every
+      // interview-slot proposal from this screen has been writing garbage
+      // (undefined recruiterId/applicationId/etc.) to Firestore. Note the
+      // real function has no field for recruiterName/meetingLink/notes —
+      // dropping those here rather than inventing storage for them; they
+      // were never actually being saved before either.
+      await proposeInterviewSlots(
+        fbUser.uid,
         applicationId,
-        recruiterUid: fbUser.uid,
-        recruiterName: currentUser.name,
         candidateUid,
-        candidateName,
         jobTitle,
-        proposedSlots: slots,
-        meetingLink: meetingLink.trim(),
-        notes: notes.trim(),
-      });
+        candidateName,
+        slots,
+      );
       onSent();
       onClose();
     } catch (e: any) {

@@ -12,6 +12,7 @@
 
 import React, { useState } from 'react';
 import { Job, Company } from '../types';
+import type { CompanyVerificationStatus } from '../lib/verification';
 import {
   Plus, Briefcase, MapPin, Clock, Edit2, Trash2,
   ToggleLeft, ToggleRight, AlertCircle, CheckCircle,
@@ -22,7 +23,10 @@ const GREEN    = '#1a4a3a';
 const GREEN_LT = '#e8f4f0';
 const FREE_LIMIT = 3;
 
-type CompanyVerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+// Was a local duplicate missing 'suspended' — the real union (lib/verification.ts)
+// includes it, and it's a live status (see AdminPanel.tsx/VerifiedBadge.tsx).
+// The duplicate meant a suspended company's verificationStatus couldn't even
+// be assigned to this prop without a type error.
 
 interface ManageJobsViewProps {
   jobs:               Job[];
@@ -30,7 +34,13 @@ interface ManageJobsViewProps {
   onAddJob:           (job: Omit<Job, 'id'>) => void;
   onUpdateJob:        (job: Job) => void;
   onDeleteJob:        (jobId: number) => void;
-  onToggleJobStatus:  (jobId: number) => void;
+  // Real bug fix: the real handler (App.tsx's handleToggleJobStatus) needs
+  // the job's *current* status to compute the toggle — it was declared and
+  // called here with only `jobId`, so `currentStatus` was always `undefined`
+  // at the call site, which made every toggle resolve to 'Active' regardless
+  // of the job's actual state. A suspended job would reactivate correctly
+  // (coincidence), but an active job could never actually be suspended.
+  onToggleJobStatus:  (jobId: number, currentStatus: 'Active' | 'Suspended') => void;
   recruiterId:        number;
   verificationStatus: CompanyVerificationStatus;
   onGoToVerification: () => void;
@@ -510,7 +520,7 @@ const ManageJobsView: React.FC<ManageJobsViewProps> = ({
                 job={job}
                 onEdit={() => handleEdit(job)}
                 onDelete={() => setConfirmDelete(job.id)}
-                onToggle={() => onToggleJobStatus(job.id)}
+                onToggle={() => onToggleJobStatus(job.id, job.status)}
               />
             )
           ))}

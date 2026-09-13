@@ -15,6 +15,14 @@ interface LoginPageProps {
   onNavigateToForgotPassword: () => void;
   onNavigateToConnect?: () => void;
   onNavigateToLanding: () => void;
+  // Real bug fix: App.tsx's handleFirebaseLogin/handleGoogleLogin catch their
+  // own errors internally and never re-throw, so the local try/catch below
+  // never sees a rejection — failed logins were failing completely silently
+  // (isLoading just flips back off, no message). App.tsx already computes the
+  // right message in its own `error` state and was passing it as `authError`,
+  // but this component never declared or rendered the prop. Wired in below.
+  authError?: string | null;
+  onClearAuthError?: () => void;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({
@@ -25,6 +33,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
   onNavigateToForgotPassword,
   onNavigateToConnect,
   onNavigateToLanding,
+  authError,
+  onClearAuthError,
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,9 +43,15 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Prefer the parent-level auth error (the one that actually gets set on a
+  // real failed login/Google-sign-in) over the local one, which only fires
+  // when onFirebaseLogin/onGoogleLogin actually reject.
+  const displayedError = authError || error;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    onClearAuthError?.();
     if (!email || !password) { setError('Please fill in all fields.'); return; }
     const isRecruiter = userType === 'recruiter';
     if (onFirebaseLogin) {
@@ -52,6 +68,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
   const handleGoogleClick = async () => {
     if (!onGoogleLogin) return;
+    setError('');
+    onClearAuthError?.();
     try {
       setIsLoading(true);
       await onGoogleLogin(userType === 'recruiter');
@@ -108,9 +126,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
             </p>
           </div>
 
-          {error && (
+          {displayedError && (
             <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-              {error}
+              {displayedError}
             </div>
           )}
 

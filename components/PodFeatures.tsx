@@ -581,8 +581,11 @@ export const PodChallengeCard: React.FC<PodChallengeCardProps> = ({
             <div className="space-y-3">
               {sorted.map(r => (
                 <div key={r.id} className="flex items-start gap-3 py-2 border-t" style={{ borderColor: '#f5f5f4' }}>
+                  {/* Bug fix: the field is authorStage, not stage — this
+                      never matched, so the avatar never showed the
+                      career-stage color, always falling back to GREEN. */}
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                    style={{ backgroundColor: r.stage ? STAGE_CONFIG[r.stage].colour : GREEN }}>
+                    style={{ backgroundColor: r.authorStage ? STAGE_CONFIG[r.authorStage].colour : GREEN }}>
                     {r.authorName[0]}
                   </div>
                   <div className="flex-1 min-w-0">

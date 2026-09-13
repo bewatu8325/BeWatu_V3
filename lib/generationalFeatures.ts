@@ -295,6 +295,12 @@ export async function fetchGenerationalPods(count = 20): Promise<GenerationalPod
       createdAt: data.createdAt instanceof Timestamp
         ? data.createdAt.toDate()
         : new Date(data.createdAt ?? Date.now()),
+      // These were missing entirely — the doc stores the creator as
+      // `adminId` (same convention as circles generally), not `createdBy`;
+      // isPrivate is never written on create, so default to false (public)
+      // to match how these pods actually behave (open join requests).
+      isPrivate: data.isPrivate ?? false,
+      createdBy: data.adminId ?? data.createdBy ?? 0,
       _firestoreId: d.id,
     };
   });

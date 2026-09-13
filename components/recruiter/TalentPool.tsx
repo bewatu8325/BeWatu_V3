@@ -273,13 +273,19 @@ export function TalentPool({ onViewProfile }: TalentPoolProps) {
 
   async function handleRemove(entryId: string) {
     if (!fbUser || !window.confirm('Remove from talent pool?')) return;
-    await removeFromTalentPool(fbUser.uid, entryId);
+    // Bug fix: removeFromTalentPool takes only (entryId) — fbUser.uid was
+    // being passed as that argument and the real entryId was dropped, so
+    // this tried to delete talentPool/{recruiter's own uid} instead.
+    await removeFromTalentPool(entryId);
     setEntries(prev => prev.filter(e => e.id !== entryId));
   }
 
   async function handleUpdate(entryId: string, updates: Partial<TalentPoolEntry>) {
     if (!fbUser) return;
-    await updateTalentPoolEntry(fbUser.uid, entryId, updates);
+    // Bug fix: updateTalentPoolEntry takes (entryId, updates) — fbUser.uid
+    // shifted both real arguments over by one, so `updates` inside the
+    // function received the entryId string instead of an object.
+    await updateTalentPoolEntry(entryId, updates);
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, ...updates } : e));
   }
 

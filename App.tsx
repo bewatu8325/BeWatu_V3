@@ -591,7 +591,7 @@ const MainApp: React.FC = () => {
     await handleLogout();
   };
 
-  const handleExportData = () => {
+  const handleExportData = async () => {
     if (!fbUser || !currentUser) return;
     setShowDataRequestModal(true);
   };
@@ -1353,8 +1353,12 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         // Revert on failure
         setData(d => d ? {
           ...d,
+          // Bug fix: this pushed fbUser?.uid (a Firebase UID string) back
+          // into the numeric members array on revert — wrong value entirely
+          // (and the wrong type, which is what tsc caught). The member
+          // being restored is always the numeric currentUser.id.
           circles: d.circles.map(c => c.id === circleId
-            ? { ...c, members: [...c.members, fbUser?.uid ?? currentUser.id] }
+            ? { ...c, members: [...c.members, currentUser.id] }
             : c)
         } : null);
       }
@@ -1509,7 +1513,6 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             onConnect={handleSendConnection}
             connectionRequests={data.connectionRequests}
             currentUserId={currentUser.id}
-            searchQuery={peopleSearch}
           />
         );
         break;
@@ -1578,7 +1581,15 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
       case View.Profile: {
         const userToShow = profileUserId ? data.users.find(u => u.id === profileUserId) : currentUser;
         content = userToShow
-          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onChangePassword={handleChangePassword} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} onSaveProfile={handleSaveCurrentUserProfile} onAddSkill={(name) => handleSaveUserSkills([name])} onRemoveSkill={handleRemoveUserSkill} onViewCompany={handleViewCompany} />
+          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} /* ProfilePage's own password-change form (newPassword/confirmPassword
+             state, handlePasswordChangeSubmit) is dead — no input or submit
+             button in its JSX ever renders or calls it; onChangePassword is
+             never actually invoked from there today. onOpenSecurity below
+             is the real, reachable path (SecurityPrivacyPage). Matching the
+             stub already used for that same dead prop elsewhere (see the
+             SecurityPrivacyPage render below) rather than pretending this
+             is wired up. */
+             onChangePassword={() => handleChangePassword('' as any, '' as any)} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} onSaveProfile={handleSaveCurrentUserProfile} onAddSkill={(name) => handleSaveUserSkills([name])} onRemoveSkill={handleRemoveUserSkill} onViewCompany={handleViewCompany} />
           : <div>User not found.</div>;
         break;
       }
@@ -1922,7 +1933,10 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
           {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onSaveUserSkills={handleSaveUserSkills} onRemoveUserSkill={handleRemoveUserSkill} onClose={() => setIsSkillsGraphModalOpen(false)} />}
-          {isVideoRecorderModalOpen && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} />}
+          {/* Real bug fix: fbUid was never passed — VideoRecorderModal builds its
+             Storage upload path as `vibe-clips/${fbUid}/...`, so every micro-intro
+             recording/upload was writing to a `vibe-clips/undefined/...` path. */}
+          {isVideoRecorderModalOpen && fbUser && <VideoRecorderModal onSave={handleSaveMicroIntroduction} onClose={() => setIsVideoRecorderModalOpen(false)} fbUid={fbUser.uid} />}
           {playingVideoUrl && <VideoPlayerModal videoUrl={playingVideoUrl} onClose={() => setPlayingVideoUrl(null)} />}
           {reportModalOpen && fbUser && currentUser && (
             <ReportModal

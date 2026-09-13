@@ -230,7 +230,7 @@ export const CreateArenaModal: React.FC<CreateArenaModalProps> = ({
     } finally { setSaving(false); }
   };
 
-  const DOMAINS = ['Frontend','Backend','Data','Design','DevOps','Product','AI/ML','Leadership','Other'];
+  const DOMAINS = ['Frontend','Backend','Data','Design','DevOps','Product','AI/ML','Leadership','Other'] as const;
 
   return (
     <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}

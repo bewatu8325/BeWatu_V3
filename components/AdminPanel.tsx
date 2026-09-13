@@ -1003,7 +1003,10 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
                 <button key={key}
                   onClick={() => setStatusFilter(key as any)}
                   className={`${CARD} p-4 text-left transition-all hover:shadow-md ${statusFilter === key ? 'ring-2 ring-offset-1' : ''}`}
-                  style={{ ringColor: color }}>
+                  // Bug fix: `ringColor` isn't a real CSS property — Tailwind's
+                  // `ring-*` classes read the color from the `--tw-ring-color`
+                  // custom property, so this had zero visual effect.
+                  style={{ '--tw-ring-color': color } as React.CSSProperties}>
                   <p className="text-2xl font-black" style={{ color }}>{count}</p>
                   <p className="text-xs text-stone-400 mt-0.5 font-semibold">{label}</p>
                 </button>

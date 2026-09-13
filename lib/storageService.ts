@@ -7,7 +7,11 @@ import { storage } from './firebase';
 
 type ProgressFn = (pct: number) => void;
 
-function upload(path: string, file: File, onProgress?: ProgressFn): Promise<string> {
+// Widened from File to File | Blob: uploadMicroIntroduction only ever has a
+// MediaRecorder Blob (no filename), and only `.type` is used below, which
+// Blob has too — File is already a Blob subtype, so this is a pure
+// generalization, not a behavior change for the File-based call sites.
+function upload(path: string, file: File | Blob, onProgress?: ProgressFn): Promise<string> {
   return new Promise((resolve, reject) => {
     const task = uploadBytesResumable(ref(storage, path), file, {
       contentType: file.type,

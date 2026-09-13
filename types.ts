@@ -53,7 +53,10 @@ export interface User {
   thirdPartyIntegrations: ThirdPartyIntegration[];
   workStyle: WorkStyle;
   values: string[];
-  availability: 'Immediate' | '2 weeks notice' | 'Exploring opportunities';
+  // 'Not looking' was a real, checked-for value (see ConnectionsView's
+  // availability badge) missing from this union — a genuine type gap, not
+  // a behavior change.
+  availability: 'Immediate' | '2 weeks notice' | 'Exploring opportunities' | 'Not looking';
   skills: { name: string; endorsements: number }[];
   verifiedSkills: VerifiedSkill[] | null;
   microIntroductionUrl: string | null;
@@ -140,6 +143,11 @@ claimed?: boolean;
   adminUid?: string;
   verifiedRecruiters?: string[];
   verificationStatus?: 'unverified' | 'pending' | 'verified';
+  // Written by lib/arenaService.ts's approveIndustryVerification (arrayUnion)
+  // but was never carried through fetchCompanyById/fetchCompanies's mapping —
+  // real bug: ArenaIndustryView's isVerified check always saw undefined.
+  verifiedIndustries?: string[];
+  regulatedIndustries?: string[];
 }
 
 export interface Job {
@@ -188,6 +196,14 @@ export interface ConnectionRequest {
   fromUserId: number;
   toUserId: number;
   status: 'pending' | 'accepted' | 'declined';
+  // Firestore extension fields (see lib/firestoreService.ts's
+  // getUserConnections/respondToConnection) — the two parties' Firebase
+  // Auth UIDs, used to write connectionCount updates and to build the
+  // social-graph UID set in App.tsx's Prove view.
+  _firestoreId?: string;
+  senderUid?: string;
+  receiverUid?: string;
+  createdAt?: any;
 }
 
 export type PodType = 'community' | 'innovation' | 'challenge' | 'generational';

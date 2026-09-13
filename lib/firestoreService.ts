@@ -978,7 +978,11 @@ export async function createSpark(data: {
   return ref.id;
 }
 
-export async function getActiveSparks(maxResults = 30) {
+// No explicit return type let tsc infer an overly-narrow `{ id: string }`
+// from the try/catch's two return paths, hiding the real Firestore fields
+// (authorId/authorName/authorAvatar/...) every consumer of this actually
+// reads — matches this function's own already-loose `(s: any) =>` typing.
+export async function getActiveSparks(maxResults = 30): Promise<any[]> {
   const now = new Date();
   try {
     const q = query(
@@ -3528,6 +3532,8 @@ export async function fetchCompanyById(firestoreId: string): Promise<Company | n
       adminUid:           d.adminUid ?? undefined,
       verifiedRecruiters: d.verifiedRecruiters ?? [],
       verificationStatus: d.verificationStatus ?? 'unverified',
+      verifiedIndustries: d.verifiedIndustries ?? [],
+      regulatedIndustries: d.regulatedIndustries ?? [],
     } as Company & { domain: string; ticker: string; source: string; claimed: boolean };
   } catch (err) {
     console.error('fetchCompanyById failed:', err);
@@ -3554,6 +3560,8 @@ export async function fetchCompanies(claimedOnly = false): Promise<Company[]> {
       adminUid:           data.adminUid ?? undefined,
       verifiedRecruiters: data.verifiedRecruiters ?? [],
       verificationStatus: data.verificationStatus ?? 'unverified',
+      verifiedIndustries: data.verifiedIndustries ?? [],
+      regulatedIndustries: data.regulatedIndustries ?? [],
     } as Company & { domain: string; ticker: string; source: string; claimed: boolean };
   };
 
