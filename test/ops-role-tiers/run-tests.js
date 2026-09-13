@@ -5,6 +5,12 @@
 // and never grants `cyber_agent` the tickets domain at all — but nothing at
 // the data layer enforced either. This exercises the real roles and the
 // real writeAuditEntry()/createTicket() shapes against the enforced rules.
+//
+// Follow-up pass: the same gap on kb_articles, ticket_time_logs, and
+// data_requests, flagged when the first pass shipped — auditor's role
+// definition is a blanket "no write permissions" statement, not scoped
+// to any one collection, and PERMISSIONS.datareqs specifically lists
+// auditor as read-only for that domain.
 const fs = require("fs");
 const path = require("path");
 const {
@@ -113,6 +119,38 @@ async function main() {
   await check("even auditor CAN still read the audit log (read-only, not no-access)", async () => {
     const { getDocs } = require("firebase/firestore");
     await assertSucceeds(getDocs(collection(auditor, "audit_log")));
+  });
+
+  console.log("\n== follow-up: kb_articles / ticket_time_logs / data_requests ==");
+
+  await check("auditor CANNOT create a kb_article", async () => {
+    await assertFails(addDoc(collection(auditor, "kb_articles"), { title: "How to", body: "..." }));
+  });
+
+  await check("a real support agent CAN still create a kb_article", async () => {
+    await assertSucceeds(addDoc(collection(support, "kb_articles"), { title: "How to", body: "..." }));
+  });
+
+  await check("auditor CANNOT log a ticket_time_logs session", async () => {
+    await assertFails(addDoc(collection(auditor, "ticket_time_logs", "ticket1", "sessions"), {
+      startedAt: serverTimestamp(),
+    }));
+  });
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("data_requests/req1").set({ uid: "someone-uid", status: "pending" });
+  });
+
+  await check("auditor CANNOT approve a data_request (set downloadUrl)", async () => {
+    await assertFails(updateDoc(doc(auditor, "data_requests", "req1"), {
+      status: "fulfilled", downloadUrl: "https://example.com/export.zip",
+    }));
+  });
+
+  await check("a real ops agent CAN still approve a data_request", async () => {
+    await assertSucceeds(updateDoc(doc(support, "data_requests", "req1"), {
+      status: "fulfilled", downloadUrl: "https://example.com/export.zip",
+    }));
   });
 
   console.log(`\n${pass} passed, ${fail} failed (of ${pass + fail})`);
