@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# P0 6: blocking local pre-push secret scan.
+#
+# CI (.github/workflows/security.yml) already runs gitleaks on every push
+# and PR, but that only catches a leak AFTER it's already on GitHub. This
+# hook runs the same scan (against .gitleaks.toml at the repo root) before a
+# push leaves your machine at all.
+#
+# One-time setup (per clone):
+#   git config core.hooksPath .githooks
+#
+# Requires the gitleaks CLI: `brew install gitleaks` (macOS) or see
+# https://github.com/gitleaks/gitleaks#installing
+
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "❌ pre-push: gitleaks is not installed — refusing to push without a secret scan."
+  echo "   Install it: brew install gitleaks   (or see https://github.com/gitleaks/gitleaks#installing)"
+  echo "   To skip once (not recommended): git push --no-verify"
+  exit 1
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+echo "🔎 pre-push: scanning for secrets with gitleaks…"
+if ! gitleaks detect --source "$repo_root" --no-git --config "$repo_root/.gitleaks.toml" --redact; then
+  echo ""
+  echo "❌ pre-push: gitleaks found something that looks like a secret. Push blocked."
+  echo "   Fix the finding above, or if it's a false positive, add it to the"
+  echo "   [allowlist] in .gitleaks.toml (with a comment explaining why)."
+  echo "   To skip once (not recommended): git push --no-verify"
+  exit 1
+fi
+
+echo "✅ pre-push: no secrets found."

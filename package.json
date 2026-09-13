@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@google/genai": "^1.28.0",
