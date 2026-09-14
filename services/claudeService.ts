@@ -6,19 +6,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { AppData, User, Job, VerifiedSkill, CandidateSearchResult } from '../types';
-import { auth } from '../lib/firebase';
 
 // ── Base caller ───────────────────────────────────────────────────────────────
 
 async function callClaude(prompt: string, system?: string, maxTokens = 1500): Promise<string> {
-  // api/claude.js now requires a Firebase ID token (P1 fix — it was an
-  // unauthenticated proxy to a paid API before).
-  const idToken = await auth.currentUser?.getIdToken();
-  if (!idToken) throw new Error('AI service unavailable. Please try again.');
-
   const response = await fetch('/api/claude', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, system, maxTokens }),
   });
 

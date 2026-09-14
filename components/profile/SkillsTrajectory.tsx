@@ -19,7 +19,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../../lib/firebase';
+import { db } from '../../lib/firebase';
 
 const GREEN = '#1a4a3a';
 
@@ -88,14 +88,9 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
     setAnalyzing(true);
     setError('');
     try {
-      // api/skills-trajectory requires a Firebase ID token (P1 fix — it
-      // was an unauthenticated proxy to a paid API before).
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Not signed in');
-
       const res = await fetch('/api/skills-trajectory', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ skills: validSkills, industry }),
       });
       const data = await res.json();
