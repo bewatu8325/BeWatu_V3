@@ -1102,7 +1102,12 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
     });
     setSuccessBanner(`Successfully applied for ${job.title}!`);
     const firestoreJob = (data?.jobs as any[])?.find(j => j.id === job.id);
-    if (firestoreJob?._firestoreId) await applyToJobWithProfile(firestoreJob._firestoreId, job.id, fbUser.uid);
+    if (firestoreJob?._firestoreId) {
+      // Bug fix (Recruiter Talent Pipeline): recruiterUid must be written
+      // onto the application at creation time, or the recruiter's own
+      // pipeline query never finds it — see firestoreService.ts.
+      await applyToJobWithProfile(firestoreJob._firestoreId, job.id, fbUser.uid, firestoreJob.recruiterUid);
+    }
   };
 
   const handleAddJob = async (newJobData: Omit<Job, 'id'>) => {

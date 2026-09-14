@@ -1156,29 +1156,77 @@ export async function endorseSkill(
 
 // ─── Talent Pipeline ──────────────────────────────────────────────────────────
 
-export async function getPipelineCandidates(recruiterId: string) {
+import type { PipelineCandidate } from '../components/recruiter/TalentPipeline';
+
+export async function getPipelineCandidates(recruiterId: string): Promise<PipelineCandidate[]> {
+  // Bug fix (Recruiter Talent Pipeline): this queried `recruiterId` and
+  // ordered by `createdAt` — neither field is ever written onto an
+  // application doc (applyToJobWithProfile writes `recruiterUid` and
+  // `appliedAt`), so this always returned zero results. Also now excludes
+  // rejected candidates — DEFAULT_PIPELINE_STAGES (the board's columns)
+  // has no "Rejected" column, so a rejected application has nowhere to
+  // render; it should simply leave the board, not error or vanish
+  // silently into an unrendered bucket.
+  let docs;
   try {
-    // Composite index: recruiterId ASC + createdAt DESC
-    // Create in Firebase Console if this fails
     const q = query(
       collection(db, 'applications'),
-      where('recruiterId', '==', recruiterId),
-      orderBy('createdAt', 'desc')
+      where('recruiterUid', '==', recruiterId),
+      orderBy('appliedAt', 'desc')
     );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    docs = (await getDocs(q)).docs;
   } catch (err: any) {
     if (err?.code === 'failed-precondition' || err?.message?.includes('index')) {
-      // Index not yet built — fall back to unordered
+      // Composite index (recruiterUid ASC + appliedAt DESC) not yet built
+      // — create in Firebase Console if this fall-back ever fires in
+      // practice. Fall back to unordered.
       const q = query(
         collection(db, 'applications'),
-        where('recruiterId', '==', recruiterId)
+        where('recruiterUid', '==', recruiterId)
       );
-      const snap = await getDocs(q);
-      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs = (await getDocs(q)).docs;
+    } else {
+      throw err;
     }
-    throw err;
   }
+
+  const applications = docs
+    .map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) }))
+    .filter((a) => a.status !== 'rejected');
+
+  // Hydrate each application with the applicant's real profile — the
+  // pipeline board (and its expanded card view) needs name/avatar/bio/
+  // skills/availability/values, none of which live on the application
+  // doc itself. Mirrors fetchApplicantsForJob's existing users-by-uid
+  // lookup pattern.
+  return Promise.all(
+    applications.map(async (app): Promise<PipelineCandidate> => {
+      let profile: Record<string, any> = {};
+      try {
+        const userSnap = await getDocs(
+          query(collection(db, 'users'), where('uid', '==', app.applicantUid))
+        );
+        if (!userSnap.empty) profile = userSnap.docs[0].data();
+      } catch { /* candidate still renders with placeholder fields below */ }
+
+      return {
+        id: app.id,
+        userId: profile.numericId ?? profile.id ?? 0,
+        stage: app.stage ?? 'New Applicants',
+        name: profile.name ?? 'Applicant',
+        headline: profile.headline ?? '',
+        avatarUrl: profile.avatarUrl ?? `https://i.pravatar.cc/150?u=${app.applicantUid}`,
+        notes: Array.isArray(app.notes) ? app.notes.map((n: any) => n.text).join('\n') : undefined,
+        addedAt: app.appliedAt?.toDate?.()?.toISOString?.() ?? undefined,
+        bio: profile.bio,
+        skills: profile.skills,
+        availability: profile.availability,
+        values: profile.values,
+        isVerified: profile.isVerified,
+        applicantUid: app.applicantUid,
+      };
+    })
+  );
 }
 
 export async function movePipelineCandidate(
@@ -1386,15 +1434,28 @@ export async function getOrCreateCompanyForRecruiter(
 export async function applyToJobWithProfile(
   jobFirestoreId: string,
   jobNumericId: number,
-  applicantUid: string
+  applicantUid: string,
+  recruiterUid?: string
 ): Promise<void> {
-  await addDoc(collection(db, 'applications'), {
+  // Bug fix (Recruiter Talent Pipeline): this never wrote a recruiterUid
+  // (or any recruiter reference at all) onto the application doc, so
+  // getPipelineCandidates' where('recruiterUid', ...) query — and
+  // fetchPipelineAnalytics'/fetchApplicantsWithProfiles' identical queries
+  // — always matched zero documents. `stage` is new too: the pipeline
+  // board buckets candidates by this field (movePipelineCandidate already
+  // wrote it on moves, but nothing ever set an initial value), separate
+  // from `status`, which stays 'applied'/'rejected' for the older
+  // analytics/applicant-inbox consumers that key on it instead.
+  const safeUpdates: Record<string, any> = {
     jobFirestoreId,
     jobNumericId,
     applicantUid,
     status: 'applied',
+    stage: 'New Applicants',
     appliedAt: serverTimestamp(),
-  });
+  };
+  if (recruiterUid) safeUpdates.recruiterUid = recruiterUid;
+  await addDoc(collection(db, 'applications'), safeUpdates);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
