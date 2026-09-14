@@ -16,6 +16,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, View } from '../types';
+import { auth } from '../lib/firebase';
 import {
   Sparkles, TrendingUp, Users, Trophy, Zap,
   ChevronRight, RefreshCw, CheckCircle2, AlertCircle,
@@ -182,17 +183,23 @@ Missing from profile: ${profile.missing.slice(0, 2).join(', ') || 'nothing'}
 
 Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
 
-    fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system: 'You are a concise career intelligence assistant for BeWatu, a professional network that bridges generations of professionals. Give warm, direct, specific advice. Never be generic.',
-        prompt,
-        maxTokens: 120,
-      }),
-    })
-      .then(r => r.json())
-      .then(d => setAiInsight(d.text ?? null))
+    // api/claude requires a Firebase ID token (P1 fix — it was an
+    // unauthenticated proxy to a paid API before).
+    auth.currentUser?.getIdToken()
+      .then(idToken => {
+        if (!idToken) throw new Error('Not signed in');
+        return fetch('/api/claude', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+          body: JSON.stringify({
+            system: 'You are a concise career intelligence assistant for BeWatu, a professional network that bridges generations of professionals. Give warm, direct, specific advice. Never be generic.',
+            prompt,
+            maxTokens: 120,
+          }),
+        });
+      })
+      .then(r => r?.json())
+      .then(d => setAiInsight(d?.text ?? null))
       .catch(() => setAiInsight(null))
       .finally(() => setAiLoading(false));
   }, [currentUser?.name, refreshKey]);
