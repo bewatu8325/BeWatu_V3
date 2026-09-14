@@ -463,6 +463,21 @@ const MainApp: React.FC = () => {
 
   // ── Auth handlers ─────────────────────────────────────────────────────────
 
+  // Bug fix (paywall finding, bug 1 of 2): the 30-day recruiter trial clock
+  // used to only ever start inside handleFirebaseLogin — never on
+  // registration or Google login. Since isTrialActive's own initializer
+  // defaults to "active" when no end-date exists at all, a recruiter who
+  // registered or used Google sign-in got a permanent, never-counting-down
+  // free trial by accident. Extracted so every recruiter auth path starts
+  // the same real clock, exactly once (never overwrites an existing date).
+  const startRecruiterTrialIfNeeded = () => {
+    const end = localStorage.getItem('recruiterTrialEndDate');
+    if (!end) {
+      const d = new Date(); d.setDate(d.getDate() + 30);
+      localStorage.setItem('recruiterTrialEndDate', d.toISOString());
+    }
+  };
+
   const handleLoginSuccess = async (email: string, isRecruiterLogin: boolean) => {
     setActiveProfile(isRecruiterLogin ? 'recruiter' : 'user');
   };
@@ -474,13 +489,7 @@ const MainApp: React.FC = () => {
       const user = await loginWithEmail(email, password);
       setActiveProfile(isRecruiterLogin ? 'recruiter' : 'user');
       setAuthState('authenticated');
-      if (isRecruiterLogin) {
-        const end = localStorage.getItem('recruiterTrialEndDate');
-        if (!end) {
-          const d = new Date(); d.setDate(d.getDate() + 30);
-          localStorage.setItem('recruiterTrialEndDate', d.toISOString());
-        }
-      }
+      if (isRecruiterLogin) startRecruiterTrialIfNeeded();
       await loadAppData(user);
     } catch (err: any) {
       setError(err.message ?? 'Login failed. Please check your credentials.');
@@ -495,6 +504,7 @@ const MainApp: React.FC = () => {
       const user = await loginWithGoogle(isRecruiterLogin);
       setActiveProfile(isRecruiterLogin ? 'recruiter' : 'user');
       setAuthState('authenticated');
+      if (isRecruiterLogin) startRecruiterTrialIfNeeded();
       await loadAppData(user);
     } catch (err: any) {
       setError(err.message ?? 'Google sign-in failed.');
@@ -509,6 +519,7 @@ const MainApp: React.FC = () => {
       if (stripeCustomerId && fbUser) await setStripeCustomerId(fbUser.uid, stripeCustomerId);
       setActiveProfile(isRecruiter ? 'recruiter' : 'user');
       setAuthState('authenticated');
+      if (isRecruiter) startRecruiterTrialIfNeeded();
       const userToLoad = currentUser ?? {
         id: Date.now(), name, headline: '', bio: '', avatarUrl: '',
         industry: '', professionalGoals: [], reputation: 0, credits: 100,
