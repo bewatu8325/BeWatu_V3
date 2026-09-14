@@ -23,7 +23,9 @@ import {
   changePassword,
   updateUserInFirestore,
   setStripeCustomerId,
+  startRecruiterTrialIfNeeded,
 } from './lib/firebaseAuth';
+import { auth } from './lib/firebase';
 
 // ── Firestore services (single import block) ──────────────────────────────────
 import {
@@ -190,11 +192,24 @@ const MainApp: React.FC = () => {
   const [talentPipeline, setTalentPipeline] = useState<{ [key: string]: User[] }>({
     'New Applicants': [], 'Sourced': [], 'Screening': [], 'Interview': [], 'Offer': [], 'Hired': [],
   });
-  const [isTrialActive, setIsTrialActive] = useState<boolean>(() => {
-    const end = localStorage.getItem('recruiterTrialEndDate');
-    return end ? new Date().getTime() < new Date(end).getTime() : true;
-  });
+  // Hardening (launch-readiness review, P1): this used to be a synchronous
+  // localStorage read — trivially bypassed by clearing site data, an
+  // incognito window, or a different browser, giving a recruiter an
+  // unbounded string of fresh 30-day trials. recruiterTrialEndDate now
+  // lives on the user's own Firestore doc (see firestore.rules'
+  // isFirstTimeTrialDateSet: settable once, never resettable by the
+  // recruiter). currentUser isn't available synchronously at mount, so
+  // this starts optimistic (true) and the effect below corrects it once
+  // the real doc loads — RecruiterConsole's own !isTrialActive checks on
+  // search/actions still enforce the real value the moment it's known.
+  const [isTrialActive, setIsTrialActive] = useState<boolean>(true);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser?.isRecruiter) return;
+    const end = currentUser.recruiterTrialEndDate;
+    setIsTrialActive(end ? new Date().getTime() < new Date(end).getTime() : true);
+  }, [currentUser?.isRecruiter, currentUser?.recruiterTrialEndDate]);
 
   // ── Auto-restore session ──────────────────────────────────────────────────
   useEffect(() => {
@@ -468,14 +483,19 @@ const MainApp: React.FC = () => {
   // registration or Google login. Since isTrialActive's own initializer
   // defaults to "active" when no end-date exists at all, a recruiter who
   // registered or used Google sign-in got a permanent, never-counting-down
-  // free trial by accident. Extracted so every recruiter auth path starts
-  // the same real clock, exactly once (never overwrites an existing date).
-  const startRecruiterTrialIfNeeded = () => {
-    const end = localStorage.getItem('recruiterTrialEndDate');
-    if (!end) {
-      const d = new Date(); d.setDate(d.getDate() + 30);
-      localStorage.setItem('recruiterTrialEndDate', d.toISOString());
-    }
+  // free trial by accident. Every recruiter auth path below now calls the
+  // same Firestore-backed lib/firebaseAuth.ts helper, exactly once (it never
+  // overwrites an existing date, and firestore.rules enforces that server-side
+  // too). Uses auth.currentUser?.uid rather than the fbUser from context —
+  // fbUser is a React closure captured when each handler started, and would
+  // still read stale (usually null) here since nothing re-renders this
+  // in-flight closure mid-await; auth.currentUser is the live Firebase SDK
+  // singleton and is reliably up to date the instant sign-in resolves.
+  const startTrialAndRefresh = async (loggedInUser: User) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const trialEnd = await startRecruiterTrialIfNeeded(uid);
+    refreshUser({ ...loggedInUser, recruiterTrialEndDate: trialEnd } as any);
   };
 
   const handleLoginSuccess = async (email: string, isRecruiterLogin: boolean) => {
@@ -489,7 +509,7 @@ const MainApp: React.FC = () => {
       const user = await loginWithEmail(email, password);
       setActiveProfile(isRecruiterLogin ? 'recruiter' : 'user');
       setAuthState('authenticated');
-      if (isRecruiterLogin) startRecruiterTrialIfNeeded();
+      if (isRecruiterLogin) await startTrialAndRefresh(user);
       await loadAppData(user);
     } catch (err: any) {
       setError(err.message ?? 'Login failed. Please check your credentials.');
@@ -502,9 +522,10 @@ const MainApp: React.FC = () => {
     try {
       setLoading(true);
       const user = await loginWithGoogle(isRecruiterLogin);
+      if (!user) throw new Error('Google sign-in failed.');
       setActiveProfile(isRecruiterLogin ? 'recruiter' : 'user');
       setAuthState('authenticated');
-      if (isRecruiterLogin) startRecruiterTrialIfNeeded();
+      if (isRecruiterLogin) await startTrialAndRefresh(user);
       await loadAppData(user);
     } catch (err: any) {
       setError(err.message ?? 'Google sign-in failed.');
@@ -519,7 +540,6 @@ const MainApp: React.FC = () => {
       if (stripeCustomerId && fbUser) await setStripeCustomerId(fbUser.uid, stripeCustomerId);
       setActiveProfile(isRecruiter ? 'recruiter' : 'user');
       setAuthState('authenticated');
-      if (isRecruiter) startRecruiterTrialIfNeeded();
       const userToLoad = currentUser ?? {
         id: Date.now(), name, headline: '', bio: '', avatarUrl: '',
         industry: '', professionalGoals: [], reputation: 0, credits: 100,
@@ -528,6 +548,7 @@ const MainApp: React.FC = () => {
         values: [], availability: 'Exploring opportunities' as const,
         skills: [], verifiedSkills: null, microIntroductionUrl: null,
       };
+      if (isRecruiter) await startTrialAndRefresh(userToLoad as User);
       await loadAppData(userToLoad);
       // Only show terms wall if user hasn't agreed to current version
       const sessionAgreed = sessionStorage.getItem('termsAgreedThisSession');

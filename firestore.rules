@@ -91,6 +91,20 @@ service cloud.firestore {
       return request.auth.uid == uid;
     }
 
+    // P1 fix (launch-readiness review): recruiterTrialEndDate used to
+    // live only in the client's localStorage — trivially bypassed by
+    // clearing site data, using a private window, or a different
+    // browser, giving a recruiter an unlimited string of fresh 30-day
+    // trials. Moving it into this doc closes that, but only if the
+    // field can be set once and never reset by the recruiter
+    // themselves — this helper is that one-way gate. Ops/platform
+    // admin are deliberately NOT restricted by it (a real, low-risk
+    // support need: correcting or extending a trial), matching how
+    // they already bypass every other client-write restriction below.
+    function isFirstTimeTrialDateSet(before, after) {
+      return !('recruiterTrialEndDate' in before) && 'recruiterTrialEndDate' in after;
+    }
+
     // ── Factory identity helpers (Decision 4) ──────────────────────────────
     // A Factory-only investor account: a Firebase Auth user with a
     // factory_investors doc but NO users/{uid} BeWatu profile.
@@ -491,7 +505,12 @@ service cloud.firestore {
       allow update: if isAuth() && (
         request.auth.uid == uid || isPlatformAdmin() || isOpsStaff()
       ) && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['isPlatformAdmin', 'isRecruiter']);
+             .hasAny(['isPlatformAdmin', 'isRecruiter'])
+        && (
+          isPlatformAdmin() || isOpsStaff()
+          || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['recruiterTrialEndDate'])
+          || isFirstTimeTrialDateSet(resource.data, request.resource.data)
+        );
       allow delete: if false;
 
       // Notifications subcollection — pod invites, approvals, activity.
