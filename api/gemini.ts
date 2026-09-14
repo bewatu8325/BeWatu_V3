@@ -3,14 +3,24 @@ import { GoogleGenAI } from '@google/genai';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 
-// Whitelist of approved models — update here when Google deprecates models
+// Whitelist of approved models — update here when Google deprecates models.
+//
+// P2, found via a live production error while verifying an unrelated fix:
+// gemini-2.0-flash-lite/-flash were shut down by Google on 2026-06-01 —
+// every call here had been returning a clean 404 from Google (caught and
+// surfaced as a 500, not a crash) since then, so every AI feature routed
+// through this endpoint (chat greeting/replies, synergy analysis, job-match
+// analysis) had likely been silently failing for months. Replaced with the
+// current (Sept 2026) Gemini 3.x line — gemini-3.5-flash-lite is Google's
+// own migration recommendation for gemini-2.0-flash-lite specifically, and
+// is the newest currently-GA "lite" tier.
 const APPROVED_MODELS = [
-  'gemini-2.0-flash-lite',
-  'gemini-2.0-flash',
-  'gemini-1.5-pro',
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-3.1-pro',
 ];
 
-const DEFAULT_MODEL = 'gemini-2.0-flash-lite';
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 
 // P1 (cost-abuse / input validation): this endpoint proxies to a paid
 // Gemini model and had NO authentication at all — anyone on the
