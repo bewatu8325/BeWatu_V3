@@ -9,7 +9,10 @@ const BG       = '#f0ede6';
 const AboutPage: React.FC<{
   onNavigateBack:      () => void;
   onNavigateToConnect: () => void;
-}> = ({ onNavigateBack, onNavigateToConnect }) => (
+  onNavigateToTerms?:     () => void;
+  onNavigateToPrivacy?:   () => void;
+  onNavigateToCommunity?: () => void;
+}> = ({ onNavigateBack, onNavigateToConnect, onNavigateToTerms, onNavigateToPrivacy, onNavigateToCommunity }) => (
   <div className="min-h-screen flex flex-col overflow-x-hidden" style={{ backgroundColor: BG }}>
 
     {/* Nav */}
@@ -141,7 +144,12 @@ const AboutPage: React.FC<{
 
     </main>
 
-    <Footer onNavigateToConnect={onNavigateToConnect} />
+    <Footer
+      onNavigateToConnect={onNavigateToConnect}
+      onNavigateToTerms={onNavigateToTerms}
+      onNavigateToPrivacy={onNavigateToPrivacy}
+      onNavigateToCommunity={onNavigateToCommunity}
+    />
   </div>
 );
 

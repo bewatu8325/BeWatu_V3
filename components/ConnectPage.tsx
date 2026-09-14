@@ -5,7 +5,12 @@ import Footer from './Footer';
 const GREEN = '#1a4a3a';
 const BG    = '#f0ede6';
 
-const ConnectPage: React.FC<{ onNavigateBack: () => void }> = ({ onNavigateBack }) => {
+const ConnectPage: React.FC<{
+  onNavigateBack: () => void;
+  onNavigateToTerms?:     () => void;
+  onNavigateToPrivacy?:   () => void;
+  onNavigateToCommunity?: () => void;
+}> = ({ onNavigateBack, onNavigateToTerms, onNavigateToPrivacy, onNavigateToCommunity }) => {
   const [name, setName]           = useState('');
   const [email, setEmail]         = useState('');
   const [message, setMessage]     = useState('');
@@ -151,7 +156,12 @@ const ConnectPage: React.FC<{ onNavigateBack: () => void }> = ({ onNavigateBack 
         </div>
       </main>
 
-      <Footer onNavigateToConnect={() => {}} />
+      <Footer
+        onNavigateToConnect={() => {}}
+        onNavigateToTerms={onNavigateToTerms}
+        onNavigateToPrivacy={onNavigateToPrivacy}
+        onNavigateToCommunity={onNavigateToCommunity}
+      />
     </div>
   );
 };

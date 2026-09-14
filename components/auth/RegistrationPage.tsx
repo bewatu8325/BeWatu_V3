@@ -19,9 +19,15 @@ interface RegistrationPageProps {
   onNavigateToLogin: () => void;
   onNavigateToConnect: () => void;
   onNavigateToLanding: () => void;
+  onNavigateToTerms?:     () => void;
+  onNavigateToPrivacy?:   () => void;
+  onNavigateToCommunity?: () => void;
 }
 
-const RegistrationPage: React.FC<RegistrationPageProps> = ({ onRegisterSuccess, onNavigateToLogin, onNavigateToConnect, onNavigateToLanding }) => {
+const RegistrationPage: React.FC<RegistrationPageProps> = ({
+  onRegisterSuccess, onNavigateToLogin, onNavigateToConnect, onNavigateToLanding,
+  onNavigateToTerms, onNavigateToPrivacy, onNavigateToCommunity,
+}) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -143,7 +149,14 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({ onRegisterSuccess, 
     const inputClass = "w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:border-green-700 transition";
 
   return (
-    <AuthLayout title={t('createYourAccount')} onNavigateToConnect={onNavigateToConnect} onNavigateToLanding={onNavigateToLanding}>
+    <AuthLayout
+      title={t('createYourAccount')}
+      onNavigateToConnect={onNavigateToConnect}
+      onNavigateToLanding={onNavigateToLanding}
+      onNavigateToTerms={onNavigateToTerms}
+      onNavigateToPrivacy={onNavigateToPrivacy}
+      onNavigateToCommunity={onNavigateToCommunity}
+    >
       {isPolicyVisible && <BillingPolicyModal onClose={() => setIsPolicyVisible(false)} />}
       <p className="text-sm text-center text-stone-500 -mt-3 mb-6 text-pretty">{t('registerSubtitle')}</p>
       <form onSubmit={handleSubmit} className="space-y-4">

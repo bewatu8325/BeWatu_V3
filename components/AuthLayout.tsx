@@ -7,9 +7,15 @@ interface AuthLayoutProps {
   children: React.ReactNode;
   onNavigateToConnect?: () => void;
   onNavigateToLanding: () => void;
+  onNavigateToTerms?:     () => void;
+  onNavigateToPrivacy?:   () => void;
+  onNavigateToCommunity?: () => void;
 }
 
-const AuthLayout: React.FC<AuthLayoutProps> = ({ title, children, onNavigateToConnect, onNavigateToLanding }) => {
+const AuthLayout: React.FC<AuthLayoutProps> = ({
+  title, children, onNavigateToConnect, onNavigateToLanding,
+  onNavigateToTerms, onNavigateToPrivacy, onNavigateToCommunity,
+}) => {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f5f5f4' }}>
       <main className="flex-grow flex items-center justify-center p-4 py-12">
@@ -28,7 +34,12 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ title, children, onNavigateToCo
           </div>
         </div>
       </main>
-      <Footer onNavigateToConnect={onNavigateToConnect} />
+      <Footer
+        onNavigateToConnect={onNavigateToConnect}
+        onNavigateToTerms={onNavigateToTerms}
+        onNavigateToPrivacy={onNavigateToPrivacy}
+        onNavigateToCommunity={onNavigateToCommunity}
+      />
     </div>
   );
 };
