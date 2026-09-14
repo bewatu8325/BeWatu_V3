@@ -36,7 +36,13 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   pro: {
     id:          'pro',
     label:       'Pro',
-    price:       19,
+    // Was 19 — stale. Confirmed against the real Stripe price
+    // (STRIPE_PRO_PRICE_ID) this tier actually charges: $20/mo.
+    // priceAnnual below is NOT independently confirmed against a real
+    // Stripe price — api/create-subscription.ts has no separate annual
+    // price lookup at all, so this figure may be display-only and stale
+    // too. Not touched without the same kind of confirmation.
+    price:       20,
     priceAnnual: 190,
     level:       3,
     color:       'text-blue-500',

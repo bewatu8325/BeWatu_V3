@@ -1,15 +1,89 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { LogoIcon } from '../../constants';
+import { setStripeCustomerId, updateUserInFirestore } from '../../lib/firebaseAuth';
+import { useFirebase } from '../../contexts/FirebaseContext';
+import PaymentForm from '../PaymentForm';
 
 interface SubscriptionModalProps {
   onClose: () => void;
   onSubscribe: () => void;
 }
 
+type Step = 'review' | 'processing' | 'error';
+
+// Bug fix: this modal used to just flip a local boolean on click — real
+// pricing copy ("BeWatu Recruiter Pro, $20/month"), zero Stripe
+// integration, no charge, ever. Now uses the same proven flow
+// UpgradeModal.tsx already uses for the general Pro tier: Stripe Elements
+// card collection -> /api/create-subscription -> Firestore persistence.
+// Confirmed with the user this is the same $20/mo "pro" tier UpgradeModal
+// charges (STRIPE_PRO_PRICE_ID) — not a separate recruiter-only price.
 const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscribe }) => {
+  const { currentUser, fbUser, refreshUser } = useFirebase();
+  const [step, setStep] = useState<Step>('review');
+  const [stripeRef, setStripeRef] = useState<{ stripe: any; card: any } | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleStripeReady = useCallback((elements: { stripe: any; card: any }) => {
+    setStripeRef(elements);
+  }, []);
+
+  async function handleSubscribe() {
+    if (!stripeRef || !currentUser || !fbUser) return;
+    setStep('processing');
+
+    try {
+      const { paymentMethod, error: pmError } = await stripeRef.stripe.createPaymentMethod({
+        type: 'card',
+        card: stripeRef.card,
+        billing_details: {
+          name: currentUser.name,
+          email: fbUser.email,
+        },
+      });
+      if (pmError) throw new Error(pmError.message);
+
+      const res = await fetch('/api/create-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: currentUser.name,
+          email: fbUser.email,
+          paymentMethodId: paymentMethod.id,
+          tier: 'pro',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Subscription failed');
+
+      await setStripeCustomerId(fbUser.uid, data.customerId);
+      await updateUserInFirestore(fbUser.uid, {
+        subscriptionTier: 'pro',
+        subscriptionStatus: 'trialing',
+        subscriptionId: data.subscriptionId,
+        subscriptionPriceId: data.subscriptionPriceId,
+        trialEndsAt: data.trialEnd ? new Date(data.trialEnd * 1000).toISOString() : null,
+      } as any);
+
+      refreshUser({
+        ...currentUser,
+        stripeCustomerId: data.customerId,
+        subscriptionTier: 'pro',
+        subscriptionStatus: 'trialing',
+        subscriptionId: data.subscriptionId,
+      } as any);
+
+      onSubscribe();
+    } catch (err: any) {
+      setErrorMessage(err.message ?? 'Something went wrong');
+      setStep('review');
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-center backdrop-blur-sm">
-      <div 
+      <div
         className="bg-slate-800/90 backdrop-blur-xl border border-slate-700 rounded-xl shadow-xl w-full max-w-md text-center p-8"
         onClick={e => e.stopPropagation()}
       >
@@ -27,18 +101,33 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
           <li className="flex items-center"><span className="text-cyan-400 mr-2">✓</span> Transparent AI matching scores</li>
           <li className="flex items-center"><span className="text-cyan-400 mr-2">✓</span> Advanced filtering by intent & values</li>
         </ul>
-        <button 
-          onClick={onSubscribe}
-          className="w-full mt-8 bg-cyan-500 text-slate-900 font-semibold py-2.5 rounded-lg hover:bg-cyan-400 transition-colors"
+
+        <div className="my-6 text-left">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+            Payment details
+          </p>
+          <PaymentForm onReady={handleStripeReady} disabled={step === 'processing'} />
+        </div>
+
+        {errorMessage && (
+          <p className="text-red-400 text-sm mb-4">{errorMessage}</p>
+        )}
+
+        <button
+          onClick={handleSubscribe}
+          disabled={step === 'processing' || !stripeRef}
+          className="w-full mt-2 bg-cyan-500 text-slate-900 font-semibold py-2.5 rounded-lg hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
-          Subscribe Now
+          {step === 'processing' ? 'Processing…' : 'Subscribe Now'}
         </button>
-        <button 
+        <button
           onClick={onClose}
-          className="mt-3 text-sm text-slate-400 hover:text-slate-200"
+          disabled={step === 'processing'}
+          className="mt-3 text-sm text-slate-400 hover:text-slate-200 disabled:opacity-50"
         >
           Maybe later
         </button>
+        <p className="mt-4 text-xs text-slate-500">Secured by Stripe. Cancel anytime.</p>
       </div>
     </div>
   );
