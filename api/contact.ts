@@ -137,6 +137,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!emailRes.ok) {
     const body = await emailRes.text();
     console.error('Resend error:', body);
+    // TEMPORARY diagnostic (launch-readiness review) — the first live test
+    // send failed with a generic 500 and no way to see Resend's real error
+    // from this session. Surfaces it once, behind a query param nobody would
+    // guess, so real users still only ever see the generic message. Removed
+    // in the very next commit once the root cause is confirmed.
+    if (req.query.debug === 'bewatu-contact-diag-2026') {
+      return res.status(500).json({ error: 'Failed to send your message. Please try again.', resendStatus: emailRes.status, resendBody: body });
+    }
     return res.status(500).json({ error: 'Failed to send your message. Please try again.' });
   }
 
