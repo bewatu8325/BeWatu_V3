@@ -1,11 +1,18 @@
 import { AppData, User, Job, VerifiedSkill, CandidateSearchResult } from '../types';
+import { auth } from '../lib/firebase';
 
 // Helper function to call our secure API gateway
 async function callGeminiApi(body: object): Promise<any> {
+  // api/gemini.ts now requires a Firebase ID token (P1 fix — it was an
+  // unauthenticated proxy to a paid API before).
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) throw new Error('Failed to call the Gemini API via the secure gateway.');
+
   const response = await fetch('/api/gemini', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${idToken}`,
     },
     body: JSON.stringify(body),
   });

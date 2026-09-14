@@ -12,6 +12,7 @@
  */
 
 import React, { useState } from 'react';
+import { auth } from '../../lib/firebase';
 
 const GREEN    = '#1a4a3a';
 const GREEN_LT = '#e8f4f0';
@@ -99,9 +100,14 @@ const SkillResume: React.FC<SkillResumeProps> = ({ user, isOwn }) => {
     setResume('');
     setExpanded(true);
     try {
+      // api/claude requires a Firebase ID token (P1 fix — it was an
+      // unauthenticated proxy to a paid API before).
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('Not signed in');
+
       const res = await fetch('/api/claude', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({
           system: 'You are an expert resume writer. Output plain text only — no markdown, no asterisks, no bullet symbols. Use ALL-CAPS for section headings.',
           prompt: buildPrompt(user),
