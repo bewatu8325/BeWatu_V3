@@ -98,12 +98,27 @@ async function analyzeLogBatch(logs: any[], db: ReturnType<typeof getFirestore>)
   }
 }
 
+// P1 (input validation): the comment this replaced claimed "log drain
+// secret verification is handled by Vercel's signature header" — but no
+// such verification was ever implemented anywhere in this file. This
+// handler accepted any unauthenticated POST body as a "log batch" and fed
+// it straight into analyzeLogBatch(), which can write directly to
+// security_events (a real Firestore write, no rules layer in front of it
+// since this runs on the Admin SDK) — an unauthenticated caller could
+// spam fabricated "mass deletion" / "auth failure spike" log lines to
+// pollute the security-monitoring pipeline with fake critical events.
+// Configure Vercel's Log Drain with this same BEWATU_SECURITY_TOKEN as
+// its bearer credential so real log deliveries keep working.
+function validateServiceToken(req: VercelRequest): boolean {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) return false;
+  const token = auth.slice(7);
+  return !!process.env.BEWATU_SECURITY_TOKEN && token === process.env.BEWATU_SECURITY_TOKEN;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  // Log drain secret verification is handled by Vercel's signature header.
-  // We accept all incoming requests — findings are only created via
-  // the internal postFinding() call which uses BEWATU_SECURITY_TOKEN.
+  if (!validateServiceToken(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     const { db } = initAdmin();

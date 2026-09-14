@@ -81,6 +81,16 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: 'domain is required' }), { status: 400 });
   }
 
+  // P1 (input validation): domain was passed straight through into a
+  // Firestore document ID (getCachedTeaser/setCachedTeaser's docKey) and a
+  // URL path segment with only a dot->underscore swap, no real format
+  // check. A domain containing other Firestore-reserved characters or
+  // wildly malformed input would either error unhelpfully or write a junk
+  // cache entry. Real domains are letters/digits/hyphens/dots only.
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain) || domain.length > 253) {
+    return new Response(JSON.stringify({ error: 'domain is not a valid hostname' }), { status: 400 });
+  }
+
   const apiKey = process.env.COSENTIMENT_API_KEY;
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'CoSentiment API key not configured' }), { status: 500 });

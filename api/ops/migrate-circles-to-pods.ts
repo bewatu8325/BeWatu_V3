@@ -28,8 +28,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   // Simple ops auth check
+  //
+  // P1 (input validation): this used to be a bare `!==` compare against
+  // the env var with no guard for either side being unset. If
+  // BEWATU_SECURITY_TOKEN were ever unset in this environment, an attacker
+  // simply omitting the x-ops-token header entirely would compare
+  // `undefined !== undefined` -> false, letting the check pass and this
+  // migration run unauthenticated. Same bug class as the already-fixed
+  // /api/seed finding (P0 9), just via undefined instead of empty-string
+  // coercion. Now fails closed if the secret isn't configured.
   const token = req.headers['x-ops-token'];
-  if (token !== process.env.BEWATU_SECURITY_TOKEN) {
+  if (!process.env.BEWATU_SECURITY_TOKEN || token !== process.env.BEWATU_SECURITY_TOKEN) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
