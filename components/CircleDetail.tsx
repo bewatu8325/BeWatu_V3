@@ -383,14 +383,9 @@ const CircleDetail: React.FC<CircleDetailProps> = ({
         `${stage} professionals: ${msgs.join(' | ')}`
       ).join('\n');
 
-      // api/claude requires a Firebase ID token (P1 fix — it was an
-      // unauthenticated proxy to a paid API before).
-      const idToken = await fbUser?.getIdToken();
-      if (!idToken) throw new Error('Not signed in');
-
       const res = await fetch('/api/claude', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: `Synthesise these responses to the pod challenge "${challenge.question}".
 

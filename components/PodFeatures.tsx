@@ -20,7 +20,6 @@ import {
   ChevronDown, ChevronUp, Loader2, Send, Trophy, Lightbulb,
   CheckCircle, Clock, Star, RefreshCw,
 } from 'lucide-react';
-import { auth } from '../lib/firebase';
 
 const GREEN    = '#1a4a3a';
 const GREEN_LT = '#e8f4f0';
@@ -39,14 +38,9 @@ const STAGE_CONFIG: Record<CareerStage, { label: string; colour: string; bg: str
 // ── Claude API helper ─────────────────────────────────────────────────────────
 
 async function askClaude(prompt: string, maxTokens = 800): Promise<string> {
-  // api/claude requires a Firebase ID token (P1 fix — it was an
-  // unauthenticated proxy to a paid API before).
-  const idToken = await auth.currentUser?.getIdToken();
-  if (!idToken) throw new Error('Not signed in');
-
   const res = await fetch('/api/claude', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt,
       system: 'You are a helpful assistant for BeWatu, a professional network. Be concise, insightful, and professional. Never use bullet points unless specifically asked.',
