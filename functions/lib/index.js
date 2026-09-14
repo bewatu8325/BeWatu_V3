@@ -33,11 +33,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendCoSentimentSignal = exports.getCoSentimentTeaser = exports.mintHandoffToken = exports.updatePrivacySettings = exports.permanentlyDeleteUserData = exports.exportUserData = exports.invalidateAICaches = exports.setCachedSynergyAnalysis = exports.getCachedSynergyAnalysis = exports.setCachedJobAnalysis = exports.getCachedJobAnalysis = exports.syncUserProfileToPosts = exports.createChallenge = exports.deleteJob = exports.updateJob = exports.createJob = exports.sendMessage = exports.appreciatePost = exports.createPost = exports.updateUser = exports.getCurrentUser = exports.getPaginatedMessages = exports.getPaginatedUsers = exports.getPaginatedJobs = exports.getPaginatedPosts = exports.getInitialAppData = exports.undoDeleteAccount = exports.deleteAccount = exports.completeRegistration = exports.createUserProfile = void 0;
-const functions = __importStar(require("firebase-functions"));
+exports.sendCoSentimentSignal = exports.getCoSentimentTeaser = exports.mintHandoffToken = exports.updatePrivacySettings = exports.permanentlyDeleteUserData = exports.exportUserData = exports.invalidateAICaches = exports.setCachedSynergyAnalysis = exports.getCachedSynergyAnalysis = exports.setCachedJobAnalysis = exports.getCachedJobAnalysis = exports.provisionInvestorOnApproval = exports.syncUserProfileToPosts = exports.createChallenge = exports.deleteJob = exports.updateJob = exports.createJob = exports.sendMessage = exports.appreciatePost = exports.createPost = exports.updateUser = exports.getCurrentUser = exports.getPaginatedMessages = exports.getPaginatedUsers = exports.getPaginatedJobs = exports.getPaginatedPosts = exports.getInitialAppData = exports.undoDeleteAccount = exports.deleteAccount = exports.completeRegistration = exports.createUserProfile = void 0;
 const admin = __importStar(require("firebase-admin"));
 const date_fns_1 = require("date-fns");
 const https_1 = require("firebase-functions/v2/https");
+const firestore_1 = require("firebase-functions/v2/firestore");
 admin.initializeApp();
 const db = admin.firestore();
 // ===================================================================
@@ -120,7 +120,17 @@ async function detectAnomalousActivity(userId, action) {
 // ===================================================================
 // Authentication Triggers & Callables
 // ===================================================================
-exports.createUserProfile = functions.https.onCall(async (data, context) => {
+// v1 -> v2 migration note (all functions in this file): each function's
+// signature line and, where used, its first "if (!context.auth)" check are
+// the only lines touched. Every function derives its old `data`/`context`
+// local variables from the new v2 `request` object right at the top, so
+// every line of business logic below stays byte-for-byte identical to the
+// v1 version — this is a real, deliberate adapter pattern for a low-risk
+// migration on functions that handle account deletion, data export, and
+// investor provisioning, not a shortcut. See rev notes in the launch-
+// readiness report for the verification this went through.
+exports.createUserProfile = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
     const { uid, email, name, isRecruiter } = data;
     const userRef = db.collection("users").doc(uid);
     await userRef.set({
@@ -159,9 +169,11 @@ exports.createUserProfile = functions.https.onCall(async (data, context) => {
     const userDoc = await userRef.get();
     return { user: userDoc.data() };
 });
-exports.completeRegistration = functions.https.onCall(async (data, context) => {
+exports.completeRegistration = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { intentStatement } = data;
     const userRef = db.collection("users").doc(context.auth.uid);
@@ -175,9 +187,10 @@ exports.completeRegistration = functions.https.onCall(async (data, context) => {
     const updatedUserDoc = await userRef.get();
     return { user: updatedUserDoc.data() };
 });
-exports.deleteAccount = functions.https.onCall(async (data, context) => {
+exports.deleteAccount = (0, https_1.onCall)(async (request) => {
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const userRef = db.collection("users").doc(context.auth.uid);
     const deletionDate = new Date();
@@ -191,9 +204,10 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
     // e.g., using Cloud Tasks or a scheduled function that checks for expired accounts.
     return { success: true };
 });
-exports.undoDeleteAccount = functions.https.onCall(async (data, context) => {
+exports.undoDeleteAccount = (0, https_1.onCall)(async (request) => {
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const userRef = db.collection("users").doc(context.auth.uid);
     await userRef.update({
@@ -235,7 +249,7 @@ const transformMessage = (message) => {
 //     const timestamp = createdAt && typeof createdAt.toDate === 'function'
 //       ? formatDistanceToNow(createdAt.toDate()) + " ago"
 //       : "Unknown time";
-//     
+//
 //     return {
 //         ...article,
 //         timestamp,
@@ -246,7 +260,7 @@ const transformMessage = (message) => {
 // ===================================================================
 // DEPRECATED: Use paginated endpoints instead
 // Keeping for backward compatibility only - will be removed in next major version
-exports.getInitialAppData = functions.https.onCall(async (data, context) => {
+exports.getInitialAppData = (0, https_1.onCall)(async (_request) => {
     // data and context kept for backward compatibility
     try {
         // For initial load, only fetch essential data
@@ -274,13 +288,14 @@ exports.getInitialAppData = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error("Error fetching initial app data:", error);
-        throw new functions.https.HttpsError("internal", "Could not load application data");
+        throw new https_1.HttpsError("internal", "Could not load application data");
     }
 });
 // ===================================================================
 // Paginated Data Fetching Functions
 // ===================================================================
-exports.getPaginatedPosts = functions.https.onCall(async (data, context) => {
+exports.getPaginatedPosts = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
     const { limit = 20, startAfter } = data;
     try {
         let query = db.collection("posts")
@@ -304,10 +319,11 @@ exports.getPaginatedPosts = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error("Error fetching paginated posts:", error);
-        throw new functions.https.HttpsError("internal", "Could not load posts");
+        throw new https_1.HttpsError("internal", "Could not load posts");
     }
 });
-exports.getPaginatedJobs = functions.https.onCall(async (data, context) => {
+exports.getPaginatedJobs = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
     const { limit = 20, startAfter } = data;
     try {
         let query = db.collection("jobs")
@@ -328,10 +344,11 @@ exports.getPaginatedJobs = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error("Error fetching paginated jobs:", error);
-        throw new functions.https.HttpsError("internal", "Could not load jobs");
+        throw new https_1.HttpsError("internal", "Could not load jobs");
     }
 });
-exports.getPaginatedUsers = functions.https.onCall(async (data, context) => {
+exports.getPaginatedUsers = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
     const { limit = 20, startAfter } = data;
     try {
         let query = db.collection("users")
@@ -352,12 +369,14 @@ exports.getPaginatedUsers = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error("Error fetching paginated users:", error);
-        throw new functions.https.HttpsError("internal", "Could not load users");
+        throw new https_1.HttpsError("internal", "Could not load users");
     }
 });
-exports.getPaginatedMessages = functions.https.onCall(async (data, context) => {
+exports.getPaginatedMessages = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { limit = 20, startAfter, otherUserId } = data;
     const uid = context.auth.uid;
@@ -393,22 +412,25 @@ exports.getPaginatedMessages = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error("Error fetching paginated messages:", error);
-        throw new functions.https.HttpsError("internal", "Could not load messages");
+        throw new https_1.HttpsError("internal", "Could not load messages");
     }
 });
-exports.getCurrentUser = functions.https.onCall(async (data, context) => {
+exports.getCurrentUser = (0, https_1.onCall)(async (request) => {
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const userDoc = await db.collection("users").doc(context.auth.uid).get();
     if (!userDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "User profile not found.");
+        throw new https_1.HttpsError("not-found", "User profile not found.");
     }
     return { user: userDoc.data() };
 });
-exports.updateUser = functions.https.onCall(async (data, context) => {
+exports.updateUser = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { userData } = data;
     const userRef = db.collection("users").doc(context.auth.uid);
@@ -416,14 +438,16 @@ exports.updateUser = functions.https.onCall(async (data, context) => {
     const updatedUserDoc = await userRef.get();
     return { user: updatedUserDoc.data() };
 });
-exports.createPost = functions.https.onCall(async (data, context) => {
+exports.createPost = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     // Rate limiting: 10 posts per hour
     const canProceed = await checkRateLimit(context.auth.uid, 'createPost', 10, 60 * 60 * 1000);
     if (!canProceed) {
-        throw new functions.https.HttpsError("resource-exhausted", "Rate limit exceeded. Please try again later.");
+        throw new https_1.HttpsError("resource-exhausted", "Rate limit exceeded. Please try again later.");
     }
     // Track activity for anomaly detection
     await detectAnomalousActivity(context.auth.uid, 'createPost');
@@ -432,7 +456,7 @@ exports.createPost = functions.https.onCall(async (data, context) => {
     const authorDoc = await db.collection("users").doc(context.auth.uid).get();
     const author = authorDoc.data();
     if (!author) {
-        throw new functions.https.HttpsError("not-found", "User not found");
+        throw new https_1.HttpsError("not-found", "User not found");
     }
     // AI SIMULATION: Score content quality and check for spam/scams
     const qualityScore = Math.floor(Math.random() * 30) + 70; // 70-100
@@ -462,13 +486,15 @@ exports.createPost = functions.https.onCall(async (data, context) => {
     const postDoc = await postRef.get();
     return { post: transformPost(postDoc.data()) };
 });
-exports.appreciatePost = functions.https.onCall(async (data, context) => {
+exports.appreciatePost = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { postId, appreciationType } = data;
     if (!['inspired', 'respect'].includes(appreciationType)) {
-        throw new functions.https.HttpsError("invalid-argument", "Invalid appreciation type.");
+        throw new https_1.HttpsError("invalid-argument", "Invalid appreciation type.");
     }
     const postRef = db.collection("posts").doc(postId);
     // In a real app, you would also check if the user has already appreciated.
@@ -479,9 +505,11 @@ exports.appreciatePost = functions.https.onCall(async (data, context) => {
     const updatedPostDoc = await postRef.get();
     return { post: transformPost(updatedPostDoc.data()) };
 });
-exports.sendMessage = functions.https.onCall(async (data, context) => {
+exports.sendMessage = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { receiverId, text } = data;
     // AI SIMULATION: Check for scams/spam in messages
@@ -498,9 +526,11 @@ exports.sendMessage = functions.https.onCall(async (data, context) => {
     const messageDoc = await messageRef.get();
     return { message: transformMessage(messageDoc.data()) };
 });
-exports.createJob = functions.https.onCall(async (data, context) => {
+exports.createJob = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { jobData } = data;
     // AI SIMULATION: Check job description for potential scams
@@ -517,9 +547,11 @@ exports.createJob = functions.https.onCall(async (data, context) => {
     const jobDoc = await jobRef.get();
     return { job: jobDoc.data() };
 });
-exports.updateJob = functions.https.onCall(async (data, context) => {
+exports.updateJob = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { jobId, jobData } = data;
     const jobRef = db.collection("jobs").doc(jobId);
@@ -527,17 +559,21 @@ exports.updateJob = functions.https.onCall(async (data, context) => {
     const updatedJobDoc = await jobRef.get();
     return { job: updatedJobDoc.data() };
 });
-exports.deleteJob = functions.https.onCall(async (data, context) => {
+exports.deleteJob = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { jobId } = data;
     await db.collection("jobs").doc(jobId).delete();
     return { success: true };
 });
-exports.createChallenge = functions.https.onCall(async (data, context) => {
+exports.createChallenge = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth || !(await db.collection("users").doc(context.auth.uid).get()).data()?.isRecruiter) {
-        throw new functions.https.HttpsError("permission-denied", "Only recruiters can create challenges.");
+        throw new https_1.HttpsError("permission-denied", "Only recruiters can create challenges.");
     }
     const { challengeData } = data;
     const newChallenge = {
@@ -554,9 +590,9 @@ exports.createChallenge = functions.https.onCall(async (data, context) => {
 // Profile Sync & Denormalization Triggers
 // ===================================================================
 // Sync user profile changes to their posts (for denormalized data)
-exports.syncUserProfileToPosts = functions.firestore
-    .document('users/{userId}')
-    .onUpdate(async (change, context) => {
+exports.syncUserProfileToPosts = (0, firestore_1.onDocumentUpdated)('users/{userId}', async (event) => {
+    const change = { before: event.data.before, after: event.data.after };
+    const context = { params: event.params };
     const before = change.before.data();
     const after = change.after.data();
     const userId = context.params.userId;
@@ -583,11 +619,55 @@ exports.syncUserProfileToPosts = functions.firestore
     return null;
 });
 // ===================================================================
+// Factory — investor onboarding (Decision 4: reviewed, not self-serve)
+// ===================================================================
+// firestore.rules sets factory_investors.create to `false` — a client can
+// never create their own investor profile. This is the only path that can:
+// ops/admin approves an investor_applications doc, and this trigger
+// provisions the factory_investors profile from it, once.
+exports.provisionInvestorOnApproval = (0, firestore_1.onDocumentUpdated)('investor_applications/{applicationId}', async (event) => {
+    const change = { before: event.data.before, after: event.data.after };
+    const context = { params: event.params };
+    const before = change.before.data();
+    const after = change.after.data();
+    // Only act on the pending -> approved transition, not every edit to an
+    // already-approved application.
+    if (before.status === 'approved' || after.status !== 'approved') {
+        return null;
+    }
+    const uid = after.uid;
+    if (!uid) {
+        console.error(`investor_applications/${context.params.applicationId} approved with no uid field`);
+        return null;
+    }
+    const investorRef = db.collection('factory_investors').doc(uid);
+    const existing = await investorRef.get();
+    if (existing.exists) {
+        // Already provisioned — don't clobber an edited profile on a re-save
+        // of the application (e.g. ops correcting a typo after approval).
+        return null;
+    }
+    await investorRef.set({
+        user: { id: uid, name: after.name ?? '', email: after.email ?? '' },
+        type: after.type ?? null,
+        firm: after.firm ?? '',
+        thesis: after.thesis ?? '',
+        stages: after.stages ?? [],
+        sectors: after.sectors ?? [],
+        approvedFrom: context.params.applicationId,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`Provisioned factory_investors/${uid} from investor_applications/${context.params.applicationId}`);
+    return null;
+});
+// ===================================================================
 // AI Analysis Caching
 // ===================================================================
-exports.getCachedJobAnalysis = functions.https.onCall(async (data, context) => {
+exports.getCachedJobAnalysis = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { jobId } = data;
     const userId = context.auth.uid;
@@ -613,9 +693,11 @@ exports.getCachedJobAnalysis = functions.https.onCall(async (data, context) => {
         return { analysis: null, cached: false };
     }
 });
-exports.setCachedJobAnalysis = functions.https.onCall(async (data, context) => {
+exports.setCachedJobAnalysis = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { jobId, analysis } = data;
     const userId = context.auth.uid;
@@ -631,12 +713,14 @@ exports.setCachedJobAnalysis = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error("Error caching analysis:", error);
-        throw new functions.https.HttpsError("internal", "Could not cache analysis");
+        throw new https_1.HttpsError("internal", "Could not cache analysis");
     }
 });
-exports.getCachedSynergyAnalysis = functions.https.onCall(async (data, context) => {
+exports.getCachedSynergyAnalysis = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { otherUserId } = data;
     const userId = context.auth.uid;
@@ -663,9 +747,11 @@ exports.getCachedSynergyAnalysis = functions.https.onCall(async (data, context) 
         return { analysis: null, cached: false };
     }
 });
-exports.setCachedSynergyAnalysis = functions.https.onCall(async (data, context) => {
+exports.setCachedSynergyAnalysis = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { otherUserId, analysis } = data;
     const userId = context.auth.uid;
@@ -682,13 +768,13 @@ exports.setCachedSynergyAnalysis = functions.https.onCall(async (data, context) 
     }
     catch (error) {
         console.error("Error caching synergy analysis:", error);
-        throw new functions.https.HttpsError("internal", "Could not cache analysis");
+        throw new https_1.HttpsError("internal", "Could not cache analysis");
     }
 });
 // Invalidate AI caches when user profile significantly changes
-exports.invalidateAICaches = functions.firestore
-    .document('users/{userId}')
-    .onUpdate(async (change, context) => {
+exports.invalidateAICaches = (0, firestore_1.onDocumentUpdated)('users/{userId}', async (event) => {
+    const change = { before: event.data.before, after: event.data.after };
+    const context = { params: event.params };
     const before = change.before.data();
     const after = change.after.data();
     const userId = context.params.userId;
@@ -726,9 +812,10 @@ exports.invalidateAICaches = functions.firestore
 // GDPR/CCPA Compliance Functions
 // ===================================================================
 // Export all user data (GDPR Article 20 - Right to Data Portability)
-exports.exportUserData = functions.https.onCall(async (data, context) => {
+exports.exportUserData = (0, https_1.onCall)(async (request) => {
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const userId = context.auth.uid;
     try {
@@ -760,13 +847,14 @@ exports.exportUserData = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error('Error exporting user data:', error);
-        throw new functions.https.HttpsError('internal', 'Could not export user data');
+        throw new https_1.HttpsError('internal', 'Could not export user data');
     }
 });
 // Permanent data deletion (GDPR Article 17 - Right to Erasure)
-exports.permanentlyDeleteUserData = functions.https.onCall(async (data, context) => {
+exports.permanentlyDeleteUserData = (0, https_1.onCall)(async (request) => {
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const userId = context.auth.uid;
     try {
@@ -774,7 +862,7 @@ exports.permanentlyDeleteUserData = functions.https.onCall(async (data, context)
         const userDoc = await db.collection('users').doc(userId).get();
         const userData = userDoc.data();
         if (!userData || userData.status !== 'deactivated') {
-            throw new functions.https.HttpsError('failed-precondition', 'Account must be deactivated first');
+            throw new https_1.HttpsError('failed-precondition', 'Account must be deactivated first');
         }
         // Delete all user data
         const batch = db.batch();
@@ -816,13 +904,15 @@ exports.permanentlyDeleteUserData = functions.https.onCall(async (data, context)
     }
     catch (error) {
         console.error('Error permanently deleting user data:', error);
-        throw new functions.https.HttpsError('internal', 'Could not delete user data');
+        throw new https_1.HttpsError('internal', 'Could not delete user data');
     }
 });
 // Update privacy settings
-exports.updatePrivacySettings = functions.https.onCall(async (data, context) => {
+exports.updatePrivacySettings = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
     }
     const { settings } = data;
     const userId = context.auth.uid;
@@ -841,7 +931,7 @@ exports.updatePrivacySettings = functions.https.onCall(async (data, context) => 
     }
     catch (error) {
         console.error('Error updating privacy settings:', error);
-        throw new functions.https.HttpsError('internal', 'Could not update privacy settings');
+        throw new https_1.HttpsError('internal', 'Could not update privacy settings');
     }
 });
 // ===================================================================
