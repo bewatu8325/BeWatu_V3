@@ -1052,6 +1052,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Same reasoning: api/contact.ts's per-IP rate-limit counters for the
+    // "Connect with us" contact form — server-side only via Admin SDK.
+    match /contact_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
     match /perspective_posts/{postId} {
       allow read:   if isAuth();
       allow create: if isAuth()

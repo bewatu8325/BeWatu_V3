@@ -18,7 +18,11 @@ const ConnectPage: React.FC<{
   const [isSubmitted, setIsSubmitted]   = useState(false);
   const [error, setError]         = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Bug fix (launch-readiness review): this used to be entirely fake — a
+  // hardcoded setTimeout that always showed "Message sent" with no API call
+  // at all, so nothing was ever actually delivered. Now a real send via
+  // api/contact.ts (Resend), routed to contact@abideus.com.
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !message) {
       setError('Please fill out all fields.');
@@ -26,10 +30,20 @@ const ConnectPage: React.FC<{
     }
     setError('');
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send your message.');
       setIsSubmitted(true);
-    }, 1000);
+    } catch (err: any) {
+      setError(err.message ?? 'Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const inputStyles = "w-full px-4 py-2.5 rounded-xl border bg-white text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:border-stone-400 text-sm transition-colors";
