@@ -992,9 +992,14 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
 
     let verifiedSkills: any[] = [];
     try {
+      // api/claude requires a Firebase ID token (P1 fix — it was an
+      // unauthenticated proxy to a paid API before).
+      const idToken = await fbUser?.getIdToken();
+      if (!idToken) throw new Error('Not signed in');
+
       const res = await fetch('/api/claude', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({
           system: 'You are a professional skills analyser. Return only valid JSON arrays. No markdown. No explanation.',
           prompt,

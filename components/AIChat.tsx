@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User } from '../types';
 import { BotIcon } from '../constants';
 import { useTranslation } from '../hooks/useTranslation';
+import { auth } from '../lib/firebase';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -27,9 +28,14 @@ const AIChat: React.FC<AIChatProps> = ({ currentUser }) => {
       setIsLoading(true);
       setError(null);
       try {
+          // api/gemini.ts now requires a Firebase ID token (P1 fix — it was
+          // an unauthenticated proxy to a paid API before).
+          const idToken = await auth.currentUser?.getIdToken();
+          if (!idToken) throw new Error('Not signed in');
+
           const response = await fetch('/api/gemini', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
               body: JSON.stringify({
                   model: 'gemini-2.5-flash',
                   contents: {
@@ -76,9 +82,12 @@ const AIChat: React.FC<AIChatProps> = ({ currentUser }) => {
     setError(null);
 
     try {
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Not signed in');
+
         const response = await fetch('/api/gemini', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify({
                 model: 'gemini-2.5-flash',
                 contents: {
