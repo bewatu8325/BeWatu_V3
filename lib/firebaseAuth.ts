@@ -137,6 +137,11 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     microIntroductionThumbnail: data.microIntroductionThumbnail ?? null,
     careerArc: data.careerArc ?? [],
     recruiterProfile: data.recruiterProfile ?? null,
+    // Hardening (launch-readiness review): the Firestore-backed replacement
+    // for the old localStorage recruiterTrialEndDate. Must be surfaced here
+    // or every read of currentUser.recruiterTrialEndDate app-wide sees
+    // undefined even after the field is written server-side.
+    recruiterTrialEndDate: data.recruiterTrialEndDate ?? undefined,
   } as any;
 }
 
@@ -380,6 +385,34 @@ export async function updateUserInFirestore(
 
 export async function setStripeCustomerId(fbUid: string, stripeCustomerId: string): Promise<void> {
   await setPrivateContact(fbUid, { stripeCustomerId });
+}
+
+/**
+ * Start the 30-day recruiter trial clock, exactly once, server-side.
+ *
+ * Hardening (launch-readiness review, P1): this used to be a synchronous
+ * localStorage read/write in App.tsx — trivially bypassed by clearing site
+ * data, an incognito window, or a different browser, giving a recruiter an
+ * unbounded string of fresh 30-day trials. recruiterTrialEndDate now lives
+ * on the user's own Firestore doc.
+ *
+ * Re-reads the doc directly (rather than trusting a possibly-stale User
+ * object from a React closure) so the "already started?" check is correct
+ * regardless of caller timing. firestore.rules' isFirstTimeTrialDateSet is
+ * the actual enforcement — this updateDoc would be rejected server-side if
+ * it somehow raced past the check below — this is just the normal path.
+ */
+export async function startRecruiterTrialIfNeeded(fbUid: string): Promise<string> {
+  const ref = doc(db, 'users', fbUid);
+  const snap = await getDoc(ref);
+  const existing = snap.exists() ? (snap.data() as any).recruiterTrialEndDate : undefined;
+  if (existing) return existing;
+
+  const end = new Date();
+  end.setDate(end.getDate() + 30);
+  const iso = end.toISOString();
+  await updateDoc(ref, { recruiterTrialEndDate: iso, updatedAt: serverTimestamp() });
+  return iso;
 }
 
 export async function fetchPublicProfileByUsername(username: string): Promise<{

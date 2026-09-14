@@ -73,6 +73,10 @@ export interface User {
   subscriptionStatus?: 'active' | 'trialing' | 'canceled' | 'paused' | 'past_due';
   subscriptionId?: string;
   subscriptionPriceId?: string;
+  // Server-side recruiter free-trial clock (Firestore, not localStorage —
+  // see firestore.rules' isFirstTimeTrialDateSet). Set once, never
+  // resettable by the recruiter themselves.
+  recruiterTrialEndDate?: string;
   currentPeriodEnd?: string;
   trialEndsAt?: string;
   trialEndingSoon?: boolean;
