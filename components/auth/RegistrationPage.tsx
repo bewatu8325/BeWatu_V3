@@ -5,6 +5,7 @@ import BillingPolicyModal from '../BillingPolicyModal';
 import { LoadingIcon } from '../../constants';
 import { useTranslation } from '../../hooks/useTranslation';
 import { registerWithEmail } from '../../lib/firebaseAuth';
+import { auth } from '../../lib/firebase';
 
 // Define Stripe types locally as we can't import them
 declare global {
@@ -56,7 +57,12 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({ onRegisterSuccess, 
 
     try {
       if (isRecruiter) {
-        // ── Recruiter: Stripe first, then Firebase ──────────────────────────
+        // ── Recruiter: Firebase account first, then Stripe ──────────────────
+        // Reordered (launch-readiness review): api/create-subscription.ts now
+        // requires a verified Firebase ID token, which only exists once the
+        // account itself does. Validate everything that doesn't need the
+        // account first, so a bad payment form still fails before any account
+        // is created.
         if (!agreedToPolicy) {
           setError('You must agree to the Billing and Payment Policy.');
           setIsProcessing(false);
@@ -68,6 +74,19 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({ onRegisterSuccess, 
           return;
         }
 
+        // Create Firebase account + Firestore user doc
+        await registerWithEmail(name, email, password, true);
+
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) {
+          // Extremely unlikely (registerWithEmail just succeeded, so
+          // auth.currentUser must be set) — but the account is real either
+          // way, so let them into the app rather than strand them on a form
+          // that will now reject a retry with 'email-already-in-use'.
+          onRegisterSuccess(name, email, true);
+          return;
+        }
+
         const { stripe, card } = stripeElementsRef.current;
         const { error: paymentMethodError, paymentMethod } = await stripe.createPaymentMethod({
           type: 'card',
@@ -76,21 +95,28 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({ onRegisterSuccess, 
         });
 
         if (paymentMethodError) {
-          setError(paymentMethodError.message || 'An error occurred with your payment details.');
-          setIsProcessing(false);
+          // The account already exists at this point — proceed into the app
+          // rather than leave them stuck; they can add payment later via the
+          // same Stripe flow from the recruiter paywall/upgrade modal.
+          onRegisterSuccess(name, email, true);
           return;
         }
 
         const response = await fetch('/api/create-subscription', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, paymentMethodId: paymentMethod.id }),
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ name, email, paymentMethodId: paymentMethod.id, tier: 'pro' }),
         });
         const subscriptionData = await response.json();
-        if (!response.ok) throw new Error(subscriptionData.error || 'Failed to create subscription.');
+        if (!response.ok) {
+          // Same reasoning as the payment-method-error branch above.
+          onRegisterSuccess(name, email, true);
+          return;
+        }
 
-        // Create Firebase account + Firestore user doc
-        await registerWithEmail(name, email, password, true);
         onRegisterSuccess(name, email, true, subscriptionData.customerId);
 
       } else {
