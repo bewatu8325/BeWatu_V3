@@ -50,6 +50,10 @@ interface RecruiterConsoleProps {
   onDeleteJob: (jobId: number) => void;
   onToggleJobStatus: (jobId: number, currentStatus: 'Active' | 'Suspended') => void;
   onViewProfile?: (userId: number) => void;
+  onNavigateToConnect?:   () => void;
+  onNavigateToTerms?:     () => void;
+  onNavigateToPrivacy?:   () => void;
+  onNavigateToCommunity?: () => void;
 }
 
 type RecruiterView = 'dashboard' | 'inbox' | 'pipelines' | 'interviews' | 'templates' | 'culture_fit' | 'pipeline_analytics' | 'talent_pool' | 'analytics' | 'manage_jobs' | 'company_verification';
@@ -59,6 +63,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
     onLogout, isTrialActive, setTrialActive, onSwitchProfile,
     talentPipeline, allJobs, allCompanies, currentUser,
     onAddJob, onUpdateJob, onDeleteJob, onToggleJobStatus, onViewProfile,
+    onNavigateToConnect, onNavigateToTerms, onNavigateToPrivacy, onNavigateToCommunity,
   } = props;
 
   const { fbUser } = useFirebase();
@@ -474,7 +479,12 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
         </div>
       </main>
 
-      <Footer />
+      <Footer
+        onNavigateToConnect={onNavigateToConnect}
+        onNavigateToTerms={onNavigateToTerms}
+        onNavigateToPrivacy={onNavigateToPrivacy}
+        onNavigateToCommunity={onNavigateToCommunity}
+      />
     </div>
   );
 };

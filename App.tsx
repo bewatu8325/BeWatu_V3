@@ -1509,7 +1509,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
     }
 
     if (activeProfile === 'recruiter') {
-      return <RecruiterConsole onLogout={handleLogout} isTrialActive={isTrialActive} setTrialActive={setIsTrialActive} onSwitchProfile={handleSwitchProfile} talentPipeline={talentPipeline} allJobs={data.jobs} allCompanies={data.companies} currentUser={currentUser} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} onToggleJobStatus={handleToggleJobStatus} />;
+      return <RecruiterConsole onLogout={handleLogout} isTrialActive={isTrialActive} setTrialActive={setIsTrialActive} onSwitchProfile={handleSwitchProfile} talentPipeline={talentPipeline} allJobs={data.jobs} allCompanies={data.companies} currentUser={currentUser} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} onToggleJobStatus={handleToggleJobStatus} onNavigateToConnect={handleNavigateToConnect} onNavigateToTerms={() => setShowTermsPage(true)} onNavigateToPrivacy={() => setShowPrivacyPage(true)} onNavigateToCommunity={() => setShowCommunityPage(true)} />;
     }
 
     let content: React.ReactNode;
@@ -1884,15 +1884,6 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           </div>
         )}
 
-        {/* Connect with us overlay */}
-        {showConnectPage && (
-          <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ backgroundColor: '#f0ede6' }}>
-            <Suspense fallback={<div />}>
-              <ConnectPage onNavigateBack={() => setShowConnectPage(false)} />
-            </Suspense>
-          </div>
-        )}
-
         {/* Our story overlay */}
         {showAboutPage && (
           <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ backgroundColor: '#f0ede6' }}>
@@ -2034,8 +2025,23 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
 
   const renderAuthFlow = () => {
     switch (authState) {
-      case 'connect': return <ConnectPage onNavigateBack={() => setAuthState('landing')} />;
-      case 'about': return <AboutPage onNavigateBack={() => setAuthState('landing')} onNavigateToConnect={handleNavigateToConnect} />;
+      case 'connect': return (
+        <ConnectPage
+          onNavigateBack={() => setAuthState('landing')}
+          onNavigateToTerms={() => setShowTermsPage(true)}
+          onNavigateToPrivacy={() => setShowPrivacyPage(true)}
+          onNavigateToCommunity={() => setShowCommunityPage(true)}
+        />
+      );
+      case 'about': return (
+        <AboutPage
+          onNavigateBack={() => setAuthState('landing')}
+          onNavigateToConnect={handleNavigateToConnect}
+          onNavigateToTerms={() => setShowTermsPage(true)}
+          onNavigateToPrivacy={() => setShowPrivacyPage(true)}
+          onNavigateToCommunity={() => setShowCommunityPage(true)}
+        />
+      );
       case 'login':
         return (
           <LoginPage
@@ -2057,6 +2063,9 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             onNavigateToLogin={() => setAuthState('login')}
             onNavigateToConnect={handleNavigateToConnect}
             onNavigateToLanding={handleNavigateToLanding}
+            onNavigateToTerms={() => setShowTermsPage(true)}
+            onNavigateToPrivacy={() => setShowPrivacyPage(true)}
+            onNavigateToCommunity={() => setShowCommunityPage(true)}
           />
         );
       case 'forgot_password':
@@ -2070,7 +2079,17 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         );
       case 'landing':
       default:
-        return <LandingPage onNavigateToRegister={() => setAuthState('register')} onNavigateToLogin={() => setAuthState('login')} onNavigateToAbout={() => setAuthState('about')} onNavigateToConnect={handleNavigateToConnect} />;
+        return (
+          <LandingPage
+            onNavigateToRegister={() => setAuthState('register')}
+            onNavigateToLogin={() => setAuthState('login')}
+            onNavigateToAbout={() => setAuthState('about')}
+            onNavigateToConnect={handleNavigateToConnect}
+            onNavigateToTerms={() => setShowTermsPage(true)}
+            onNavigateToPrivacy={() => setShowPrivacyPage(true)}
+            onNavigateToCommunity={() => setShowCommunityPage(true)}
+          />
+        );
     }
   };
 
@@ -2129,6 +2148,23 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           </div>
         </div>
       )}
+      {/* Connect with us overlay — top-level (not nested in renderContent's
+          main branch) so it also works from the Recruiter Console and Admin
+          Panel, which each return early with their own layout before ever
+          reaching renderContent's own JSX. */}
+      {showConnectPage && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ backgroundColor: '#f0ede6' }}>
+          <Suspense fallback={<div />}>
+            <ConnectPage
+              onNavigateBack={() => setShowConnectPage(false)}
+              onNavigateToTerms={() => setShowTermsPage(true)}
+              onNavigateToPrivacy={() => setShowPrivacyPage(true)}
+              onNavigateToCommunity={() => setShowCommunityPage(true)}
+            />
+          </Suspense>
+        </div>
+      )}
+
       {/* Legal pages accessible from landing/auth flow too */}
       {showTermsPage && (
         <div className="fixed inset-0 z-[70] overflow-y-auto">

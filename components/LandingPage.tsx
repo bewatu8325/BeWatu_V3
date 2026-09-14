@@ -7,6 +7,9 @@ interface LandingPageProps {
   onNavigateToLogin:     () => void;
   onNavigateToAbout:     () => void;
   onNavigateToConnect:   () => void;
+  onNavigateToTerms?:     () => void;
+  onNavigateToPrivacy?:   () => void;
+  onNavigateToCommunity?: () => void;
 }
 
 const BG       = '#f0ede6';
@@ -151,6 +154,7 @@ const GenerationCard: React.FC<{
 
 const LandingPage: React.FC<LandingPageProps> = ({
   onNavigateToRegister, onNavigateToLogin, onNavigateToAbout, onNavigateToConnect,
+  onNavigateToTerms, onNavigateToPrivacy, onNavigateToCommunity,
 }) => (
   <div className="min-h-screen flex flex-col overflow-x-hidden" style={{ backgroundColor: BG }}>
 
@@ -344,7 +348,12 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </div>
     </section>
 
-    <Footer onNavigateToConnect={onNavigateToConnect} />
+    <Footer
+      onNavigateToConnect={onNavigateToConnect}
+      onNavigateToTerms={onNavigateToTerms}
+      onNavigateToPrivacy={onNavigateToPrivacy}
+      onNavigateToCommunity={onNavigateToCommunity}
+    />
   </div>
 );
 
