@@ -161,6 +161,12 @@ export interface Job {
   status: 'Active' | 'Suspended';
   verificationStatus?: 'pending_verification' | 'live' | 'hidden';
   recruiterId: number;
+  // The real Firestore-side owner field (a Firebase UID, checked by
+  // firestore.rules and by createJob) — recruiterId above is a numeric
+  // legacy/display id, never what rules or ownership queries key on.
+  // Present on every job fetched via fetchJobs() (a plain spread of the
+  // Firestore doc), just not previously declared here.
+  recruiterUid?: string;
   liveDate: string;
   expiryDate: string;
   salaryMin?: number;

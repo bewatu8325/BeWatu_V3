@@ -105,14 +105,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   // ── Load pipeline candidates from Firestore ───────────────────────────────
   useEffect(() => {
     if (fbUser) {
-      // getPipelineCandidates returns raw `applications` docs (loosely typed
-      // as { id: string } & DocumentData) — cast to the shape this console
-      // expects to render. NOTE: applications are never actually written
-      // with a `recruiterId` field anywhere in lib/firestoreService.ts, so
-      // this query (`where('recruiterId', '==', recruiterId)`) matches zero
-      // documents today — the pipeline always loads empty. Pre-existing,
-      // not introduced by this typecheck pass; flagged separately.
-      getPipelineCandidates(fbUser.uid).then(data => setCandidates(data as unknown as PipelineCandidate[])).catch(console.error);
+      getPipelineCandidates(fbUser.uid).then(setCandidates).catch(console.error);
     }
   }, [fbUser]);
 
@@ -334,20 +327,24 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
             }}
             onAddNote={async (id, note) => {
               await addPipelineNote(id, note);
-              if (fbUser) setCandidates((await getPipelineCandidates(fbUser.uid)) as unknown as PipelineCandidate[]);
+              if (fbUser) setCandidates(await getPipelineCandidates(fbUser.uid));
             }}
             onScheduleInterview={(id: string) => {
-              // TalentPipeline's declared signature is (id) => void — it
-              // never actually invokes this prop today (see TalentPipeline.tsx,
-              // where the exported wrapper only forwards `stages`/`pipelineData`
-              // and drops every other prop, so no interview date ever reaches
-              // here in practice). Kept as a no-op stub matching the real type
-              // rather than silently widening it to imply this is wired up.
-              console.warn('onScheduleInterview: not wired up in TalentPipeline yet', id);
+              // TalentPipeline now actually invokes this. InterviewScheduler
+              // takes no props today (it's a self-contained create/manage
+              // view, not one that accepts a pre-selected candidate) — real
+              // per-candidate pre-fill is a further improvement, not this
+              // one; switching views is still a genuine action instead of
+              // the previous no-op console.warn.
+              void id;
+              setActiveView('interviews');
             }}
             onReject={async (id, reason) => {
               await rejectPipelineCandidate(id, reason);
-              setCandidates(c => c.map(x => x.id === id ? { ...x, status: 'rejected' } : x));
+              // DEFAULT_PIPELINE_STAGES has no "Rejected" column — a
+              // rejected candidate has nowhere to render, so it leaves the
+              // board entirely rather than sitting in an unrendered stage.
+              setCandidates(c => c.filter(x => x.id !== id));
             }}
             onViewProfile={onViewProfile ? (userId) => onViewProfile(Number(userId)) : undefined}
             isBlindMode={isBlindMode}
