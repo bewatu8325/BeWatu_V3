@@ -43,9 +43,16 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
       });
       if (pmError) throw new Error(pmError.message);
 
+      // Requires a verified ID token (launch-readiness review:
+      // api/create-subscription.ts used to accept any caller and never tied
+      // the Stripe customer to a real account).
+      const idToken = await fbUser.getIdToken();
       const res = await fetch('/api/create-subscription', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           name: currentUser.name,
           email: fbUser.email,
