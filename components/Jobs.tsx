@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Job, Company } from '../types';
 import JobCard from './JobCard';
 import { fetchCompanies } from '../lib/firestoreService';
+import { searchJobs, JobSearchHit } from '../lib/algoliaSearch';
 
 interface JobsProps {
   jobs: Job[];
@@ -133,8 +134,46 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
 
   const industries = useMemo(() => [...new Set(allCompanies.map(c => c.industry).filter(Boolean))], [allCompanies]);
 
+  // Root-cause fix (launch-readiness review): this used to filter
+  // client-side over whatever fetchJobs() had already loaded (the 200
+  // most-recent active jobs) — search only ever searched that slice, never
+  // the real job board. Runs a real Algolia search whenever any filter is
+  // active; falls back to the loaded `jobs` prop (today's default view,
+  // unchanged) when every filter is empty, so the common "just browsing"
+  // case never pays for a search round trip.
+  //
+  // Known limitation: bewatu_jobs only carries the Job type's own fields —
+  // industry lives on the joined Company, not indexed — so the industry
+  // dropdown still filters client-side on top of whatever Algolia (or the
+  // default list) returns, same as before. A real fix needs a transform
+  // function on the sync extension to denormalize company industry onto
+  // the job record; not done in this pass.
+  const [algoliaHits, setAlgoliaHits] = useState<JobSearchHit[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const hasActiveSearch = !!(filters.keyword || filters.location || filters.company || filters.experienceLevel);
+
+  useEffect(() => {
+    if (!hasActiveSearch) { setAlgoliaHits(null); return; }
+    let cancelled = false;
+    setIsSearching(true);
+    const handle = setTimeout(async () => {
+      try {
+        const combinedQuery = [filters.keyword, filters.location, filters.company].filter(Boolean).join(' ');
+        const hits = await searchJobs(combinedQuery, { experienceLevel: filters.experienceLevel || undefined });
+        if (!cancelled) setAlgoliaHits(hits);
+      } catch (err) {
+        console.error('Job search failed:', err);
+        if (!cancelled) setAlgoliaHits([]);
+      } finally {
+        if (!cancelled) setIsSearching(false);
+      }
+    }, 300); // debounce — avoid a search + secured-key round trip per keystroke
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [hasActiveSearch, filters.keyword, filters.location, filters.company, filters.experienceLevel]);
+
   const filteredJobs = useMemo(() => {
-    const jobsWithCompanyData = jobs.map(job => {
+    const sourceJobs: Job[] = hasActiveSearch ? (algoliaHits ?? []) as unknown as Job[] : jobs;
+    const jobsWithCompanyData = sourceJobs.map(job => {
       const company = companies.find(c => c.id === job.companyId);
       return { ...job, company };
     });
@@ -146,13 +185,12 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
         job.status === 'Active' &&
         now >= liveDate &&
         now < expiryDate &&
-        (filters.keyword ? (job.title.toLowerCase().includes(filters.keyword.toLowerCase()) || job.description.toLowerCase().includes(filters.keyword.toLowerCase())) : true) &&
-        (filters.location ? job.location.toLowerCase().includes(filters.location.toLowerCase()) : true) &&
-        (filters.company ? job.company.name.toLowerCase().includes(filters.company.toLowerCase()) : true) &&
-        (filters.industry ? job.company.industry === filters.industry : true) &&
-        (filters.experienceLevel ? job.experienceLevel === filters.experienceLevel : true);
+        // Algolia already applied keyword/location/company/experienceLevel
+        // when a search is active — industry is the one filter it can't
+        // apply (see the comment above), so it's always re-checked here.
+        (filters.industry ? job.company.industry === filters.industry : true);
     });
-  }, [jobs, companies, filters]);
+  }, [jobs, algoliaHits, hasActiveSearch, companies, filters.industry]);
 
   const inputStyles = 'w-full p-2 bg-white text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-400';
 
@@ -187,7 +225,11 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
         </div>
       </div>
       <div className="space-y-4">
-        {filteredJobs.length > 0 ? (
+        {isSearching ? (
+          <div className="text-center py-10 bg-stone-50 rounded-2xl border" style={{ borderColor: '#e7e5e4' }}>
+            <p className="text-stone-400">Searching&hellip;</p>
+          </div>
+        ) : filteredJobs.length > 0 ? (
           filteredJobs.map(job => job.company
             ? <JobCard key={job.id} job={job} company={job.company} onViewCompany={onViewCompany} onAnalyzeMatch={onAnalyzeMatch} onApplyForJob={onApplyForJob} appliedJobIds={appliedJobIds} onReportJob={onReportJob} />
             : null)

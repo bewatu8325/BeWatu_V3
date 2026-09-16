@@ -1,0 +1,18 @@
+{
+  "projects": {},
+  "targets": {},
+  "etags": {
+    "bewatu-dev": {
+      "extensionInstances": {
+        "firestore-algolia-search": "6e8af43528bdac23e750db2fe683f73f80ffb58daef00a558956230d28673ff0",
+        "firestore-algolia-search-jobs": "e3dd8cd75940dcc72b776fe2681a20480623315317e0f892abe737ce43a2fb61"
+      }
+    },
+    "bewatu-2d04e": {
+      "extensionInstances": {
+        "firestore-algolia-search": "0bf00d9250681e18f21467426ec4f1e90b6239ddf453b3fb65ca48ae06d26570",
+        "firestore-algolia-search-jobs": "3c878e9baa07c4fbac0e573f2e83463a27500d6b2abfce0fe11f2b7124469663"
+      }
+    }
+  }
+}

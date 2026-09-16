@@ -47,5 +47,9 @@
       "enabled": true,
       "port": 4000
     }
+  },
+  "extensions": {
+    "firestore-algolia-search": "algolia/firestore-algolia-search@1.3.0",
+    "firestore-algolia-search-jobs": "algolia/firestore-algolia-search@1.3.0"
   }
 }
