@@ -17,6 +17,7 @@ import {
   where,
   orderBy,
   limit,
+  documentId,
   startAfter,
   serverTimestamp,
   increment,
@@ -943,6 +944,64 @@ export async function fetchUsers(): Promise<User[]> {
       _firestoreUid: d.id,
     } as User & { _firestoreUid: string };
   });
+}
+
+// ── Hydrate search hits ──────────────────────────────────────────────────
+// Algolia (bewatu_users) is used purely for retrieval/ranking over the real
+// dataset — it only carries the fields needed to match on, not the full
+// profile. Once a search returns matching uids, this fetches their full,
+// current docs from Firestore (the same mapping fetchUsers() above uses,
+// so search results and the People directory render identically). No
+// isPublic filter here, unlike fetchUsers(): the viewer is always
+// authenticated to search at all (api/algolia-search-key.ts requires a real
+// ID token), and firestore.rules already lets any signed-in user read any
+// user's main doc — same boundary, not a new one.
+export async function fetchUsersByUids(uids: string[]): Promise<User[]> {
+  if (uids.length === 0) return [];
+  // Firestore's `in` operator caps at 30 values — callers should already be
+  // passing far fewer (one page of search results), but stay defensive.
+  const capped = uids.slice(0, 30);
+  const snap = await getDocs(
+    query(collection(db, 'users'), where(documentId(), 'in', capped))
+  );
+  const byUid = new Map(
+    snap.docs.map((d) => {
+      const data = d.data();
+      const user: User & { _firestoreUid: string } = {
+        id: data.numericId ?? Date.now(),
+        name: data.displayName ?? '',
+        headline: data.headline ?? '',
+        bio: data.bio ?? '',
+        avatarUrl: data.photoURL ?? `https://picsum.photos/seed/${d.id}/100`,
+        industry: data.industry ?? '',
+        professionalGoals: data.professionalGoals ?? [],
+        reputation: data.reputation ?? 0,
+        credits: data.credits ?? 100,
+        isRecruiter: data.isRecruiter ?? false,
+        isVerified: data.isVerified ?? false,
+        portfolio: data.portfolio ?? [],
+        verifiedAchievements: data.verifiedAchievements ?? [],
+        thirdPartyIntegrations: data.thirdPartyIntegrations ?? [],
+        workStyle: data.workStyle ?? {
+          collaboration: 'Thrives in pairs',
+          communication: 'Prefers asynchronous',
+          workPace: 'Fast-paced and iterative',
+        },
+        values: data.values ?? [],
+        availability: data.availability ?? 'Exploring opportunities',
+        skills: data.skills ?? [],
+        verifiedSkills: data.verifiedSkills ?? null,
+        microIntroductionUrl: data.microIntroductionUrl ?? null,
+        _firestoreUid: d.id,
+      } as User & { _firestoreUid: string };
+      return [d.id, user] as const;
+    })
+  );
+  // Preserve Algolia's ranking order — the query above returns them
+  // unordered.
+  return capped
+    .map((uid) => byUid.get(uid))
+    .filter((u): u is User & { _firestoreUid: string } => u !== undefined);
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // ADD THESE FUNCTIONS TO YOUR EXISTING firestoreService.ts

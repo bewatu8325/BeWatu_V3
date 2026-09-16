@@ -26,6 +26,7 @@ import {
   startRecruiterTrialIfNeeded,
 } from './lib/firebaseAuth';
 import { auth } from './lib/firebase';
+import { searchUserUids, searchJobs as searchJobsAlgolia, JobSearchHit } from './lib/algoliaSearch';
 
 // ── Firestore services (single import block) ──────────────────────────────────
 import {
@@ -54,6 +55,7 @@ import {
   createCircle,
   leaveCircle,
   fetchUsers,
+  fetchUsersByUids,
   fetchCompanyForRecruiter,
   subscribeToCirclePosts,
   subscribeToUnreadNotifCount,
@@ -148,6 +150,14 @@ const MainApp: React.FC = () => {
   const [activeChatUserId, setActiveChatUserId] = useState<number | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [peopleSearch, setPeopleSearch] = useState('');
+  // Root-cause fix (launch-readiness review): the People directory used to
+  // filter client-side over whatever fetchUsers() had already loaded (the
+  // 50 most-recent public users) — search only ever searched that slice,
+  // never the real user base. null = no active search (fall back to the
+  // directory's default list below); [] = a real search that matched
+  // nothing.
+  const [peopleSearchResults, setPeopleSearchResults] = useState<User[] | null>(null);
+  const [isPeopleSearching, setIsPeopleSearching] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState<SubscriptionTier | null>(null);
   const [showPricing, setShowPricing] = useState(false);
 
@@ -210,6 +220,26 @@ const MainApp: React.FC = () => {
     const end = currentUser.recruiterTrialEndDate;
     setIsTrialActive(end ? new Date().getTime() < new Date(end).getTime() : true);
   }, [currentUser?.isRecruiter, currentUser?.recruiterTrialEndDate]);
+
+  // ── People directory search (real search, not a client-side filter) ──────
+  useEffect(() => {
+    if (!peopleSearch.trim()) { setPeopleSearchResults(null); return; }
+    let cancelled = false;
+    setIsPeopleSearching(true);
+    const handle = setTimeout(async () => {
+      try {
+        const uids = await searchUserUids(peopleSearch);
+        const users = await fetchUsersByUids(uids);
+        if (!cancelled) setPeopleSearchResults(users);
+      } catch (err) {
+        console.error('People search failed:', err);
+        if (!cancelled) setPeopleSearchResults([]);
+      } finally {
+        if (!cancelled) setIsPeopleSearching(false);
+      }
+    }, 300); // debounce — avoid a search + secured-key round trip per keystroke
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [peopleSearch]);
 
   // ── Auto-restore session ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1541,13 +1571,13 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
       case View.People:
         content = (
           <People
-            users={data.users
-              .filter(u => u.id !== currentUser.id)
-              .filter(u => !peopleSearch || 
-                u.name.toLowerCase().includes(peopleSearch.toLowerCase()) ||
-                u.headline?.toLowerCase().includes(peopleSearch.toLowerCase()) ||
-                u.industry?.toLowerCase().includes(peopleSearch.toLowerCase())
-              )}
+            // peopleSearchResults is null with no active search (fall back
+            // to the loaded directory, same as before) or a real Algolia
+            // search result set once the user has typed something — see
+            // the People-directory-search effect above.
+            users={(peopleSearch.trim() ? (peopleSearchResults ?? []) : data.users)
+              .filter(u => u.id !== currentUser.id)}
+            isSearching={isPeopleSearching}
             onEndorseSkill={endorseSkill}
             onStartMessage={startMessage}
             onAnalyzeSynergy={handleAnalyzeSynergy}
