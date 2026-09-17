@@ -1058,6 +1058,42 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Same reasoning: api/verify-reel.ts's and api/cosentiment-teaser.ts's
+    // per-uid rate-limit counters (launch-readiness review) — server-side
+    // only via Admin SDK.
+    match /verify_reel_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+    match /cosentiment_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
+    // Same reasoning: the paid-AI-proxy endpoints' per-uid rate-limit
+    // counters (api/claude.js, api/gemini.ts, api/skills-trajectory.ts —
+    // launch-readiness review) — server-side only via Admin SDK.
+    match /claude_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+    match /gemini_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+    match /skills_trajectory_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
+    // api/cosentiment-teaser.ts's per-domain cache (launch-readiness
+    // review). This collection previously had NO rule at all here — which
+    // meant every read/write from that endpoint's old plain-REST-with-
+    // API-key approach (no Admin SDK) was actually being evaluated against
+    // v2's default-deny and failing with PERMISSION_DENIED, silently
+    // swallowed by the endpoint's own catch blocks. The endpoint itself now
+    // uses Admin SDK (bypasses rules entirely, and is the reason the cache
+    // works at all now) — this explicit deny is defense-in-depth, not what
+    // makes the fix work.
+    match /cosentiment_cache/{docId} {
+      allow read, write: if false;
+    }
+
     match /perspective_posts/{postId} {
       allow read:   if isAuth();
       allow create: if isAuth()

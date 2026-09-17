@@ -1,7 +1,8 @@
 /**
  * api/cosentiment-teaser.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Vercel Edge Function — fetches CoSentiment teaser score for a company domain.
+ * Vercel serverless endpoint — fetches CoSentiment teaser score for a company
+ * domain.
  *
  * Caching strategy:
  *   - Check Firestore `cosentiment_cache/{domain}` first
@@ -12,105 +13,147 @@
  *
  * Usage:
  *   GET /api/cosentiment-teaser?domain=apple.com
+ *
+ * Launch-readiness review, P1 rate-limiting/auth sweep — two real bugs found
+ * here, not one:
+ *
+ * 1. No authentication at all. The cache is keyed per-domain, so a caller
+ *    could hit a fresh, never-seen domain on every request and bypass it
+ *    entirely, burning through the CoSentiment API budget indefinitely —
+ *    same class of bug already fixed for api/claude.js/gemini.ts/
+ *    skills-trajectory.ts, missed in that pass. The only real caller
+ *    (CompanyProfileModal.tsx, rendered exclusively from App.tsx's
+ *    authenticated shell — confirmed not reachable from any logged-out
+ *    page) always has a signed-in user, so requiring one here doesn't break
+ *    anything real.
+ *
+ * 2. The cache itself never actually worked. This file used to run on the
+ *    Edge runtime and talk to Firestore over plain REST with only a Web API
+ *    key (no service-account credential) — that path is NOT an Admin SDK
+ *    bypass, it's subject to firestore.rules exactly like a real client
+ *    call, and no rule exists for cosentiment_cache at all. Confirmed
+ *    empirically: the identical REST call against production returns
+ *    `403 PERMISSION_DENIED`. Every read/write silently failed and was
+ *    swallowed by this file's own catch blocks — every single call has
+ *    been an unconditional cache MISS, hitting the live CoSentiment API
+ *    every time regardless of repeat requests for the same domain. Moving
+ *    to Node + firebase-admin/firestore (same Edge→Node tradeoff
+ *    api/gemini.ts already made, for the same reason: Admin SDK needs
+ *    Node) fixes this for real, since Admin SDK writes bypass rules
+ *    entirely rather than needing a public one.
+ *
+ * Rate limit: auth alone stops a stranger, not a legitimate signed-in user
+ * looping this to burn CoSentiment's budget on fresh domains. Capped
+ * per-uid, same inline Firestore-doc sliding-window shape as
+ * api/contact.ts / api/send-recruiter-otp.ts / api/verify-reel.ts.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-export const config = { runtime: 'edge' };
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
-const COSENTIMENT_API   = 'https://www.cosentiment.com/api/bewatu';
-const CACHE_TTL_MS      = 24 * 60 * 60 * 1000; // 24 hours for successful results
-const EMPTY_CACHE_TTL_MS =  1 * 60 * 60 * 1000; // 1 hour for null results
+const COSENTIMENT_API     = 'https://www.cosentiment.com/api/bewatu';
+const CACHE_TTL_MS        = 24 * 60 * 60 * 1000; // 24 hours for successful results
+const EMPTY_CACHE_TTL_MS  =  1 * 60 * 60 * 1000; // 1 hour for null results
 
-// ── Firestore REST helpers ────────────────────────────────────────────────────
-function firestoreBase() {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const apiKey    = process.env.FIREBASE_API_KEY;
-  if (!projectId || !apiKey) throw new Error('Missing Firebase env vars');
-  return { projectId, apiKey };
-}
+const MIN_INTERVAL_MS = 2 * 1000;        // 2s between requests per uid
+const WINDOW_MS       = 60 * 60 * 1000;  // rolling 1-hour window
+const MAX_PER_WINDOW  = 60;              // generous for real browsing, caps abuse
 
-async function getCachedTeaser(domain: string): Promise<{ data: any; cachedAt: number } | null> {
-  const { projectId, apiKey } = firestoreBase();
-  const docKey = domain.replace(/\./g, '_'); // Firestore keys can't contain dots
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/cosentiment_cache/${docKey}?key=${apiKey}`;
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const doc = await res.json();
-    const fields = doc.fields;
-    if (!fields) return null;
-
-    const cachedAt = parseInt(fields.cachedAt?.integerValue ?? '0');
-    const dataStr  = fields.data?.stringValue ?? 'null';
-    return { data: JSON.parse(dataStr), cachedAt };
-  } catch {
-    return null;
+function getAdmin() {
+  if (!getApps().length) {
+    // P0 7 (least privilege): only ever reads/writes cosentiment_cache and
+    // this endpoint's own rate-limit doc, plus verifyIdToken (read-only
+    // against Auth) — no Auth-admin writes, no Cloud Functions calls.
+    const sa = process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER ?? process.env.FIREBASE_SERVICE_ACCOUNT!;
+    initializeApp({ credential: cert(JSON.parse(sa)) });
   }
+  return { db: getFirestore(), auth: getAuth() };
 }
 
-async function setCachedTeaser(domain: string, data: any): Promise<void> {
-  const { projectId, apiKey } = firestoreBase();
-  const docKey = domain.replace(/\./g, '_');
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/cosentiment_cache/${docKey}?key=${apiKey}`;
+async function getCachedTeaser(db: Firestore, docKey: string): Promise<{ data: any; cachedAt: number } | null> {
+  const snap = await db.doc(`cosentiment_cache/${docKey}`).get();
+  if (!snap.exists) return null;
+  const d = snap.data()!;
+  return { data: d.data !== undefined ? JSON.parse(d.data) : null, cachedAt: d.cachedAt ?? 0 };
+}
 
-  const fields: Record<string, any> = {
-    domain:   { stringValue: domain },
-    data:     { stringValue: JSON.stringify(data) },
-    cachedAt: { integerValue: String(Date.now()) },
-    hasData:  { booleanValue: data !== null && data?.teaser?.has_data === true },
-  };
-
-  await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields }),
+async function setCachedTeaser(db: Firestore, docKey: string, domain: string, data: any): Promise<void> {
+  await db.doc(`cosentiment_cache/${docKey}`).set({
+    domain,
+    data:     JSON.stringify(data),
+    cachedAt: Date.now(),
+    hasData:  data !== null && data?.teaser?.has_data === true,
   });
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== 'GET') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const { db, auth } = getAdmin();
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: missing bearer token' });
+  }
+  let callerUid: string;
+  try {
+    callerUid = (await auth.verifyIdToken(authHeader.slice(7))).uid;
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized: invalid token' });
   }
 
-  const url    = new URL(req.url);
-  const domain = url.searchParams.get('domain')?.toLowerCase().replace(/^https?:\/\//, '').split('/')[0] ?? '';
+  const rateLimitRef = db.doc(`cosentiment_rate_limits/${callerUid}`);
+  const now = Date.now();
+  const rl = (await rateLimitRef.get()).data() as
+    | { sendCount?: number; windowStart?: number; lastSentAt?: number }
+    | undefined;
+  if (rl?.lastSentAt && now - rl.lastSentAt < MIN_INTERVAL_MS) {
+    return res.status(429).json({ error: 'Too many requests — please slow down.' });
+  }
+  const windowStart = rl?.windowStart && now - rl.windowStart < WINDOW_MS ? rl.windowStart : now;
+  const sendCount    = windowStart === rl?.windowStart ? (rl?.sendCount ?? 0) : 0;
+  if (sendCount >= MAX_PER_WINDOW) {
+    return res.status(429).json({ error: 'Too many requests this hour — please try again later.' });
+  }
+  await rateLimitRef.set({
+    lastSentAt: now, windowStart, sendCount: sendCount + 1,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
 
+  const domain = String(req.query.domain ?? '').toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
   if (!domain) {
-    return new Response(JSON.stringify({ error: 'domain is required' }), { status: 400 });
+    return res.status(400).json({ error: 'domain is required' });
   }
 
   // P1 (input validation): domain was passed straight through into a
-  // Firestore document ID (getCachedTeaser/setCachedTeaser's docKey) and a
-  // URL path segment with only a dot->underscore swap, no real format
-  // check. A domain containing other Firestore-reserved characters or
-  // wildly malformed input would either error unhelpfully or write a junk
-  // cache entry. Real domains are letters/digits/hyphens/dots only.
+  // Firestore document ID and a URL path segment with only a dot->underscore
+  // swap, no real format check. Real domains are letters/digits/hyphens/dots
+  // only.
   if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain) || domain.length > 253) {
-    return new Response(JSON.stringify({ error: 'domain is not a valid hostname' }), { status: 400 });
+    return res.status(400).json({ error: 'domain is not a valid hostname' });
   }
 
   const apiKey = process.env.COSENTIMENT_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'CoSentiment API key not configured' }), { status: 500 });
+    return res.status(500).json({ error: 'CoSentiment API key not configured' });
   }
+
+  const docKey = domain.replace(/\./g, '_'); // Firestore keys can't contain dots
 
   // ── Check cache ─────────────────────────────────────────────────────────────
   try {
-    const cached = await getCachedTeaser(domain);
+    const cached = await getCachedTeaser(db, docKey);
     if (cached) {
-      const age    = Date.now() - cached.cachedAt;
-      const ttl    = cached.data !== null ? CACHE_TTL_MS : EMPTY_CACHE_TTL_MS;
+      const age = Date.now() - cached.cachedAt;
+      const ttl = cached.data !== null ? CACHE_TTL_MS : EMPTY_CACHE_TTL_MS;
       if (age < ttl) {
-        return new Response(JSON.stringify(cached.data), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Cache': 'HIT',
-            'X-Cache-Age': String(Math.round(age / 1000)),
-          },
-        });
+        res.setHeader('X-Cache', 'HIT');
+        res.setHeader('X-Cache-Age', String(Math.round(age / 1000)));
+        return res.status(200).json(cached.data);
       }
     }
   } catch {
@@ -119,30 +162,23 @@ export default async function handler(req: Request): Promise<Response> {
 
   // ── Fetch from CoSentiment ──────────────────────────────────────────────────
   try {
-    const res = await fetch(`${COSENTIMENT_API}/score/${encodeURIComponent(domain)}`, {
+    const apiRes = await fetch(`${COSENTIMENT_API}/score/${encodeURIComponent(domain)}`, {
       headers: {
         'Content-Type': 'application/json',
         'x-bewatu-api-key': apiKey,
       },
     });
 
-    const data = res.ok ? await res.json() : null;
+    const data = apiRes.ok ? await apiRes.json() : null;
 
     // Cache the result (fire and forget)
-    setCachedTeaser(domain, data).catch(() => {});
+    setCachedTeaser(db, docKey, domain, data).catch(() => {});
 
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Cache': 'MISS',
-      },
-    });
+    res.setHeader('X-Cache', 'MISS');
+    return res.status(200).json(data);
   } catch (err) {
     console.error('CoSentiment fetch error:', err);
-    return new Response(JSON.stringify(null), {
-      status: 200, // Return 200 with null — CoSentiment is additive, never blocking
-      headers: { 'Content-Type': 'application/json' },
-    });
+    // CoSentiment is additive, never blocking — 200 with null, not an error.
+    return res.status(200).json(null);
   }
 }

@@ -759,7 +759,8 @@ const MainApp: React.FC = () => {
         });
         // Submit frame for analysis (non-blocking)
         const { submitForVerification } = await import('./lib/videoUtils');
-        void submitForVerification({ reelId: reelRef.id, authorUid: fbUser.uid, file, type: 'microIntro' });
+        const verifyToken = await fbUser.getIdToken();
+        void submitForVerification({ reelId: reelRef.id, authorUid: fbUser.uid, idToken: verifyToken, file, type: 'microIntro' });
       } catch (verifyErr) {
         console.warn('[handleUploadVideo] verification setup failed (non-blocking):', verifyErr);
       }
