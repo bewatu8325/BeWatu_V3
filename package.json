@@ -16,7 +16,7 @@
     "@google/genai": "^1.28.0",
     "@octokit/rest": "^22.0.1",
     "algoliasearch": "^5.59.0",
-    "firebase": "^11.0.0",
+    "firebase": "^12.19.0",
     "firebase-admin": "^14.4.0",
     "jose": "^6.2.12",
     "lucide-react": "^0.263.1",
