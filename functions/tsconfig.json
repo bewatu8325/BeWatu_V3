@@ -8,6 +8,16 @@
     "strict": true,
     "target": "es2020",
     "esModuleInterop": true,
+    // Scoped explicitly to this project's own node_modules/@types.
+    // TypeScript's default typeRoots behavior walks up every ancestor
+    // directory looking for node_modules/@types — harmless in CI (that job
+    // never installs the repo root's node_modules at all), but firebase
+    // deploy's own predeploy hook runs `npm run build` from a context that
+    // does see the root's node_modules, and the root app's own frontend
+    // build-tool types (@types/babel__*, @types/d3-*, @types/estree — none
+    // of them dependencies of this Cloud Functions project) get pulled in
+    // as broken "implicit type library" entries, failing the build outright.
+    "typeRoots": ["./node_modules/@types"],
   },
   "compileOnSave": true,
   "include": [

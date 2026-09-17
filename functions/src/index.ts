@@ -1,11 +1,20 @@
-import * as admin from "firebase-admin";
 import {formatDistanceToNow} from "date-fns";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { initializeApp } from "firebase-admin/app";
+import {
+  getFirestore,
+  FieldValue,
+  Transaction,
+  QueryDocumentSnapshot,
+  DocumentData,
+} from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
+import { getStorage } from "firebase-admin/storage";
 
-admin.initializeApp();
-const db = admin.firestore();
+initializeApp();
+const db = getFirestore();
 
 // ===================================================================
 // Rate Limiting & Security
@@ -16,7 +25,7 @@ async function checkRateLimit(userId: string, action: string, maxRequests: numbe
   const rateLimitRef = db.collection('rateLimits').doc(`${userId}_${action}`);
   const now = Date.now();
 
-  return db.runTransaction(async (transaction: admin.firestore.Transaction) => {
+  return db.runTransaction(async (transaction: Transaction) => {
     const doc = await transaction.get(rateLimitRef);
 
     if (!doc.exists) {
@@ -63,7 +72,7 @@ async function detectAnomalousActivity(userId: string, action: string): Promise<
   const activityRef = db.collection('userActivity').doc(userId);
   const now = Date.now();
 
-  await db.runTransaction(async (transaction: admin.firestore.Transaction) => {
+  await db.runTransaction(async (transaction: Transaction) => {
     const doc = await transaction.get(activityRef);
 
     const activities = doc.exists ? (doc.data()!.recentActivities || []) : [];
@@ -85,7 +94,7 @@ async function detectAnomalousActivity(userId: string, action: string): Promise<
         userId,
         type: 'ANOMALOUS_ACTIVITY',
         activityCount,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
         details: `User performed ${activityCount} actions in the last hour`,
       });
 
@@ -235,11 +244,11 @@ export const scheduledHardDelete = onSchedule("every 24 hours", async () => {
             await db.doc(`users/${uid}/private/contact`).delete().catch(() => {});
             await docSnap.ref.delete();
 
-            await admin.auth().deleteUser(uid).catch((err: any) => {
+            await getAuth().deleteUser(uid).catch((err: any) => {
                 console.error(`  scheduledHardDelete: failed to delete Auth user ${uid}:`, err.message);
             });
 
-            const bucket = admin.storage().bucket();
+            const bucket = getStorage().bucket();
             for (const prefix of [`avatars/${uid}/`, `microIntros/${uid}/`, `vibe-clips/${uid}/`]) {
                 await bucket.deleteFiles({ prefix }).catch((err: any) => {
                     console.error(`  scheduledHardDelete: failed to delete storage prefix ${prefix} for ${uid}:`, err.message);
@@ -312,7 +321,7 @@ export const onDataRequestCreated = onDocumentCreated("data_requests/{requestId}
         };
 
         stage = "storage-save";
-        const bucket   = admin.storage().bucket();
+        const bucket   = getStorage().bucket();
         const filePath = `data-exports/${uid}/${event.params.requestId}.json`;
         const file     = bucket.file(filePath);
         await file.save(JSON.stringify(exportData, null, 2), { contentType: "application/json" });
@@ -345,7 +354,7 @@ export const onDataRequestCreated = onDocumentCreated("data_requests/{requestId}
 // ===================================================================
 // Helper Functions
 // ===================================================================
-const transformPost = (post: admin.firestore.DocumentData) => {
+const transformPost = (post: DocumentData) => {
   const createdAt = post.createdAt;
   const timestamp = createdAt && typeof createdAt.toDate === 'function'
     ? formatDistanceToNow(createdAt.toDate()) + " ago"
@@ -361,7 +370,7 @@ const transformPost = (post: admin.firestore.DocumentData) => {
   };
 };
 
-const transformMessage = (message: admin.firestore.DocumentData) => {
+const transformMessage = (message: DocumentData) => {
     const createdAt = message.createdAt;
     const timestamp = createdAt && typeof createdAt.toDate === 'function'
       ? formatDistanceToNow(createdAt.toDate()) + " ago"
@@ -374,7 +383,7 @@ const transformMessage = (message: admin.firestore.DocumentData) => {
 };
 
 // transformArticle function kept for future use
-// const transformArticle = (article: admin.firestore.DocumentData) => {
+// const transformArticle = (article: DocumentData) => {
 //     const createdAt = article.createdAt;
 //     const timestamp = createdAt && typeof createdAt.toDate === 'function'
 //       ? formatDistanceToNow(createdAt.toDate()) + " ago"
@@ -406,9 +415,9 @@ export const getInitialAppData = onCall(async (_request) => {
       db.collection("challenges").get(),
     ]);
 
-    const companies = companiesSnap.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data());
-    const circles = circlesSnap.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data());
-    const challenges = challengesSnap.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data());
+    const companies = companiesSnap.docs.map((doc: QueryDocumentSnapshot) => doc.data());
+    const circles = circlesSnap.docs.map((doc: QueryDocumentSnapshot) => doc.data());
+    const challenges = challengesSnap.docs.map((doc: QueryDocumentSnapshot) => doc.data());
 
     // Return empty arrays for paginated data - these should be fetched via pagination endpoints
     return {
@@ -450,7 +459,7 @@ export const getPaginatedPosts = onCall(async (request) => {
     }
 
     const snapshot = await query.get();
-    const posts = snapshot.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => {
+    const posts = snapshot.docs.map((doc: QueryDocumentSnapshot) => {
       const data = doc.data();
       // Denormalize author info to avoid N+1 queries
       return transformPost(data);
@@ -484,7 +493,7 @@ export const getPaginatedJobs = onCall(async (request) => {
     }
 
     const snapshot = await query.get();
-    const jobs = snapshot.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data());
+    const jobs = snapshot.docs.map((doc: QueryDocumentSnapshot) => doc.data());
     const hasMore = snapshot.docs.length === limit;
     const lastDoc = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1].id : null;
 
@@ -513,7 +522,7 @@ export const getPaginatedUsers = onCall(async (request) => {
     }
 
     const snapshot = await query.get();
-    const users = snapshot.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data());
+    const users = snapshot.docs.map((doc: QueryDocumentSnapshot) => doc.data());
     const hasMore = snapshot.docs.length === limit;
     const lastDoc = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1].id : null;
 
@@ -560,7 +569,7 @@ export const getPaginatedMessages = onCall(async (request) => {
     }
 
     const snapshot = await query.get();
-    const messages = snapshot.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => transformMessage(doc.data()));
+    const messages = snapshot.docs.map((doc: QueryDocumentSnapshot) => transformMessage(doc.data()));
     const hasMore = snapshot.docs.length === limit;
     const lastDoc = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1].id : null;
 
@@ -638,7 +647,7 @@ export const createPost = onCall(async (request) => {
         content,
         lens: lens || 'work',
         circleId: circleId || null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         inspired: 0,
         respect: 0,
         comments: 0,
@@ -672,7 +681,7 @@ export const appreciatePost = onCall(async (request) => {
     // In a real app, you would also check if the user has already appreciated.
     // This is a simplified increment for the demo.
     await postRef.update({
-        [appreciationType]: admin.firestore.FieldValue.increment(1),
+        [appreciationType]: FieldValue.increment(1),
     });
 
     const updatedPostDoc = await postRef.get();
@@ -694,7 +703,7 @@ export const sendMessage = onCall(async (request) => {
         senderId: context.auth.uid,
         receiverId,
         text,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         moderationStatus,
     };
     const messageRef = await db.collection("messages").add(newMessage);
@@ -718,7 +727,7 @@ export const createJob = onCall(async (request) => {
     const newJob = {
         ...jobData,
         recruiterId: context.auth.uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         moderationStatus,
         impactTags: jobData.impactTags || [],
     };
@@ -762,7 +771,7 @@ export const createChallenge = onCall(async (request) => {
     const newChallenge = {
         ...challengeData,
         recruiterId: context.auth.uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
     };
     const challengeRef = await db.collection("challenges").add(newChallenge);
     await challengeRef.update({ id: challengeRef.id });
@@ -796,7 +805,7 @@ export const syncUserProfileToPosts = onDocumentUpdated('users/{userId}', async 
       .get();
 
     const batch = db.batch();
-    postsSnapshot.docs.forEach((doc: admin.firestore.QueryDocumentSnapshot) => {
+    postsSnapshot.docs.forEach((doc: QueryDocumentSnapshot) => {
       batch.update(doc.ref, {
         authorName: after.name,
         authorAvatarUrl: after.avatarUrl,
@@ -851,7 +860,7 @@ export const provisionInvestorOnApproval = onDocumentUpdated('investor_applicati
       stages: after.stages ?? [],
       sectors: after.sectors ?? [],
       approvedFrom: context.params.applicationId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     console.log(`Provisioned factory_investors/${uid} from investor_applications/${context.params.applicationId}`);
@@ -913,7 +922,7 @@ export const setCachedJobAnalysis = onCall(async (request) => {
       userId,
       jobId,
       analysis,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     return { success: true };
@@ -978,7 +987,7 @@ export const setCachedSynergyAnalysis = onCall(async (request) => {
       user1Id: userIds[0],
       user2Id: userIds[1],
       analysis,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     return { success: true };
@@ -1012,7 +1021,7 @@ export const invalidateAICaches = onDocumentUpdated('users/{userId}', async (eve
       .get();
 
     const batch1 = db.batch();
-    jobCachesSnapshot.docs.forEach((doc: admin.firestore.QueryDocumentSnapshot) => {
+    jobCachesSnapshot.docs.forEach((doc: QueryDocumentSnapshot) => {
       batch1.delete(doc.ref);
     });
     await batch1.commit();
@@ -1027,7 +1036,7 @@ export const invalidateAICaches = onDocumentUpdated('users/{userId}', async (eve
       .get();
 
     const batch2 = db.batch();
-    [...synergyCaches1.docs, ...synergyCaches2.docs].forEach((doc: admin.firestore.QueryDocumentSnapshot) => {
+    [...synergyCaches1.docs, ...synergyCaches2.docs].forEach((doc: QueryDocumentSnapshot) => {
       batch2.delete(doc.ref);
     });
     await batch2.commit();
@@ -1069,18 +1078,18 @@ export const exportUserData = onCall(async (request) => {
 
     const userData = {
       profile: userDoc.data(),
-      posts: postsSnap.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data()),
-      messages: messagesSnap.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data()),
-      jobs: jobsSnap.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data()),
-      notifications: notificationsSnap.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data()),
-      connectionRequests: connectionsSnap.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data()),
+      posts: postsSnap.docs.map((doc: QueryDocumentSnapshot) => doc.data()),
+      messages: messagesSnap.docs.map((doc: QueryDocumentSnapshot) => doc.data()),
+      jobs: jobsSnap.docs.map((doc: QueryDocumentSnapshot) => doc.data()),
+      notifications: notificationsSnap.docs.map((doc: QueryDocumentSnapshot) => doc.data()),
+      connectionRequests: connectionsSnap.docs.map((doc: QueryDocumentSnapshot) => doc.data()),
       exportDate: new Date().toISOString(),
     };
 
     // Log the export for compliance
     await db.collection('dataExports').add({
       userId,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       type: 'USER_REQUEST',
     });
 
@@ -1117,45 +1126,45 @@ export const permanentlyDeleteUserData = onCall(async (request) => {
 
     // Delete posts
     const postsSnap = await db.collection('posts').where('authorId', '==', userId).get();
-    postsSnap.docs.forEach((doc: admin.firestore.QueryDocumentSnapshot) => batch.delete(doc.ref));
+    postsSnap.docs.forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
 
     // Delete messages
     const sentMessages = await db.collection('messages').where('senderId', '==', userId).get();
     const receivedMessages = await db.collection('messages').where('receiverId', '==', userId).get();
-    [...sentMessages.docs, ...receivedMessages.docs].forEach((doc: admin.firestore.QueryDocumentSnapshot) => batch.delete(doc.ref));
+    [...sentMessages.docs, ...receivedMessages.docs].forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
 
     // Delete jobs
     const jobsSnap = await db.collection('jobs').where('recruiterId', '==', userId).get();
-    jobsSnap.docs.forEach((doc: admin.firestore.QueryDocumentSnapshot) => batch.delete(doc.ref));
+    jobsSnap.docs.forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
 
     // Delete notifications
     const notificationsSnap = await db.collection('notifications').where('userId', '==', userId).get();
-    notificationsSnap.docs.forEach((doc: admin.firestore.QueryDocumentSnapshot) => batch.delete(doc.ref));
+    notificationsSnap.docs.forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
 
     // Delete connection requests
     const sentConnections = await db.collection('connectionRequests').where('fromUserId', '==', userId).get();
     const receivedConnections = await db.collection('connectionRequests').where('toUserId', '==', userId).get();
-    [...sentConnections.docs, ...receivedConnections.docs].forEach((doc: admin.firestore.QueryDocumentSnapshot) => batch.delete(doc.ref));
+    [...sentConnections.docs, ...receivedConnections.docs].forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
 
     // Delete AI caches
     const aiCaches = await db.collection('aiAnalysisCache').where('userId', '==', userId).get();
-    aiCaches.docs.forEach((doc: admin.firestore.QueryDocumentSnapshot) => batch.delete(doc.ref));
+    aiCaches.docs.forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
 
     const synergyCaches1 = await db.collection('synergyCache').where('user1Id', '==', userId).get();
     const synergyCaches2 = await db.collection('synergyCache').where('user2Id', '==', userId).get();
-    [...synergyCaches1.docs, ...synergyCaches2.docs].forEach((doc: admin.firestore.QueryDocumentSnapshot) => batch.delete(doc.ref));
+    [...synergyCaches1.docs, ...synergyCaches2.docs].forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
 
     await batch.commit();
 
     // Log the deletion for compliance
     await db.collection('dataDeletions').add({
       userId,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       type: 'USER_REQUEST',
     });
 
     // Delete Firebase Auth account
-    await admin.auth().deleteUser(userId);
+    await getAuth().deleteUser(userId);
 
     return { success: true };
   } catch (error) {
@@ -1183,7 +1192,7 @@ export const updatePrivacySettings = onCall(async (request) => {
         analyticsConsent: settings.analyticsConsent ?? true,
         thirdPartySharing: settings.thirdPartySharing ?? false,
         profileVisibility: settings.profileVisibility ?? 'public', // public, connections, private
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        lastUpdated: FieldValue.serverTimestamp(),
       }
     });
 
@@ -1204,7 +1213,7 @@ export const mintHandoffToken = onCall({
     throw new HttpsError("unauthenticated", "You must be signed in");
   }
   try {
-    const customToken = await admin.auth().createCustomToken(request.auth.uid);
+    const customToken = await getAuth().createCustomToken(request.auth.uid);
     return { token: customToken };
   } catch (err) {
     console.error("mintHandoffToken error:", err);
