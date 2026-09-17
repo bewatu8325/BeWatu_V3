@@ -51,7 +51,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
 const COSENTIMENT_API     = 'https://www.cosentiment.com/api/bewatu';
@@ -73,14 +73,14 @@ function getAdmin() {
   return { db: getFirestore(), auth: getAuth() };
 }
 
-async function getCachedTeaser(db: FirebaseFirestore.Firestore, docKey: string): Promise<{ data: any; cachedAt: number } | null> {
+async function getCachedTeaser(db: Firestore, docKey: string): Promise<{ data: any; cachedAt: number } | null> {
   const snap = await db.doc(`cosentiment_cache/${docKey}`).get();
   if (!snap.exists) return null;
   const d = snap.data()!;
   return { data: d.data !== undefined ? JSON.parse(d.data) : null, cachedAt: d.cachedAt ?? 0 };
 }
 
-async function setCachedTeaser(db: FirebaseFirestore.Firestore, docKey: string, domain: string, data: any): Promise<void> {
+async function setCachedTeaser(db: Firestore, docKey: string, domain: string, data: any): Promise<void> {
   await db.doc(`cosentiment_cache/${docKey}`).set({
     domain,
     data:     JSON.stringify(data),

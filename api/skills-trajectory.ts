@@ -16,7 +16,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
@@ -60,7 +60,7 @@ const RL_WINDOW_MS       = 60 * 60 * 1000; // rolling 1-hour window
 const RL_MAX_PER_WINDOW  = 40;             // generous for real use, caps abuse
 
 /** Returns an error message if the uid is currently rate-limited, else null. */
-async function checkAndBumpRateLimit(db: FirebaseFirestore.Firestore, collection: string, uid: string): Promise<string | null> {
+async function checkAndBumpRateLimit(db: Firestore, collection: string, uid: string): Promise<string | null> {
   const ref = db.doc(`${collection}/${uid}`);
   const now = Date.now();
   const rl = (await ref.get()).data() as { sendCount?: number; windowStart?: number; lastSentAt?: number } | undefined;
