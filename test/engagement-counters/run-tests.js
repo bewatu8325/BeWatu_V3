@@ -14,7 +14,7 @@ const {
   assertSucceeds,
   assertFails,
 } = require("@firebase/rules-unit-testing");
-const { doc, getDoc, updateDoc, arrayUnion, arrayRemove, increment } = require("firebase/firestore");
+const { doc, updateDoc, arrayUnion, arrayRemove, increment } = require("firebase/firestore");
 
 const RULES_PATH = path.join(__dirname, "..", "..", "firestore.rules");
 
@@ -66,10 +66,6 @@ async function main() {
       likedByUids: [],
       commentCount: 0,
       viewCount: 0,
-    });
-    await db.doc("perspective_posts/pp1").set({
-      authorUid: "author-uid",
-      responses: [{ id: "r1", authorId: 1, content: "first" }],
     });
     await db.doc("wisdom_threads/wt1").set({
       authorUid: "author-uid",
@@ -176,24 +172,12 @@ async function main() {
     await assertFails(updateDoc(doc(rando, "reelVibes", "reel1"), { commentCount: 12345 }));
   });
 
-  console.log("\n== perspective_posts: responses append-only ==");
-  await check("appending exactly one new response succeeds", async () => {
-    await assertSucceeds(updateDoc(doc(rando, "perspective_posts", "pp1"), {
-      responses: arrayUnion({ id: "r2", authorId: 42, content: "second" }),
-    }));
-  });
-  await check("replacing the whole array (deleting existing responses) is denied", async () => {
-    await assertFails(updateDoc(doc(rando, "perspective_posts", "pp1"), {
-      responses: [{ id: "fake", authorId: 999, content: "wiped" }],
-    }));
-  });
-  await check("injecting two fake responses in one write is denied", async () => {
-    const snap = await getDoc(doc(rando, "perspective_posts", "pp1"));
-    const current = snap.data().responses;
-    await assertFails(updateDoc(doc(rando, "perspective_posts", "pp1"), {
-      responses: [...current, { id: "fake1", authorId: 1 }, { id: "fake2", authorId: 2 }],
-    }));
-  });
+  // perspective_posts.responses used to live here (an append-only array
+  // field) but has since moved to a real responses subcollection — see
+  // test/perspective-responses/run-tests.js, which supersedes this
+  // section's old array-diff assertions entirely (a real subcollection
+  // has nothing in common with a counter, which is what this file is
+  // actually about).
 
   console.log("\n== wisdom_threads: hearts/saves bump ==");
   await check("bumping hearts by exactly 1 succeeds", async () => {

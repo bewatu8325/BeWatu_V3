@@ -14,7 +14,7 @@
  */
 
 import {
-  collection, addDoc, getDocs, getDoc, doc, updateDoc,
+  collection, addDoc, setDoc, getDocs, getDoc, doc, updateDoc,
   query, orderBy, limit, arrayUnion, increment,
   serverTimestamp, where, Timestamp,
 } from 'firebase/firestore';
@@ -42,7 +42,6 @@ export async function createPerspectivePost(
     authorId:     author.numericId,
     authorName:   author.name,
     authorAvatar: author.avatarUrl ?? null,
-    responses:    [],
     createdAt:    serverTimestamp(),
     updatedAt:    serverTimestamp(),
   });
@@ -61,14 +60,43 @@ export async function createPerspectivePost(
   };
 }
 
+// P1 fix (launch-readiness review): responses used to be an array field on
+// the post doc itself, written via arrayUnion() — any authed non-owner
+// could overwrite the whole array in one write (delete every response,
+// tamper with one, inject fakes), because Firestore's rules language can't
+// verify "the one new element" in a list diff. Real fix: a subcollection,
+// same pattern as posts/{id}/comments and this file's own helpful_votes —
+// ownership is now enforced per-document, the same way it already was
+// everywhere else in this codebase.
+//
+// Also fixes a second bug for free: the old code couldn't use
+// serverTimestamp() for createdAt (the SDK rejects that sentinel nested
+// inside an arrayUnion() element) and fell back to a client-clock
+// new Date() instead. A subcollection document has no such restriction.
 export async function addPerspectiveResponse(
   postId:   string,
   content:  string,
   gen:      GenerationTag,
   author:   { uid: string; numericId: number; name: string; avatarUrl?: string }
 ): Promise<PerspectiveResponse> {
-  const response: PerspectiveResponse = {
-    id:           `${author.uid}_${Date.now()}`,
+  const ref = await addDoc(collection(db, 'perspective_posts', postId, 'responses'), {
+    authorUid:    author.uid,
+    authorId:     author.numericId,
+    authorName:   author.name,
+    authorAvatar: author.avatarUrl ?? null,
+    authorGen:    gen,
+    content,
+    createdAt:    serverTimestamp(),
+    helpful:      0,
+  });
+
+  // Deliberately doesn't also touch the parent post's updatedAt: nothing
+  // reads that field (the feed orders by createdAt, and a responder isn't
+  // the post's owner, so writing to the parent from here would need its
+  // own carve-out in the parent's update rule for no real benefit).
+
+  return {
+    id:           ref.id,
     authorId:     author.numericId,
     authorName:   author.name,
     authorAvatar: author.avatarUrl,
@@ -77,19 +105,6 @@ export async function addPerspectiveResponse(
     createdAt:    new Date(),
     helpful:      0,
   };
-
-  // Bug fix: this used to override `response.createdAt` (already a plain
-  // `new Date()` above) with `serverTimestamp()` right here — but the
-  // Firebase SDK rejects a serverTimestamp() sentinel nested inside an
-  // arrayUnion() element outright ("FieldValue.serverTimestamp() cannot
-  // be used inside an array"), so every call to this function threw
-  // immediately. No one could ever add a response to a Perspective Post.
-  await updateDoc(doc(db, 'perspective_posts', postId), {
-    responses: arrayUnion(response),
-    updatedAt: serverTimestamp(),
-  });
-
-  return response;
 }
 
 export async function markPerspectiveHelpful(postId: string, responseId: string): Promise<void> {
@@ -105,8 +120,11 @@ export async function fetchPerspectivePosts(count = 20): Promise<PerspectivePost
   const snap = await getDocs(
     query(collection(db, 'perspective_posts'), orderBy('createdAt', 'desc'), limit(count))
   );
-  return snap.docs.map(d => {
+  return Promise.all(snap.docs.map(async d => {
     const data = d.data();
+    const responsesSnap = await getDocs(
+      query(collection(db, 'perspective_posts', d.id, 'responses'), orderBy('createdAt', 'asc'))
+    );
     return {
       id:           d.id,
       authorId:     data.authorId,
@@ -115,14 +133,23 @@ export async function fetchPerspectivePosts(count = 20): Promise<PerspectivePost
       question:     data.question,
       context:      data.context ?? '',
       seekingFrom:  data.seekingFrom ?? ['Any generation'],
-      responses:    (data.responses ?? []).map((r: any) => ({
-        ...r,
-        createdAt: r.createdAt?.toDate?.() ?? new Date(),
-      })),
+      responses:    responsesSnap.docs.map(r => {
+        const rd = r.data();
+        return {
+          id:           r.id,
+          authorId:     rd.authorId,
+          authorName:   rd.authorName,
+          authorAvatar: rd.authorAvatar,
+          authorGen:    rd.authorGen,
+          content:      rd.content,
+          helpful:      rd.helpful ?? 0,
+          createdAt:    rd.createdAt?.toDate?.() ?? new Date(),
+        };
+      }),
       createdAt:    data.createdAt?.toDate?.() ?? new Date(),
       _firestoreId: d.id,
     };
-  });
+  }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

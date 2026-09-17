@@ -1098,26 +1098,37 @@ service cloud.firestore {
       allow read:   if isAuth();
       allow create: if isAuth()
         && request.resource.data.authorUid == request.auth.uid;
-      // P1 fix (partial — see note): responses holds real, attributed
-      // content objects (addPerspectiveResponse's arrayUnion), not a
-      // counter, so this used to let any authed non-owner overwrite the
-      // whole array with anything — delete every existing response,
-      // tamper with one, or inject several fake ones in a single write.
-      // Firestore's rules language can't extract "the newly added
-      // element" from a list diff, so the new entry's authorUid can't be
-      // verified here — that needs a real schema change (a responses
-      // subcollection, mirroring the already-correct posts/{id}/comments
-      // and ideas/{id}/comments pattern) to close fully. What IS
-      // enforceable, and now enforced: every existing response must
-      // survive byte-for-byte, and the array can only grow by exactly one
-      // element per write — no deletions, no tampering, no bulk-inject.
-      allow update: if isAuth() && (
-        resource.data.authorUid == request.auth.uid
-        || (onlyFields(['responses', 'updatedAt'])
-            && request.resource.data.responses.size() == resource.data.responses.size() + 1
-            && request.resource.data.responses.hasAll(resource.data.responses))
-      );
+      allow update: if isAuth()
+        && resource.data.authorUid == request.auth.uid
+        && onlyFields(['question', 'context', 'seekingFrom', 'updatedAt']);
       allow delete: if false;
+
+      // P1 fix (launch-readiness review): responses used to be an array
+      // field on the post doc, written via arrayUnion() — any authed
+      // non-owner could overwrite the whole array in one write (delete
+      // every response, tamper with one, inject fakes), since Firestore's
+      // rules language can't extract "the newly added element" from a
+      // list diff to verify its authorUid. Real fix, not a mitigation:
+      // a real subcollection, same pattern as posts/{id}/comments —
+      // ownership is enforced per-document now, like everywhere else.
+      match /responses/{responseId} {
+        allow read:   if isAuth();
+        allow create: if isAuth()
+          && request.resource.data.authorUid == request.auth.uid;
+        allow update, delete: if isAuth()
+          && resource.data.authorUid == request.auth.uid;
+      }
+
+      // addPerspectiveResponse()'s "mark helpful" — anyone can vote a
+      // response helpful once; there's no owner concept here by design,
+      // any authed user's vote counts, including the response's own
+      // author (matching this file's already-permissive stance on
+      // self-appreciation elsewhere, e.g. posts.appreciations).
+      match /helpful_votes/{voteId} {
+        allow read:   if isAuth();
+        allow create: if isAuth();
+        allow update, delete: if false;
+      }
     }
 
     match /wisdom_threads/{threadId} {
