@@ -274,7 +274,9 @@ export const onDataRequestCreated = onDocumentCreated("data_requests/{requestId}
     const uid = request.uid;
     if (!uid) return;
 
+    let stage = "start";
     try {
+        stage = "firestore-reads";
         const [
             userSnap, postsSnap, sentConnSnap, receivedConnSnap,
             sentMsgSnap, receivedMsgSnap, jobsSnap, circlesSnap,
@@ -309,14 +311,17 @@ export const onDataRequestCreated = onDocumentCreated("data_requests/{requestId}
             circles: circlesSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
         };
 
+        stage = "storage-save";
         const bucket   = admin.storage().bucket();
         const filePath = `data-exports/${uid}/${event.params.requestId}.json`;
         const file     = bucket.file(filePath);
         await file.save(JSON.stringify(exportData, null, 2), { contentType: "application/json" });
 
+        stage = "signed-url";
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
         const [downloadUrl] = await file.getSignedUrl({ action: "read", expires: expiresAt });
 
+        stage = "firestore-update";
         await snap.ref.update({
             downloadUrl,
             expiresAt:     expiresAt.toISOString(),
@@ -325,8 +330,14 @@ export const onDataRequestCreated = onDocumentCreated("data_requests/{requestId}
 
         console.log(`onDataRequestCreated: generated export for uid=${uid}, request=${event.params.requestId}`);
     } catch (err: any) {
-        console.error(`onDataRequestCreated: failed for request=${event.params.requestId}:`, err.message);
-        await snap.ref.update({ autoGenerateError: err.message ?? "unknown error" }).catch(() => {});
+        // `stage` pins down which of the four steps (Firestore reads, the
+        // Storage write, the signed-URL call, or the final Firestore update)
+        // failed — this function depends on IAM grants across three
+        // different services (Firestore, Storage, and the Eventarc trigger's
+        // own run.invoker binding), and a bare err.message alone doesn't say
+        // which one broke.
+        console.error(`onDataRequestCreated: failed at stage=${stage} for request=${event.params.requestId}:`, err.message, err.code);
+        await snap.ref.update({ autoGenerateError: `[${stage}] ${err.message ?? "unknown error"}` }).catch(() => {});
     }
 });
 
