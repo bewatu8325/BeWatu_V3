@@ -39,7 +39,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        # functions/package.json declares engines.node: "22" (the real
+        # deploy runtime — Firebase's own deploy output confirms "Node.js 22
+        # (2nd Gen)"), and firebase-admin >=14 declares the same >=22
+        # requirement. Node 20 here isn't just a mismatched-but-harmless
+        # pin: firebase-admin lists @google-cloud/firestore and
+        # @google-cloud/storage as optionalDependencies, and both of THOSE
+        # packages also require >=22 — under Node 20, npm silently omits an
+        # optional dependency whose own engines check fails (no error, no
+        # warning about the omission itself), so their type declarations
+        # simply aren't there for firebase-admin's own .d.ts files to
+        # import. Reproduced this precisely: downloaded the real Node 20
+        # binary CI uses, ran a clean install, confirmed
+        # node_modules/@google-cloud/ doesn't even exist afterward, and got
+        # the exact same TS2307 "Cannot find module '@google-cloud/
+        # firestore'" this job was failing on.
+        with: { node-version: '22' }
       - name: Install functions/ dependencies
         run: npm install --prefix functions
       - name: Typecheck functions/ (tsc --noEmit)
