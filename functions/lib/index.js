@@ -1,46 +1,16 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendCoSentimentSignal = exports.getCoSentimentTeaser = exports.mintHandoffToken = exports.updatePrivacySettings = exports.permanentlyDeleteUserData = exports.exportUserData = exports.invalidateAICaches = exports.setCachedSynergyAnalysis = exports.getCachedSynergyAnalysis = exports.setCachedJobAnalysis = exports.getCachedJobAnalysis = exports.provisionInvestorOnApproval = exports.syncUserProfileToPosts = exports.createChallenge = exports.deleteJob = exports.updateJob = exports.createJob = exports.sendMessage = exports.appreciatePost = exports.createPost = exports.updateUser = exports.getCurrentUser = exports.getPaginatedMessages = exports.getPaginatedUsers = exports.getPaginatedJobs = exports.getPaginatedPosts = exports.getInitialAppData = exports.onDataRequestCreated = exports.scheduledHardDelete = exports.completeRegistration = exports.createUserProfile = void 0;
-const admin = __importStar(require("firebase-admin"));
 const date_fns_1 = require("date-fns");
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
-admin.initializeApp();
-const db = admin.firestore();
+const app_1 = require("firebase-admin/app");
+const firestore_2 = require("firebase-admin/firestore");
+const auth_1 = require("firebase-admin/auth");
+const storage_1 = require("firebase-admin/storage");
+(0, app_1.initializeApp)();
+const db = (0, firestore_2.getFirestore)();
 // ===================================================================
 // Rate Limiting & Security
 // ===================================================================
@@ -107,7 +77,7 @@ async function detectAnomalousActivity(userId, action) {
                 userId,
                 type: 'ANOMALOUS_ACTIVITY',
                 activityCount,
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                timestamp: firestore_2.FieldValue.serverTimestamp(),
                 details: `User performed ${activityCount} actions in the last hour`,
             });
             console.warn(`⚠️ Anomalous activity detected for user ${userId}: ${activityCount} actions in last hour`);
@@ -235,10 +205,10 @@ exports.scheduledHardDelete = (0, scheduler_1.onSchedule)("every 24 hours", asyn
             // doc — see the accountService.ts fix this same review made.
             await db.doc(`users/${uid}/private/contact`).delete().catch(() => { });
             await docSnap.ref.delete();
-            await admin.auth().deleteUser(uid).catch((err) => {
+            await (0, auth_1.getAuth)().deleteUser(uid).catch((err) => {
                 console.error(`  scheduledHardDelete: failed to delete Auth user ${uid}:`, err.message);
             });
-            const bucket = admin.storage().bucket();
+            const bucket = (0, storage_1.getStorage)().bucket();
             for (const prefix of [`avatars/${uid}/`, `microIntros/${uid}/`, `vibe-clips/${uid}/`]) {
                 await bucket.deleteFiles({ prefix }).catch((err) => {
                     console.error(`  scheduledHardDelete: failed to delete storage prefix ${prefix} for ${uid}:`, err.message);
@@ -305,7 +275,7 @@ exports.onDataRequestCreated = (0, firestore_1.onDocumentCreated)("data_requests
             circles: circlesSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
         };
         stage = "storage-save";
-        const bucket = admin.storage().bucket();
+        const bucket = (0, storage_1.getStorage)().bucket();
         const filePath = `data-exports/${uid}/${event.params.requestId}.json`;
         const file = bucket.file(filePath);
         await file.save(JSON.stringify(exportData, null, 2), { contentType: "application/json" });
@@ -359,7 +329,7 @@ const transformMessage = (message) => {
     };
 };
 // transformArticle function kept for future use
-// const transformArticle = (article: admin.firestore.DocumentData) => {
+// const transformArticle = (article: DocumentData) => {
 //     const createdAt = article.createdAt;
 //     const timestamp = createdAt && typeof createdAt.toDate === 'function'
 //       ? formatDistanceToNow(createdAt.toDate()) + " ago"
@@ -585,7 +555,7 @@ exports.createPost = (0, https_1.onCall)(async (request) => {
         content,
         lens: lens || 'work',
         circleId: circleId || null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: firestore_2.FieldValue.serverTimestamp(),
         inspired: 0,
         respect: 0,
         comments: 0,
@@ -615,7 +585,7 @@ exports.appreciatePost = (0, https_1.onCall)(async (request) => {
     // In a real app, you would also check if the user has already appreciated.
     // This is a simplified increment for the demo.
     await postRef.update({
-        [appreciationType]: admin.firestore.FieldValue.increment(1),
+        [appreciationType]: firestore_2.FieldValue.increment(1),
     });
     const updatedPostDoc = await postRef.get();
     return { post: transformPost(updatedPostDoc.data()) };
@@ -633,7 +603,7 @@ exports.sendMessage = (0, https_1.onCall)(async (request) => {
         senderId: context.auth.uid,
         receiverId,
         text,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: firestore_2.FieldValue.serverTimestamp(),
         moderationStatus,
     };
     const messageRef = await db.collection("messages").add(newMessage);
@@ -653,7 +623,7 @@ exports.createJob = (0, https_1.onCall)(async (request) => {
     const newJob = {
         ...jobData,
         recruiterId: context.auth.uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: firestore_2.FieldValue.serverTimestamp(),
         moderationStatus,
         impactTags: jobData.impactTags || [],
     };
@@ -694,7 +664,7 @@ exports.createChallenge = (0, https_1.onCall)(async (request) => {
     const newChallenge = {
         ...challengeData,
         recruiterId: context.auth.uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: firestore_2.FieldValue.serverTimestamp(),
     };
     const challengeRef = await db.collection("challenges").add(newChallenge);
     await challengeRef.update({ id: challengeRef.id });
@@ -770,7 +740,7 @@ exports.provisionInvestorOnApproval = (0, firestore_1.onDocumentUpdated)('invest
         stages: after.stages ?? [],
         sectors: after.sectors ?? [],
         approvedFrom: context.params.applicationId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: firestore_2.FieldValue.serverTimestamp(),
     });
     console.log(`Provisioned factory_investors/${uid} from investor_applications/${context.params.applicationId}`);
     return null;
@@ -822,7 +792,7 @@ exports.setCachedJobAnalysis = (0, https_1.onCall)(async (request) => {
             userId,
             jobId,
             analysis,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: firestore_2.FieldValue.serverTimestamp(),
         });
         return { success: true };
     }
@@ -877,7 +847,7 @@ exports.setCachedSynergyAnalysis = (0, https_1.onCall)(async (request) => {
             user1Id: userIds[0],
             user2Id: userIds[1],
             analysis,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: firestore_2.FieldValue.serverTimestamp(),
         });
         return { success: true };
     }
@@ -955,7 +925,7 @@ exports.exportUserData = (0, https_1.onCall)(async (request) => {
         // Log the export for compliance
         await db.collection('dataExports').add({
             userId,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: firestore_2.FieldValue.serverTimestamp(),
             type: 'USER_REQUEST',
         });
         return { data: userData };
@@ -1010,11 +980,11 @@ exports.permanentlyDeleteUserData = (0, https_1.onCall)(async (request) => {
         // Log the deletion for compliance
         await db.collection('dataDeletions').add({
             userId,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: firestore_2.FieldValue.serverTimestamp(),
             type: 'USER_REQUEST',
         });
         // Delete Firebase Auth account
-        await admin.auth().deleteUser(userId);
+        await (0, auth_1.getAuth)().deleteUser(userId);
         return { success: true };
     }
     catch (error) {
@@ -1039,7 +1009,7 @@ exports.updatePrivacySettings = (0, https_1.onCall)(async (request) => {
                 analyticsConsent: settings.analyticsConsent ?? true,
                 thirdPartySharing: settings.thirdPartySharing ?? false,
                 profileVisibility: settings.profileVisibility ?? 'public', // public, connections, private
-                lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                lastUpdated: firestore_2.FieldValue.serverTimestamp(),
             }
         });
         return { success: true };
@@ -1059,7 +1029,7 @@ exports.mintHandoffToken = (0, https_1.onCall)({
         throw new https_1.HttpsError("unauthenticated", "You must be signed in");
     }
     try {
-        const customToken = await admin.auth().createCustomToken(request.auth.uid);
+        const customToken = await (0, auth_1.getAuth)().createCustomToken(request.auth.uid);
         return { token: customToken };
     }
     catch (err) {
