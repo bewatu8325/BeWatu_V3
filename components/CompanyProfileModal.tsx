@@ -1794,12 +1794,16 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
   useEffect(() => {
     const raw = company.website ?? '';
     const domain = raw.replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
-    if (!domain) return;
-    fetch(`/api/cosentiment-teaser?domain=${encodeURIComponent(domain)}`)
+    if (!domain || !fbUser) return;
+    // launch-readiness review: this endpoint now requires a bearer token.
+    fbUser.getIdToken()
+      .then(idToken => fetch(`/api/cosentiment-teaser?domain=${encodeURIComponent(domain)}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      }))
       .then(r => r.json())
       .then(data => { if (data?.teaser?.has_data) setCosentimentData(data); })
       .catch(() => {}); // fail silently — CoSentiment is additive
-  }, [company.website]);
+  }, [company.website, fbUser]);
 
   const companyJobs = allJobs.filter(j => j.companyId === company.id);
   const isOwner = company.adminUid === fbUser?.uid || (company.verifiedRecruiters ?? []).includes(fbUser?.uid ?? '');

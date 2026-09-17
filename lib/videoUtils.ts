@@ -67,10 +67,16 @@ export function extractVideoFrame(
 /**
  * Call /api/verify-reel with the extracted frame.
  * Returns the server's verdict, or null if the call fails (never blocks the upload).
+ *
+ * idToken: the caller's own Firebase ID token (launch-readiness review, P1) —
+ * the endpoint now requires it and rejects any authorUid that doesn't match
+ * the token's real uid, so this can no longer be called on someone else's
+ * behalf even by mistake.
  */
 export async function submitForVerification(params: {
   reelId:    string;
   authorUid: string;
+  idToken:   string;
   file:      File;
   type:      'microIntro' | 'reel';
 }): Promise<{ verdict: string; confidence: string; status: string } | null> {
@@ -78,7 +84,10 @@ export async function submitForVerification(params: {
     const { base64, mediaType } = await extractVideoFrame(params.file);
     const res = await fetch('/api/verify-reel', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${params.idToken}`,
+      },
       body: JSON.stringify({
         reelId:          params.reelId,
         authorUid:       params.authorUid,

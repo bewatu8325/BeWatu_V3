@@ -13,23 +13,53 @@
  * context.docPath = Firestore path to update (for microIntro: 'users/{uid}')
  *
  * Returns: { verdict, confidence, status }
+ *
+ * Auth (launch-readiness review, P1 rate-limiting/auth sweep): this endpoint
+ * had no authentication at all — the same unauthenticated-paid-API-proxy
+ * class already fixed for api/claude.js, api/gemini.ts, and
+ * api/skills-trajectory.ts, but missed in that pass. Worse than a pure
+ * budget-exhaustion risk here, though: with no ownership check, any caller
+ * could pass an arbitrary reelId + authorUid and overwrite a *stranger's*
+ * verification verdict — mark someone else's real video ai_generated, or
+ * launder their own flagged upload by feeding a different frame under a
+ * reelId they don't own. lib/videoUtils.ts's submitForVerification() is the
+ * only real caller (App.tsx:762) and always sends authorUid: fbUser.uid —
+ * an authenticated caller's own uid — confirming that's the intended shape,
+ * not something this endpoint ever validated. Now requires a Firebase ID
+ * token (Node runtime already, via firebase-admin/auth — no Edge/jose
+ * workaround needed here), rejects if it doesn't match the claimed
+ * authorUid, and rejects if the target reelVibes/{reelId} doc's own stored
+ * authorUid doesn't match either — the second check is the one that
+ * actually stops the cross-user overwrite, since the write is keyed on
+ * reelId, not on the caller's own uid.
+ *
+ * Rate limit: auth alone stops impersonation, not a legitimate signed-in
+ * user calling this in a loop to burn Claude Vision's budget — each call
+ * runs a real vision inference. Capped per-uid, same inline Firestore-doc
+ * sliding-window shape as api/contact.ts / api/send-recruiter-otp.ts.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
+
+const MIN_INTERVAL_MS      = 10 * 1000;      // 10s between submissions per uid
+const WINDOW_MS            = 60 * 60 * 1000; // rolling 1-hour window
+const MAX_PER_WINDOW       = 20;             // generous for real uploads, caps abuse
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 
-function getAdminDb() {
+function getAdmin() {
   if (!getApps().length) {
     // P0 7 (least privilege): only ever writes reelVibes/{reelId} and
-    // users/{uid} — Firestore only, no Auth-admin or Cloud Functions calls.
+    // users/{uid}, plus verifyIdToken (read-only against Auth) — no
+    // Auth-admin writes, no Cloud Functions calls.
     const sa = process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER ?? process.env.FIREBASE_SERVICE_ACCOUNT!;
     initializeApp({ credential: cert(JSON.parse(sa)) });
   }
-  return getFirestore();
+  return { db: getFirestore(), auth: getAuth() };
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -151,6 +181,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'reelId, authorUid, and frameBase64 are required' });
   }
 
+  const { db, auth } = getAdmin();
+
+  // Verify the caller is a real, signed-in Firebase user, and that they're
+  // the same person the request claims to be — not just anyone with a
+  // valid account submitting on someone else's behalf.
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: missing bearer token' });
+  }
+  let callerUid: string;
+  try {
+    callerUid = (await auth.verifyIdToken(authHeader.slice(7))).uid;
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized: invalid token' });
+  }
+  if (callerUid !== authorUid) {
+    return res.status(403).json({ error: 'authorUid does not match the authenticated caller' });
+  }
+
+  // The check above only proves authorUid is honest about who's calling —
+  // it says nothing about whether reelId actually belongs to them. The
+  // write below is keyed on reelId, so this is the check that actually
+  // stops a caller from overwriting a stranger's verification verdict.
+  const reelSnap = await db.doc(`reelVibes/${reelId}`).get();
+  if (!reelSnap.exists || reelSnap.data()?.authorUid !== callerUid) {
+    return res.status(403).json({ error: 'reelId does not belong to the authenticated caller' });
+  }
+
+  const rateLimitRef = db.doc(`verify_reel_rate_limits/${callerUid}`);
+  const now = Date.now();
+  const rl = (await rateLimitRef.get()).data() as
+    | { sendCount?: number; windowStart?: number; lastSentAt?: number }
+    | undefined;
+
+  if (rl?.lastSentAt && now - rl.lastSentAt < MIN_INTERVAL_MS) {
+    return res.status(429).json({ error: 'Too many requests — please wait a moment.' });
+  }
+  const windowStart = rl?.windowStart && now - rl.windowStart < WINDOW_MS ? rl.windowStart : now;
+  const sendCount    = windowStart === rl?.windowStart ? (rl?.sendCount ?? 0) : 0;
+  if (sendCount >= MAX_PER_WINDOW) {
+    return res.status(429).json({ error: 'Too many verification requests this hour — please try again later.' });
+  }
+  await rateLimitRef.set({
+    lastSentAt: now, windowStart, sendCount: sendCount + 1,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
   try {
     const result = await analyseFrame(frameBase64, frameMediaType);
     const status  = toStatus(result.verdict, result.confidence);
@@ -164,8 +241,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       checkedAt:  FieldValue.serverTimestamp(),
       appeal:     null,
     };
-
-    const db = getAdminDb();
 
     // Update the reelVibes document
     await db.doc(`reelVibes/${reelId}`).update({
@@ -200,7 +275,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('[verify-reel]', err);
     // On any error, mark as uncertain + queue for manual review rather than blocking the upload
     try {
-      const db = getAdminDb();
       await db.doc(`reelVibes/${reelId}`).update({
         aiVerification: {
           status:    'uncertain',
