@@ -6,17 +6,24 @@
 //   1. softDeleteAccount()  — called immediately when user confirms
 //      - Sets status: 'pending_deletion', deletedAt on users/{uid}
 //      - Anonymises display fields (name, email, photo, bio, headline)
+//      - Anonymises users/{uid}/private/contact (real email/phone/location —
+//        see the P1 fix below for why this is a separate step)
 //      - Removes from connections, circles, pods
 //      - Signs user out
 //
-//   2. Hard delete after 1 year — handled by a scheduled Cloud Function
-//      (see /functions/src/scheduledDeletion.ts — to be built separately)
-//      Queries users where status='pending_deletion' AND deletedAt < 1 year ago
-//      and permanently removes all their documents.
+//   2. Hard delete after scheduledHardDeleteAt (1 year) — handled by the
+//      scheduled Cloud Function functions/src/index.ts's scheduledHardDelete
+//      (launch-readiness review — this used to say "to be built separately"
+//      and nothing ever read scheduledHardDeleteAt at all; that function now
+//      exists, deployed dry-run-only until explicitly enabled — see its own
+//      header comment for the safety reasoning).
 //
 // DATA PORTABILITY:
 //   exportUserData() — returns a JSON object with all user data
 //   triggeredFromProfile() — downloads as bewatu-data.json
+//   (as of the launch-readiness review, the real self-service path calls
+//   this server-side, from functions/src/index.ts's onDataRequestCreated —
+//   see components/DataRequestModal.tsx's header comment for the full flow)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
@@ -38,6 +45,22 @@ import { db } from './firebase';
 export async function softDeleteAccount(uid: string): Promise<void> {
   const batch = writeBatch(db);
   const userRef = doc(db, 'users', uid);
+
+  // P1 fix (launch-readiness review): this function anonymised email/phone/
+  // location by writing them onto the MAIN users/{uid} doc — but the P0 2
+  // fix earlier in this same review moved those exact fields off the main
+  // doc entirely, into users/{uid}/private/contact. That made this step a
+  // dead write: it touched fields that no longer exist on the main doc,
+  // while the caller's real email/phone/location sat in the private
+  // subcollection completely untouched — a "deleted" account's actual PII
+  // was never anonymised at all. stripeCustomerId is deliberately left
+  // alone here, matching the deletion modal's own stated policy ("billing
+  // records required by law, retained 7 years").
+  batch.set(
+    doc(db, 'users', uid, 'private', 'contact'),
+    { email: `deleted_${uid}@bewatu.invalid`, phone: '', location: '', updatedAt: serverTimestamp() },
+    { merge: true }
+  );
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists()) throw new Error('User not found');

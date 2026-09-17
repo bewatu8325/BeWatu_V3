@@ -66,6 +66,11 @@ import {
 } from './lib/firestoreService';
 import { recordTermsAgreement } from './lib/firestoreService';
 import TermsConsentModal, { TERMS_VERSION } from './components/TermsConsentModal';
+
+// Minimum-age self-attestation — same versioning convention as TERMS_VERSION,
+// so a future policy change (e.g. raising the minimum) can re-prompt
+// everyone the same way a Terms update already does.
+const AGE_CONFIRM_VERSION = '1.0';
 import { goToFactory } from './utils/factoryHandoff';
 import CookieBanner from './components/CookieBanner';
 import AccountDeletionModal from './components/AccountDeletionModal';
@@ -132,6 +137,16 @@ const MainApp: React.FC = () => {
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [showTermsWall, setShowTermsWall] = useState(false);
   const [showCommunityWall, setShowCommunityWall] = useState(false);
+  // Compliance fix (launch-readiness review): there was no age-gate anywhere
+  // in the app at all, despite it being documented as a live control — no
+  // field on registration, no checkbox, nothing. Gated the same way as
+  // Terms/Community (a post-auth "wall", not a registration-form checkbox)
+  // specifically because a form checkbox is bypassed entirely by Google
+  // sign-in, which upserts an account with zero user interaction beyond the
+  // OAuth popup — the exact same bypass class as the trial-clock bug fixed
+  // earlier in this review. A wall keyed off the user doc, not the signup
+  // path, catches every path uniformly, including future ones.
+  const [showAgeWall, setShowAgeWall] = useState(false);
   const [currentView, setCurrentView] = useState<View>(() => {
     // Restore last view from sessionStorage on refresh
     const saved = sessionStorage.getItem('beWatuView');
@@ -313,6 +328,18 @@ const MainApp: React.FC = () => {
   // Uses a session-level flag so it never re-fires once dismissed this session
   useEffect(() => {
     if (authState !== 'authenticated' || !currentUser || !data) return;
+
+    // Step 0 — check minimum-age confirmation (must come before Terms/Community)
+    if (!showAgeWall) {
+      const ageSession = sessionStorage.getItem('ageConfirmedThisSession');
+      if (ageSession !== AGE_CONFIRM_VERSION) {
+        const agreedAge = (currentUser as any).agreedToAgeVersion;
+        if (!agreedAge || agreedAge !== AGE_CONFIRM_VERSION) {
+          setShowAgeWall(true);
+          return;
+        }
+      }
+    }
 
     // Step 1 — check Terms of Service
     if (!showTermsWall) {
@@ -614,6 +641,35 @@ const MainApp: React.FC = () => {
     sessionStorage.removeItem('termsAgreedThisSession');
     sessionStorage.removeItem('communityAgreedThisSession');
     setAuthState('landing');
+  };
+
+  const handleAgeAgree = async () => {
+    if (!fbUser) return;
+    const { updateUserInFirestore } = await import('./lib/firebaseAuth');
+    await updateUserInFirestore(fbUser.uid, {
+      agreedToAgeVersion: AGE_CONFIRM_VERSION,
+      agreedToAgeAt: new Date().toISOString(),
+    } as any);
+    sessionStorage.setItem('ageConfirmedThisSession', AGE_CONFIRM_VERSION);
+    setShowAgeWall(false);
+    // Chain into Terms next, same way handleTermsAgree chains into Community —
+    // this wall doesn't get its own re-render pass to re-check, so it has to
+    // trigger the next one directly.
+    const sessionAgreed = sessionStorage.getItem('termsAgreedThisSession');
+    if (sessionAgreed !== TERMS_VERSION) {
+      const agreedVersion = (currentUser as any)?.agreedToTermsVersion;
+      if (!agreedVersion || agreedVersion !== TERMS_VERSION) {
+        setShowTermsWall(true);
+      }
+    }
+  };
+
+  // A user who declines the age confirmation is signed out rather than let
+  // through — the whole point of the gate is that "I couldn't confirm" must
+  // not be a route past it.
+  const handleAgeDecline = async () => {
+    setShowAgeWall(false);
+    await handleLogout();
   };
 
   const handleTermsAgree = async () => {
@@ -2126,6 +2182,37 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
   return (
     <Suspense fallback={<FullPageLoader />}>
       {authState === 'authenticated' ? renderContent() : renderAuthFlow()}
+      {/* Minimum-age wall — required, blocks app until confirmed. Shown before
+          Terms/Community since it's the more fundamental gate. */}
+      {showAgeWall && currentUser && fbUser && (
+        <div className="fixed inset-0 z-[85] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-2xl w-full max-w-md p-6 sm:p-8 space-y-5">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto text-2xl"
+                style={{ backgroundColor: '#e8f4f0' }}>
+                🎂
+              </div>
+              <h2 className="text-lg font-bold text-stone-900">Confirm your age</h2>
+              <p className="text-sm text-stone-500 leading-relaxed">
+                BeWatu is a professional network intended for people aged 16 and older. Please confirm before continuing.
+              </p>
+            </div>
+
+            <div className="space-y-2.5">
+              <button onClick={handleAgeAgree}
+                className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#1a4a3a' }}>
+                I confirm I am 16 or older
+              </button>
+              <button onClick={handleAgeDecline}
+                className="w-full py-2 text-xs text-stone-500 hover:text-stone-700 transition-colors">
+                I'm under 16
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showTermsWall && currentUser && fbUser && (
         <TermsConsentModal
           userName={currentUser.name}

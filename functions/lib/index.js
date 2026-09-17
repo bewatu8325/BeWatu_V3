@@ -33,11 +33,12 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendCoSentimentSignal = exports.getCoSentimentTeaser = exports.mintHandoffToken = exports.updatePrivacySettings = exports.permanentlyDeleteUserData = exports.exportUserData = exports.invalidateAICaches = exports.setCachedSynergyAnalysis = exports.getCachedSynergyAnalysis = exports.setCachedJobAnalysis = exports.getCachedJobAnalysis = exports.provisionInvestorOnApproval = exports.syncUserProfileToPosts = exports.createChallenge = exports.deleteJob = exports.updateJob = exports.createJob = exports.sendMessage = exports.appreciatePost = exports.createPost = exports.updateUser = exports.getCurrentUser = exports.getPaginatedMessages = exports.getPaginatedUsers = exports.getPaginatedJobs = exports.getPaginatedPosts = exports.getInitialAppData = exports.undoDeleteAccount = exports.deleteAccount = exports.completeRegistration = exports.createUserProfile = void 0;
+exports.sendCoSentimentSignal = exports.getCoSentimentTeaser = exports.mintHandoffToken = exports.updatePrivacySettings = exports.permanentlyDeleteUserData = exports.exportUserData = exports.invalidateAICaches = exports.setCachedSynergyAnalysis = exports.getCachedSynergyAnalysis = exports.setCachedJobAnalysis = exports.getCachedJobAnalysis = exports.provisionInvestorOnApproval = exports.syncUserProfileToPosts = exports.createChallenge = exports.deleteJob = exports.updateJob = exports.createJob = exports.sendMessage = exports.appreciatePost = exports.createPost = exports.updateUser = exports.getCurrentUser = exports.getPaginatedMessages = exports.getPaginatedUsers = exports.getPaginatedJobs = exports.getPaginatedPosts = exports.getInitialAppData = exports.onDataRequestCreated = exports.scheduledHardDelete = exports.completeRegistration = exports.createUserProfile = void 0;
 const admin = __importStar(require("firebase-admin"));
 const date_fns_1 = require("date-fns");
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 admin.initializeApp();
 const db = admin.firestore();
 // ===================================================================
@@ -187,34 +188,148 @@ exports.completeRegistration = (0, https_1.onCall)(async (request) => {
     const updatedUserDoc = await userRef.get();
     return { user: updatedUserDoc.data() };
 });
-exports.deleteAccount = (0, https_1.onCall)(async (request) => {
-    const context = { auth: request.auth };
-    if (!context.auth) {
-        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
+// Launch-readiness review — removed deleteAccount/undoDeleteAccount, which
+// used to live here: confirmed via a repo-wide search that the frontend
+// never calls either (App.tsx's real deletion flow calls
+// lib/accountService.ts's softDeleteAccount() directly against Firestore,
+// not this callable). They also disagreed with the real flow on every
+// field that matters — status: 'deactivated' vs 'pending_deletion',
+// deletionScheduledAt vs scheduledHardDeleteAt/deletedAt — so leaving them
+// in place was actively misleading, not just unused. See
+// scheduledHardDelete below for the real permanent-deletion step this
+// account for (its own comment says "to be built separately" — now built).
+// P1 fix (launch-readiness review): scheduledHardDeleteAt has existed on
+// users/{uid} since softDeleteAccount() started setting it, but nothing
+// ever read it — the account-deletion modal promises users "permanently
+// deleted within 12 months," and nothing in the codebase performed that
+// deletion. This is that step.
+//
+// Ships with HARD_DELETE_DRY_RUN defaulting to true (safe by default) —
+// it only *logs* which accounts are due and what would happen to them,
+// touching nothing. Flipping it to actually delete is a deliberate,
+// separate decision (set HARD_DELETE_DRY_RUN=false in this function's
+// environment) once the dry-run logs have been reviewed for a few days
+// and look correct — a bug in a bulk-delete function is not something to
+// find out about after the fact.
+exports.scheduledHardDelete = (0, scheduler_1.onSchedule)("every 24 hours", async () => {
+    const dryRun = (process.env.HARD_DELETE_DRY_RUN ?? "true") !== "false";
+    const now = new Date();
+    const snap = await db.collection("users")
+        .where("status", "==", "pending_deletion")
+        .where("scheduledHardDeleteAt", "<=", now)
+        .get();
+    if (snap.empty) {
+        console.log(`scheduledHardDelete: 0 accounts due${dryRun ? " (dry run)" : ""}.`);
+        return;
     }
-    const userRef = db.collection("users").doc(context.auth.uid);
-    const deletionDate = new Date();
-    deletionDate.setDate(deletionDate.getDate() + 30); // 30-day grace period
-    await userRef.update({
-        status: "deactivated",
-        deletionScheduledAt: deletionDate.toISOString(),
-    });
-    // In a real production app, you would schedule a Cloud Function to run in 30 days
-    // to permanently delete all user data from Firestore, Storage, and Auth.
-    // e.g., using Cloud Tasks or a scheduled function that checks for expired accounts.
-    return { success: true };
+    console.log(`scheduledHardDelete: ${snap.size} account(s) due for permanent deletion` +
+        (dryRun ? " — DRY RUN, nothing will be touched." : "."));
+    for (const docSnap of snap.docs) {
+        const uid = docSnap.id;
+        if (dryRun) {
+            console.log(`  [dry run] would permanently delete uid=${uid}, scheduledHardDeleteAt=${docSnap.data().scheduledHardDeleteAt}`);
+            continue;
+        }
+        try {
+            // Real PII (email/phone/location) lives here, not on the main
+            // doc — see the accountService.ts fix this same review made.
+            await db.doc(`users/${uid}/private/contact`).delete().catch(() => { });
+            await docSnap.ref.delete();
+            await admin.auth().deleteUser(uid).catch((err) => {
+                console.error(`  scheduledHardDelete: failed to delete Auth user ${uid}:`, err.message);
+            });
+            const bucket = admin.storage().bucket();
+            for (const prefix of [`avatars/${uid}/`, `microIntros/${uid}/`, `vibe-clips/${uid}/`]) {
+                await bucket.deleteFiles({ prefix }).catch((err) => {
+                    console.error(`  scheduledHardDelete: failed to delete storage prefix ${prefix} for ${uid}:`, err.message);
+                });
+            }
+            console.log(`  scheduledHardDelete: permanently deleted uid=${uid}`);
+        }
+        catch (err) {
+            console.error(`  scheduledHardDelete: error deleting uid=${uid}:`, err.message);
+        }
+    }
 });
-exports.undoDeleteAccount = (0, https_1.onCall)(async (request) => {
-    const context = { auth: request.auth };
-    if (!context.auth) {
-        throw new https_1.HttpsError("unauthenticated", "You must be logged in.");
+// P1 fix (launch-readiness review): the self-service data-export flow was
+// a dead end — lib/accountService.ts's exportUserData()/downloadDataAsJson()
+// were fully built and correct but never called from anywhere; the real
+// path (DataRequestModal.tsx) only ever wrote a data_requests doc for an
+// ops staffer to fulfil by hand (generate the export themselves, upload it,
+// paste a URL — see bewatu-ops/src/DataRequestsQueue.js). This function
+// does that generation step automatically, server-side, the moment a
+// request comes in — mirroring exportUserData()'s exact query shape — so
+// staff approving a request already has a real download link waiting,
+// instead of having to build the export themselves. Approval (and the
+// email that was also never built — see api/ops/send-data-ready-email.ts)
+// stays a deliberate human step.
+exports.onDataRequestCreated = (0, firestore_1.onDocumentCreated)("data_requests/{requestId}", async (event) => {
+    const snap = event.data;
+    if (!snap)
+        return;
+    const request = snap.data();
+    if (request.type !== "data_export")
+        return;
+    const uid = request.uid;
+    if (!uid)
+        return;
+    let stage = "start";
+    try {
+        stage = "firestore-reads";
+        const [userSnap, postsSnap, sentConnSnap, receivedConnSnap, sentMsgSnap, receivedMsgSnap, jobsSnap, circlesSnap,] = await Promise.all([
+            db.doc(`users/${uid}`).get(),
+            db.collection("posts").where("authorUid", "==", uid).get(),
+            db.collection("connections").where("senderUid", "==", uid).get(),
+            db.collection("connections").where("receiverUid", "==", uid).get(),
+            db.collection("messages").where("senderUid", "==", uid).get(),
+            db.collection("messages").where("receiverUid", "==", uid).get(),
+            db.collection("jobs").where("recruiterId", "==", uid).get(),
+            db.collection("circles").where("members", "array-contains", uid).get(),
+        ]);
+        const profileData = userSnap.exists ? userSnap.data() : {};
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { stripeCustomerId, subscriptionId, ...safeProfile } = profileData;
+        const exportData = {
+            exportedAt: new Date().toISOString(),
+            profile: safeProfile,
+            posts: postsSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+            connections: [
+                ...sentConnSnap.docs.map((d) => ({ id: d.id, direction: "sent", ...d.data() })),
+                ...receivedConnSnap.docs.map((d) => ({ id: d.id, direction: "received", ...d.data() })),
+            ],
+            messages: [
+                ...sentMsgSnap.docs.map((d) => ({ id: d.id, direction: "sent", ...d.data() })),
+                ...receivedMsgSnap.docs.map((d) => ({ id: d.id, direction: "received", ...d.data() })),
+            ],
+            jobs: jobsSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+            circles: circlesSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        };
+        stage = "storage-save";
+        const bucket = admin.storage().bucket();
+        const filePath = `data-exports/${uid}/${event.params.requestId}.json`;
+        const file = bucket.file(filePath);
+        await file.save(JSON.stringify(exportData, null, 2), { contentType: "application/json" });
+        stage = "signed-url";
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+        const [downloadUrl] = await file.getSignedUrl({ action: "read", expires: expiresAt });
+        stage = "firestore-update";
+        await snap.ref.update({
+            downloadUrl,
+            expiresAt: expiresAt.toISOString(),
+            autoGenerated: true,
+        });
+        console.log(`onDataRequestCreated: generated export for uid=${uid}, request=${event.params.requestId}`);
     }
-    const userRef = db.collection("users").doc(context.auth.uid);
-    await userRef.update({
-        status: "active",
-        deletionScheduledAt: admin.firestore.FieldValue.delete(),
-    });
-    return { success: true };
+    catch (err) {
+        // `stage` pins down which of the four steps (Firestore reads, the
+        // Storage write, the signed-URL call, or the final Firestore update)
+        // failed — this function depends on IAM grants across three
+        // different services (Firestore, Storage, and the Eventarc trigger's
+        // own run.invoker binding), and a bare err.message alone doesn't say
+        // which one broke.
+        console.error(`onDataRequestCreated: failed at stage=${stage} for request=${event.params.requestId}:`, err.message, err.code);
+        await snap.ref.update({ autoGenerateError: `[${stage}] ${err.message ?? "unknown error"}` }).catch(() => { });
+    }
 });
 // ===================================================================
 // Helper Functions
