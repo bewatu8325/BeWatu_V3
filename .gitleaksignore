@@ -1,0 +1,18 @@
+# Fingerprints of confirmed-non-secret gitleaks findings, with the reason
+# each one is safe to ignore. This is why the weekly scheduled full-history
+# scan (security.yml's `schedule` trigger) was failing while every
+# PR-triggered scan passed — the scheduled scan's wider `--all` history
+# range reaches these two, a normal PR's narrower range doesn't.
+#
+# Both findings below are the exact same two hardcoded XOR "encryption" keys
+# already found, documented, and removed as their own P1 in the
+# launch-readiness review (bewatu-ops's PII "encryption" was a single-byte
+# XOR cipher against a hardcoded, client-visible key — see
+# bewatu-ops#4). gitleaks' generic-api-key rule is a heuristic on any
+# high-entropy `const key = "..."` assignment; these are real strings, but
+# never were real credentials — they're publicly-visible-by-construction
+# obfuscation keys, baked into a client bundle, in App.jsx (this repo's own
+# pre-TypeScript-migration file, long superseded by App.tsx). No rotation
+# needed; nothing to leak.
+e750661646428a926efcd8b6c61ddf939cf6f452:App.jsx:generic-api-key:2146
+e750661646428a926efcd8b6c61ddf939cf6f452:App.jsx:generic-api-key:2287
