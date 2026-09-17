@@ -31,6 +31,17 @@ service cloud.firestore {
       return isOpsAdmin() || isOpsManager();
     }
 
+    // P1 fix (launch-readiness review, ops RBAC enforcement depth):
+    // bewatu-ops's own PERMISSIONS.security lists exactly
+    // ["platform_admin","cyber_agent","auditor"] for this domain — the
+    // Security Platform collections below were reading that as a blanket
+    // isOpsStaff(), so e.g. a finance_agent (zero legitimate need for
+    // vulnerability findings or the asset graph) could read all of it.
+    function isSecurityStaff() {
+      return (isOpsStaff() && opsRole() in ['platform_admin', 'cyber_agent', 'auditor'])
+        || isPlatformAdmin();
+    }
+
     function onlyFields(fields) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
@@ -174,7 +185,11 @@ service cloud.firestore {
     // update/delete any ticket directly through the client SDK,
     // bypassing the UI-level restriction entirely.
     match /support_tickets/{ticketId} {
-      allow read: if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): PERMISSIONS.tickets never
+      // grants cyber_agent this domain at all — read used to be a blanket
+      // isOpsStaff(), so cyber_agent (and any other role) could read every
+      // support ticket regardless.
+      allow read: if isOpsStaff() && opsRole() != 'cyber_agent';
       allow create, update: if isOpsStaff()
         && opsRole() != 'auditor' && opsRole() != 'cyber_agent';
       // Tickets are resolved/closed by the app, never actually deleted —
@@ -185,7 +200,14 @@ service cloud.firestore {
     }
 
     match /fraud_cases/{caseId} {
-      allow read: if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a blanket
+      // isOpsStaff() while write was already correctly scoped to the
+      // trust domain (+ auditor added here for read, matching its own
+      // "read-only access to all modules" role definition) — any other
+      // role (e.g. verification_agent) could read every fraud case.
+      allow read: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'trust_agent', 'auditor'
+      ];
       allow write: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'trust_agent'
       ];
@@ -195,8 +217,18 @@ service cloud.firestore {
       // P0 4 fix: was `if isAuth()` — any signed-in user could read every
       // abuse report and the identity of who filed it. Now: the reporter
       // sees their own report's status, ops sees everything.
+      //
+      // P1 follow-up (ops RBAC enforcement depth): "ops sees everything"
+      // was still too broad — scoped to the same roles already trusted to
+      // update this collection (+ auditor), matching PERMISSIONS.moderation
+      // extended to also cover the support escalation path update already
+      // grants.
       allow read:   if isAuth() && (
-        resource.data.reportedBy == request.auth.uid || isOpsStaff()
+        resource.data.reportedBy == request.auth.uid
+        || (isOpsStaff() && opsRole() in [
+             'platform_admin', 'trust_manager', 'trust_agent',
+             'support_manager', 'support_agent', 'auditor'
+           ])
       );
       allow create: if isAuth();
       allow update: if isOpsStaff() && opsRole() in [
@@ -221,7 +253,13 @@ service cloud.firestore {
     }
 
     match /appeals/{appealId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a blanket
+      // isOpsStaff(); scoped to the same roles already trusted to update
+      // (+ auditor), matching PERMISSIONS.appeals exactly.
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
+        'trust_agent', 'legal_agent', 'auditor'
+      ];
       allow create: if isAuth();
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
@@ -297,7 +335,13 @@ service cloud.firestore {
     }
 
     match /watchlist_fraud/{entryId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a
+      // blanket isOpsStaff(); scoped to the same roles already
+      // trusted to update this watchlist (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
+        'trust_agent', 'legal_agent', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
@@ -306,7 +350,13 @@ service cloud.firestore {
       allow delete: if isOpsAdmin();
     }
     match /watchlist_identity/{entryId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a
+      // blanket isOpsStaff(); scoped to the same roles already
+      // trusted to update this watchlist (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
+        'trust_agent', 'legal_agent', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
@@ -315,7 +365,13 @@ service cloud.firestore {
       allow delete: if isOpsAdmin();
     }
     match /watchlist_payment/{entryId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a
+      // blanket isOpsStaff(); scoped to the same roles already
+      // trusted to update this watchlist (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'finance_manager',
+        'trust_agent', 'legal_agent', 'finance_agent', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'legal_manager', 'finance_manager',
@@ -324,7 +380,13 @@ service cloud.firestore {
       allow delete: if isOpsAdmin();
     }
     match /watchlist_platform/{entryId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a
+      // blanket isOpsStaff(); scoped to the same roles already
+      // trusted to update this watchlist (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'support_manager',
+        'trust_agent', 'support_agent', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'support_manager',
@@ -333,7 +395,13 @@ service cloud.firestore {
       allow delete: if isOpsAdmin();
     }
     match /watchlist_safety/{entryId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a
+      // blanket isOpsStaff(); scoped to the same roles already
+      // trusted to update this watchlist (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager',
+        'trust_agent', 'legal_agent', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'legal_manager',
@@ -342,7 +410,12 @@ service cloud.firestore {
       allow delete: if isOpsAdmin();
     }
     match /watchlist_legal/{entryId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a
+      // blanket isOpsStaff(); scoped to the same roles already
+      // trusted to update this watchlist (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'legal_manager', 'legal_agent', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'legal_manager', 'legal_agent', 'investigator'
@@ -350,7 +423,13 @@ service cloud.firestore {
       allow delete: if isOpsAdmin();
     }
     match /watchlist_aml/{entryId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a
+      // blanket isOpsStaff(); scoped to the same roles already
+      // trusted to update this watchlist (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'legal_manager', 'finance_manager',
+        'legal_agent', 'finance_agent', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'legal_manager', 'finance_manager',
@@ -359,7 +438,13 @@ service cloud.firestore {
       allow delete: if isOpsAdmin();
     }
     match /watchlist_dsr/{entryId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a
+      // blanket isOpsStaff(); scoped to the same roles already
+      // trusted to update this watchlist (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'legal_manager', 'support_manager',
+        'legal_agent', 'support_agent', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'legal_manager', 'support_manager',
@@ -369,7 +454,12 @@ service cloud.firestore {
     }
 
     match /fraud_list/{userId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a blanket
+      // isOpsStaff(); scoped to the same roles already trusted to
+      // create/update (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'legal_manager', 'investigator'
       ];
@@ -380,7 +470,13 @@ service cloud.firestore {
     }
 
     match /investigations/{caseId} {
-      allow read:   if isOpsStaff();
+      // P1 fix (ops RBAC enforcement depth): read used to be a blanket
+      // isOpsStaff(); scoped to the same roles already trusted to update
+      // (+ auditor).
+      allow read:   if isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
+        'trust_agent', 'legal_agent', 'investigator', 'auditor'
+      ];
       allow create: if isOpsStaff() && opsRole() != 'auditor';
       allow update: if isOpsStaff() && opsRole() in [
         'platform_admin', 'trust_manager', 'legal_manager', 'support_manager',
@@ -405,23 +501,29 @@ service cloud.firestore {
     // ── SECURITY PLATFORM ─────────────────────────────────────────────
 
     match /security_findings/{findingId} {
-      allow read: if isOpsStaff() || isPlatformAdmin();
+      allow read: if isSecurityStaff();
       allow write: if false;
 
       match /evidence/{evidenceId} {
-        allow read: if isOpsStaff() || isPlatformAdmin();
+        allow read: if isSecurityStaff();
         allow write: if false;
       }
     }
 
     match /remediation_plans/{planId} {
-      allow read: if isOpsStaff() || isPlatformAdmin();
+      allow read: if isSecurityStaff();
       allow write: if false;
     }
 
     match /approval_requests/{requestId} {
-      allow read:   if isOpsStaff() || isPlatformAdmin();
-      allow update: if isOpsStaff() && (
+      allow read:   if isSecurityStaff();
+      // P1 fix (ops RBAC enforcement depth): PERMISSIONS.security's own
+      // comment draws a real distinction — "platform_admin can approve
+      // remediations; cyber_agent can view and triage" — but approving
+      // was a blanket isOpsStaff(), so a cyber_agent (or any other ops
+      // role) could approve/reject a security remediation, not just view
+      // and triage it.
+      allow update: if isOpsAdmin() && (
         request.resource.data.status == 'approved' ||
         request.resource.data.status == 'rejected'
       );
@@ -429,22 +531,22 @@ service cloud.firestore {
     }
 
     match /asset_graph/{assetId} {
-      allow read:  if isOpsStaff() || isPlatformAdmin();
+      allow read:  if isSecurityStaff();
       allow write: if false;
     }
 
     match /asset_edges/{edgeId} {
-      allow read:  if isOpsStaff() || isPlatformAdmin();
+      allow read:  if isSecurityStaff();
       allow write: if false;
     }
 
     match /security_events/{eventId} {
-      allow read:  if isOpsStaff() || isPlatformAdmin();
+      allow read:  if isSecurityStaff();
       allow write: if false;
     }
 
     match /security_config/{configId} {
-      allow read:  if isOpsStaff() || isPlatformAdmin();
+      allow read:  if isSecurityStaff();
       allow write: if false;
     }
 
@@ -1037,9 +1139,19 @@ service cloud.firestore {
 
     // AI verification ops queue — written by server (admin SDK), read by ops only
     match /reel_verification_queue/{docId} {
-      allow read:   if isAuth() && (isPlatformAdmin() || isOpsStaff());
+      // P1 fix (ops RBAC enforcement depth): both read and update were a
+      // blanket isOpsStaff() — PERMISSIONS.reelverif specifically scopes
+      // this domain to trust + verification roles (+ auditor for read
+      // only, matching its "read-only access to all modules" definition).
+      allow read:   if isAuth() && (isPlatformAdmin() || (isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'trust_agent',
+        'verification_manager', 'verification_agent', 'auditor'
+      ]));
       allow create: if false;  // server-side only via admin SDK
-      allow update: if isAuth() && (isPlatformAdmin() || isOpsStaff());
+      allow update: if isAuth() && (isPlatformAdmin() || (isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'trust_agent',
+        'verification_manager', 'verification_agent'
+      ]));
       allow delete: if false;
     }
 
@@ -1301,21 +1413,30 @@ service cloud.firestore {
     }
 
     match /verificationRequests/{requestId} {
+      // P1 fix (ops RBAC enforcement depth): read/update/delete were all a
+      // blanket isOpsStaff() — PERMISSIONS.companies scopes this domain to
+      // verification_manager/verification_agent (+ auditor for read only).
       allow read: if isAuth() && (
         resource == null
         || resource.data.recruiterUid == request.auth.uid
         || resource.data.requestedBy == request.auth.uid
-        || isOpsStaff()
         || isPlatformAdmin()
+        || (isOpsStaff() && opsRole() in [
+             'platform_admin', 'verification_manager', 'verification_agent', 'auditor'
+           ])
       );
       allow create: if isAuth() && (
         request.resource.data.recruiterUid == request.auth.uid
         || request.resource.data.requestedBy == request.auth.uid
       );
-      allow update: if isOpsStaff() || isPlatformAdmin();
+      allow update: if isPlatformAdmin() || (isOpsStaff() && opsRole() in [
+        'platform_admin', 'verification_manager', 'verification_agent'
+      ]);
       allow delete: if isAuth() && (
-        isOpsStaff()
-        || isPlatformAdmin()
+        isPlatformAdmin()
+        || (isOpsStaff() && opsRole() in [
+             'platform_admin', 'verification_manager', 'verification_agent'
+           ])
         || exists(/databases/$(database)/documents/companies/$(resource.data.companyId))
            && get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUid == request.auth.uid
       );
@@ -1336,14 +1457,21 @@ service cloud.firestore {
     }
 
     match /recruiter_applications/{appId} {
+      // P1 fix (ops RBAC enforcement depth): read/update were a blanket
+      // isOpsStaff() — PERMISSIONS.recruiters scopes this domain to the
+      // trust team (+ auditor for read only).
       allow read: if isAuth() && (
         resource.data.uid == request.auth.uid
-        || isOpsStaff()
         || isPlatformAdmin()
+        || (isOpsStaff() && opsRole() in [
+             'platform_admin', 'trust_manager', 'trust_agent', 'auditor'
+           ])
       );
       allow create: if isAuth()
         && request.resource.data.uid == request.auth.uid;
-      allow update: if isOpsStaff() || isPlatformAdmin();
+      allow update: if isPlatformAdmin() || (isOpsStaff() && opsRole() in [
+        'platform_admin', 'trust_manager', 'trust_agent'
+      ]);
       allow delete: if false;
     }
 
