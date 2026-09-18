@@ -1,0 +1,12 @@
+{
+  "name": "bewatu-funding-offers-founderuids-tests",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node run-tests.js"
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "^12.0.0"
+  }
+}
