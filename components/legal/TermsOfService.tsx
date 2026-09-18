@@ -22,13 +22,13 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
           {onBack && (
             <button onClick={onBack}
-              className="text-stone-500 hover:text-stone-900 text-sm font-medium flex items-center gap-1.5 transition-colors">
+              className="text-stone-600 hover:text-stone-900 text-sm font-medium flex items-center gap-1.5 transition-colors">
               ← Back
             </button>
           )}
           <div>
             <h1 className="text-base font-semibold text-stone-900">Terms of Service</h1>
-            <p className="text-xs text-stone-500">Effective {EFFECTIVE_DATE} · Version 1.0</p>
+            <p className="text-xs text-stone-600">Effective {EFFECTIVE_DATE} · Version 1.0</p>
           </div>
         </div>
       </div>
@@ -123,7 +123,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-stone-900">14. Contact</h2>
             <p>If you have questions about these Terms, please contact us at <a href={`mailto:${LEGAL_EMAIL}`} className="text-[#1a4a3a] underline">{LEGAL_EMAIL}</a>.</p>
-            <p className="text-stone-500 text-xs">{COMPANY} · United States</p>
+            <p className="text-stone-600 text-xs">{COMPANY} · United States</p>
           </section>
 
         </div>

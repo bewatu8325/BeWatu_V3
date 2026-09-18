@@ -72,16 +72,16 @@ function FitRow({ result, isBlind, idx }: { result: FitResult; isBlind: boolean;
         {!isBlind && result.userAvatar ? (
           <img src={result.userAvatar} alt="" className="h-10 w-10 rounded-full object-cover border border-stone-200 shrink-0" />
         ) : (
-          <div className="h-10 w-10 rounded-full bg-stone-100 flex items-center justify-center shrink-0 text-xs font-bold text-stone-500">
+          <div className="h-10 w-10 rounded-full bg-stone-100 flex items-center justify-center shrink-0 text-xs font-bold text-stone-600">
             {isBlind ? `C${idx + 1}` : result.userName?.[0] ?? '?'}
           </div>
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-stone-900">{displayName}</p>
-          {!isBlind && <p className="text-xs text-stone-500 truncate">{result.userHeadline}</p>}
+          {!isBlind && <p className="text-xs text-stone-600 truncate">{result.userHeadline}</p>}
         </div>
         <ScoreRing score={result.score} size={48} />
-        <ChevronDown className={`h-4 w-4 text-stone-500 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-stone-600 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
       </div>
 
       {expanded && (
@@ -95,7 +95,7 @@ function FitRow({ result, isBlind, idx }: { result: FitResult; isBlind: boolean;
               { label: 'Work Pace', score: result.breakdown.pace },
             ].map(({ label, score }) => (
               <div key={label} className="flex items-center gap-3">
-                <span className="w-32 text-xs text-stone-500 shrink-0">{label}</span>
+                <span className="w-32 text-xs text-stone-600 shrink-0">{label}</span>
                 <div className="flex-1 h-2 rounded-full bg-stone-100 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
@@ -112,7 +112,7 @@ function FitRow({ result, isBlind, idx }: { result: FitResult; isBlind: boolean;
           {/* Matched values */}
           {result.matchedValues.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-stone-500 mb-1.5">Shared values</p>
+              <p className="text-xs font-medium text-stone-600 mb-1.5">Shared values</p>
               <div className="flex flex-wrap gap-1.5">
                 {result.matchedValues.map(v => (
                   <span key={v} className="rounded-full bg-green-500/10 border border-green-500/20 px-2.5 py-0.5 text-xs text-green-400">{v}</span>
@@ -124,7 +124,7 @@ function FitRow({ result, isBlind, idx }: { result: FitResult; isBlind: boolean;
           {/* Mismatches */}
           {result.mismatches.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-stone-500 mb-1.5">Potential friction</p>
+              <p className="text-xs font-medium text-stone-600 mb-1.5">Potential friction</p>
               <div className="flex flex-wrap gap-1.5">
                 {result.mismatches.map(m => (
                   <span key={m} className="rounded-full bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 text-xs text-red-400">{m}</span>
@@ -164,11 +164,11 @@ function CultureEditor({
     <div className="rounded-xl border bg-white  p-4 space-y-4" style={{ borderColor:"#e7e5e4" }}>
       <div className="flex items-center gap-2">
         <h3 className="text-sm font-bold text-stone-800">Your Culture Profile</h3>
-        <Info className="h-3.5 w-3.5 text-stone-500" />
+        <Info className="h-3.5 w-3.5 text-stone-600" />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
-          <label className="text-xs font-medium text-stone-500 mb-1 block">Collaboration style</label>
+          <label className="text-xs font-medium text-stone-600 mb-1 block">Collaboration style</label>
           <select value={profile.collaboration}
             onChange={e => onChange({ ...profile, collaboration: e.target.value })}
             className="w-full rounded-lg border bg-white  px-2.5 py-2 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
@@ -178,7 +178,7 @@ function CultureEditor({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-stone-500 mb-1 block">Communication</label>
+          <label className="text-xs font-medium text-stone-600 mb-1 block">Communication</label>
           <select value={profile.communication}
             onChange={e => onChange({ ...profile, communication: e.target.value })}
             className="w-full rounded-lg border bg-white  px-2.5 py-2 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
@@ -187,7 +187,7 @@ function CultureEditor({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-stone-500 mb-1 block">Work pace</label>
+          <label className="text-xs font-medium text-stone-600 mb-1 block">Work pace</label>
           <select value={profile.workPace}
             onChange={e => onChange({ ...profile, workPace: e.target.value })}
             className="w-full rounded-lg border bg-white  px-2.5 py-2 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
@@ -197,7 +197,7 @@ function CultureEditor({
         </div>
       </div>
       <div>
-        <label className="text-xs font-medium text-stone-500 mb-1.5 block">Company values (candidates matched against these)</label>
+        <label className="text-xs font-medium text-stone-600 mb-1.5 block">Company values (candidates matched against these)</label>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {profile.values.map(v => (
             <span key={v} className="flex items-center gap-1 rounded-full bg-[#e8f4f0] border border-[#1a4a3a]/20 px-2.5 py-0.5 text-xs text-[#1a6b52]">
@@ -210,7 +210,7 @@ function CultureEditor({
           <input value={newValue} onChange={e => setNewValue(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addValue()}
             placeholder="e.g. Ownership, Candor, User-first..."
-            className="flex-1 rounded-lg border bg-white  px-2.5 py-1.5 text-xs text-stone-800 placeholder:text-stone-500 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
+            className="flex-1 rounded-lg border bg-white  px-2.5 py-1.5 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
           <button onClick={addValue} disabled={!newValue.trim()}
             className="rounded-lg bg-stone-100 px-3 py-1.5 text-xs text-stone-800 hover:bg-stone-200 disabled:opacity-40 transition-colors">Add</button>
         </div>
@@ -312,12 +312,12 @@ export function CultureFitScore({ applicants: initialApplicants, jobFirestoreId 
           <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
             <Heart className="h-5 w-5 text-[#1a6b52]" />Culture Fit Score
           </h1>
-          <p className="mt-0.5 text-sm text-stone-500">Auto-matched from candidates' workStyle and values — no CV required.</p>
+          <p className="mt-0.5 text-sm text-stone-600">Auto-matched from candidates' workStyle and values — no CV required.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsBlind(b => !b)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${isBlind ? 'bg-stone-200 text-stone-800' : 'bg-stone-100/50 text-stone-500 hover:text-stone-800'}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${isBlind ? 'bg-stone-200 text-stone-800' : 'bg-stone-100/50 text-stone-600 hover:text-stone-800'}`}
           >
             Blind {isBlind ? 'ON' : 'OFF'}
           </button>
@@ -327,11 +327,11 @@ export function CultureFitScore({ applicants: initialApplicants, jobFirestoreId 
       <CultureEditor profile={cultureProfile} onChange={setCultureProfile} />
 
       {loading ? (
-        <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-stone-500" /></div>
+        <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-stone-600" /></div>
       ) : results.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-12 text-center">
-          <Heart className="h-10 w-10 text-stone-400" />
-          <p className="mt-3 text-sm text-stone-500">
+          <Heart className="h-10 w-10 text-stone-600" />
+          <p className="mt-3 text-sm text-stone-600">
             {applicants.length === 0
               ? 'No applicants to score yet.'
               : 'Candidates need workStyle data on their profiles to be scored.'}
@@ -340,8 +340,8 @@ export function CultureFitScore({ applicants: initialApplicants, jobFirestoreId 
       ) : (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-stone-500">{results.length} candidates scored · ranked by fit</p>
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-stone-600">{results.length} candidates scored · ranked by fit</p>
+            <p className="text-xs text-stone-600">
               Avg score: <span className="text-stone-700 font-medium">
                 {Math.round(results.reduce((s, r) => s + r.score, 0) / results.length)}%
               </span>

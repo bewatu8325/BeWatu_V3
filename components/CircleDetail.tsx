@@ -21,7 +21,7 @@ import {
 const ArticleCard: React.FC<{ article: Article, author?: User, onViewProfile: (userId: number) => void }> = ({ article, author, onViewProfile }) => (
     <div className="bg-white p-6 rounded-2xl border shadow-sm" style={{ borderColor:"#e7e5e4" }}>
         <h2 className="text-xl font-bold mb-2" style={{ color:"#1a4a3a" }}>{article.title}</h2>
-        <div className="flex items-center space-x-2 mb-4 text-xs text-stone-400">
+        <div className="flex items-center space-x-2 mb-4 text-xs text-stone-600">
             {author ? (
               <button onClick={() => onViewProfile(author.id)} className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
                 <img src={author.avatarUrl} alt={author.name} className="w-6 h-6 rounded-full"/>
@@ -82,7 +82,7 @@ const InviteMember: React.FC<{
   return (
     <div className="mt-4 p-3 bg-stone-50 rounded-xl border" style={{ borderColor: '#e7e5e4' }}>
       <h4 className="text-sm font-semibold text-stone-700 mb-1">Invite member</h4>
-      <p className="text-xs text-stone-400 mb-2">They'll receive an invite and can choose to accept or decline.</p>
+      <p className="text-xs text-stone-600 mb-2">They'll receive an invite and can choose to accept or decline.</p>
       <div className="relative">
         <input
           type="text"
@@ -107,7 +107,7 @@ const InviteMember: React.FC<{
                 }
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-stone-800 truncate">{u.name}</p>
-                  <p className="text-xs text-stone-400 truncate">{(u as any).headline}</p>
+                  <p className="text-xs text-stone-600 truncate">{(u as any).headline}</p>
                 </div>
                 <span className="text-xs font-medium ml-auto px-2 py-0.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: '#e8f4f0', color: '#1a4a3a' }}>Invite</span>
@@ -117,7 +117,7 @@ const InviteMember: React.FC<{
               <>
                 {eligible.length > 0 && (
                   <div className="px-3 py-1 border-t" style={{ borderColor: '#f5f5f4' }}>
-                    <p className="text-xs text-stone-400">Invite pending</p>
+                    <p className="text-xs text-stone-600">Invite pending</p>
                   </div>
                 )}
                 {pendingMatching.map(u => (
@@ -143,7 +143,7 @@ const InviteMember: React.FC<{
         {showList && query.trim().length > 0 && !showDropdown && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-sm z-20 px-3 py-2.5"
             style={{ borderColor: '#e7e5e4' }}>
-            <p className="text-xs text-stone-400">No matching users found</p>
+            <p className="text-xs text-stone-600">No matching users found</p>
           </div>
         )}
       </div>
@@ -184,7 +184,7 @@ const JoinRequests: React.FC<{
               }
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-stone-800 truncate">{user.name}</p>
-                <p className="text-xs text-stone-400 truncate">{(user as any).headline}</p>
+                <p className="text-xs text-stone-600 truncate">{(user as any).headline}</p>
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
                 <button onClick={() => onApprove(user.id)}
@@ -523,7 +523,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
       <div className="space-y-4">
         {onBack && (
           <button onClick={onBack}
-            className="flex items-center gap-1.5 text-sm font-semibold text-stone-500 hover:text-stone-800 transition-colors group">
+            className="flex items-center gap-1.5 text-sm font-semibold text-stone-600 hover:text-stone-800 transition-colors group">
             <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
@@ -545,8 +545,8 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                     {(circle as any).podType ?? 'Community'}
                   </span>
                 </div>
-                <p className="text-stone-500 mt-1">{circle.description}</p>
-                <div className="flex items-center gap-4 mt-2 text-sm text-stone-400">
+                <p className="text-stone-600 mt-1">{circle.description}</p>
+                <div className="flex items-center gap-4 mt-2 text-sm text-stone-600">
                   <span>{circle.members.length} member{circle.members.length !== 1 ? 's' : ''}</span>
                   {adminUser && <span>Admin: {adminUser.name}</span>}
                 </div>
@@ -565,7 +565,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                   </svg>
                 </div>
                 <h2 className="text-lg font-bold text-stone-800 mb-1">Request sent</h2>
-                <p className="text-stone-500 text-sm max-w-xs">
+                <p className="text-stone-600 text-sm max-w-xs">
                   Your request to join <strong>{circle.name}</strong> is pending admin approval. You'll be notified when it's reviewed.
                 </p>
               </>
@@ -578,7 +578,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                   </svg>
                 </div>
                 <h2 className="text-lg font-bold text-stone-800 mb-1">Members only</h2>
-                <p className="text-stone-500 text-sm max-w-xs mb-5">
+                <p className="text-stone-600 text-sm max-w-xs mb-5">
                   {(circle as any).visibility === 'invite'
                     ? 'This pod is invite-only. Ask a current member to invite you.'
                     : 'This pod requires approval to join. Submit a request and the admin will review it.'}
@@ -604,7 +604,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
       {/* ── Back button ─────────────────────────────────────────────── */}
       {onBack && (
         <button onClick={onBack}
-          className="flex items-center gap-1.5 text-sm font-semibold text-stone-500 hover:text-stone-800 transition-colors group">
+          className="flex items-center gap-1.5 text-sm font-semibold text-stone-600 hover:text-stone-800 transition-colors group">
           <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
@@ -618,11 +618,11 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
             </div>
             <div>
                 <h1 className="text-3xl font-bold text-stone-900">{circle.name}</h1>
-                <p className="text-stone-500">{circle.description}</p>
+                <p className="text-stone-600">{circle.description}</p>
             </div>
         </div>
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 text-stone-400 text-sm">
+          <div className="flex items-center space-x-4 text-stone-600 text-sm">
             <div className="flex items-center space-x-2">
                 <UsersIcon className="w-5 h-5"/>
                 <span>{circle.members.length} members</span>
@@ -654,13 +654,13 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
         <div className="col-span-12 md:col-span-8 space-y-6">
             <div className="border-b" style={{ borderColor:"#e7e5e4" }}>
                 <nav className="flex space-x-4">
-                    <button onClick={() => setActiveTab('discussion')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'discussion' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='discussion'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Discussion</button>
-                    <button onClick={() => setActiveTab('challenges')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'challenges' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='challenges'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Challenges{challenges.length > 0 ? ` (${challenges.length})` : ''}</button>
-                    <button onClick={() => setActiveTab('learn')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'learn' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='learn'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>
+                    <button onClick={() => setActiveTab('discussion')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'discussion' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='discussion'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Discussion</button>
+                    <button onClick={() => setActiveTab('challenges')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'challenges' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='challenges'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Challenges{challenges.length > 0 ? ` (${challenges.length})` : ''}</button>
+                    <button onClick={() => setActiveTab('learn')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'learn' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='learn'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
                       Learn
                     </button>
-                    <button onClick={() => setActiveTab('articles')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'articles' ? 'border-b-2' : 'text-stone-400 hover:text-stone-700'}`} style={activeTab==='articles'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Articles ({circleArticles.length})</button>
+                    <button onClick={() => setActiveTab('articles')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'articles' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='articles'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Articles ({circleArticles.length})</button>
                 </nav>
             </div>
             
@@ -717,7 +717,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                         </div>
                     ) : (
                          <div className="text-center py-10 bg-stone-50 rounded-2xl border" style={{ borderColor:"#e7e5e4" }}>
-                            <p className="text-stone-400">No posts in this pod yet. Be the first to share something!</p>
+                            <p className="text-stone-600">No posts in this pod yet. Be the first to share something!</p>
                         </div>
                     )}
                 </>
@@ -742,8 +742,8 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                 )}
                 {challenges.length === 0 ? (
                   <div className="text-center py-12 bg-stone-50 rounded-2xl border" style={{ borderColor: '#e7e5e4' }}>
-                    <p className="text-stone-400 text-sm">No challenges yet.</p>
-                    {isCurrentUserAdmin && <p className="text-xs text-stone-400 mt-1">Post a challenge to spark cross-generational discussion.</p>}
+                    <p className="text-stone-600 text-sm">No challenges yet.</p>
+                    {isCurrentUserAdmin && <p className="text-xs text-stone-600 mt-1">Post a challenge to spark cross-generational discussion.</p>}
                   </div>
                 ) : (
                   challenges.map(ch => (
@@ -777,7 +777,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                         ))
                     ) : (
                          <div className="text-center py-10 bg-stone-50 rounded-2xl border" style={{ borderColor:"#e7e5e4" }}>
-                            <p className="text-stone-400">No articles have been published in this pod yet.</p>
+                            <p className="text-stone-600">No articles have been published in this pod yet.</p>
                         </div>
                     )}
                 </div>
@@ -817,7 +817,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                                       <p className="font-semibold text-stone-800 text-sm">{member.name}</p>
                                       {member.isVerified && <VerifiedIcon className="w-3 h-3" style={{ color:"#1a4a3a" }} title="Verified Work Email" />}
                                     </div>
-                                    <p className="text-xs text-stone-500">{member.headline}</p>
+                                    <p className="text-xs text-stone-600">{member.headline}</p>
                                 </div>
                             </button>
                             {isCurrentUserAdmin && currentUser.id !== member.id && (

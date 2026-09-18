@@ -135,7 +135,7 @@ function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
                 )}
               </div>
               {headline && <p className="text-sm text-stone-600 mt-1">{headline}</p>}
-              {industry && <p className="text-xs text-stone-400 mt-0.5">{industry}</p>}
+              {industry && <p className="text-xs text-stone-600 mt-0.5">{industry}</p>}
             </div>
 
             {/* Availability pill */}
@@ -157,7 +157,7 @@ function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
             {/* Verified skills */}
             {verifiedSkills.length > 0 && (
               <div className="mb-5 mt-5">
-                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2.5">Verified Skills</p>
+                <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2.5">Verified Skills</p>
                 <div className="flex flex-wrap gap-2">
                   {verifiedSkills.slice(0, 8).map((s: any) => (
                     <span key={s.name} className="inline-flex items-center gap-1.5 text-sm font-medium rounded-full px-3 py-1"
@@ -169,7 +169,7 @@ function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
                     </span>
                   ))}
                 </div>
-                <p className="text-xs text-stone-400 mt-2.5 leading-relaxed">
+                <p className="text-xs text-stone-600 mt-2.5 leading-relaxed">
                   Verified skills indicate evidence has been reviewed by BeWatu — not a substitute for due diligence.
                 </p>
               </div>
@@ -178,7 +178,7 @@ function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
             {/* Self-reported skills (if no verified) */}
             {verifiedSkills.length === 0 && skills.length > 0 && (
               <div className="mb-5 mt-5">
-                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2.5">Skills</p>
+                <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2.5">Skills</p>
                 <div className="flex flex-wrap gap-2">
                   {skills.slice(0, 8).map((s: any) => (
                     <span key={typeof s === 'string' ? s : s.name}
@@ -193,7 +193,7 @@ function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
             {/* CTA */}
             <div className="pt-5 border-t flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between"
               style={{ borderColor: '#f0efee' }}>
-              <p className="text-sm text-stone-400">View {name.split(' ')[0]}'s full profile and connect on BeWatu</p>
+              <p className="text-sm text-stone-600">View {name.split(' ')[0]}'s full profile and connect on BeWatu</p>
               <button onClick={onSignUp}
                 className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 transition-opacity"
                 style={{ backgroundColor: GREEN }}>
@@ -209,7 +209,7 @@ function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
         {/* "Join BeWatu" pitch card */}
         <div className="rounded-3xl border p-6 sm:p-7 shadow-sm" style={{ borderColor: BORDER, backgroundColor: '#fff' }}>
           <p className="text-lg font-bold text-stone-900 mb-1.5">Want a profile like this?</p>
-          <p className="text-sm text-stone-500 leading-relaxed mb-4 text-pretty">
+          <p className="text-sm text-stone-600 leading-relaxed mb-4 text-pretty">
             BeWatu is where professionals build verified capability records, take live challenges from real companies, and connect through intentional communities.
           </p>
           <a href="/?signup=1"

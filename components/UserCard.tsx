@@ -63,9 +63,9 @@ const UserCard: React.FC<UserCardProps> = ({
           <ShieldCheckIcon className="w-3.5 h-3.5" />
           <span className="text-xs font-bold">{user.reputation}</span>
         </div>
-        <p className="text-xs text-stone-400 mt-1.5 h-8 overflow-hidden text-center leading-snug">{user.headline}</p>
+        <p className="text-xs text-stone-600 mt-1.5 h-8 overflow-hidden text-center leading-snug">{user.headline}</p>
         {topSkill && (
-          <div className="mt-3 flex items-center justify-center gap-2 text-xs text-stone-500">
+          <div className="mt-3 flex items-center justify-center gap-2 text-xs text-stone-600">
             <button
               onClick={e => { e.stopPropagation(); onEndorseSkill(user.id, topSkill.name); }}
               title={`Endorse for ${topSkill.name}`}
@@ -88,7 +88,7 @@ const UserCard: React.FC<UserCardProps> = ({
             isConnected
               ? { background: GLT, color: G }
               : isPending
-              ? { background: '#f5f5f4', color: '#78716c', border: '1px solid #e7e5e4' }
+              ? { background: '#f5f5f4', color: '#57534e', border: '1px solid #e7e5e4' }
               : { background: G, color: 'white' }
           }
         >
@@ -99,7 +99,7 @@ const UserCard: React.FC<UserCardProps> = ({
         <button
           onClick={() => onStartMessage(user.id)}
           title={`Message ${user.name}`}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-stone-50 text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 hover:text-stone-700 transition-colors"
         >
           <MessageSquareIcon className="w-4 h-4" />
         </button>

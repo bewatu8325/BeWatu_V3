@@ -150,7 +150,7 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
           </div>
           <div>
             <h3 className="font-bold text-stone-900 text-sm">Skills Trajectory</h3>
-            <p className="text-xs text-stone-400">Where your skills are heading through 2030</p>
+            <p className="text-xs text-stone-600">Where your skills are heading through 2030</p>
           </div>
         </div>
       </div>
@@ -161,12 +161,12 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
           {validSkills.length === 0 ? (
             <>
               <p className="text-sm font-medium text-stone-700 mb-1">No skills on your profile yet</p>
-              <p className="text-xs text-stone-400">Add skills to your profile first — then come back here to see how AI is affecting each one.</p>
+              <p className="text-xs text-stone-600">Add skills to your profile first — then come back here to see how AI is affecting each one.</p>
             </>
           ) : (
             <>
               <p className="text-sm text-stone-600 mb-1">See which of your skills are growing — and which AI is absorbing first.</p>
-              <p className="text-xs text-stone-400 mb-3">Based on WEF Future of Jobs research, personalised to your {validSkills.length} skill{validSkills.length !== 1 ? 's' : ''}.</p>
+              <p className="text-xs text-stone-600 mb-3">Based on WEF Future of Jobs research, personalised to your {validSkills.length} skill{validSkills.length !== 1 ? 's' : ''}.</p>
               <button onClick={runAnalysis} disabled={analyzing}
                 className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60 transition"
                 style={{ backgroundColor: GREEN }}>
@@ -214,7 +214,7 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
                       <p className="text-sm font-semibold text-stone-800">{t.skill}</p>
                       <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
                     </div>
-                    <p className="text-xs text-stone-500 mt-0.5">{t.rationale}</p>
+                    <p className="text-xs text-stone-600 mt-0.5">{t.rationale}</p>
                   </div>
                 </div>
               );
@@ -223,7 +223,7 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
 
           {/* Refresh */}
           <div className="flex items-center justify-between mt-4">
-            <p className="text-[11px] text-stone-400">
+            <p className="text-[11px] text-stone-600">
               {stale ? 'Your skills changed since this analysis.' : `Analyzed ${new Date(insight.computedAt).toLocaleDateString()}`}
             </p>
             <button onClick={runAnalysis} disabled={analyzing}

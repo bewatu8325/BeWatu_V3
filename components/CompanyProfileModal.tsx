@@ -67,7 +67,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
   scored:       { label: 'Scored',       color: '#7c3aed', bg: '#f3f0ff' },
   shortlisted:  { label: 'Shortlisted',  color: GREEN,     bg: GREEN_LT  },
   invited:      { label: 'Invited!',     color: '#059669', bg: '#d1fae5' },
-  not_selected: { label: 'Not selected', color: '#78716c', bg: '#f5f5f4' },
+  not_selected: { label: 'Not selected', color: '#57534e', bg: '#f5f5f4' },
 };
 
 const DIFF_META: Record<string, { label: string; color: string }> = {
@@ -89,7 +89,7 @@ const CHALLENGE_DIFFS = ['entry','mid','senior'] as const;
 const SUBMISSION_FORMATS = ['text','url','file','video'] as const;
 
 // ─── Input helpers ────────────────────────────────────────────────────────────
-const inputCls = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 placeholder:text-stone-400';
+const inputCls = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 placeholder:text-stone-600';
 const focusStyle = { '--tw-ring-color': GREEN } as React.CSSProperties;
 
 // ─── Create Challenge Sheet ───────────────────────────────────────────────────
@@ -197,7 +197,7 @@ function CreateChallengeSheet({
             <h2 className="font-black text-stone-900 text-base">
               {step === 1 ? 'New Skill Challenge' : step === 2 ? 'Details & Format' : 'Scoring & Reward'}
             </h2>
-            <p className="text-xs text-stone-400">Step {step} of 3</p>
+            <p className="text-xs text-stone-600">Step {step} of 3</p>
           </div>
           {/* Step dots */}
           <div className="flex gap-1.5">
@@ -205,8 +205,8 @@ function CreateChallengeSheet({
               <div key={n} className="h-2 w-2 rounded-full" style={{ background: n <= step ? GREEN : '#e7e5e4' }} />
             ))}
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-stone-100">
-            <X className="w-4 h-4 text-stone-400" />
+          <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-stone-100">
+            <X className="w-4 h-4 text-stone-600" />
           </button>
         </div>
 
@@ -217,19 +217,19 @@ function CreateChallengeSheet({
           {step === 1 && (
             <>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Title</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Title</label>
                 <input className={inputCls} style={focusStyle} placeholder="e.g. Build a responsive dashboard" value={title} onChange={e => setTitle(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Description</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Description</label>
                 <textarea className={inputCls} style={focusStyle} rows={3} placeholder="What participants need to build, solve, or create..." value={description} onChange={e => setDescription(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Primary skill being tested <span className="text-red-400">*</span></label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Primary skill being tested <span className="text-red-400">*</span></label>
                 <input className={inputCls} style={focusStyle} placeholder="e.g. React, Product Strategy, Copywriting" value={targetedSkill} onChange={e => setTargetedSkill(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Additional skills</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Additional skills</label>
                 <div className="flex gap-2">
                   <input className={`${inputCls} flex-1`} style={focusStyle} placeholder="Add skill" value={skillInput}
                     onChange={e => setSkillInput(e.target.value)}
@@ -251,13 +251,13 @@ function CreateChallengeSheet({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Type</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Type</label>
                   <select className={inputCls} style={focusStyle} value={type} onChange={e => setType(e.target.value as ChallengeType)}>
                     {CHALLENGE_TYPES.map(t => <option key={t} value={t}>{TYPE_META[t].label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Level</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Level</label>
                   <select className={inputCls} style={focusStyle} value={difficulty} onChange={e => setDifficulty(e.target.value as ChallengeDifficulty)}>
                     {CHALLENGE_DIFFS.map(d => <option key={d} value={d}>{DIFF_META[d].label}</option>)}
                   </select>
@@ -270,21 +270,21 @@ function CreateChallengeSheet({
           {step === 2 && (
             <>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Instructions</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Instructions</label>
                 <textarea className={inputCls} style={focusStyle} rows={5} placeholder="Step-by-step instructions for participants..." value={instructions} onChange={e => setInstructions(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Time limit (min)</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Time limit (min)</label>
                   <input type="number" min={15} max={480} className={inputCls} style={focusStyle} value={timeLimit} onChange={e => setTimeLimit(Number(e.target.value))} />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Due date (optional)</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Due date (optional)</label>
                   <input type="date" className={inputCls} style={focusStyle} value={dueDate} onChange={e => setDueDate(e.target.value)} />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Submission format</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Submission format</label>
                 <div className="grid grid-cols-4 gap-2">
                   {SUBMISSION_FORMATS.map(fmt => (
                     <button key={fmt} onClick={() => setSubmissionFormat(fmt as any)}
@@ -296,7 +296,7 @@ function CreateChallengeSheet({
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Challenge expires in (days)</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Challenge expires in (days)</label>
                 <input type="number" min={1} max={90} className={inputCls} style={focusStyle} value={daysUntilExpiry} onChange={e => setDaysUntilExpiry(Number(e.target.value))} />
               </div>
             </>
@@ -307,7 +307,7 @@ function CreateChallengeSheet({
             <>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Scoring rubric</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-wider">Scoring rubric</label>
                   <span className="text-xs font-bold" style={{ color: rubric.reduce((s, r) => s + Number(r.weight), 0) === 100 ? GREEN : '#ef4444' }}>
                     Total: {rubric.reduce((s, r) => s + Number(r.weight), 0)}%
                   </span>
@@ -321,7 +321,7 @@ function CreateChallengeSheet({
                       </div>
                       <div className="flex items-center gap-1">
                         <input type="number" min={0} max={100} className="w-16 rounded-xl border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm text-center font-bold focus:outline-none" value={row.weight} onChange={e => updateRubric(i, 'weight', e.target.value)} />
-                        <span className="text-xs text-stone-400">%</span>
+                        <span className="text-xs text-stone-600">%</span>
                       </div>
                     </div>
                   ))}
@@ -332,11 +332,11 @@ function CreateChallengeSheet({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Credits reward</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Credits reward</label>
                   <input type="number" min={0} className={inputCls} style={focusStyle} value={credits} onChange={e => setCredits(Number(e.target.value))} />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Badge name</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Badge name</label>
                   <input className={inputCls} style={focusStyle} placeholder="Auto-generated" value={badge} onChange={e => setBadge(e.target.value)} />
                 </div>
               </div>
@@ -413,9 +413,9 @@ function SubmitChallengeSheet({
         <div className="flex items-center gap-3 px-5 py-3 border-b flex-shrink-0" style={{ borderColor: '#e7e5e4' }}>
           <div className="flex-1">
             <h2 className="font-black text-stone-900 text-base">Submit your response</h2>
-            <p className="text-xs text-stone-400">{challenge.title}</p>
+            <p className="text-xs text-stone-600">{challenge.title}</p>
           </div>
-          <button onClick={onClose}><X className="w-4 h-4 text-stone-400" /></button>
+          <button onClick={onClose} aria-label="Close"><X className="w-4 h-4 text-stone-600" /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
@@ -430,7 +430,7 @@ function SubmitChallengeSheet({
           {/* Scoring rubric preview */}
           {challenge.scoringRubric?.length > 0 && (
             <div className="rounded-xl border p-4" style={{ borderColor: '#e7e5e4' }}>
-              <p className="text-xs font-bold text-stone-500 mb-2 uppercase tracking-wider">Scoring rubric</p>
+              <p className="text-xs font-bold text-stone-600 mb-2 uppercase tracking-wider">Scoring rubric</p>
               <div className="space-y-1.5">
                 {challenge.scoringRubric.map((r: any, i: number) => (
                   <div key={i} className="flex items-center justify-between text-sm">
@@ -445,7 +445,7 @@ function SubmitChallengeSheet({
           {error && <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-600">{error}</div>}
 
           <div>
-            <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
+            <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">
               Your submission {format !== 'text' && `(${format})`}
             </label>
             {format === 'url' ? (
@@ -456,7 +456,7 @@ function SubmitChallengeSheet({
                 value={content} onChange={e => setContent(e.target.value)} />
             )}
             {challenge.timeLimit > 0 && (
-              <p className="text-xs text-stone-400 mt-1.5 flex items-center gap-1">
+              <p className="text-xs text-stone-600 mt-1.5 flex items-center gap-1">
                 <Clock className="w-3 h-3" /> Suggested time: {challenge.timeLimit} min
               </p>
             )}
@@ -520,7 +520,7 @@ function ChallengeCard({
       <div className="p-4 space-y-3">
         <div>
           <h3 className="font-bold text-stone-900 text-sm leading-snug">{challenge.title}</h3>
-          <p className="text-xs text-stone-500 mt-1 line-clamp-2">{challenge.description}</p>
+          <p className="text-xs text-stone-600 mt-1 line-clamp-2">{challenge.description}</p>
         </div>
 
         {/* Skills */}
@@ -539,7 +539,7 @@ function ChallengeCard({
         )}
 
         {/* Meta row */}
-        <div className="flex items-center gap-3 text-xs text-stone-400">
+        <div className="flex items-center gap-3 text-xs text-stone-600">
           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{challenge.timeLimit}m</span>
           <span className="flex items-center gap-1"><Users className="w-3 h-3" />{challenge.submissionCount || 0}</span>
           {challenge.reward?.credits > 0 && (
@@ -585,7 +585,7 @@ function ChallengeCard({
               )}
               {userSubmission && (
                 <button disabled className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold border opacity-60"
-                  style={{ borderColor: '#e7e5e4', color: '#78716c' }}>
+                  style={{ borderColor: '#e7e5e4', color: '#57534e' }}>
                   <CheckCircle className="w-3.5 h-3.5" /> Submitted
                 </button>
               )}
@@ -830,7 +830,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
               onClick={() => setPanel(null)}
               className="p-1.5 rounded-lg hover:bg-stone-100 transition-colors"
             >
-              <ArrowLeft className="w-4 h-4 text-stone-500" />
+              <ArrowLeft className="w-4 h-4 text-stone-600" />
             </button>
           )}
           <div
@@ -845,7 +845,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
             <p className="font-black text-stone-900 text-sm truncate">
               {submission.userName || 'Anonymous'}
             </p>
-            <p className="text-xs text-stone-400 truncate">
+            <p className="text-xs text-stone-600 truncate">
               {panel ? currentAction?.label : 'Choose a hiring action'}
             </p>
           </div>
@@ -858,8 +858,8 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
               <span className="text-sm font-black text-amber-700">{submission.score}</span>
             </div>
           )}
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-stone-100 transition-colors">
-            <X className="w-4 h-4 text-stone-400" />
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-stone-100 transition-colors">
+            <X className="w-4 h-4 text-stone-600" />
           </button>
         </div>
 
@@ -920,7 +920,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-stone-900 text-sm">{action.label}</p>
-                      <p className="text-xs text-stone-400 mt-0.5">{action.desc}</p>
+                      <p className="text-xs text-stone-600 mt-0.5">{action.desc}</p>
                     </div>
                     {done
                       ? <Check className="w-4 h-4 flex-shrink-0" style={{ color: action.color }} />
@@ -945,7 +945,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                 </p>
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">
                   Notes
                 </label>
                 <textarea
@@ -958,7 +958,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">
                   Tags
                 </label>
                 <div className="flex gap-2">
@@ -1012,7 +1012,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                 style={{ borderColor: '#e7e5e4' }}
               >
                 <Star className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0 fill-amber-400" />
-                <p className="text-xs text-stone-500">
+                <p className="text-xs text-stone-600">
                   Rating auto-set from score: <strong>{submission.score != null ? Math.round(submission.score / 20) : 3}/5 stars</strong>
                 </p>
               </div>
@@ -1024,11 +1024,11 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
             <div className="px-5 py-4 space-y-4">
               {loadingTemplates ? (
                 <div className="flex justify-center py-6">
-                  <Loader2 className="w-5 h-5 animate-spin text-stone-400" />
+                  <Loader2 className="w-5 h-5 animate-spin text-stone-600" />
                 </div>
               ) : templates.length > 0 ? (
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-2">
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-2">
                     Templates
                   </label>
                   <div className="space-y-1.5">
@@ -1044,7 +1044,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                       >
                         <div>
                           <p className="font-semibold text-stone-800">{t.name}</p>
-                          <p className="text-xs text-stone-400 truncate max-w-[240px]">{t.subject}</p>
+                          <p className="text-xs text-stone-600 truncate max-w-[240px]">{t.subject}</p>
                         </div>
                         {selectedTemplate === t.id && <Check className="w-4 h-4 text-purple-600 flex-shrink-0" />}
                       </button>
@@ -1056,15 +1056,15 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                   className="rounded-2xl p-3 border flex items-center gap-2"
                   style={{ borderColor: '#e7e5e4', background: '#fafaf9' }}
                 >
-                  <AlertCircle className="w-4 h-4 text-stone-400 flex-shrink-0" />
-                  <p className="text-xs text-stone-500">
+                  <AlertCircle className="w-4 h-4 text-stone-600 flex-shrink-0" />
+                  <p className="text-xs text-stone-600">
                     No saved templates. Write a message below or create templates in the Recruiter Console.
                   </p>
                 </div>
               )}
 
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">
                   Message
                 </label>
                 <textarea
@@ -1075,7 +1075,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                   value={outreachBody}
                   onChange={e => setOutreachBody(e.target.value)}
                 />
-                <p className="text-[10px] text-stone-400 mt-1">
+                <p className="text-[10px] text-stone-600 mt-1">
                   Sent as a direct message via BeWatu. Candidate will see it in their inbox.
                 </p>
               </div>
@@ -1096,7 +1096,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
               </div>
 
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">
                   Role / Context
                 </label>
                 <input
@@ -1109,7 +1109,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
               </div>
 
               <div className="space-y-3">
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block">
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block">
                   Proposed Slots
                 </label>
                 {slots.map((slot, i) => (
@@ -1158,19 +1158,19 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
 
               {loadingJobs ? (
                 <div className="flex justify-center py-6">
-                  <Loader2 className="w-5 h-5 animate-spin text-stone-400" />
+                  <Loader2 className="w-5 h-5 animate-spin text-stone-600" />
                 </div>
               ) : jobs.length === 0 ? (
                 <div
                   className="rounded-2xl p-3 border flex items-center gap-2"
                   style={{ borderColor: '#e7e5e4' }}
                 >
-                  <AlertCircle className="w-4 h-4 text-stone-400" />
-                  <p className="text-xs text-stone-500">No open roles found. Create one in the Job Editor.</p>
+                  <AlertCircle className="w-4 h-4 text-stone-600" />
+                  <p className="text-xs text-stone-600">No open roles found. Create one in the Job Editor.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block">
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block">
                     Select Role
                   </label>
                   {jobs.map((job: any) => (
@@ -1185,7 +1185,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
                     >
                       <div>
                         <p className="font-semibold text-stone-800 text-sm">{job.title}</p>
-                        <p className="text-xs text-stone-400">{job.location} · {job.type}</p>
+                        <p className="text-xs text-stone-600">{job.location} · {job.type}</p>
                       </div>
                       {selectedJobId === job.id && <Check className="w-4 h-4 text-cyan-600" />}
                     </button>
@@ -1209,7 +1209,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
               </div>
 
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-2">
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-2">
                   Offer Type
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -1231,7 +1231,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
               </div>
 
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">
                   Role title
                 </label>
                 <input
@@ -1244,7 +1244,7 @@ function ConversionDrawer({ submission, challenge, onClose, onDone }: Conversion
               </div>
 
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">
                   Offer message
                 </label>
                 <textarea
@@ -1415,7 +1415,7 @@ function SubmissionsReview({
           </button>
           <div className="flex-1 min-w-0">
             <h3 className="font-black text-stone-900 truncate">{challenge.title}</h3>
-            <p className="text-xs text-stone-400">
+            <p className="text-xs text-stone-600">
               {submissions.length} submission{submissions.length !== 1 ? 's' : ''}
             </p>
           </div>
@@ -1424,7 +1424,7 @@ function SubmissionsReview({
             className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border-2 transition-all"
             style={blindMode
               ? { background: GREEN, borderColor: GREEN, color: 'white' }
-              : { borderColor: '#e7e5e4', color: '#78716c' }}
+              : { borderColor: '#e7e5e4', color: '#57534e' }}
           >
             {blindMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             {blindMode ? 'Blind' : 'Named'}
@@ -1435,7 +1435,7 @@ function SubmissionsReview({
         {submissions.length > 0 && (
           <div className="grid grid-cols-4 gap-2">
             {[
-              { label: 'Total',       value: submissions.length, color: '#78716c', bg: '#f5f5f4' },
+              { label: 'Total',       value: submissions.length, color: '#57534e', bg: '#f5f5f4' },
               { label: 'Shortlisted', value: shortlisted,        color: GREEN,     bg: GREEN_LT  },
               { label: 'Invited',     value: invited,            color: '#059669', bg: '#d1fae5' },
               { label: 'Offers',      value: withOffers,         color: '#b45309', bg: '#fef3c7' },
@@ -1446,7 +1446,7 @@ function SubmissionsReview({
                 style={{ background: stat.bg, borderColor: stat.color + '30' }}
               >
                 <p className="text-xl font-black" style={{ color: stat.color }}>{stat.value}</p>
-                <p className="text-[10px] font-semibold text-stone-500 mt-0.5">{stat.label}</p>
+                <p className="text-[10px] font-semibold text-stone-600 mt-0.5">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -1459,7 +1459,7 @@ function SubmissionsReview({
         ) : submissions.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3 text-center rounded-2xl border-2 border-dashed" style={{ borderColor: '#e7e5e4' }}>
             <Inbox className="w-10 h-10 text-stone-200" />
-            <p className="font-bold text-stone-400 text-sm">No submissions yet</p>
+            <p className="font-bold text-stone-600 text-sm">No submissions yet</p>
             <p className="text-xs text-stone-300">Share this challenge to attract candidates</p>
           </div>
         ) : (
@@ -1494,7 +1494,7 @@ function SubmissionsReview({
                     <div className="flex items-center gap-1">
                       <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                       <span className="font-black text-stone-900">{sub.score}</span>
-                      <span className="text-xs text-stone-400">/100</span>
+                      <span className="text-xs text-stone-600">/100</span>
                     </div>
                     {sub.isShortlisted && (
                       <span
@@ -1556,7 +1556,7 @@ function SubmissionsReview({
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-stone-400 mt-0.5">{timeAgo(sub.submittedAt)}</p>
+                          <p className="text-xs text-stone-600 mt-0.5">{timeAgo(sub.submittedAt)}</p>
                         </div>
 
                         {sub.score != null && (
@@ -1613,7 +1613,7 @@ function SubmissionsReview({
                               style={{ color: scoreValue >= 70 ? GREEN : scoreValue >= 40 ? '#b45309' : '#ef4444' }}
                             >
                               {scoreValue}
-                              <span className="text-sm font-normal text-stone-400">/100</span>
+                              <span className="text-sm font-normal text-stone-600">/100</span>
                             </span>
                           </div>
                           <input
@@ -1637,7 +1637,7 @@ function SubmissionsReview({
                         <div className="flex gap-2">
                           <button
                             onClick={() => setScoringId(null)}
-                            className="flex-1 py-2 rounded-xl text-xs font-bold text-stone-500 border border-stone-200 hover:bg-stone-50"
+                            className="flex-1 py-2 rounded-xl text-xs font-bold text-stone-600 border border-stone-200 hover:bg-stone-50"
                           >
                             Cancel
                           </button>
@@ -1664,7 +1664,7 @@ function SubmissionsReview({
                         <button
                           onClick={() => { setScoringId(sub.id); setScoreValue(sub.score ?? 0); setFeedback(sub.feedback ?? ''); }}
                           className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition-all hover:shadow-sm"
-                          style={{ borderColor: '#e7e5e4', color: '#78716c' }}
+                          style={{ borderColor: '#e7e5e4', color: '#57534e' }}
                         >
                           <Star className="w-3.5 h-3.5" />
                           {sub.score != null ? 'Re-score' : 'Score'}
@@ -1737,13 +1737,13 @@ function CoSentimentWidget({ data, userId }: { data: CoSentimentData; userId?: s
           style={{ color: sentimentColor, filter: 'blur(6px)', userSelect: 'none' }}>
           {score_range}
         </span>
-        <span className="text-xs text-stone-400">/ 100</span>
+        <span className="text-xs text-stone-600">/ 100</span>
         <span className="text-xs font-semibold capitalize ml-1" style={{ color: sentimentColor }}>
           {sentiment}
         </span>
       </div>
 
-      <p className="text-xs text-stone-400 leading-relaxed">
+      <p className="text-xs text-stone-600 leading-relaxed">
         Based on user reviews, support health, social signals & more. Sign up to unlock the full score.
       </p>
 
@@ -1885,7 +1885,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
         <div className="min-h-screen max-w-2xl mx-auto flex flex-col">
           {/* Header */}
           <div className="sticky top-0 z-10 bg-white border-b flex items-center gap-3 px-4 py-3" style={{ borderColor: '#e7e5e4' }}>
-            <button onClick={onClose} className="p-2 rounded-xl hover:bg-stone-100"><X className="w-5 h-5 text-stone-600" /></button>
+            <button onClick={onClose} aria-label="Close" className="p-2 rounded-xl hover:bg-stone-100"><X className="w-5 h-5 text-stone-600" /></button>
             <h1 className="font-black text-stone-900 flex-1 truncate">{company.name}</h1>
             <button
               onClick={handleFollow}
@@ -1910,7 +1910,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
               )}
               <div className="flex-1 min-w-0">
                 <h2 className="font-black text-stone-900 text-xl">{company.name}</h2>
-                <p className="text-stone-500 text-sm">{company.industry}</p>
+                <p className="text-stone-600 text-sm">{company.industry}</p>
                 {company.website && (
                   <a href={company.website} target="_blank" rel="noopener noreferrer"
                     className="text-xs flex items-center gap-1 mt-1 hover:underline" style={{ color: GREEN_MID }}>
@@ -1959,7 +1959,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
                       <Users className="w-4 h-4" style={{ color: GREEN }} /> Culture & Values
                     </h3>
                     {(company as any).size && (
-                      <div className="flex items-center gap-2 text-xs text-stone-500">
+                      <div className="flex items-center gap-2 text-xs text-stone-600">
                         <Building2 className="w-3.5 h-3.5" /> {(company as any).size} employees
                       </div>
                     )}
@@ -2005,7 +2005,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
                           );
                         })}
                       </div>
-                      <p className="text-xs text-stone-400">Green skills match your profile</p>
+                      <p className="text-xs text-stone-600">Green skills match your profile</p>
                     </div>
                   );
                 })()}
@@ -2025,7 +2025,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
                       <div key={job.id} className="flex items-start justify-between py-2 border-t" style={{ borderColor: '#f5f5f4' }}>
                         <div>
                           <p className="font-semibold text-stone-800 text-sm">{job.title}</p>
-                          <p className="text-xs text-stone-400">{job.location} · {job.type}</p>
+                          <p className="text-xs text-stone-600">{job.location} · {job.type}</p>
                         </div>
                         <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: GREEN_LT, color: GREEN }}>
                           {job.experienceLevel}
@@ -2067,8 +2067,8 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
                 ) : teamMembers.length === 0 ? (
                   <div className="flex flex-col items-center py-14 text-center gap-3">
                     <Users className="w-10 h-10 text-stone-300" />
-                    <p className="font-bold text-stone-500">No team members visible yet</p>
-                    <p className="text-xs text-stone-400 max-w-xs">
+                    <p className="font-bold text-stone-600">No team members visible yet</p>
+                    <p className="text-xs text-stone-600 max-w-xs">
                       Team members appear here when they add {company.name} as their employer in their profile settings.
                     </p>
                   </div>
@@ -2120,7 +2120,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-stone-800 text-sm truncate">{member.name}</p>
-                            <p className="text-xs text-stone-400 truncate">{member.headline}</p>
+                            <p className="text-xs text-stone-600 truncate">{member.headline}</p>
                           </div>
                           {member.isVerified && (
                             <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: GREEN }} />
@@ -2150,8 +2150,8 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
                 ) : challenges.length === 0 ? (
                   <div className="flex flex-col items-center py-14 text-center gap-3">
                     <Sword className="w-10 h-10 text-stone-300" />
-                    <p className="font-bold text-stone-500">No active challenges</p>
-                    {isOwner && <p className="text-xs text-stone-400">Post your first skill challenge to find talent</p>}
+                    <p className="font-bold text-stone-600">No active challenges</p>
+                    {isOwner && <p className="text-xs text-stone-600">Post your first skill challenge to find talent</p>}
                   </div>
                 ) : (
                   <div className="space-y-3">

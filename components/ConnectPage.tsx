@@ -46,7 +46,7 @@ const ConnectPage: React.FC<{
     }
   };
 
-  const inputStyles = "w-full px-4 py-2.5 rounded-xl border bg-white text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:border-stone-400 text-sm transition-colors";
+  const inputStyles = "w-full px-4 py-2.5 rounded-xl border bg-white text-stone-800 placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:border-stone-400 text-sm transition-colors";
   const borderStyle = { borderColor: '#e8e4dc' };
 
   return (
@@ -79,7 +79,7 @@ const ConnectPage: React.FC<{
                 </svg>
               </div>
               <h2 className="text-2xl font-extrabold text-stone-900 mb-2">Message sent</h2>
-              <p className="text-stone-500 text-sm mb-8">
+              <p className="text-stone-600 text-sm mb-8">
                 Thanks for reaching out. We'll get back to you shortly.
               </p>
               <button
@@ -98,7 +98,7 @@ const ConnectPage: React.FC<{
                   Get in touch
                 </span>
                 <h1 className="text-3xl font-extrabold text-stone-900 mb-2">Connect with us</h1>
-                <p className="text-stone-500 text-sm">
+                <p className="text-stone-600 text-sm">
                   Have a question, want to partner, or just want to say hello?
                 </p>
               </div>
@@ -112,7 +112,7 @@ const ConnectPage: React.FC<{
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-stone-500 mb-1.5 uppercase tracking-widest">
+                    <label className="block text-xs font-semibold text-stone-600 mb-1.5 uppercase tracking-widest">
                       Your name
                     </label>
                     <input
@@ -126,7 +126,7 @@ const ConnectPage: React.FC<{
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-stone-500 mb-1.5 uppercase tracking-widest">
+                    <label className="block text-xs font-semibold text-stone-600 mb-1.5 uppercase tracking-widest">
                       Email address
                     </label>
                     <input
@@ -142,7 +142,7 @@ const ConnectPage: React.FC<{
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-500 mb-1.5 uppercase tracking-widest">
+                  <label className="block text-xs font-semibold text-stone-600 mb-1.5 uppercase tracking-widest">
                     Message
                   </label>
                   <textarea

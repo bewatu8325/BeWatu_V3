@@ -91,7 +91,7 @@ const AvatarStack = () => (
         +2k
       </div>
     </div>
-    <p className="text-sm text-stone-500">Join a growing community across every career stage</p>
+    <p className="text-sm text-stone-600">Join a growing community across every career stage</p>
   </div>
 );
 
@@ -105,7 +105,7 @@ const PillarCard: React.FC<{
   <div className="flex flex-col rounded-2xl border bg-white p-6 shadow-sm hover:shadow-md transition-shadow" style={{ borderColor: '#e8e4dc' }}>
     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: iconBg }}>{icon}</div>
     <h3 className="mb-2 text-lg font-bold text-stone-900">{title}</h3>
-    <p className="flex-1 text-sm text-stone-500 leading-relaxed">{body}</p>
+    <p className="flex-1 text-sm text-stone-600 leading-relaxed">{body}</p>
     <span className="mt-4 inline-block text-xs font-semibold rounded-full px-3 py-1"
       style={{ backgroundColor: `${GREEN}15`, color: GREEN }}>
       {tag}
@@ -119,7 +119,7 @@ const AICard: React.FC<{
   <div className="flex flex-col rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: '#e8e4dc' }}>
     <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: iconBg }}>{icon}</div>
     <h3 className="mb-1 font-bold text-stone-900 text-sm">{title}</h3>
-    <p className="text-xs text-stone-500 leading-relaxed">{body}</p>
+    <p className="text-xs text-stone-600 leading-relaxed">{body}</p>
   </div>
 );
 
@@ -128,7 +128,7 @@ const Step: React.FC<{ num: string; title: string; body: string }> = ({ num, tit
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: GREEN }}>{num}</div>
     <div>
       <p className="font-bold text-stone-900">{title}</p>
-      <p className="mt-1 text-sm text-stone-500">{body}</p>
+      <p className="mt-1 text-sm text-stone-600">{body}</p>
     </div>
   </div>
 );
@@ -145,7 +145,7 @@ const GenerationCard: React.FC<{
     <p className="text-sm text-stone-700 leading-relaxed italic">"{quote}"</p>
     <div>
       <p className="text-sm font-bold text-stone-900">{name}</p>
-      <p className="text-xs text-stone-500">{role}</p>
+      <p className="text-xs text-stone-600">{role}</p>
     </div>
   </div>
 );
@@ -186,7 +186,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
         The network built for<br />
         <span style={{ color: GREEN }}>authentic careers.</span>
       </h1>
-      <p className="mt-6 max-w-xl text-lg text-stone-500 leading-relaxed">
+      <p className="mt-6 max-w-xl text-lg text-stone-600 leading-relaxed">
         BeWatu bridges professionals across generations, identifying the value everyone brings — connecting decades of hard-won wisdom with the energy of people just starting to build. Demonstrate your capability, not just your credentials.
       </p>
       <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
@@ -213,7 +213,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             The generational bridge
           </span>
           <h2 className="text-3xl font-extrabold text-stone-900">Two generations, one community</h2>
-          <p className="mt-3 text-stone-500 max-w-xl mx-auto">
+          <p className="mt-3 text-stone-600 max-w-xl mx-auto">
             The professionals who built the world we work in, and the ones building what comes next.
             BeWatu creates the conditions for both to see each other clearly.
           </p>
@@ -237,7 +237,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
           />
         </div>
         <div className="mt-8 text-center">
-          <p className="text-sm text-stone-500 max-w-lg mx-auto">
+          <p className="text-sm text-stone-600 max-w-lg mx-auto">
             BeWatu is structured so neither generation has to perform for the other.
             Wisdom threads, perspective posts, and mentored pods create
             authentic exchange — not content for likes.
@@ -251,7 +251,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
       <div className="mx-auto max-w-6xl px-6">
         <div className="text-center mb-10">
           <h2 className="text-3xl font-extrabold text-stone-900">Built different, on purpose</h2>
-          <p className="mt-3 text-stone-500">Three things we do that no other professional network does</p>
+          <p className="mt-3 text-stone-600">Three things we do that no other professional network does</p>
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           <PillarCard
@@ -302,7 +302,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             <IconSparkles color={GREEN} /> Intelligence that stays in the background
           </span>
           <h2 className="text-3xl font-extrabold text-stone-900">AI that works quietly</h2>
-          <p className="mt-3 text-stone-500 max-w-xl mx-auto">
+          <p className="mt-3 text-stone-600 max-w-xl mx-auto">
             We use AI to make the platform smarter — not to replace human judgement.
             It surfaces opportunities, finds patterns you'd miss, and gets out of the way.
           </p>
@@ -344,7 +344,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             Our story →
           </button>
         </div>
-        <p className="mt-4 text-xs text-stone-400">No credit card required · No follower counts · No algorithm</p>
+        <p className="mt-4 text-xs text-stone-600">No credit card required · No follower counts · No algorithm</p>
       </div>
     </section>
 

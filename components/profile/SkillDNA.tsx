@@ -166,7 +166,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
         <h2 className="flex items-center gap-2 text-sm font-semibold text-stone-800">
           <Hexagon className="h-4 w-4 text-[#1a4a3a]" />Skill DNA
         </h2>
-        <p className="mt-3 text-xs text-stone-500">Add skills to your profile to see your Skill DNA graph.</p>
+        <p className="mt-3 text-xs text-stone-600">Add skills to your profile to see your Skill DNA graph.</p>
       </div>
     );
   }
@@ -178,15 +178,15 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
         <h2 className="flex items-center gap-2 text-sm font-semibold text-stone-800">
           <Hexagon className="h-4 w-4 text-[#1a4a3a]" />
           Skill DNA
-          <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[11px] font-medium text-stone-500">Living Proof-of-Work</span>
+          <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[11px] font-medium text-stone-600">Living Proof-of-Work</span>
         </h2>
         <div className="flex items-center gap-1">
           <button onClick={() => setShowGapOverlay(!showGapOverlay)}
-            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${showGapOverlay ? 'bg-[#1a4a3a] text-white' : 'text-stone-500 hover:bg-stone-200'}`}>
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${showGapOverlay ? 'bg-[#1a4a3a] text-white' : 'text-stone-600 hover:bg-stone-200'}`}>
             <Eye className="inline h-3 w-3 mr-1" />Gap
           </button>
           <button onClick={() => setShowShareCard(true)}
-            className="rounded-lg px-2.5 py-1 text-xs font-medium text-stone-500 hover:bg-stone-200 transition-colors">
+            className="rounded-lg px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-200 transition-colors">
             <Share2 className="inline h-3 w-3 mr-1" />Share
           </button>
         </div>
@@ -211,7 +211,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                   return (
                     <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs shadow-lg">
                       <p className="font-semibold text-stone-900">{d.fullName}</p>
-                      <p className="mt-0.5 text-stone-500">Score: {d.score} | Trust: {level.name}</p>
+                      <p className="mt-0.5 text-stone-600">Score: {d.score} | Trust: {level.name}</p>
                     </div>
                   );
                 }} />
@@ -225,7 +225,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
           {TRUST_LEVELS.map(t => {
             const Icon = t.icon;
             return (
-              <div key={t.level} className="flex items-center gap-1.5 text-[11px] text-stone-500">
+              <div key={t.level} className="flex items-center gap-1.5 text-[11px] text-stone-600">
                 <Icon className="h-3 w-3" style={{ color: t.color }} />
                 <span>{t.name}</span>
               </div>
@@ -237,14 +237,14 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
         <div className="flex flex-col gap-4">
           {clusters.map(([clusterName, nodes]) => (
             <div key={clusterName}>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-stone-400">{clusterName}</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-stone-600">{clusterName}</p>
               <div className="flex flex-wrap gap-2">
                 {nodes.map(node => {
                   const isActive = selectedSkill?.name === node.name;
                   return (
                     <button key={node.name} onClick={() => setSelectedSkill(isActive ? null : node)} className="group relative">
                       <div className={`relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all duration-200 ${isActive ? 'ring-2 ring-[#1a4a3a] scale-105' : 'hover:scale-105'}
-                        ${node.trustLevel === 1 ? 'border-2 border-dashed border-stone-300/60 bg-transparent text-stone-400' : ''}
+                        ${node.trustLevel === 1 ? 'border-2 border-dashed border-stone-300/60 bg-transparent text-stone-600' : ''}
                         ${node.trustLevel === 2 ? 'bg-violet-500/15 text-stone-800 border border-violet-400/30' : ''}
                         ${node.trustLevel === 3 ? 'bg-amber-500/15 text-stone-800 border border-amber-400/30' : ''}
                         ${node.trustLevel >= 4 ? 'bg-emerald-500/15 text-stone-800 border border-emerald-400/40' : ''}
@@ -258,7 +258,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                             style={{ backgroundColor: COLORS.mastery, color: '#1e1b1b' }} title="Consensus">C</span>
                         )}
                         {node.endorsementCount > 0 && (
-                          <span className="relative z-10 text-[10px] font-semibold text-stone-500">({node.endorsementCount})</span>
+                          <span className="relative z-10 text-[10px] font-semibold text-stone-600">({node.endorsementCount})</span>
                         )}
                       </div>
                     </button>
@@ -279,17 +279,17 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-stone-900">{selectedSkill.name}</p>
-                  <p className="text-[11px] text-stone-500">Trust Level {selectedSkill.trustLevel}: {selectedSkill.trustInfo.name}</p>
+                  <p className="text-[11px] text-stone-600">Trust Level {selectedSkill.trustLevel}: {selectedSkill.trustInfo.name}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedSkill(null)} className="rounded p-1 text-stone-500 hover:bg-stone-200">
+              <button onClick={() => setSelectedSkill(null)} className="rounded p-1 text-stone-600 hover:bg-stone-200">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Trust bar */}
             <div className="mt-3">
-              <div className="flex justify-between text-[11px] text-stone-500 mb-1">
+              <div className="flex justify-between text-[11px] text-stone-600 mb-1">
                 <span>Trust Progress</span><span>{selectedSkill.score}/100</span>
               </div>
               <div className="h-2 w-full rounded-full bg-stone-200 overflow-hidden">
@@ -297,7 +297,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
               </div>
             </div>
 
-            <div className="mt-3 flex items-center gap-4 text-[11px] text-stone-500">
+            <div className="mt-3 flex items-center gap-4 text-[11px] text-stone-600">
               <span className="flex items-center gap-1"><Shield className="h-3 w-3" />{selectedSkill.endorsementCount} endorsements</span>
               <span className="flex items-center gap-1"><Star className="h-3 w-3" />{selectedSkill.proofLinks.length} receipts</span>
               {selectedSkill.hasConsensus && (
@@ -309,14 +309,14 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
 
             {selectedSkill.proofLinks.length > 0 && (
               <div className="mt-3">
-                <p className="mb-1.5 text-[11px] font-semibold text-stone-500 uppercase tracking-wider">Receipts</p>
+                <p className="mb-1.5 text-[11px] font-semibold text-stone-600 uppercase tracking-wider">Receipts</p>
                 <div className="flex flex-col gap-1.5">
                   {selectedSkill.proofLinks.map((p: any) => (
                     <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-800 hover:bg-[#e8f4f0] transition-colors">
                       <ExternalLink className="h-3 w-3 text-[#1a4a3a]" />
                       <span className="font-medium">{p.title}</span>
-                      {p.tags?.length > 0 && <span className="ml-auto text-[10px] text-stone-400">{p.tags.join(', ')}</span>}
+                      {p.tags?.length > 0 && <span className="ml-auto text-[10px] text-stone-600">{p.tags.join(', ')}</span>}
                     </a>
                   ))}
                 </div>
@@ -340,7 +340,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
           <div className="mt-5 rounded-lg border border-stone-200 bg-stone-50 p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-stone-800">Skill Gap Analysis</p>
-              <button onClick={() => setShowGapOverlay(false)} className="rounded p-1 text-stone-500 hover:bg-stone-200"><X className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setShowGapOverlay(false)} className="rounded p-1 text-stone-600 hover:bg-stone-200"><X className="h-3.5 w-3.5" /></button>
             </div>
             <select value={targetRole} onChange={e => setTargetRole(e.target.value)}
               className="mb-3 h-9 w-full rounded-lg border border-stone-300 bg-stone-50 px-3 text-sm text-stone-800 focus:border-[#1a4a3a] focus:outline-none">
@@ -350,7 +350,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
             {gapAnalysis && (
               <div className="flex flex-wrap gap-2">
                 {gapAnalysis.map(g => (
-                  <div key={g.name} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${g.has ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-400/30' : 'border-2 border-dashed border-stone-300 text-stone-400'}`}>
+                  <div key={g.name} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${g.has ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-400/30' : 'border-2 border-dashed border-stone-300 text-stone-600'}`}>
                     {g.has ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3 opacity-50" />}
                     {g.name}
                     {g.has && g.node && <span className="text-[10px] opacity-70">L{g.node.trustLevel}</span>}
@@ -379,7 +379,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                   )}
                   <div>
                     <p className="text-sm font-bold text-stone-900">{user.name}</p>
-                    <p className="text-[11px] text-stone-500">{user.headline}</p>
+                    <p className="text-[11px] text-stone-600">{user.headline}</p>
                   </div>
                 </div>
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[#1a4a3a]">Top Skills</p>
@@ -389,14 +389,14 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                       style={{ backgroundColor: node.trustInfo.color + '18', borderLeft: `3px solid ${node.trustInfo.color}` }}>
                       <div>
                         <p className="text-xs font-semibold text-stone-900">{node.name}</p>
-                        <p className="text-[10px] text-stone-500">{node.trustInfo.name} | {node.endorsementCount} endorsement{node.endorsementCount !== 1 ? 's' : ''}</p>
+                        <p className="text-[10px] text-stone-600">{node.trustInfo.name} | {node.endorsementCount} endorsement{node.endorsementCount !== 1 ? 's' : ''}</p>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="mt-4 flex items-center justify-between">
-                  <p className="text-[10px] font-medium text-stone-500">BeWatu Skill DNA</p>
-                  <p className="text-[10px] text-stone-500">bewatu.com</p>
+                  <p className="text-[10px] font-medium text-stone-600">BeWatu Skill DNA</p>
+                  <p className="text-[10px] text-stone-600">bewatu.com</p>
                 </div>
               </div>
             </div>

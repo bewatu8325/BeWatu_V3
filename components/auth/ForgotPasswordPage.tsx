@@ -126,7 +126,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
       {/* Right form panel */}
       <div className="flex-1 flex flex-col items-center justify-center bg-white px-6 py-12">
         {/* Mobile logo */}
-        <button onClick={onBack} className="mb-8 lg:hidden hover:opacity-80">
+        <button onClick={onBack} aria-label="Back to sign in" className="mb-8 lg:hidden hover:opacity-80">
           <LogoIcon className="h-10 w-auto" style={{ color: GREEN }} />
         </button>
 
@@ -135,7 +135,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
           <button
             onClick={onBack}
             className="flex items-center gap-1.5 text-sm font-medium mb-8 hover:gap-2.5 transition-all"
-            style={{ color: '#78716c' }}
+            style={{ color: '#57534e' }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 5l-7 7 7 7" />
@@ -149,7 +149,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
                 <h1 className="text-2xl font-bold text-stone-900">
                   {mode === 'password' ? 'Reset your password' : 'Find your account'}
                 </h1>
-                <p className="mt-2 text-sm text-stone-500">
+                <p className="mt-2 text-sm text-stone-600">
                   {mode === 'password'
                     ? 'Enter the email you signed up with and we\'ll send a reset link.'
                     : 'Enter your email and we\'ll remind you of your username.'}
@@ -165,7 +165,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
                     className="flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all"
                     style={mode === m
                       ? { background: 'white', color: '#1c1917', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
-                      : { color: '#78716c' }}
+                      : { color: '#57534e' }}
                   >
                     {m === 'password' ? 'Forgot password' : 'Forgot username'}
                   </button>
@@ -187,7 +187,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
                     Email address
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-600">
                       <MailIcon />
                     </span>
                     <input
@@ -223,12 +223,12 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
 
               {/* Security note */}
               <div className="mt-6 rounded-xl border border-stone-100 bg-stone-50 p-4 flex items-start gap-3">
-                <div className="mt-0.5 text-stone-400 flex-shrink-0">
+                <div className="mt-0.5 text-stone-600 flex-shrink-0">
                   <ShieldIcon />
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-stone-600">Security note</p>
-                  <p className="text-xs text-stone-400 mt-0.5 leading-relaxed">
+                  <p className="text-xs text-stone-600 mt-0.5 leading-relaxed">
                     For your protection, we never confirm whether an email is registered.
                     If you don't receive an email within a few minutes, check your spam folder.
                   </p>
@@ -245,11 +245,11 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
                 <CheckCircleIcon />
               </div>
               <h1 className="text-2xl font-bold text-stone-900 mb-2">Check your inbox</h1>
-              <p className="text-sm text-stone-500 leading-relaxed mb-2">
+              <p className="text-sm text-stone-600 leading-relaxed mb-2">
                 If <strong className="text-stone-700">{email}</strong> is registered with BeWatu, you'll receive a{' '}
                 {mode === 'password' ? 'password reset link' : 'username reminder'} shortly.
               </p>
-              <p className="text-xs text-stone-400 mb-8">
+              <p className="text-xs text-stone-600 mb-8">
                 The link expires in 1 hour. Check your spam folder if it doesn't arrive.
               </p>
 
@@ -270,7 +270,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
               </div>
 
               {/* Didn't get it? */}
-              <p className="mt-6 text-xs text-stone-400">
+              <p className="mt-6 text-xs text-stone-600">
                 Still having trouble?{' '}
                 <a
                   href="mailto:support@bewatu.com"

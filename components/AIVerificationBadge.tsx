@@ -113,7 +113,7 @@ function AppealModal({
         style={{ border: '1px solid #e7e5e4' }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: '#e7e5e4' }}>
           <h2 className="font-bold text-stone-900 text-base">Appeal AI detection</h2>
-          <p className="text-xs text-stone-500 mt-0.5">
+          <p className="text-xs text-stone-600 mt-0.5">
             Tell us why you believe your video is real. The BeWatu team will review it within 5 business days.
           </p>
         </div>
@@ -139,10 +139,10 @@ function AppealModal({
               onChange={e => setStatement(e.target.value.slice(0, maxLen))}
               placeholder="Explain briefly — e.g. 'This is a genuine recording I made on my phone on [date]. The lighting in my office can sometimes look unusual.'"
               rows={4}
-              className="w-full resize-none rounded-xl border bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2"
+              className="w-full resize-none rounded-xl border bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-600 focus:outline-none focus:ring-2"
               style={{ borderColor: '#e7e5e4' }}
             />
-            <p className="text-right text-[10px] text-stone-400 mt-1">{statement.length}/{maxLen}</p>
+            <p className="text-right text-[10px] text-stone-600 mt-1">{statement.length}/{maxLen}</p>
           </div>
 
           {error && (

@@ -127,7 +127,7 @@ export const PodNotificationPrefs: React.FC<PodNotificationPrefsProps> = ({
       {open && (
         <div className="absolute right-0 top-full mt-1 bg-white rounded-xl border shadow-lg z-20 w-64"
           style={{ borderColor: '#e7e5e4' }}>
-          <p className="text-xs font-bold text-stone-400 uppercase tracking-widest px-3 pt-3 pb-1">
+          <p className="text-xs font-bold text-stone-600 uppercase tracking-widest px-3 pt-3 pb-1">
             Notifications for {podName}
           </p>
           {NOTIF_OPTIONS.map(opt => (
@@ -138,13 +138,13 @@ export const PodNotificationPrefs: React.FC<PodNotificationPrefsProps> = ({
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-stone-800">{opt.label}</p>
-                <p className="text-xs text-stone-400">{opt.desc}</p>
+                <p className="text-xs text-stone-600">{opt.desc}</p>
               </div>
               {pref === opt.value && <CheckCircle size={13} className="flex-shrink-0 mt-0.5" style={{ color: GREEN }} />}
             </button>
           ))}
           <div className="px-3 pb-3 pt-1">
-            <p className="text-xs text-stone-400 leading-relaxed">
+            <p className="text-xs text-stone-600 leading-relaxed">
               Default is "Weekly digest" — one Sunday summary instead of constant interruptions.
             </p>
           </div>
@@ -221,16 +221,16 @@ Write a 2-3 sentence catch-up summary in a warm, collegial tone. Mention the mos
             <p className="text-sm font-bold text-stone-900">
               {newPosts.length} new post{newPosts.length !== 1 ? 's' : ''} since your last visit
             </p>
-            <p className="text-xs text-stone-400">Tap to get an AI catch-up summary</p>
+            <p className="text-xs text-stone-600">Tap to get an AI catch-up summary</p>
           </div>
         </div>
-        {expanded ? <ChevronUp size={15} className="text-stone-400" /> : <ChevronDown size={15} className="text-stone-400" />}
+        {expanded ? <ChevronUp size={15} className="text-stone-600" /> : <ChevronDown size={15} className="text-stone-600" />}
       </button>
 
       {expanded && (
         <div className="px-4 pb-4 border-t" style={{ borderColor: '#f5f5f4' }}>
           {loading ? (
-            <div className="flex items-center gap-2 py-3 text-sm text-stone-400">
+            <div className="flex items-center gap-2 py-3 text-sm text-stone-600">
               <Loader2 size={14} className="animate-spin" /> Reading the discussion…
             </div>
           ) : (
@@ -445,7 +445,7 @@ Return only the question itself — no preamble, no explanation. Make it specifi
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Question *</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest">Question *</label>
           <button onClick={generateQuestion} disabled={generating}
             className="flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-50"
             style={{ color: GREEN }}>
@@ -462,7 +462,7 @@ Return only the question itself — no preamble, no explanation. Make it specifi
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Context (optional)</label>
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest block">Context (optional)</label>
         <textarea
           value={context} onChange={e => setContext(e.target.value)}
           rows={2} placeholder="Any background that would help members respond well?"
@@ -472,7 +472,7 @@ Return only the question itself — no preamble, no explanation. Make it specifi
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Response deadline (optional)</label>
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest block">Response deadline (optional)</label>
         <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
           className="w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none"
           style={{ borderColor: '#e7e5e4' }}
@@ -549,12 +549,12 @@ export const PodChallengeCard: React.FC<PodChallengeCardProps> = ({
         </div>
         <div className="flex items-center gap-2">
           {daysLeft !== null && isOpen && (
-            <span className="text-xs text-stone-400 flex items-center gap-1">
+            <span className="text-xs text-stone-600 flex items-center gap-1">
               <Clock size={11} /> {daysLeft > 0 ? `${daysLeft}d left` : 'Ended'}
             </span>
           )}
           <button onClick={() => setExpanded(e => !e)}>
-            {expanded ? <ChevronUp size={14} className="text-stone-400" /> : <ChevronDown size={14} className="text-stone-400" />}
+            {expanded ? <ChevronUp size={14} className="text-stone-600" /> : <ChevronDown size={14} className="text-stone-600" />}
           </button>
         </div>
       </div>
@@ -565,9 +565,9 @@ export const PodChallengeCard: React.FC<PodChallengeCardProps> = ({
           <div>
             <p className="font-bold text-stone-900 text-sm leading-relaxed">{challenge.question}</p>
             {challenge.context && (
-              <p className="text-xs text-stone-500 mt-1 leading-relaxed">{challenge.context}</p>
+              <p className="text-xs text-stone-600 mt-1 leading-relaxed">{challenge.context}</p>
             )}
-            <p className="text-xs text-stone-400 mt-1.5">
+            <p className="text-xs text-stone-600 mt-1.5">
               Asked by {challenge.postedBy} · {challenge.responses.length} response{challenge.responses.length !== 1 ? 's' : ''}
             </p>
           </div>
@@ -621,7 +621,7 @@ export const PodChallengeCard: React.FC<PodChallengeCardProps> = ({
                 style={{ borderColor: '#e7e5e4' }}
               />
               {currentUser.stage && (
-                <p className="text-xs text-stone-400">
+                <p className="text-xs text-stone-600">
                   Your response will be tagged as <RoleStageBadge stage={currentUser.stage} compact />
                 </p>
               )}
@@ -635,7 +635,7 @@ export const PodChallengeCard: React.FC<PodChallengeCardProps> = ({
           )}
 
           {hasResponded && isOpen && (
-            <p className="text-xs text-center text-stone-400 py-1">✓ You've responded to this challenge</p>
+            <p className="text-xs text-center text-stone-600 py-1">✓ You've responded to this challenge</p>
           )}
 
           {/* Admin synthesise button */}
@@ -739,7 +739,7 @@ No other text.`;
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-stone-800">{candidate.name}</p>
-                  <p className="text-xs text-stone-500 leading-relaxed">{s.reason}</p>
+                  <p className="text-xs text-stone-600 leading-relaxed">{s.reason}</p>
                 </div>
                 <button onClick={() => onInvite(s.id)}
                   className="text-xs font-bold px-3 py-1.5 rounded-lg text-white flex-shrink-0"

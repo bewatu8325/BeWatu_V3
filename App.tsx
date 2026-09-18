@@ -1570,7 +1570,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
     if (loading) return (
       <div className="flex flex-col items-center justify-center h-screen">
         <LoadingIcon className="w-16 h-16 animate-spin" style={{ color: '#1a4a3a' }} />
-        <p className="mt-4 text-lg text-stone-500 font-medium">Loading BeWatu...</p>
+        <p className="mt-4 text-lg text-stone-600 font-medium">Loading BeWatu...</p>
       </div>
     );
 
@@ -1932,7 +1932,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         content = (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
             <LoadingIcon className="w-8 h-8 animate-spin" style={{ color: '#1a4a3a' }} />
-            <p className="text-sm text-stone-500">Opening Factory...</p>
+            <p className="text-sm text-stone-600">Opening Factory...</p>
           </div>
         );
         break;
@@ -2195,7 +2195,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                 🎂
               </div>
               <h2 className="text-lg font-bold text-stone-900">Confirm your age</h2>
-              <p className="text-sm text-stone-500 leading-relaxed">
+              <p className="text-sm text-stone-600 leading-relaxed">
                 BeWatu is a professional network intended for people aged 16 and older. Please confirm before continuing.
               </p>
             </div>
@@ -2207,7 +2207,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                 I confirm I am 16 or older
               </button>
               <button onClick={handleAgeDecline}
-                className="w-full py-2 text-xs text-stone-500 hover:text-stone-700 transition-colors">
+                className="w-full py-2 text-xs text-stone-600 hover:text-stone-700 transition-colors">
                 I'm under 16
               </button>
             </div>
@@ -2232,7 +2232,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                 🤝
               </div>
               <h2 className="text-lg font-bold text-stone-900">Community Guidelines</h2>
-              <p className="text-sm text-stone-500 leading-relaxed">
+              <p className="text-sm text-stone-600 leading-relaxed">
                 Before you continue, please review and agree to our Community Guidelines. These are required to use BeWatu.
               </p>
             </div>
@@ -2252,12 +2252,12 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                 I agree to the Community Guidelines
               </button>
               <button onClick={() => setShowCommunityPage(true)}
-                className="w-full py-2 text-xs text-stone-500 hover:text-stone-700 transition-colors">
+                className="w-full py-2 text-xs text-stone-600 hover:text-stone-700 transition-colors">
                 Read full Community Guidelines →
               </button>
             </div>
 
-            <p className="text-[11px] text-stone-400 text-center">
+            <p className="text-[11px] text-stone-600 text-center">
               By continuing, you also agree to our{' '}
               <button onClick={() => setShowTermsPage(true)} className="underline hover:no-underline">Terms</button>
               {' '}and{' '}

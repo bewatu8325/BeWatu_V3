@@ -69,7 +69,7 @@ export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0 
               <p className="font-bold text-stone-900 text-base">More</p>
               <button 
                 onClick={() => setShowMore(false)} 
-                className="p-2 -mr-2 text-stone-400 hover:text-stone-600 active:bg-stone-100 rounded-full transition-colors"
+                className="p-2 -mr-2 text-stone-600 hover:text-stone-600 active:bg-stone-100 rounded-full transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -103,7 +103,7 @@ export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0 
                     </div>
                     <div className="flex-1 text-left">
                       <span className="text-sm font-semibold block">{label}</span>
-                      <span className="text-xs text-stone-500">{description}</span>
+                      <span className="text-xs text-stone-600">{description}</span>
                     </div>
                     {active && (
                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: GREEN }} />

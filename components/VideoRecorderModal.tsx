@@ -128,7 +128,7 @@ const IconRefresh = () => (
 // ─── Upload progress bar ──────────────────────────────────────────────────────
 const UploadProgress: React.FC<{ pct: number }> = ({ pct }) => (
   <div className="flex flex-col gap-1.5">
-    <div className="flex justify-between text-xs text-stone-500">
+    <div className="flex justify-between text-xs text-stone-600">
       <span>Uploading…</span>
       <span>{pct}%</span>
     </div>
@@ -266,11 +266,11 @@ const RecordTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: s
         )}
         {permission === 'pending' && (
           <div className="flex h-full items-center justify-center">
-            <LoadingIcon className="w-8 h-8 animate-spin text-stone-400" />
+            <LoadingIcon className="w-8 h-8 animate-spin text-stone-600" />
           </div>
         )}
         {permission === 'idle' && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-stone-400">
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-stone-600">
             <svg className="w-12 h-12 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
               <path d="m15 10 4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.91L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
             </svg>
@@ -433,8 +433,8 @@ const UploadTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: s
           </div>
           <div className="text-center">
             <p className="font-semibold text-stone-800">Drop your video here</p>
-            <p className="mt-1 text-sm text-stone-500">or <span className="font-semibold" style={{ color: GREEN }}>browse files</span></p>
-            <p className="mt-2 text-xs text-stone-400">MP4, MOV, WebM · max 30 seconds · max 100 MB</p>
+            <p className="mt-1 text-sm text-stone-600">or <span className="font-semibold" style={{ color: GREEN }}>browse files</span></p>
+            <p className="mt-2 text-xs text-stone-600">MP4, MOV, WebM · max 30 seconds · max 100 MB</p>
           </div>
           <input ref={inputRef} type="file" accept="video/*" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
@@ -486,9 +486,9 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose
         <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#e7e5e4' }}>
           <div>
             <h2 className="font-bold text-lg text-stone-900">Add Vibe Clip</h2>
-            <p className="text-xs text-stone-500 mt-0.5">30 seconds max · show your vibe</p>
+            <p className="text-xs text-stone-600 mt-0.5">30 seconds max · show your vibe</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors">
+          <button onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-stone-600 hover:bg-stone-100 hover:text-stone-600 transition-colors">
             <IconX />
           </button>
         </div>
@@ -502,7 +502,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onSave, onClose
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-                tab === t.id ? 'text-white' : 'text-stone-500 hover:text-stone-800 hover:bg-stone-100'
+                tab === t.id ? 'text-white' : 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
               }`}
               style={tab === t.id ? { backgroundColor: GREEN } : {}}
             >

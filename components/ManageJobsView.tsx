@@ -135,12 +135,12 @@ function JobForm({
     <div className="bg-white rounded-2xl border p-5 shadow-sm space-y-4" style={{ borderColor: '#e7e5e4' }}>
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-stone-900">{isEdit ? 'Edit job post' : 'New job post'}</h3>
-        <button onClick={onCancel} className="text-xs text-stone-400 hover:text-stone-600">Cancel</button>
+        <button onClick={onCancel} className="text-xs text-stone-600 hover:text-stone-600">Cancel</button>
       </div>
 
       {/* Title */}
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Job title *</label>
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Job title *</label>
         <input value={form.title} onChange={e => set('title', e.target.value)}
           className={inputCls('title')} placeholder="e.g. Senior Product Manager" />
         {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title}</p>}
@@ -149,13 +149,13 @@ function JobForm({
       {/* Location + type */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Location *</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Location *</label>
           <input value={form.location} onChange={e => set('location', e.target.value)}
             className={inputCls('location')} placeholder="London / Remote" />
           {errors.location && <p className="text-xs text-red-500 mt-1">{errors.location}</p>}
         </div>
         <div>
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Type</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Type</label>
           <select value={form.type} onChange={e => set('type', e.target.value as Job['type'])}
             className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm bg-white focus:outline-none">
             {JOB_TYPES.map(t => <option key={t}>{t}</option>)}
@@ -165,7 +165,7 @@ function JobForm({
 
       {/* Experience level */}
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Experience level</label>
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Experience level</label>
         <div className="flex gap-2">
           {EXP_LEVELS.map(l => (
             <button key={l} onClick={() => set('experienceLevel', l)}
@@ -182,7 +182,7 @@ function JobForm({
       {/* Salary range — REQUIRED */}
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Salary range *</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest">Salary range *</label>
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-red-600 bg-red-50">Required</span>
         </div>
         <div className="grid grid-cols-5 gap-2">
@@ -193,7 +193,7 @@ function JobForm({
           <input type="number" value={form.salaryMin} onChange={e => set('salaryMin', e.target.value)}
             className="col-span-1 px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none"
             placeholder="Min" min="0" />
-          <span className="flex items-center justify-center text-stone-400 text-sm">–</span>
+          <span className="flex items-center justify-center text-stone-600 text-sm">–</span>
           <input type="number" value={form.salaryMax} onChange={e => set('salaryMax', e.target.value)}
             className="col-span-1 px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none"
             placeholder="Max" min="0" />
@@ -207,14 +207,14 @@ function JobForm({
             <AlertCircle size={11} /> {errors.salary}
           </p>
         )}
-        <p className="text-[10px] text-stone-400 mt-1">
+        <p className="text-[10px] text-stone-600 mt-1">
           Salary transparency is required on BeWatu. Candidates can filter by range.
         </p>
       </div>
 
       {/* Description */}
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Description *</label>
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Description *</label>
         <textarea value={form.description} onChange={e => set('description', e.target.value)} rows={5}
           className={`${inputCls('description')} resize-none`}
           placeholder="Role overview, key responsibilities, what good looks like in this role..." />
@@ -231,7 +231,7 @@ function JobForm({
             <p className="text-sm font-semibold text-stone-800">
               I represent this company directly
             </p>
-            <p className="text-xs text-stone-500 mt-0.5">
+            <p className="text-xs text-stone-600 mt-0.5">
               I confirm this role is for my own organisation — not on behalf of a client or third party.
               Agency recruiting is not permitted on BeWatu.
             </p>
@@ -277,15 +277,15 @@ function JobCard({
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
             <p className="font-bold text-stone-900 text-sm">{job.title}</p>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              isActive ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-500'
+              isActive ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-600'
             }`}>
               {isActive ? 'Active' : 'Paused'}
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 font-medium">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
               {job.type}
             </span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-stone-400 flex-wrap">
+          <div className="flex items-center gap-3 text-xs text-stone-600 flex-wrap">
             <span className="flex items-center gap-1"><MapPin size={10} />{job.location}</span>
             <span className="flex items-center gap-1"><Clock size={10} />{job.experienceLevel}</span>
             <span className="flex items-center gap-1 font-semibold text-stone-600">
@@ -296,7 +296,7 @@ function JobCard({
 
         <div className="flex items-center gap-1 flex-shrink-0">
           <button onClick={onEdit}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors">
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-stone-600 hover:text-stone-700 hover:bg-stone-100 transition-colors">
             <Edit2 size={13} />
           </button>
           <button onClick={onToggle}
@@ -312,7 +312,7 @@ function JobCard({
         </div>
       </div>
 
-      <p className="text-xs text-stone-500 line-clamp-2 leading-relaxed">{job.description}</p>
+      <p className="text-xs text-stone-600 line-clamp-2 leading-relaxed">{job.description}</p>
     </div>
   );
 }
@@ -373,7 +373,7 @@ const ManageJobsView: React.FC<ManageJobsViewProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Job Posts</h2>
-          <p className="text-xs text-stone-400 mt-0.5">
+          <p className="text-xs text-stone-600 mt-0.5">
             {activeJobs.length} / {FREE_LIMIT} free active listings used
           </p>
         </div>
@@ -412,10 +412,10 @@ const ManageJobsView: React.FC<ManageJobsViewProps> = ({
       {/* Verification warning */}
       {!canPost && (
         <div className="flex items-start gap-3 p-4 rounded-2xl border border-stone-200 bg-stone-50">
-          <AlertCircle size={15} className="text-stone-400 mt-0.5 flex-shrink-0" />
+          <AlertCircle size={15} className="text-stone-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-bold text-stone-700">Company setup required</p>
-            <p className="text-xs text-stone-500 mt-0.5">Set up your company profile before posting roles.</p>
+            <p className="text-xs text-stone-600 mt-0.5">Set up your company profile before posting roles.</p>
           </div>
           <button onClick={onGoToVerification}
             className="text-xs font-bold px-3 py-1.5 rounded-lg text-white flex-shrink-0"
@@ -443,7 +443,7 @@ const ManageJobsView: React.FC<ManageJobsViewProps> = ({
               backgroundColor: atLimit ? '#d97706' : GREEN,
             }} />
         </div>
-        <p className="text-[10px] text-stone-400 mt-1.5">
+        <p className="text-[10px] text-stone-600 mt-1.5">
           {atLimit
             ? 'Upgrade to Pro for unlimited active listings'
             : `${FREE_LIMIT - activeJobs.length} listing${FREE_LIMIT - activeJobs.length !== 1 ? 's' : ''} remaining on the free tier`}
@@ -486,7 +486,7 @@ const ManageJobsView: React.FC<ManageJobsViewProps> = ({
         <div className="text-center py-16 border-2 border-dashed rounded-2xl" style={{ borderColor: '#e7e5e4' }}>
           <Briefcase size={28} className="mx-auto mb-3 text-stone-300" />
           <p className="font-semibold text-stone-600 mb-1">No job posts yet</p>
-          <p className="text-xs text-stone-400 mb-5 max-w-xs mx-auto">
+          <p className="text-xs text-stone-600 mb-5 max-w-xs mx-auto">
             Post your first role to reach verified BeWatu talent. Salary range required.
           </p>
           {canPost && !atLimit && (

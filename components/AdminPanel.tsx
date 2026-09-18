@@ -91,7 +91,7 @@ interface Props {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const INPUT = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 outline-none focus:border-[#1a4a3a] focus:ring-2 focus:ring-[#1a4a3a]/10 transition-all';
+const INPUT = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-600 outline-none focus:border-[#1a4a3a] focus:ring-2 focus:ring-[#1a4a3a]/10 transition-all';
 const CARD  = 'rounded-2xl border border-stone-200 bg-white shadow-sm';
 const BTN_G = `rounded-xl px-4 py-2.5 text-sm font-black text-white hover:opacity-90 transition-opacity disabled:opacity-40`;
 const BTN_O = `rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors`;
@@ -135,7 +135,7 @@ function AuditBadge({ action }: { action: string }) {
     recruiter_granted: { label: 'Access ✓',   color: '#1a4a3a', bg: '#e8f4f0' },
     recruiter_revoked: { label: 'Access ✗',   color: '#dc2626', bg: '#fef2f2' },
   };
-  const cfg = map[action] ?? { label: action, color: '#78716c', bg: '#f5f5f4' };
+  const cfg = map[action] ?? { label: action, color: '#57534e', bg: '#f5f5f4' };
   return (
     <span className="rounded-lg px-2 py-0.5 text-xs font-black whitespace-nowrap"
       style={{ background: cfg.bg, color: cfg.color }}>
@@ -165,12 +165,12 @@ function ConfirmModal({
           </div>
           <div>
             <h3 className="font-black text-stone-900">{title}</h3>
-            <p className="text-sm text-stone-500 mt-1 leading-relaxed">{message}</p>
+            <p className="text-sm text-stone-600 mt-1 leading-relaxed">{message}</p>
           </div>
         </div>
         {requireTyping && (
           <div>
-            <p className="text-xs font-bold text-stone-500 mb-1.5">
+            <p className="text-xs font-bold text-stone-600 mb-1.5">
               Type <strong className="text-stone-800">{requireTyping}</strong> to confirm
             </p>
             <input className={INPUT} value={typed} onChange={e => setTyped(e.target.value)}
@@ -220,28 +220,28 @@ function CompanyForm({
           { key: 'industry' as const, label: 'Industry *',       placeholder: 'Technology' },
         ].map(({ key, label, placeholder }) => (
           <div key={key}>
-            <label className="mb-1.5 block text-xs font-black text-stone-500 uppercase tracking-wider">{label}</label>
+            <label className="mb-1.5 block text-xs font-black text-stone-600 uppercase tracking-wider">{label}</label>
             <input className={INPUT} placeholder={placeholder} value={form[key]} onChange={f(key)} />
           </div>
         ))}
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-black text-stone-500 uppercase tracking-wider">Website</label>
+        <label className="mb-1.5 block text-xs font-black text-stone-600 uppercase tracking-wider">Website</label>
         <div className="relative">
-          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
           <input className={INPUT + ' pl-9'} placeholder="https://acme.com" value={form.website} onChange={f('website')} />
         </div>
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-black text-stone-500 uppercase tracking-wider">Description</label>
+        <label className="mb-1.5 block text-xs font-black text-stone-600 uppercase tracking-wider">Description</label>
         <textarea className={INPUT + ' resize-none'} rows={3} placeholder="What this company does…"
           value={form.description} onChange={f('description')} />
       </div>
 
       <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4 space-y-3">
-        <p className="text-xs font-black text-stone-500 uppercase tracking-wider flex items-center gap-2">
+        <p className="text-xs font-black text-stone-600 uppercase tracking-wider flex items-center gap-2">
           <Crown className="w-3.5 h-3.5" /> Company admin (optional)
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -251,7 +251,7 @@ function CompanyForm({
             { key: 'adminUid' as const,   label: 'Firebase UID', placeholder: 'uid…' },
           ].map(({ key, label, placeholder }) => (
             <div key={key}>
-              <label className="mb-1 block text-[10px] font-bold text-stone-400 uppercase tracking-wider">{label}</label>
+              <label className="mb-1 block text-[10px] font-bold text-stone-600 uppercase tracking-wider">{label}</label>
               <input className={INPUT} placeholder={placeholder} value={form[key]} onChange={f(key)} />
             </div>
           ))}
@@ -375,7 +375,7 @@ function CompanyDetail({
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 my-4">
             <div className="flex items-center justify-between">
               <h3 className="font-black text-stone-900">Edit {company.name}</h3>
-              <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
+              <button onClick={() => setModal(null)} className="text-stone-600 hover:text-stone-600"><X className="w-5 h-5" /></button>
             </div>
             <CompanyForm initial={company} onSave={handleEdit} onCancel={() => setModal(null)} loading={editLoading} />
           </div>
@@ -391,7 +391,7 @@ function CompanyDetail({
               {modal === 'suspend' && `Suspend ${company.name}`}
             </h3>
             <div>
-              <label className="mb-1.5 block text-xs font-bold text-stone-500">
+              <label className="mb-1.5 block text-xs font-bold text-stone-600">
                 {modal === 'verify' ? 'Notes (optional)' : 'Reason (required)'}
               </label>
               <textarea className={INPUT + ' resize-none'} rows={3}
@@ -436,14 +436,14 @@ function CompanyDetail({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
             <h3 className="font-black text-stone-900 flex items-center gap-2"><Crown className="w-5 h-5 text-amber-500" /> Assign company admin</h3>
-            <p className="text-sm text-stone-500">Enter the Firebase UID and display name of the new admin.</p>
+            <p className="text-sm text-stone-600">Enter the Firebase UID and display name of the new admin.</p>
             <div className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-xs font-bold text-stone-500">Firebase UID</label>
+                <label className="mb-1.5 block text-xs font-bold text-stone-600">Firebase UID</label>
                 <input className={INPUT} placeholder="uid…" value={assignUid} onChange={e => setAssignUid(e.target.value)} />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-bold text-stone-500">Display name</label>
+                <label className="mb-1.5 block text-xs font-bold text-stone-600">Display name</label>
                 <input className={INPUT} placeholder="Jane Smith" value={assignName} onChange={e => setAssignName(e.target.value)} />
               </div>
               {allUsers.length > 0 && (
@@ -456,7 +456,7 @@ function CompanyDetail({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-stone-800 truncate">{u.name}</p>
-                        <p className="text-xs text-stone-400 truncate">{u._firestoreUid}</p>
+                        <p className="text-xs text-stone-600 truncate">{u._firestoreUid}</p>
                       </div>
                       {assignUid === u._firestoreUid && <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
                     </button>
@@ -478,7 +478,7 @@ function CompanyDetail({
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={onBack}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-400 hover:text-stone-700 transition-colors flex-shrink-0">
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 hover:text-stone-700 transition-colors flex-shrink-0">
           <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
@@ -486,7 +486,7 @@ function CompanyDetail({
             <h2 className="text-xl font-black text-stone-900">{company.name}</h2>
             <StatusPill status={status} />
           </div>
-          <p className="text-sm text-stone-400 mt-0.5">{company.industry} {company.website && `· ${company.website.replace(/^https?:\/\//, '')}`}</p>
+          <p className="text-sm text-stone-600 mt-0.5">{company.industry} {company.website && `· ${company.website.replace(/^https?:\/\//, '')}`}</p>
         </div>
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -525,7 +525,7 @@ function CompanyDetail({
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${
-              tab === t.key ? 'bg-stone-100 text-stone-900' : 'text-stone-400 hover:text-stone-700'
+              tab === t.key ? 'bg-stone-100 text-stone-900' : 'text-stone-600 hover:text-stone-700'
             }`}>
             {t.icon}{t.label}
           </button>
@@ -537,7 +537,7 @@ function CompanyDetail({
         <div className="space-y-4">
           {/* Status card */}
           <div className={CARD + ' p-5'}>
-            <p className="text-xs font-black text-stone-400 uppercase tracking-wider mb-3">Verification status</p>
+            <p className="text-xs font-black text-stone-600 uppercase tracking-wider mb-3">Verification status</p>
             <StatusPill status={status} />
             {company.suspensionReason && (
               <p className="text-sm text-amber-700 mt-2 flex items-start gap-1.5">
@@ -561,7 +561,7 @@ function CompanyDetail({
                   partial: restrictions.jobVisibility === 'limited' },
               ].map(({ label, ok, partial }) => (
                 <div key={label} className={`rounded-xl px-3 py-2 text-xs font-bold flex items-center gap-1.5 ${
-                  ok ? 'bg-emerald-50 text-emerald-700' : partial ? 'bg-amber-50 text-amber-700' : 'bg-stone-100 text-stone-400'
+                  ok ? 'bg-emerald-50 text-emerald-700' : partial ? 'bg-amber-50 text-amber-700' : 'bg-stone-100 text-stone-600'
                 }`}>
                   {ok ? <CheckCircle className="w-3.5 h-3.5" /> : partial ? <Clock className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
                   {label}
@@ -572,7 +572,7 @@ function CompanyDetail({
 
           {/* Company info */}
           <div className={CARD + ' p-5 space-y-4'}>
-            <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Company info</p>
+            <p className="text-xs font-black text-stone-600 uppercase tracking-wider">Company info</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               {[
                 { label: 'Name',     value: company.name },
@@ -583,14 +583,14 @@ function CompanyDetail({
                 { label: 'Recruiters', value: company.verifiedRecruiters?.length ?? 0 },
               ].map(({ label, value }) => (
                 <div key={label}>
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-wider">{label}</p>
+                  <p className="text-[10px] font-black text-stone-600 uppercase tracking-wider">{label}</p>
                   <p className="font-semibold text-stone-800 mt-0.5">{value || '—'}</p>
                 </div>
               ))}
             </div>
             {company.description && (
               <div>
-                <p className="text-[10px] font-black text-stone-400 uppercase tracking-wider mb-1">Description</p>
+                <p className="text-[10px] font-black text-stone-600 uppercase tracking-wider mb-1">Description</p>
                 <p className="text-sm text-stone-600 leading-relaxed">{company.description}</p>
               </div>
             )}
@@ -599,7 +599,7 @@ function CompanyDetail({
           {/* Admin */}
           <div className={CARD + ' p-5'}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-black text-stone-400 uppercase tracking-wider flex items-center gap-1.5">
+              <p className="text-xs font-black text-stone-600 uppercase tracking-wider flex items-center gap-1.5">
                 <Crown className="w-3.5 h-3.5 text-amber-500" /> Company admin
               </p>
               <button onClick={() => setModal('assign_admin')}
@@ -614,13 +614,13 @@ function CompanyDetail({
                 </div>
                 <div>
                   <p className="font-bold text-stone-800">{company.adminName ?? 'Admin'}</p>
-                  <p className="text-xs text-stone-400">{company.adminEmail ?? ''}</p>
+                  <p className="text-xs text-stone-600">{company.adminEmail ?? ''}</p>
                   <p className="text-[10px] text-stone-300 font-mono">{company.adminUid}</p>
                 </div>
               </div>
             ) : (
               <button onClick={() => setModal('assign_admin')}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-stone-200 p-4 text-stone-400 hover:border-stone-400 hover:text-stone-600 transition-colors text-sm font-semibold">
+                className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-stone-200 p-4 text-stone-600 hover:border-stone-400 hover:text-stone-600 transition-colors text-sm font-semibold">
                 <UserPlus className="w-4 h-4" /> Assign an admin
               </button>
             )}
@@ -642,7 +642,7 @@ function CompanyDetail({
         <div className="space-y-4">
           {/* Add recruiter */}
           <div className={CARD + ' p-5 space-y-3'}>
-            <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Grant recruiter access</p>
+            <p className="text-xs font-black text-stone-600 uppercase tracking-wider">Grant recruiter access</p>
             <div className="flex gap-2">
               <input className={INPUT + ' flex-1'} placeholder="Firebase UID"
                 value={addRecruiterUid} onChange={e => setAddRecruiterUid(e.target.value)} />
@@ -658,13 +658,13 @@ function CompanyDetail({
             {/* Quick-pick from known users */}
             {allUsers.filter(u => u._firestoreUid && !company.verifiedRecruiters?.includes(u._firestoreUid)).length > 0 && (
               <div>
-                <p className="text-[10px] font-bold text-stone-400 mb-1">Quick-add from known users</p>
+                <p className="text-[10px] font-bold text-stone-600 mb-1">Quick-add from known users</p>
                 <div className="flex flex-wrap gap-2">
                   {allUsers.filter(u => u._firestoreUid && !company.verifiedRecruiters?.includes(u._firestoreUid)).slice(0, 8).map(u => (
                     <button key={u._firestoreUid}
                       onClick={() => { setAddRecruiterUid(u._firestoreUid); setAddRecruiterName(u.name); }}
                       className={`rounded-full px-3 py-1 text-xs font-bold border transition-colors ${
-                        addRecruiterUid === u._firestoreUid ? 'border-[#1a4a3a] bg-[#e8f4f0] text-[#1a4a3a]' : 'border-stone-200 text-stone-500 hover:border-stone-400'
+                        addRecruiterUid === u._firestoreUid ? 'border-[#1a4a3a] bg-[#e8f4f0] text-[#1a4a3a]' : 'border-stone-200 text-stone-600 hover:border-stone-400'
                       }`}>{u.name}</button>
                   ))}
                 </div>
@@ -675,12 +675,12 @@ function CompanyDetail({
           {/* Current list */}
           <div className={CARD + ' overflow-hidden'}>
             <div className="px-5 py-3 border-b border-stone-100">
-              <p className="text-xs font-black text-stone-400 uppercase tracking-wider">
+              <p className="text-xs font-black text-stone-600 uppercase tracking-wider">
                 Current recruiters ({company.verifiedRecruiters?.length ?? 0})
               </p>
             </div>
             {(company.verifiedRecruiters ?? []).length === 0 ? (
-              <p className="px-5 py-8 text-sm text-stone-400 text-center">No verified recruiters yet.</p>
+              <p className="px-5 py-8 text-sm text-stone-600 text-center">No verified recruiters yet.</p>
             ) : (
               <div className="divide-y divide-stone-50">
                 {(company.verifiedRecruiters ?? []).map(uid => {
@@ -693,7 +693,7 @@ function CompanyDetail({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-stone-800 truncate">{u?.name ?? 'Recruiter'}</p>
-                        <p className="text-[10px] text-stone-400 font-mono truncate">{uid}</p>
+                        <p className="text-[10px] text-stone-600 font-mono truncate">{uid}</p>
                       </div>
                       {isAdmin && (
                         <span className="text-[10px] font-black rounded-full px-2 py-0.5 flex items-center gap-1"
@@ -735,7 +735,7 @@ function CompanyDetail({
                   <div key={label} className={CARD + ' p-4 text-center'}>
                     <div className="flex justify-center mb-1" style={{ color: G }}>{icon}</div>
                     <p className="text-2xl font-black text-stone-900">{value}</p>
-                    <p className="text-xs text-stone-400 mt-0.5">{label}</p>
+                    <p className="text-xs text-stone-600 mt-0.5">{label}</p>
                   </div>
                 ))}
               </div>
@@ -744,16 +744,16 @@ function CompanyDetail({
               {activity.jobs.length > 0 && (
                 <div className={CARD + ' overflow-hidden'}>
                   <div className="px-5 py-3 border-b border-stone-100">
-                    <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Recent jobs</p>
+                    <p className="text-xs font-black text-stone-600 uppercase tracking-wider">Recent jobs</p>
                   </div>
                   <div className="divide-y divide-stone-50">
                     {activity.jobs.slice(0, 8).map((job: any) => (
                       <div key={job.id} className="flex items-center gap-3 px-5 py-3">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-stone-800 truncate">{job.title}</p>
-                          <p className="text-xs text-stone-400">{job.location} · {job.type}</p>
+                          <p className="text-xs text-stone-600">{job.location} · {job.type}</p>
                         </div>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${job.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${job.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-600'}`}>
                           {job.status}
                         </span>
                       </div>
@@ -766,16 +766,16 @@ function CompanyDetail({
               {activity.challenges.length > 0 && (
                 <div className={CARD + ' overflow-hidden'}>
                   <div className="px-5 py-3 border-b border-stone-100">
-                    <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Skill challenges</p>
+                    <p className="text-xs font-black text-stone-600 uppercase tracking-wider">Skill challenges</p>
                   </div>
                   <div className="divide-y divide-stone-50">
                     {activity.challenges.slice(0, 6).map((ch: any) => (
                       <div key={ch.id} className="flex items-center gap-3 px-5 py-3">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-stone-800 truncate">{ch.title}</p>
-                          <p className="text-xs text-stone-400">{ch.skill ?? ch.category ?? ''}</p>
+                          <p className="text-xs text-stone-600">{ch.skill ?? ch.category ?? ''}</p>
                         </div>
-                        <span className="text-xs text-stone-400">{fmtDate(ch.createdAt)}</span>
+                        <span className="text-xs text-stone-600">{fmtDate(ch.createdAt)}</span>
                       </div>
                     ))}
                   </div>
@@ -786,14 +786,14 @@ function CompanyDetail({
               {activity.verificationHistory.length > 0 && (
                 <div className={CARD + ' overflow-hidden'}>
                   <div className="px-5 py-3 border-b border-stone-100">
-                    <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Verification history</p>
+                    <p className="text-xs font-black text-stone-600 uppercase tracking-wider">Verification history</p>
                   </div>
                   <div className="divide-y divide-stone-50">
                     {activity.verificationHistory.map((vr: any) => (
                       <div key={vr.id} className="flex items-center gap-3 px-5 py-3">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-stone-800">{vr.verificationType === 'email_domain' ? '⚡ Email domain' : '👤 Manual review'}</p>
-                          <p className="text-xs text-stone-400">{vr.recruiterEmail}</p>
+                          <p className="text-xs text-stone-600">{vr.recruiterEmail}</p>
                         </div>
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                           vr.status === 'approved' ? 'bg-emerald-50 text-emerald-700' :
@@ -807,7 +807,7 @@ function CompanyDetail({
               )}
 
               {activity.jobs.length === 0 && activity.challenges.length === 0 && (
-                <div className="text-center py-16 text-stone-400">
+                <div className="text-center py-16 text-stone-600">
                   <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">No activity yet</p>
                 </div>
@@ -821,10 +821,10 @@ function CompanyDetail({
       {tab === 'audit' && (
         <div className={CARD + ' overflow-hidden'}>
           <div className="px-5 py-3 border-b border-stone-100">
-            <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Company audit log</p>
+            <p className="text-xs font-black text-stone-600 uppercase tracking-wider">Company audit log</p>
           </div>
           {auditLog.length === 0 ? (
-            <p className="px-5 py-10 text-sm text-stone-400 text-center">No audit entries for this company.</p>
+            <p className="px-5 py-10 text-sm text-stone-600 text-center">No audit entries for this company.</p>
           ) : (
             <div className="divide-y divide-stone-50 max-h-[600px] overflow-y-auto">
               {auditLog.map(entry => (
@@ -832,9 +832,9 @@ function CompanyDetail({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <AuditBadge action={entry.action} />
-                      <span className="text-xs text-stone-500">by <strong>{entry.actorName}</strong></span>
+                      <span className="text-xs text-stone-600">by <strong>{entry.actorName}</strong></span>
                     </div>
-                    {entry.details && <p className="text-xs text-stone-500 mt-1 leading-relaxed">{entry.details}</p>}
+                    {entry.details && <p className="text-xs text-stone-600 mt-1 leading-relaxed">{entry.details}</p>}
                   </div>
                   <span className="text-[10px] text-stone-300 whitespace-nowrap flex-shrink-0">{fmtDate(entry.timestamp)}</span>
                 </div>
@@ -962,7 +962,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
                 className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
                   view === key || (view === 'detail' && key === 'list')
                     ? 'bg-stone-100 text-stone-900'
-                    : 'text-stone-400 hover:text-stone-700'
+                    : 'text-stone-600 hover:text-stone-700'
                 }`}>
                 {label}
               </button>
@@ -977,7 +977,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
             <Plus className="w-4 h-4" /> New company
           </button>
           <button onClick={onExit}
-            className="flex items-center gap-1.5 rounded-xl border border-stone-200 px-3 py-2 text-sm font-semibold text-stone-500 hover:bg-stone-50 transition-colors">
+            className="flex items-center gap-1.5 rounded-xl border border-stone-200 px-3 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-50 transition-colors">
             <LogOut className="w-4 h-4" />
             <span className="hidden sm:inline">Exit admin</span>
           </button>
@@ -994,7 +994,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
             {/* Stats bar */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {([
-                { label: 'Total',     count: companies.length,              key: 'all',        color: '#78716c' },
+                { label: 'Total',     count: companies.length,              key: 'all',        color: '#57534e' },
                 { label: 'Verified',  count: statusCounts.verified ?? 0,    key: 'verified',   color: G },
                 { label: 'Pending',   count: statusCounts.pending ?? 0,     key: 'pending',    color: '#b45309' },
                 { label: 'Unverified',count: statusCounts.unverified ?? 0,  key: 'unverified', color: '#64748b' },
@@ -1008,7 +1008,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
                   // custom property, so this had zero visual effect.
                   style={{ '--tw-ring-color': color } as React.CSSProperties}>
                   <p className="text-2xl font-black" style={{ color }}>{count}</p>
-                  <p className="text-xs text-stone-400 mt-0.5 font-semibold">{label}</p>
+                  <p className="text-xs text-stone-600 mt-0.5 font-semibold">{label}</p>
                 </button>
               ))}
             </div>
@@ -1016,7 +1016,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
             {/* Search + filter */}
             <div className="flex gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
                 <input
                   className={INPUT + ' pl-9'}
                   placeholder="Search companies by name, industry, website…"
@@ -1036,7 +1036,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
                 <RefreshCw className="w-8 h-8 animate-spin text-stone-300" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="text-center py-20 text-stone-400">
+              <div className="text-center py-20 text-stone-600">
                 <Building2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
                 <p className="font-semibold">{search ? 'No companies match your search.' : 'No companies yet.'}</p>
               </div>
@@ -1047,7 +1047,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
                     <thead>
                       <tr className="border-b border-stone-100 bg-stone-50">
                         {['Company', 'Industry', 'Status', 'Recruiters', 'Created', ''].map(h => (
-                          <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-stone-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                          <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-stone-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -1061,14 +1061,14 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
                               </div>
                               <div className="min-w-0">
                                 <p className="font-bold text-stone-900 truncate max-w-[180px]">{co.name}</p>
-                                {co.website && <p className="text-[10px] text-stone-400 truncate max-w-[180px]">{co.website.replace(/^https?:\/\//, '')}</p>}
+                                {co.website && <p className="text-[10px] text-stone-600 truncate max-w-[180px]">{co.website.replace(/^https?:\/\//, '')}</p>}
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-stone-500 whitespace-nowrap">{co.industry ?? '—'}</td>
+                          <td className="px-4 py-3 text-stone-600 whitespace-nowrap">{co.industry ?? '—'}</td>
                           <td className="px-4 py-3"><StatusPill status={co.verificationStatus} /></td>
-                          <td className="px-4 py-3 text-stone-500">{co.verifiedRecruiters?.length ?? 0}</td>
-                          <td className="px-4 py-3 text-stone-400 text-xs whitespace-nowrap">{fmtDate(co.createdAt)}</td>
+                          <td className="px-4 py-3 text-stone-600">{co.verifiedRecruiters?.length ?? 0}</td>
+                          <td className="px-4 py-3 text-stone-600 text-xs whitespace-nowrap">{fmtDate(co.createdAt)}</td>
                           <td className="px-4 py-3">
                             <button
                               onClick={() => { setSelectedCompany(co); setView('detail'); }}
@@ -1094,7 +1094,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
           <div className="max-w-2xl mx-auto space-y-5">
             <div className="flex items-center gap-3">
               <button onClick={() => setView('list')}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-400 hover:text-stone-700 transition-colors">
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 hover:text-stone-700 transition-colors">
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <h2 className="text-xl font-black text-stone-900">New company</h2>
@@ -1126,7 +1126,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black text-stone-900">Verification queue</h2>
               <button onClick={() => getPendingVerificationRequests().then(setPendingVerif)}
-                className="flex items-center gap-1.5 text-sm font-bold text-stone-400 hover:text-stone-700 transition-colors">
+                className="flex items-center gap-1.5 text-sm font-bold text-stone-600 hover:text-stone-700 transition-colors">
                 <RefreshCw className="w-4 h-4" /> Refresh
               </button>
             </div>
@@ -1134,7 +1134,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
             {pendingVerif.length === 0 ? (
               <div className="text-center py-24">
                 <CheckCircle className="w-12 h-12 mx-auto mb-3 text-emerald-300" />
-                <p className="font-bold text-stone-500">Queue is clear — no pending requests</p>
+                <p className="font-bold text-stone-600">Queue is clear — no pending requests</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1153,17 +1153,17 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
                               {req.verificationType === 'email_domain' ? '⚡ Email domain' : '👤 Manual review'}
                             </span>
                           </div>
-                          <p className="text-sm text-stone-500">
+                          <p className="text-sm text-stone-600">
                             <Mail className="w-3.5 h-3.5 inline mr-1" />{req.recruiterEmail}
                             {req.companyWebsite && <> · <Globe className="w-3.5 h-3.5 inline mx-1" />{req.companyWebsite}</>}
                           </p>
                           {req.notes && (
                             <p className="text-sm text-stone-600 bg-stone-50 rounded-xl px-3 py-2 mt-2">
-                              <Info className="w-3.5 h-3.5 inline mr-1.5 text-stone-400" />
+                              <Info className="w-3.5 h-3.5 inline mr-1.5 text-stone-600" />
                               {req.notes}
                             </p>
                           )}
-                          <p className="text-xs text-stone-400">Submitted {fmtDate(req.submittedAt)}</p>
+                          <p className="text-xs text-stone-600">Submitted {fmtDate(req.submittedAt)}</p>
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
                           <button
@@ -1202,7 +1202,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black text-stone-900">Audit log</h2>
               <button onClick={() => getAdminAuditLog(200).then(setGlobalAudit)}
-                className="flex items-center gap-1.5 text-sm font-bold text-stone-400 hover:text-stone-700 transition-colors">
+                className="flex items-center gap-1.5 text-sm font-bold text-stone-600 hover:text-stone-700 transition-colors">
                 <RefreshCw className="w-4 h-4" /> Refresh
               </button>
             </div>
@@ -1216,7 +1216,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
                 <div className="divide-y divide-stone-50">
                   <div className="grid grid-cols-[auto_1fr_auto_auto] gap-x-4 px-5 py-2.5 bg-stone-50 border-b border-stone-100">
                     {['Action', 'Details', 'Actor', 'Date'].map(h => (
-                      <p key={h} className="text-[10px] font-black text-stone-400 uppercase tracking-wider">{h}</p>
+                      <p key={h} className="text-[10px] font-black text-stone-600 uppercase tracking-wider">{h}</p>
                     ))}
                   </div>
                   {globalAudit.map(entry => (
@@ -1224,9 +1224,9 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
                       <AuditBadge action={entry.action} />
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-stone-800 truncate">{entry.targetName}</p>
-                        {entry.details && <p className="text-xs text-stone-400 truncate">{entry.details}</p>}
+                        {entry.details && <p className="text-xs text-stone-600 truncate">{entry.details}</p>}
                       </div>
-                      <p className="text-xs text-stone-500 whitespace-nowrap">{entry.actorName}</p>
+                      <p className="text-xs text-stone-600 whitespace-nowrap">{entry.actorName}</p>
                       <p className="text-[10px] text-stone-300 whitespace-nowrap">{fmtDate(entry.timestamp)}</p>
                     </div>
                   ))}

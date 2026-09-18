@@ -80,7 +80,7 @@ const ProfileUnavailablePage: React.FC<ProfileUnavailablePageProps> = ({
             <h1 className="text-2xl font-extrabold tracking-tight text-stone-900 text-balance sm:text-3xl">
               {heading}
             </h1>
-            <p className="mx-auto mt-4 max-w-md text-base text-stone-500 leading-relaxed text-pretty">
+            <p className="mx-auto mt-4 max-w-md text-base text-stone-600 leading-relaxed text-pretty">
               {description}
             </p>
 
@@ -108,7 +108,7 @@ const ProfileUnavailablePage: React.FC<ProfileUnavailablePageProps> = ({
             className="border-t px-6 py-6 text-center sm:px-12"
             style={{ borderColor: '#e8e4dc', backgroundColor: '#faf9f6' }}
           >
-            <p className="mx-auto max-w-lg text-sm text-stone-500 leading-relaxed text-pretty">
+            <p className="mx-auto max-w-lg text-sm text-stone-600 leading-relaxed text-pretty">
               BeWatu is a professional network where your capabilities speak louder than your Resume.
               Verified skills, live challenges, and real communities — built for the skills economy.
             </p>

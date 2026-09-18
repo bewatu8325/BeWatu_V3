@@ -209,7 +209,7 @@ const ProgressDots: React.FC<{ step: number }> = ({ step }) => (
 const DetailsArea: React.FC<{ value: string; onChange: (v: string) => void; placeholder: string; required?: boolean }> = ({ value, onChange, placeholder, required }) => (
   <div>
     <label style={{ color: '#57534e', fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-      {required ? <>What happened <span style={{ color: '#ef4444' }}>*</span></> : <>Additional details <span style={{ color: '#a8a29e', fontWeight: 400 }}>(optional)</span></>}
+      {required ? <>What happened <span style={{ color: '#ef4444' }}>*</span></> : <>Additional details <span style={{ color: '#57534e', fontWeight: 400 }}>(optional)</span></>}
     </label>
     <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={required ? 4 : 3}
       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e7e5e4', background: '#fafaf9', color: '#1c1917', fontSize: 13, lineHeight: 1.5, resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
@@ -229,7 +229,7 @@ const PrimaryBtn: React.FC<{ onClick: () => void; disabled?: boolean; children: 
 
 const SecondaryBtn: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
   <button onClick={onClick}
-    style={{ background: '#f5f5f4', color: '#78716c', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+    style={{ background: '#f5f5f4', color: '#57534e', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
     {children}
   </button>
 );
@@ -289,7 +289,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
 
   const renderTypeStep = () => (
     <div>
-      <p style={{ color: '#78716c', fontSize: 14, marginBottom: 18, lineHeight: 1.5 }}>What would you like to report?</p>
+      <p style={{ color: '#57534e', fontSize: 14, marginBottom: 18, lineHeight: 1.5 }}>What would you like to report?</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {([
           { type: 'user'    as const, icon: '👤', title: 'Report a person',                    desc: 'Fake account, harassment, scam, or inappropriate behaviour' },
@@ -305,7 +305,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
             <span style={{ fontSize: 22, lineHeight: 1, marginTop: 1 }}>{opt.icon}</span>
             <div>
               <p style={{ color: '#1c1917', fontWeight: 700, fontSize: 14, margin: '0 0 3px' }}>{opt.title}</p>
-              <p style={{ color: '#78716c', fontSize: 12, margin: 0, lineHeight: 1.4 }}>{opt.desc}</p>
+              <p style={{ color: '#57534e', fontSize: 12, margin: 0, lineHeight: 1.4 }}>{opt.desc}</p>
             </div>
           </button>
         ))}
@@ -322,7 +322,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
             <span style={{ fontSize: 15 }}>{target?.user ? '👤' : '📄'}</span>
             <p style={{ color: '#57534e', fontSize: 13, fontWeight: 600, margin: 0 }}>
               {target?.user ? `Reporting: ${target.user.name}` : `Reporting ${target?.content?.type.replace(/_/g, ' ')}`}
-              {target?.content?.preview && <span style={{ color: '#a8a29e', fontWeight: 400 }}> — "{target.content.preview.slice(0, 55)}{target.content.preview.length > 55 ? '…' : ''}"</span>}
+              {target?.content?.preview && <span style={{ color: '#57534e', fontWeight: 400 }}> — "{target.content.preview.slice(0, 55)}{target.content.preview.length > 55 ? '…' : ''}"</span>}
             </p>
           </div>
         )}
@@ -385,7 +385,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
           ))}
         </div>
         <div style={{ background: '#fafaf9', border: '1px solid #e7e5e4', borderRadius: 10, padding: '12px 14px', marginBottom: error ? 14 : 0 }}>
-          <p style={{ color: '#78716c', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+          <p style={{ color: '#57534e', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
             By submitting, you confirm this report is genuine. False reports may result in account action. Our Trust &amp; Safety team reviews every report within 24 hours — fraud reports are prioritised.
           </p>
         </div>
@@ -402,12 +402,12 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
     <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
       <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'linear-gradient(135deg,#1a4a3a,#10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', fontSize: 26, color: '#fff' }}>✓</div>
       <h3 style={{ color: '#1c1917', fontWeight: 800, fontSize: 18, margin: '0 0 8px' }}>Report received</h3>
-      <p style={{ color: '#78716c', fontSize: 14, lineHeight: 1.6, margin: '0 0 18px' }}>
+      <p style={{ color: '#57534e', fontSize: 14, lineHeight: 1.6, margin: '0 0 18px' }}>
         Thank you for helping keep BeWatu safe. Our Trust &amp; Safety team will review your report{reportType === 'fraud' ? ' as a priority' : ' within 24 hours'}.
       </p>
       {caseRef && (
         <div style={{ background: '#f5f5f4', borderRadius: 8, padding: '9px 16px', marginBottom: 18, display: 'inline-block' }}>
-          <p style={{ color: '#a8a29e', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 2px' }}>Reference number</p>
+          <p style={{ color: '#57534e', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 2px' }}>Reference number</p>
           <p style={{ color: '#44403c', fontSize: 13, fontFamily: 'monospace', fontWeight: 700, margin: 0 }}>{caseRef.slice(0, 12).toUpperCase()}</p>
         </div>
       )}
@@ -419,7 +419,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
         ).map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 5 }}>
             <span style={{ color: '#1a4a3a', flexShrink: 0, marginTop: 1 }}>→</span>
-            <p style={{ color: '#78716c', fontSize: 13, margin: 0, lineHeight: 1.5 }}>{item}</p>
+            <p style={{ color: '#57534e', fontSize: 13, margin: 0, lineHeight: 1.5 }}>{item}</p>
           </div>
         ))}
       </div>
@@ -452,7 +452,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
             {stepIndex >= 0 && <ProgressDots step={stepIndex} />}
             <h2 style={{ color: '#1c1917', fontWeight: 800, fontSize: 16, margin: 0 }}>{title}</h2>
           </div>
-          <button onClick={onClose} style={{ background: '#f5f5f4', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#78716c', flexShrink: 0 }}>×</button>
+          <button onClick={onClose} aria-label="Close" style={{ background: '#f5f5f4', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#57534e', flexShrink: 0 }}>×</button>
         </div>
 
         {/* Body */}

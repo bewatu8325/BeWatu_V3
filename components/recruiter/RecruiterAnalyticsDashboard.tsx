@@ -70,8 +70,8 @@ export default function RecruiterAnalyticsDashboard() {
   if (loading) return (
     <div className="flex items-center justify-center py-24">
       <div className="flex flex-col items-center gap-3">
-        <RefreshCw size={24} className="animate-spin text-stone-400" />
-        <p className="text-sm text-stone-500">Loading analytics…</p>
+        <RefreshCw size={24} className="animate-spin text-stone-600" />
+        <p className="text-sm text-stone-600">Loading analytics…</p>
       </div>
     </div>
   );
@@ -102,9 +102,9 @@ export default function RecruiterAnalyticsDashboard() {
     <div className="bg-white rounded-2xl border border-stone-200 p-5">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest">{label}</p>
+          <p className="text-xs font-semibold text-stone-600 uppercase tracking-widest">{label}</p>
           <p className="text-3xl font-black text-stone-900 mt-1">{value}</p>
-          {sub && <p className="text-xs text-stone-400 mt-0.5">{sub}</p>}
+          {sub && <p className="text-xs text-stone-600 mt-0.5">{sub}</p>}
         </div>
         <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: GREEN_LT }}>
           <Icon size={18} style={{ color: GREEN }} />
@@ -120,7 +120,7 @@ export default function RecruiterAnalyticsDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-black text-stone-900">Recruiting Analytics</h1>
-          <p className="text-sm text-stone-500 mt-0.5">
+          <p className="text-sm text-stone-600 mt-0.5">
             Updated {new Date(data.generatedAt).toLocaleTimeString()}
           </p>
         </div>
@@ -148,7 +148,7 @@ export default function RecruiterAnalyticsDashboard() {
             const pct = max > 0 ? Math.round((count / max) * 100) : 0;
             return (
               <div key={stage} className="flex items-center gap-3">
-                <div className="w-20 text-xs font-semibold text-stone-500 text-right flex-shrink-0">{stage}</div>
+                <div className="w-20 text-xs font-semibold text-stone-600 text-right flex-shrink-0">{stage}</div>
                 <div className="flex-1 h-7 rounded-lg overflow-hidden bg-stone-100">
                   <div
                     className="h-full rounded-lg transition-all duration-500 flex items-center pl-2"
@@ -156,7 +156,7 @@ export default function RecruiterAnalyticsDashboard() {
                     {count > 0 && <span className="text-[11px] font-black text-white">{count}</span>}
                   </div>
                 </div>
-                <div className="w-10 text-xs text-stone-400 flex-shrink-0">{pct}%</div>
+                <div className="w-10 text-xs text-stone-600 flex-shrink-0">{pct}%</div>
               </div>
             );
           })}
@@ -167,7 +167,7 @@ export default function RecruiterAnalyticsDashboard() {
       <div className="bg-white rounded-2xl border border-stone-200 p-5">
         <h2 className="font-bold text-stone-900 mb-4 text-sm">Applications (last 8 weeks)</h2>
         {weeklyApplications.every(w => w.count === 0) ? (
-          <div className="text-center py-8 text-stone-400">
+          <div className="text-center py-8 text-stone-600">
             <TrendingUp size={28} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">No applications yet</p>
           </div>
@@ -200,7 +200,7 @@ export default function RecruiterAnalyticsDashboard() {
                   <div className="w-32 h-2 rounded-full bg-stone-100 overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${(count / max) * 100}%`, backgroundColor: GREEN }} />
                   </div>
-                  <div className="w-8 text-xs text-stone-400 text-right flex-shrink-0">{count}</div>
+                  <div className="w-8 text-xs text-stone-600 text-right flex-shrink-0">{count}</div>
                 </div>
               );
             })}
@@ -210,7 +210,7 @@ export default function RecruiterAnalyticsDashboard() {
 
       {/* DEI note */}
       <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
-        <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest mb-1">DEI Insights</p>
+        <p className="text-xs font-semibold text-stone-600 uppercase tracking-widest mb-1">DEI Insights</p>
         <p className="text-sm text-stone-600 leading-relaxed">{data.dei.note}</p>
       </div>
 

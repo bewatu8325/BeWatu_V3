@@ -58,7 +58,7 @@ export default function AccountDeletionModal({
             <h2 className="text-sm font-semibold text-stone-900">Delete account</h2>
           </div>
           {step !== 'deleting' && step !== 'done' && (
-            <button onClick={onClose} className="text-stone-400 hover:text-stone-700 transition-colors">
+            <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-700 transition-colors">
               <X size={18} />
             </button>
           )}
@@ -79,7 +79,7 @@ export default function AccountDeletionModal({
 
             <div className="space-y-2.5">
               <p className="text-xs font-semibold text-stone-700">What will be deleted:</p>
-              <ul className="space-y-1.5 text-xs text-stone-500">
+              <ul className="space-y-1.5 text-xs text-stone-600">
                 {[
                   'Your profile, name, photo, and bio',
                   'Your posts, sparks, and reels',
@@ -98,14 +98,14 @@ export default function AccountDeletionModal({
 
             <div className="space-y-2.5">
               <p className="text-xs font-semibold text-stone-700">What will be retained (anonymised):</p>
-              <ul className="space-y-1.5 text-xs text-stone-500">
+              <ul className="space-y-1.5 text-xs text-stone-600">
                 {[
                   'Aggregated platform analytics (no personal identifiers)',
                   'Billing records required by law (7 years)',
                   'Abuse/fraud records if any exist on your account',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2">
-                    <span className="text-stone-400 mt-0.5 flex-shrink-0">·</span>
+                    <span className="text-stone-600 mt-0.5 flex-shrink-0">·</span>
                     {item}
                   </li>
                 ))}
@@ -132,7 +132,7 @@ export default function AccountDeletionModal({
               <p className="text-sm text-stone-700 leading-relaxed">
                 Hi <strong>{userName}</strong>, this will permanently delete your BeWatu account and all associated data.
               </p>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-stone-600">
                 Type <strong className="text-stone-700 font-mono">DELETE</strong> below to confirm.
               </p>
             </div>
@@ -168,7 +168,7 @@ export default function AccountDeletionModal({
               </button>
             </div>
 
-            <p className="text-[11px] text-stone-400 text-center">
+            <p className="text-[11px] text-stone-600 text-center">
               You will be signed out immediately. Your data will be anonymised within 30 days.
             </p>
           </div>
@@ -177,10 +177,10 @@ export default function AccountDeletionModal({
         {/* Step 3 — Deleting */}
         {step === 'deleting' && (
           <div className="p-8 flex flex-col items-center gap-4 text-center">
-            <Loader2 size={28} className="text-stone-400 animate-spin" />
+            <Loader2 size={28} className="text-stone-600 animate-spin" />
             <div className="space-y-1">
               <p className="text-sm font-semibold text-stone-900">Deleting your account…</p>
-              <p className="text-xs text-stone-500">Please wait, do not close this window.</p>
+              <p className="text-xs text-stone-600">Please wait, do not close this window.</p>
             </div>
           </div>
         )}
@@ -191,7 +191,7 @@ export default function AccountDeletionModal({
             <CheckCircle2 size={28} className="text-green-500" />
             <div className="space-y-1">
               <p className="text-sm font-semibold text-stone-900">Account deletion requested</p>
-              <p className="text-xs text-stone-500 leading-relaxed max-w-xs">
+              <p className="text-xs text-stone-600 leading-relaxed max-w-xs">
                 Your account has been scheduled for deletion. You will be signed out now. Your data will be fully removed within 12 months.
               </p>
             </div>

@@ -56,7 +56,7 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: 1|2|3|4
           onClick={onChange ? () => onChange(n as 1|2|3|4|5) : undefined}
           className={`${onChange ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform`}
         >
-          <Star className={`h-3.5 w-3.5 ${n <= value ? 'text-amber-400 fill-amber-400' : 'text-stone-400'}`} />
+          <Star className={`h-3.5 w-3.5 ${n <= value ? 'text-amber-400 fill-amber-400' : 'text-stone-600'}`} />
         </button>
       ))}
     </div>
@@ -114,16 +114,16 @@ function PoolCard({
           <img src={entry.userAvatar} alt="" className="h-10 w-10 rounded-full object-cover border border-stone-200 shrink-0" />
         ) : (
           <div className="h-10 w-10 rounded-full bg-stone-100 flex items-center justify-center shrink-0">
-            <User className="h-4 w-4 text-stone-500" />
+            <User className="h-4 w-4 text-stone-600" />
           </div>
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-stone-900 truncate">{entry.userName}</p>
-          <p className="text-xs text-stone-500 truncate">{entry.userHeadline}</p>
+          <p className="text-xs text-stone-600 truncate">{entry.userHeadline}</p>
         </div>
         <div className="shrink-0 flex flex-col items-end gap-1">
           <StarRating value={entry.rating} />
-          <span className="text-[10px] text-stone-500">Saved {savedDate}</span>
+          <span className="text-[10px] text-stone-600">Saved {savedDate}</span>
         </div>
       </div>
 
@@ -151,7 +151,7 @@ function PoolCard({
           )}
 
           {/* Meta */}
-          <div className="flex flex-wrap gap-3 text-xs text-stone-500">
+          <div className="flex flex-wrap gap-3 text-xs text-stone-600">
             {entry.userLocation && (
               <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{entry.userLocation}</span>
             )}
@@ -165,14 +165,14 @@ function PoolCard({
 
           {/* Rating editor */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-stone-500">Rating:</span>
+            <span className="text-xs text-stone-600">Rating:</span>
             <StarRating value={entry.rating} onChange={r => save({ rating: r })} />
           </div>
 
           {/* Notes */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-stone-500">Private Notes</span>
+              <span className="text-xs font-medium text-stone-600">Private Notes</span>
               {!editingNotes && (
                 <button onClick={() => setEditingNotes(true)} className="text-xs text-[#1a6b52] hover:text-[#1a6b52]">Edit</button>
               )}
@@ -206,7 +206,7 @@ function PoolCard({
 
           {/* Tag editor */}
           <div>
-            <span className="text-xs font-medium text-stone-500 block mb-1.5">Tags</span>
+            <span className="text-xs font-medium text-stone-600 block mb-1.5">Tags</span>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {(entry.tags ?? []).map(tag => (
                 <span key={tag} className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${tagColor(tag)}`}>
@@ -221,7 +221,7 @@ function PoolCard({
                 onChange={e => setNewTag(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addTag()}
                 placeholder="Add tag (e.g. 'React', 'Future hire')..."
-                className="flex-1 rounded-lg border bg-white  px-2.5 py-1.5 text-xs text-stone-800 placeholder:text-stone-500 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+                className="flex-1 rounded-lg border bg-white  px-2.5 py-1.5 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
               />
               <button onClick={addTag} disabled={!newTag.trim()}
                 className="rounded-lg bg-stone-100 px-2.5 py-1.5 text-xs text-stone-800 hover:bg-stone-200 disabled:opacity-40 transition-colors">
@@ -307,7 +307,7 @@ export function TalentPool({ onViewProfile }: TalentPoolProps) {
         <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
           <Bookmark className="h-5 w-5 text-[#1a6b52]" />Talent Pool
         </h1>
-        <p className="mt-0.5 text-sm text-stone-500">
+        <p className="mt-0.5 text-sm text-stone-600">
           Candidates who weren't right for this role — but worth keeping for future ones.
         </p>
       </div>
@@ -315,12 +315,12 @@ export function TalentPool({ onViewProfile }: TalentPoolProps) {
       {/* Search & filter */}
       <div className="flex gap-2 flex-wrap">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-600" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name, headline, skill..."
-            className="w-full rounded-lg border bg-white  pl-8 pr-3 py-2 text-xs text-stone-800 placeholder:text-stone-500 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+            className="w-full rounded-lg border bg-white  pl-8 pr-3 py-2 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
           />
         </div>
         {allTags.length > 0 && (
@@ -333,22 +333,22 @@ export function TalentPool({ onViewProfile }: TalentPoolProps) {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-stone-500" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-stone-600" /></div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-16 text-center">
-          <Bookmark className="h-10 w-10 text-stone-400" />
-          <p className="mt-3 text-sm text-stone-500">
+          <Bookmark className="h-10 w-10 text-stone-600" />
+          <p className="mt-3 text-sm text-stone-600">
             {entries.length === 0
               ? 'Your talent pool is empty.'
               : 'No candidates match your search.'}
           </p>
-          <p className="text-xs text-stone-500 mt-1">
+          <p className="text-xs text-stone-600 mt-1">
             Save candidates from the Applicant Inbox or Pipeline to build your pool.
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-stone-500">{filtered.length} of {entries.length} candidates</p>
+          <p className="text-xs text-stone-600">{filtered.length} of {entries.length} candidates</p>
           {filtered
             .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
             .map(entry => (

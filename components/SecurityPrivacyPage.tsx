@@ -77,7 +77,7 @@ const VisibilityOption: React.FC<{
       <div className="mt-0.5 flex-shrink-0" style={{ color: active ? GREEN : '#78716c' }}>{icon}</div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm" style={{ color: active ? GREEN : '#1c1917' }}>{label}</p>
-        <p className="text-xs text-stone-500 mt-0.5">{desc}</p>
+        <p className="text-xs text-stone-600 mt-0.5">{desc}</p>
       </div>
       {active && <div className="flex-shrink-0 mt-0.5" style={{ color: GREEN }}><IconCheck /></div>}
     </button>
@@ -182,7 +182,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
     two_factor_removed:  { label: '2-step verification off',   color: '#dc2626', icon: '🛡️' },
   };
 
-  const inputCls = "w-full p-2.5 bg-stone-50 text-stone-800 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30 placeholder:text-stone-400 text-sm";
+  const inputCls = "w-full p-2.5 bg-stone-50 text-stone-800 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30 placeholder:text-stone-600 text-sm";
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-10">
@@ -195,7 +195,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
         <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white flex-shrink-0" style={{ backgroundColor: GREEN }}><IconShield /></div>
         <div>
           <h1 className="text-xl font-bold text-stone-900">Security & Privacy</h1>
-          <p className="text-sm text-stone-500">Manage your password, privacy, and account data</p>
+          <p className="text-sm text-stone-600">Manage your password, privacy, and account data</p>
         </div>
       </div>
 
@@ -214,13 +214,13 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
           </div>
         )}
         <form onSubmit={handleChangePasswordFull} className="space-y-3">
-          <div><label className="text-xs font-semibold text-stone-500 mb-1 block">Current password *</label><input type="password" className={inputCls} placeholder="Your current password" value={currentPasswordInput} onChange={e => setCurrentPasswordInput(e.target.value)} autoComplete="current-password" /></div>
-          <div><label className="text-xs font-semibold text-stone-500 mb-1 block">New password *</label><input type="password" className={inputCls} placeholder="Min 8 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} autoComplete="new-password" /></div>
-          <div><label className="text-xs font-semibold text-stone-500 mb-1 block">Confirm new password *</label><input type="password" className={inputCls} placeholder="••••••••" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" /></div>
+          <div><label className="text-xs font-semibold text-stone-600 mb-1 block">Current password *</label><input type="password" className={inputCls} placeholder="Your current password" value={currentPasswordInput} onChange={e => setCurrentPasswordInput(e.target.value)} autoComplete="current-password" /></div>
+          <div><label className="text-xs font-semibold text-stone-600 mb-1 block">New password *</label><input type="password" className={inputCls} placeholder="Min 8 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} autoComplete="new-password" /></div>
+          <div><label className="text-xs font-semibold text-stone-600 mb-1 block">Confirm new password *</label><input type="password" className={inputCls} placeholder="••••••••" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" /></div>
           {newPassword.length > 0 && (
             <div className="rounded-xl bg-stone-50 border border-stone-100 p-3 space-y-1.5">
               {[{ ok: newPassword.length >= 8, label: 'At least 8 characters' }, { ok: /[A-Z]/.test(newPassword), label: 'One uppercase letter' }, { ok: /[0-9]/.test(newPassword), label: 'One number' }, { ok: /[^A-Za-z0-9]/.test(newPassword), label: 'One special character (recommended)' }].map(({ ok, label }) => (
-                <div key={label} className="flex items-center gap-2 text-xs"><span className={ok ? 'text-emerald-500' : 'text-stone-300'}>{ok ? '✓' : '○'}</span><span className={ok ? 'text-stone-600' : 'text-stone-400'}>{label}</span></div>
+                <div key={label} className="flex items-center gap-2 text-xs"><span className={ok ? 'text-emerald-500' : 'text-stone-300'}>{ok ? '✓' : '○'}</span><span className={ok ? 'text-stone-600' : 'text-stone-600'}>{label}</span></div>
               ))}
             </div>
           )}
@@ -238,7 +238,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
       {/* Profile Visibility */}
       <div className="bg-white rounded-2xl border p-5 sm:p-6 space-y-4" style={{ borderColor: '#e7e5e4' }}>
         <div className="flex items-center gap-2"><IconEye /><h2 className="font-bold text-stone-900">Profile Visibility</h2></div>
-        <p className="text-sm text-stone-500">Choose who can find and view your profile.</p>
+        <p className="text-sm text-stone-600">Choose who can find and view your profile.</p>
         <div className="space-y-2">
           <VisibilityOption value="public" current={privacy.profileVisibility} label="Public" desc="Anyone on BeWatu can see your profile" icon={<IconEye />} onSelect={v => setP('profileVisibility', v)} />
           <VisibilityOption value="connections" current={privacy.profileVisibility} label="Connections only" desc="Only people you're connected with can see your full profile" icon={<IconUsers />} onSelect={v => setP('profileVisibility', v)} />
@@ -253,7 +253,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
           <React.Fragment key={key}>
             {i > 0 && <div className="h-px bg-stone-100" />}
             <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0"><p className="font-semibold text-sm text-stone-900">{label}</p><p className="text-xs text-stone-500 mt-0.5">{desc}</p></div>
+              <div className="min-w-0"><p className="font-semibold text-sm text-stone-900">{label}</p><p className="text-xs text-stone-600 mt-0.5">{desc}</p></div>
               <Toggle on={privacy[key] as boolean} onChange={v => setP(key, v)} />
             </div>
           </React.Fragment>
@@ -262,7 +262,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex items-start gap-2"><div className="mt-0.5"><IconBriefcase /></div>
             <div><p className="font-semibold text-sm text-stone-900">Visible to recruiters</p>
-              <p className="text-xs text-stone-500 mt-0.5">Recruiters can find your profile in talent searches.{privacy.profileVisibility === 'private' && <span className="block mt-1 font-medium text-amber-600">⚠ Profile is private — recruiters won't see it regardless.</span>}</p>
+              <p className="text-xs text-stone-600 mt-0.5">Recruiters can find your profile in talent searches.{privacy.profileVisibility === 'private' && <span className="block mt-1 font-medium text-amber-600">⚠ Profile is private — recruiters won't see it regardless.</span>}</p>
             </div>
           </div>
           <Toggle on={privacy.visibleToRecruiters} onChange={v => setP('visibleToRecruiters', v)} disabled={privacy.profileVisibility === 'private'} />
@@ -275,7 +275,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="font-semibold text-sm text-stone-900">Sign out other devices</p>
-            <p className="text-xs text-stone-500 mt-0.5">Revoke access from all devices except this one.</p>
+            <p className="text-xs text-stone-600 mt-0.5">Revoke access from all devices except this one.</p>
             {revokeSuccess && <p className="text-xs font-semibold mt-1.5" style={{ color: GREEN }}>✓ Other sessions signed out</p>}
           </div>
           <button onClick={handleRevokeOtherSessions} disabled={revokingSessions}
@@ -285,18 +285,18 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
         </div>
         <div className="h-px bg-stone-100" />
         <div>
-          <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3">Recent Security Activity</p>
-          {loadingEvents ? <p className="text-xs text-stone-400">Loading activity…</p>
-            : securityEvents.length === 0 ? <p className="text-xs text-stone-400">No security events recorded yet.</p>
-            : <div className="space-y-2">{securityEvents.map((ev, i) => { const meta = EVENT_META[ev.type] ?? { label: ev.type, color: '#78716c', icon: '🔔' }; return (
+          <p className="text-xs font-bold text-stone-600 uppercase tracking-wider mb-3">Recent Security Activity</p>
+          {loadingEvents ? <p className="text-xs text-stone-600">Loading activity…</p>
+            : securityEvents.length === 0 ? <p className="text-xs text-stone-600">No security events recorded yet.</p>
+            : <div className="space-y-2">{securityEvents.map((ev, i) => { const meta = EVENT_META[ev.type] ?? { label: ev.type, color: '#57534e', icon: '🔔' }; return (
               <div key={ev.id ?? i} className="flex items-start gap-3 p-3 rounded-xl border" style={{ borderColor: '#f0ede6' }}>
                 <span className="text-base leading-none flex-shrink-0">{meta.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-bold" style={{ color: meta.color }}>{meta.label}</p>
-                    <p className="text-[10px] text-stone-400 flex-shrink-0">{formatEventTime(ev.timestamp)}</p>
+                    <p className="text-[10px] text-stone-600 flex-shrink-0">{formatEventTime(ev.timestamp)}</p>
                   </div>
-                  {ev.details && <p className="text-xs text-stone-400 mt-0.5">{ev.details}</p>}
+                  {ev.details && <p className="text-xs text-stone-600 mt-0.5">{ev.details}</p>}
                 </div>
               </div>);})}</div>}
         </div>
@@ -308,7 +308,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="font-semibold text-sm text-stone-900">Download your data</p>
-            <p className="text-xs text-stone-500 mt-0.5">Get a copy of all your BeWatu data as a JSON file.</p>
+            <p className="text-xs text-stone-600 mt-0.5">Get a copy of all your BeWatu data as a JSON file.</p>
             {exportDone && <p className="text-xs font-semibold mt-1.5" style={{ color: GREEN }}>✓ Download started</p>}
           </div>
           {onExportData && (
@@ -327,7 +327,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="font-semibold text-sm text-stone-900">Delete account</p>
-              <p className="text-xs text-stone-500 mt-0.5">Permanently delete your account and all data. Anonymised within 30 days, fully deleted within 12 months.</p>
+              <p className="text-xs text-stone-600 mt-0.5">Permanently delete your account and all data. Anonymised within 30 days, fully deleted within 12 months.</p>
             </div>
             <button onClick={onDeleteAccount} className="flex-shrink-0 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors">Delete</button>
           </div>

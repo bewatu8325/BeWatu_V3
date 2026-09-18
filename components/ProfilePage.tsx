@@ -50,9 +50,9 @@ const proficiencyWidth = {
 
 const StatItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number; valueClassName: string }> = ({ icon, label, value, valueClassName }) => (
     <div className="bg-stone-50/50 p-3 rounded-lg border border-stone-200 text-center">
-        <div className="flex justify-center items-center mb-1 text-stone-500">{icon}</div>
+        <div className="flex justify-center items-center mb-1 text-stone-600">{icon}</div>
         <p className={`text-xl font-bold ${valueClassName}`}>{value}</p>
-        <p className="text-xs text-stone-500">{label}</p>
+        <p className="text-xs text-stone-600">{label}</p>
     </div>
 );
 
@@ -270,7 +270,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               {avatarError ? (
                 <p className="text-xs text-red-400 text-center">{avatarError}</p>
               ) : (
-                <p className="text-xs text-stone-500 text-center">Click photo to change</p>
+                <p className="text-xs text-stone-600 text-center">Click photo to change</p>
               )}
             </div>
           )}
@@ -279,7 +279,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
             <h2 className="font-bold text-xl text-stone-900 break-words">{user.name}</h2>
             {user.isVerified && <VerifiedIcon className="w-5 h-5 text-[#1a6b52]" title="Verified Work Email" />}
           </div>
-          <p className="text-sm text-stone-500 mt-1 break-words">{user.headline}</p>
+          <p className="text-sm text-stone-600 mt-1 break-words">{user.headline}</p>
           <p className="text-stone-700 text-sm mt-4 break-words">{user.bio}</p>
 
           {/* Share public profile — owner only */}
@@ -300,7 +300,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                   onBlur={() => setTimeout(() => setShowShareInfo(false), 150)}
                   aria-label="About sharing your profile"
                   aria-expanded={showShareInfo}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-700"
                   style={{ borderColor: '#e7e5e4' }}
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -314,7 +314,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                   >
                     <div className="absolute -top-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-l border-t bg-white" style={{ borderColor: '#e7e5e4' }} />
                     <p className="text-xs font-semibold text-stone-800 mb-1">About your public profile</p>
-                    <p className="text-xs leading-relaxed text-stone-500">
+                    <p className="text-xs leading-relaxed text-stone-600">
                       Anyone with your link can view a read-only version of your verified profile — no login required. Manage visibility anytime in Security &amp; Privacy.
                     </p>
                   </div>
@@ -326,7 +326,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           {!isCurrentUser && onReportUser && (
             <button
               onClick={() => onReportUser(user._firestoreUid ?? String(user.id), user.name)}
-              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, border: '1px solid #e7e5e4', background: '#f5f5f4', color: '#78716c', fontSize: 12, fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s' }}
+              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, border: '1px solid #e7e5e4', background: '#f5f5f4', color: '#57534e', fontSize: 12, fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#e7e5e4'; }}
               onMouseLeave={e => { e.currentTarget.style.background = '#f5f5f4'; }}
             >
@@ -381,7 +381,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 <div key={skill.name} className="group relative">
                   <div className="flex justify-between items-center mb-1">
                     <p className="text-sm font-medium text-stone-700">{skill.name}</p>
-                    <p className="text-xs text-stone-500">{skill.proficiency}</p>
+                    <p className="text-xs text-stone-600">{skill.proficiency}</p>
                   </div>
                   <div className="w-full bg-stone-100 rounded-full h-1.5">
                     <div className={`bg-[#1a4a3a] h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`} />
@@ -395,7 +395,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           ) : (
             <div className="flex flex-wrap gap-1.5 mb-3">
               {(user.skills ?? []).length === 0 && !isCurrentUser && (
-                <p className="text-sm text-stone-400">No skills listed yet.</p>
+                <p className="text-sm text-stone-600">No skills listed yet.</p>
               )}
               {(user.skills ?? []).map((skill: any) => {
                 const name = typeof skill === 'string' ? skill : skill?.name ?? '';
@@ -473,7 +473,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 </div>
                 <div>
                   <h3 className="font-bold text-stone-900 text-sm">Resume</h3>
-                  <p className="text-xs text-stone-400">PDF or Word · max 10 MB</p>
+                  <p className="text-xs text-stone-600">PDF or Word · max 10 MB</p>
                 </div>
               </div>
               <button
@@ -550,7 +550,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         {isCurrentUser && followedCompanies.length > 0 && (
           <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
             <h3 className="font-semibold text-stone-800 text-sm mb-3 flex items-center gap-1.5">
-              <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-stone-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
               Companies you follow
@@ -572,7 +572,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                   )}
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-stone-800 truncate">{co.name}</p>
-                    {co.industry && <p className="text-xs text-stone-500 truncate">{co.industry}</p>}
+                    {co.industry && <p className="text-xs text-stone-600 truncate">{co.industry}</p>}
                   </div>
                 </button>
               ))}
@@ -584,13 +584,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         {isCurrentUser && (user as any).username && (
           <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
             <h3 className="font-semibold text-stone-800 text-sm mb-2 flex items-center gap-1.5">
-              <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-stone-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
               Your public profile
             </h3>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-stone-500 truncate flex-1">
+              <span className="text-xs text-stone-600 truncate flex-1">
                 bewatu.com/be/{(user as any).username}
               </span>
               <button
@@ -644,10 +644,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               </div>
               <div className="text-left">
                 <p className="font-bold text-stone-900 text-sm">Security & Privacy</p>
-                <p className="text-xs text-stone-400">Password, visibility, connection settings</p>
+                <p className="text-xs text-stone-600">Password, visibility, connection settings</p>
               </div>
             </div>
-            <svg className="w-4 h-4 text-stone-400 group-hover:text-stone-600 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="m9 18 6-6-6-6"/></svg>
+            <svg className="w-4 h-4 text-stone-600 group-hover:text-stone-600 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="m9 18 6-6-6-6"/></svg>
           </button>
         )}
       </div>

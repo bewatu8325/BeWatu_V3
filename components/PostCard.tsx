@@ -14,7 +14,7 @@ interface PostCardProps {
 const ActionButton: React.FC<{icon: React.ReactNode, label: string, onClick?: () => void, className?: string}> = ({ icon, label, onClick, className }) => (
     <button 
       onClick={onClick} 
-      className={`flex items-center gap-1 sm:gap-1.5 text-stone-400 hover:bg-stone-50 rounded-lg px-1.5 py-2 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] min-w-0 flex-shrink-0 ${className}`}
+      className={`flex items-center gap-1 sm:gap-1.5 text-stone-600 hover:bg-stone-50 rounded-lg px-1.5 py-2 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] min-w-0 flex-shrink-0 ${className}`}
     >
         {icon}
         <span className="text-[11px] sm:text-sm font-semibold whitespace-nowrap">{label}</span>
@@ -39,8 +39,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
           <img src={author.avatarUrl} alt={author.name} className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
           <div className="min-w-0">
             <p className="font-bold text-stone-900">{author.name}</p>
-            <p className="text-xs text-stone-500">{author.headline}</p>
-            <p className="text-xs text-stone-400">{post.timestamp}</p>
+            <p className="text-xs text-stone-600">{author.headline}</p>
+            <p className="text-xs text-stone-600">{post.timestamp}</p>
           </div>
         </button>
 
@@ -49,7 +49,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
           <div ref={menuRef} style={{ position: 'relative', flexShrink: 0, marginLeft: 8 }}>
             <button
               onClick={() => setMenuOpen(v => !v)}
-              className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 hover:text-stone-600 transition-colors"
               title="More options"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -60,7 +60,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
               <div style={{ position: 'absolute', right: 0, top: '110%', background: '#fff', border: '1px solid #e7e5e4', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.1)', zIndex: 50, minWidth: 160, overflow: 'hidden' }}>
                 <button
                   onClick={() => { setMenuOpen(false); onReportContent(String(post.id), post.content?.slice(0, 80) ?? ''); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#78716c', fontWeight: 500, fontFamily: 'inherit' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#57534e', fontWeight: 500, fontFamily: 'inherit' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f4')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                 >
@@ -73,7 +73,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
         )}
       </div>
       <p className="text-stone-700 mb-4 whitespace-pre-wrap">{post.content}</p>
-      <div className="flex justify-between items-center text-sm text-stone-400 mb-2">
+      <div className="flex justify-between items-center text-sm text-stone-600 mb-2">
           <div className="flex items-center space-x-4">
              {post.appreciations.helpful > 0 && <span className="flex items-center">🔥 {post.appreciations.helpful}</span>}
              {post.appreciations.thoughtProvoking > 0 && <span className="flex items-center">🧠 {post.appreciations.thoughtProvoking}</span>}

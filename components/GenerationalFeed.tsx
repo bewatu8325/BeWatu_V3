@@ -181,11 +181,11 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-extrabold text-stone-900">Bridge</h1>
-          <p className="text-stone-500 text-sm mt-0.5">
+          <p className="text-stone-600 text-sm mt-0.5">
             Cross-generational perspectives, wisdom, and community
           </p>
         </div>
-        <button onClick={load} className="text-stone-400 hover:text-stone-600 transition-colors p-2">
+        <button onClick={load} className="text-stone-600 hover:text-stone-600 transition-colors p-2">
           <RefreshCw size={15} />
         </button>
       </div>
@@ -258,8 +258,8 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
         </div>
       ) : feedItems.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-stone-200 rounded-3xl">
-          <p className="font-bold text-stone-500 mb-1">Nothing here yet</p>
-          <p className="text-sm text-stone-400">Be the first to share a perspective or wisdom thread.</p>
+          <p className="font-bold text-stone-600 mb-1">Nothing here yet</p>
+          <p className="text-sm text-stone-600">Be the first to share a perspective or wisdom thread.</p>
         </div>
       ) : (
         <div className="space-y-4">

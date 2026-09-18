@@ -164,7 +164,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
     <button
       onClick={() => { setActiveView(view); setSelectedCandidate(null); }}
       className={`relative px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-md transition-colors whitespace-nowrap ${
-        activeView === view ? 'bg-stone-100 text-[#1a4a3a]' : 'text-stone-500 hover:bg-stone-100'
+        activeView === view ? 'bg-stone-100 text-[#1a4a3a]' : 'text-stone-600 hover:bg-stone-100'
       }`}
     >
       {label}
@@ -229,7 +229,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
               <div className="flex flex-col gap-3 mb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-stone-900 mb-1">AI-Powered Search</h1>
-                  <p className="text-stone-500 text-sm">Find candidates by intent, not just keywords.</p>
+                  <p className="text-stone-600 text-sm">Find candidates by intent, not just keywords.</p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <label htmlFor="blind-mode" className="text-sm font-medium text-stone-700">Blind Mode</label>
@@ -252,7 +252,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     placeholder='e.g., "Find data scientists who built fintech models using Python in the last 12 months"'
-                    className="w-full p-2.5 bg-stone-100 text-stone-800 border border-stone-200 rounded-md focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-400"
+                    className="w-full p-2.5 bg-stone-100 text-stone-800 border border-stone-200 rounded-md focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-600"
                   />
                   <button
                     type="submit"
@@ -292,7 +292,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
                               <p className="text-sm text-stone-700">{result.user.headline}</p>
                             </div>
                             <div className="text-right flex-shrink-0 ml-4">
-                              <p className="text-sm text-stone-500">Mutual Success</p>
+                              <p className="text-sm text-stone-600">Mutual Success</p>
                               <p className="font-bold text-2xl text-green-400">
                                 {result.aiAnalysis.predictiveScores.mutualSuccessPotential}%
                               </p>
@@ -315,7 +315,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
                 </div>
               )}
               {!isSearching && searchResults.length === 0 && query && (
-                <p className="text-center text-stone-500 py-8">No candidates found for your search.</p>
+                <p className="text-center text-stone-600 py-8">No candidates found for your search.</p>
               )}
             </div>
           </>

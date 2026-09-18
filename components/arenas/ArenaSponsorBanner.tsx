@@ -84,12 +84,12 @@ export const ArenaSponsorBanner: React.FC<ArenaSponsorBannerProps> = ({
       {/* ── Spotlight section ── */}
       <div className="bg-white px-5 py-4">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-bold text-stone-500 uppercase tracking-widest">
+          <p className="text-xs font-bold text-stone-600 uppercase tracking-widest">
             About the sponsor
           </p>
           <button
             onClick={() => setExpanded(e => !e)}
-            className="flex items-center gap-1 text-xs font-semibold text-stone-400 hover:text-stone-600 transition-colors"
+            className="flex items-center gap-1 text-xs font-semibold text-stone-600 hover:text-stone-600 transition-colors"
           >
             {expanded ? <><ChevronUp size={12} /> Less</> : <><ChevronDown size={12} /> More</>}
           </button>
@@ -107,7 +107,7 @@ export const ArenaSponsorBanner: React.FC<ArenaSponsorBannerProps> = ({
 
         {/* Website CTA */}
         <div className="flex items-center justify-between mt-3 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
-          <p className="text-xs text-stone-400">
+          <p className="text-xs text-stone-600">
             Top performers are noticed by {sponsor.name}
           </p>
           {sponsor.website && (

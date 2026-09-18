@@ -111,7 +111,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
               onFocus={() => setFocused(true)}
               placeholder={circleId ? `Share something with this pod…` : `What's on your mind, ${currentUser.name.split(' ')[0]}?`}
               rows={focused ? 3 : 1}
-              className="w-full resize-none text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none bg-transparent"
+              className="w-full resize-none text-sm text-stone-900 placeholder:text-stone-600 focus:outline-none bg-transparent"
               style={{ lineHeight: 1.6 }}
             />
           </div>
@@ -145,7 +145,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
                       </span>
                       <div>
                         <p className="text-sm font-semibold text-stone-800">{t.label}</p>
-                        <p className="text-xs text-stone-400 mt-0.5">{t.description}</p>
+                        <p className="text-xs text-stone-600 mt-0.5">{t.description}</p>
                       </div>
                       {t.mode === mode && (
                         <span className="ml-auto text-xs font-bold" style={{ color: GREEN }}>✓</span>

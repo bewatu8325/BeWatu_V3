@@ -89,7 +89,7 @@ export const WisdomThreadCard: React.FC<{
               className="font-semibold text-stone-900 text-sm hover:underline text-left block">
               {thread.authorName}
             </button>
-            <p className="text-xs text-stone-400 truncate">{thread.authorRole}</p>
+            <p className="text-xs text-stone-600 truncate">{thread.authorRole}</p>
           </div>
         </div>
 
@@ -101,7 +101,7 @@ export const WisdomThreadCard: React.FC<{
 
         {/* The lesson — always visible */}
         <div className="mb-3">
-          <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">The lesson</p>
+          <p className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1">The lesson</p>
           <p className="text-sm text-stone-700 leading-relaxed">
             {expanded ? thread.theLesson : thread.theLesson.slice(0, 160) + (thread.theLesson.length > 160 ? '…' : '')}
           </p>
@@ -112,13 +112,13 @@ export const WisdomThreadCard: React.FC<{
           <div className="space-y-4 border-t pt-4 mt-2" style={{ borderColor: '#f3f4f6' }}>
             {thread.theContext && (
               <div>
-                <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">How I learned it</p>
+                <p className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1">How I learned it</p>
                 <p className="text-sm text-stone-600 leading-relaxed">{thread.theContext}</p>
               </div>
             )}
             {thread.doingItAgain && (
               <div>
-                <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">What I'd do differently</p>
+                <p className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1">What I'd do differently</p>
                 <p className="text-sm text-stone-600 leading-relaxed">{thread.doingItAgain}</p>
               </div>
             )}
@@ -131,7 +131,7 @@ export const WisdomThreadCard: React.FC<{
             {thread.tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {thread.tags.map(tag => (
-                  <span key={tag} className="text-xs px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-500 font-medium">
+                  <span key={tag} className="text-xs px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                     #{tag}
                   </span>
                 ))}
@@ -165,7 +165,7 @@ export const WisdomThreadCard: React.FC<{
             <Bookmark size={14} fill={saved ? GREEN : 'none'} />
             {saved ? 'Saved' : 'Save'}
           </button>
-          <button className="flex items-center gap-1.5 text-xs font-semibold text-stone-400 hover:text-stone-600 transition-colors ml-auto">
+          <button className="flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-600 transition-colors ml-auto">
             <Share2 size={13} />
             Share
           </button>
@@ -226,12 +226,12 @@ export const CreateWisdomThread: React.FC<{
   }> = ({ label, hint, required, value, onChange, rows = 3 }) => (
     <div>
       <div className="flex items-baseline gap-2 mb-1.5">
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">{label}</label>
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest">{label}</label>
         {required && <span className="text-xs text-red-400">required</span>}
-        {hint && <span className="text-xs text-stone-400 normal-case">{hint}</span>}
+        {hint && <span className="text-xs text-stone-600 normal-case">{hint}</span>}
       </div>
       <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows}
-        className="w-full px-3.5 py-2.5 rounded-xl border text-sm text-stone-900 focus:outline-none placeholder:text-stone-400 resize-none"
+        className="w-full px-3.5 py-2.5 rounded-xl border text-sm text-stone-900 focus:outline-none placeholder:text-stone-600 resize-none"
         style={{ borderColor: '#e7e5e4' }} />
     </div>
   );
@@ -241,13 +241,13 @@ export const CreateWisdomThread: React.FC<{
       <div className="flex items-center gap-2 pb-2 border-b" style={{ borderColor: '#f3f4f6' }}>
         <BookOpen size={15} style={{ color: AMBER }} />
         <h3 className="font-bold text-stone-900 text-sm">Share a wisdom thread</h3>
-        <span className="ml-auto text-xs text-stone-400">Hard-won lessons from your career</span>
+        <span className="ml-auto text-xs text-stone-600">Hard-won lessons from your career</span>
       </div>
 
       {/* Years XP + role */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">
             Years of experience
           </label>
           <input type="number" min="0" max="60" value={yearsXp} onChange={e => setYearsXp(e.target.value)}
@@ -255,7 +255,7 @@ export const CreateWisdomThread: React.FC<{
             style={{ borderColor: '#e7e5e4' }} placeholder="e.g. 15" />
         </div>
         <div>
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">
             Your current role
           </label>
           <input type="text" value={role} onChange={e => setRole(e.target.value)}
@@ -267,7 +267,7 @@ export const CreateWisdomThread: React.FC<{
       {/* Headline */}
       <div>
         <div className="flex items-baseline gap-2 mb-1.5">
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">The lesson in one sentence</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest">The lesson in one sentence</label>
           <span className="text-xs text-red-400">required</span>
         </div>
         <input type="text" value={headline} onChange={e => setHeadline(e.target.value)}
@@ -286,7 +286,7 @@ export const CreateWisdomThread: React.FC<{
 
       {/* Tags */}
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">
           Tags (press Enter to add)
         </label>
         <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={addTag}
@@ -296,9 +296,9 @@ export const CreateWisdomThread: React.FC<{
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {tags.map(t => (
-              <span key={t} className="flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-500 font-medium">
+              <span key={t} className="flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                 #{t}
-                <button onClick={() => setTags(ts => ts.filter(x => x !== t))} className="text-stone-400 hover:text-red-400 ml-0.5">×</button>
+                <button onClick={() => setTags(ts => ts.filter(x => x !== t))} className="text-stone-600 hover:text-red-400 ml-0.5">×</button>
               </span>
             ))}
           </div>

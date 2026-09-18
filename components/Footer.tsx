@@ -24,41 +24,41 @@ const Footer: React.FC<FooterProps> = ({
 
           {onNavigateToTerms ? (
             <button onClick={onNavigateToTerms}
-              className="text-stone-400 hover:text-stone-700 transition-colors">
+              className="text-stone-600 hover:text-stone-700 transition-colors">
               Terms of Service
             </button>
           ) : (
-            <span className="text-stone-400">Terms of Service</span>
+            <span className="text-stone-600">Terms of Service</span>
           )}
 
           {onNavigateToPrivacy ? (
             <button onClick={onNavigateToPrivacy}
-              className="text-stone-400 hover:text-stone-700 transition-colors">
+              className="text-stone-600 hover:text-stone-700 transition-colors">
               Privacy Policy
             </button>
           ) : (
-            <span className="text-stone-400">Privacy Policy</span>
+            <span className="text-stone-600">Privacy Policy</span>
           )}
 
           {onNavigateToCommunity ? (
             <button onClick={onNavigateToCommunity}
-              className="text-stone-400 hover:text-stone-700 transition-colors">
+              className="text-stone-600 hover:text-stone-700 transition-colors">
               Community Guidelines
             </button>
           ) : (
-            <span className="text-stone-400">Community Guidelines</span>
+            <span className="text-stone-600">Community Guidelines</span>
           )}
 
           {onNavigateToAbout && (
             <button onClick={onNavigateToAbout}
-              className="text-stone-400 hover:text-stone-700 transition-colors">
+              className="text-stone-600 hover:text-stone-700 transition-colors">
               Our story
             </button>
           )}
 
           {onNavigateToConnect && (
             <button onClick={onNavigateToConnect}
-              className="text-stone-400 hover:text-stone-700 transition-colors">
+              className="text-stone-600 hover:text-stone-700 transition-colors">
               Connect with us
             </button>
           )}
@@ -66,13 +66,13 @@ const Footer: React.FC<FooterProps> = ({
           {onReportConcern && (
             <button
               onClick={onReportConcern}
-              className="text-stone-400 hover:text-stone-700 transition-colors"
+              className="text-stone-600 hover:text-stone-700 transition-colors"
             >
               Report a concern
             </button>
           )}
 
-          <p className="text-stone-400">&copy; {new Date().getFullYear()} Bewatu LLC</p>
+          <p className="text-stone-600">&copy; {new Date().getFullYear()} Bewatu LLC</p>
         </div>
       </div>
     </footer>

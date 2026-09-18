@@ -119,7 +119,7 @@ const ShareProfileModal: React.FC<ShareProfileModalProps> = ({ username, name, o
 
         <div className="px-6 py-5">
           {/* URL + copy */}
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-500">Your public link</label>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-600">Your public link</label>
           <div className="flex items-stretch gap-2">
             <div
               className="flex min-w-0 flex-1 items-center rounded-xl border bg-stone-50 px-3 py-2.5"
@@ -178,7 +178,7 @@ const ShareProfileModal: React.FC<ShareProfileModalProps> = ({ username, name, o
 
           {/* Social row */}
           <div className="mt-5">
-            <p className="mb-2.5 text-center text-xs text-stone-400">or share via</p>
+            <p className="mb-2.5 text-center text-xs text-stone-600">or share via</p>
             <div className="flex items-center justify-center gap-3">
               {socials.map(s => (
                 <a

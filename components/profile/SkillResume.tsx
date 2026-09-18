@@ -146,14 +146,14 @@ const SkillResume: React.FC<SkillResumeProps> = ({ user, isOwn }) => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-stone-900">Skills-Based Resume</h3>
-            <p className="text-xs text-stone-400">Generated from your profile — no extra input needed</p>
+            <p className="text-xs text-stone-600">Generated from your profile — no extra input needed</p>
           </div>
         </div>
 
         {resume && (
           <button onClick={() => setExpanded(v => !v)}
             className="text-xs font-semibold hover:opacity-70 transition-opacity flex items-center gap-1"
-            style={{ color: '#78716c' }}>
+            style={{ color: '#57534e' }}>
             {expanded ? 'Collapse' : 'Expand'}
             <svg className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`}
               fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -197,7 +197,7 @@ const SkillResume: React.FC<SkillResumeProps> = ({ user, isOwn }) => {
               fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" d="M21 12a9 9 0 1 1-6.219-8.56"/>
             </svg>
-            <span className="text-sm text-stone-500">Writing your resume…</span>
+            <span className="text-sm text-stone-600">Writing your resume…</span>
           </div>
         )}
 
@@ -244,7 +244,7 @@ const SkillResume: React.FC<SkillResumeProps> = ({ user, isOwn }) => {
                 </svg>
                 Regenerate
               </button>
-              <p className="text-[11px] text-stone-400 ml-auto">
+              <p className="text-[11px] text-stone-600 ml-auto">
                 Based on your current profile
               </p>
             </div>

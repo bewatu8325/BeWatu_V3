@@ -158,14 +158,14 @@ function SubmissionCard({
                 ? (submission.authorAvatar
                   ? <img src={submission.authorAvatar} alt="" className="w-10 h-10 rounded-full object-cover" />
                   : <span className="text-sm font-bold" style={{ color: GREEN }}>{submission.authorName?.[0]}</span>)
-                : <Lock size={16} className="text-stone-400" />
+                : <Lock size={16} className="text-stone-600" />
               }
             </div>
             <div>
               <p className="text-sm font-bold text-stone-900">
                 {isShortlisted ? submission.authorName : 'Anonymous participant'}
               </p>
-              <p className="text-xs text-stone-400">
+              <p className="text-xs text-stone-600">
                 {isShortlisted ? 'Identity revealed after shortlist' : 'Identity hidden — merit review only'}
               </p>
             </div>
@@ -178,7 +178,7 @@ function SubmissionCard({
               </span>
             )}
             <button onClick={() => setExpanded(e => !e)}
-              className="text-stone-400 hover:text-stone-600">
+              className="text-stone-600 hover:text-stone-600">
               {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
           </div>
@@ -193,7 +193,7 @@ function SubmissionCard({
             </div>
 
             {submission.podName && (
-              <p className="text-xs text-stone-400 flex items-center gap-1.5">
+              <p className="text-xs text-stone-600 flex items-center gap-1.5">
                 <Users size={11} /> Collaborated in pod: {submission.podName}
               </p>
             )}
@@ -209,7 +209,7 @@ function SubmissionCard({
                 )}
                 {isShortlisted && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-stone-500">Score (1–10):</span>
+                    <span className="text-xs text-stone-600">Score (1–10):</span>
                     {[...Array(10)].map((_, i) => (
                       <button key={i} onClick={() => { onScore(submission.id, i + 1); }}
                         className="w-6 h-6 rounded-full text-xs font-bold border transition-all"
@@ -416,7 +416,7 @@ export default function ArenaChallengeDetail({
           </button>
           <div className="flex-1 min-w-0">
             <h1 className="font-black text-stone-900 text-sm truncate">{challenge.title}</h1>
-            <p className="text-xs text-stone-400 truncate">{challenge.companyName} · Arena Challenge</p>
+            <p className="text-xs text-stone-600 truncate">{challenge.companyName} · Arena Challenge</p>
           </div>
           {!isRecruiter && !registered && (
             <button
@@ -457,7 +457,7 @@ export default function ArenaChallengeDetail({
             )}
             <div className="flex-1 min-w-0">
               <h2 className="text-xl font-black text-stone-900 leading-tight">{challenge.title}</h2>
-              <p className="text-sm text-stone-500 mt-1">{challenge.companyName}</p>
+              <p className="text-sm text-stone-600 mt-1">{challenge.companyName}</p>
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full border"
                   style={{ color: difficultyColor(challenge.difficulty), borderColor: difficultyColor(challenge.difficulty) + '40', backgroundColor: difficultyColor(challenge.difficulty) + '10' }}>
@@ -481,7 +481,7 @@ export default function ArenaChallengeDetail({
             <Trophy size={20} className="text-amber-500 flex-shrink-0" />
             <div>
               <p className="text-sm font-black text-stone-900">{challenge.prize}</p>
-              {challenge.badge && <p className="text-xs text-stone-500 mt-0.5">{challenge.badge}</p>}
+              {challenge.badge && <p className="text-xs text-stone-600 mt-0.5">{challenge.badge}</p>}
             </div>
           </div>
 
@@ -544,7 +544,7 @@ export default function ArenaChallengeDetail({
                       style={{ borderColor: '#f5f5f4' }}>
                       <div>
                         <p className="text-sm font-semibold text-stone-800">{r.label}</p>
-                        {r.description && <p className="text-xs text-stone-400 mt-0.5">{r.description}</p>}
+                        {r.description && <p className="text-xs text-stone-600 mt-0.5">{r.description}</p>}
                       </div>
                       <span className="text-sm font-bold ml-4 flex-shrink-0" style={{ color: GREEN }}>
                         {r.weight}%
@@ -619,16 +619,16 @@ export default function ArenaChallengeDetail({
             ) : submissions.length === 0 ? (
               <div className="bg-white rounded-2xl border p-10 text-center" style={{ borderColor: '#e7e5e4' }}>
                 <Trophy size={32} className="text-stone-200 mx-auto mb-3" />
-                <p className="font-bold text-stone-500">No submissions yet</p>
-                <p className="text-xs text-stone-400 mt-1">Be the first to submit a solution</p>
+                <p className="font-bold text-stone-600">No submissions yet</p>
+                <p className="text-xs text-stone-600 mt-1">Be the first to submit a solution</p>
               </div>
             ) : isRecruiter ? (
               <>
                 <div className="flex items-center justify-between px-1">
-                  <p className="text-xs font-bold text-stone-500 uppercase tracking-widest">
+                  <p className="text-xs font-bold text-stone-600 uppercase tracking-widest">
                     {submissions.length} submission{submissions.length !== 1 ? 's' : ''}
                   </p>
-                  <p className="text-xs text-stone-400">
+                  <p className="text-xs text-stone-600">
                     {submissions.filter(s => s.isShortlisted).length} shortlisted
                   </p>
                 </div>
@@ -669,7 +669,7 @@ export default function ArenaChallengeDetail({
             ) : (
               <div className="bg-white rounded-2xl border p-6 text-center" style={{ borderColor: '#e7e5e4' }}>
                 <Lock size={24} className="text-stone-300 mx-auto mb-2" />
-                <p className="text-sm text-stone-500">Sign up for the challenge to view submissions</p>
+                <p className="text-sm text-stone-600">Sign up for the challenge to view submissions</p>
               </div>
             )}
           </div>
@@ -686,7 +686,7 @@ export default function ArenaChallengeDetail({
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-stone-900">Solution submitted</h3>
-                  <p className="text-sm text-stone-500 mt-1 leading-relaxed max-w-xs mx-auto">
+                  <p className="text-sm text-stone-600 mt-1 leading-relaxed max-w-xs mx-auto">
                     Your solution has been submitted anonymously. You'll be notified if you're shortlisted.
                   </p>
                 </div>
@@ -711,7 +711,7 @@ export default function ArenaChallengeDetail({
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="font-bold text-stone-900 text-sm">Collaboration pod</h3>
-                      <p className="text-xs text-stone-400 mt-0.5">Optional — work with others on your solution</p>
+                      <p className="text-xs text-stone-600 mt-0.5">Optional — work with others on your solution</p>
                     </div>
                     {!myPod && onCreatePod && (
                       <button onClick={() => setShowCreatePod(s => !s)}
@@ -728,7 +728,7 @@ export default function ArenaChallengeDetail({
                       <Users size={16} style={{ color: GREEN }} />
                       <div className="flex-1">
                         <p className="text-sm font-bold" style={{ color: GREEN }}>{myPod.name}</p>
-                        <p className="text-xs text-stone-500">Collaboration pod created</p>
+                        <p className="text-xs text-stone-600">Collaboration pod created</p>
                       </div>
                       {/* Invite collaborators */}
                       <button onClick={() => setShowInvites(s => !s)}
@@ -738,7 +738,7 @@ export default function ArenaChallengeDetail({
                       </button>
                     </div>
                   ) : (
-                    <p className="text-xs text-stone-400">
+                    <p className="text-xs text-stone-600">
                       No pod created — you can submit individually.
                     </p>
                   )}
@@ -783,7 +783,7 @@ export default function ArenaChallengeDetail({
                           }
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-stone-800 truncate">{u.name}</p>
-                            <p className="text-xs text-stone-400 truncate">{u.headline}</p>
+                            <p className="text-xs text-stone-600 truncate">{u.headline}</p>
                           </div>
                           <button className="text-xs font-bold px-2.5 py-1 rounded-lg text-white flex-shrink-0"
                             style={{ backgroundColor: GREEN }}>
@@ -798,7 +798,7 @@ export default function ArenaChallengeDetail({
                 {/* Solution input */}
                 <div className="bg-white rounded-2xl border p-5" style={{ borderColor: '#e7e5e4' }}>
                   <h3 className="font-bold text-stone-900 text-sm mb-1">Your solution</h3>
-                  <p className="text-xs text-stone-400 mb-3">
+                  <p className="text-xs text-stone-600 mb-3">
                     {challenge.submissionFormat === 'url'
                       ? 'Paste a link to your solution (GitHub, Figma, doc, etc.)'
                       : 'Describe your solution clearly and concisely.'}
@@ -815,7 +815,7 @@ export default function ArenaChallengeDetail({
                     className="w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none resize-none"
                     style={{ borderColor: '#e7e5e4' }}
                   />
-                  <p className="text-xs text-stone-400 mt-2">
+                  <p className="text-xs text-stone-600 mt-2">
                     {solutionText.length} characters
                   </p>
                 </div>
@@ -858,7 +858,7 @@ export default function ArenaChallengeDetail({
                 <Shield size={16} style={{ color: GREEN }} />
                 <h3 className="font-black text-stone-900">Challenge Terms</h3>
               </div>
-              <button onClick={() => setShowTerms(false)} className="text-stone-400 hover:text-stone-600">✕</button>
+              <button onClick={() => setShowTerms(false)} className="text-stone-600 hover:text-stone-600">✕</button>
             </div>
             <div className="px-5 py-4 max-h-80 overflow-y-auto">
               <pre className="text-xs text-stone-600 leading-relaxed whitespace-pre-wrap font-sans">

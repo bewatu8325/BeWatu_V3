@@ -40,7 +40,7 @@ export default function TierGate({ requiredTier, onUpgrade, children, compact }:
     return (
       <button
         onClick={() => onUpgrade(requiredTier)}
-        className="inline-flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-600 transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs text-stone-600 hover:text-stone-600 transition-colors"
       >
         <Lock className="h-3 w-3" />
         {tierConfig.label} feature
@@ -52,12 +52,12 @@ export default function TierGate({ requiredTier, onUpgrade, children, compact }:
   return (
     <div className="rounded-xl border-2 border-dashed border-stone-200 bg-stone-50 p-8 text-center">
       <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-stone-100">
-        <Lock className="h-6 w-6 text-stone-400" />
+        <Lock className="h-6 w-6 text-stone-600" />
       </div>
       <h3 className="font-semibold text-stone-900 mb-2">
         {tierConfig.label} feature
       </h3>
-      <p className="text-stone-500 text-sm mb-6 max-w-sm mx-auto">
+      <p className="text-stone-600 text-sm mb-6 max-w-sm mx-auto">
         {message}
       </p>
       <button

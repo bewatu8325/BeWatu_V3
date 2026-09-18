@@ -24,7 +24,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     price:       0,
     priceAnnual: 0,
     level:       1,
-    color:       'text-stone-500',
+    color:       'text-stone-600',
     features: [
       'Full network access',
       'Unlimited pod memberships',

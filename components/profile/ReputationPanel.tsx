@@ -55,7 +55,7 @@ function domainColor(name: string): string {
 function TrajectoryIcon({ t }: { t: 'rising' | 'stable' | 'declining' }) {
   if (t === 'rising')    return <span style={{ color: '#16a34a', fontSize: 13 }}>↑ Rising</span>;
   if (t === 'declining') return <span style={{ color: '#dc2626', fontSize: 13 }}>↓ Declining</span>;
-  return <span style={{ color: '#78716c', fontSize: 13 }}>→ Stable</span>;
+  return <span style={{ color: '#57534e', fontSize: 13 }}>→ Stable</span>;
 }
 
 // ─── Single domain row ────────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ function DomainRow({ domain, maxScore }: { domain: TrustDomain; maxScore: number
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#1c1917' }}>{domain.score}</span>
-          <span style={{ fontSize: 11, color: '#a8a29e' }}>
+          <span style={{ fontSize: 11, color: '#57534e' }}>
             {domain.edgeCount} signal{domain.edgeCount !== 1 ? 's' : ''}
           </span>
         </div>
@@ -112,7 +112,7 @@ function EmptyState({ isOwn }: { isOwn: boolean }) {
       <p style={{ fontSize: 13, fontWeight: 600, color: '#1c1917', margin: '0 0 6px' }}>
         No trust signals yet
       </p>
-      <p style={{ fontSize: 12, color: '#78716c', margin: 0, lineHeight: 1.5 }}>
+      <p style={{ fontSize: 12, color: '#57534e', margin: 0, lineHeight: 1.5 }}>
         {isOwn
           ? 'Complete challenges and contribute to pods to start building your reputation graph.'
           : 'This person hasn\'t received trust signals yet.'}
@@ -204,7 +204,7 @@ const ReputationPanel: React.FC<ReputationPanelProps> = ({ uid, isOwn, compact =
           </svg>
           <span style={{ fontSize: 18, fontWeight: 800, color: G }}>{score}</span>
         </div>
-        <p style={{ fontSize: 10, color: '#78716c', margin: 0, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        <p style={{ fontSize: 10, color: '#57534e', margin: 0, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
           Trust Score
         </p>
         {profile && (
@@ -232,7 +232,7 @@ const ReputationPanel: React.FC<ReputationPanelProps> = ({ uid, isOwn, compact =
           </div>
           <div>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1c1917' }}>Trust Reputation</h3>
-            <p style={{ margin: 0, fontSize: 11, color: '#78716c' }}>
+            <p style={{ margin: 0, fontSize: 11, color: '#57534e' }}>
               Built from real interactions — not self-reported
             </p>
           </div>
@@ -244,7 +244,7 @@ const ReputationPanel: React.FC<ReputationPanelProps> = ({ uid, isOwn, compact =
             <div style={{ fontSize: 22, fontWeight: 800, color: G, lineHeight: 1 }}>
               {profile.overallScore}
             </div>
-            <div style={{ fontSize: 11, color: '#78716c', marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: '#57534e', marginTop: 2 }}>
               <TrajectoryIcon t={profile.trajectory} />
             </div>
           </div>
@@ -278,7 +278,7 @@ const ReputationPanel: React.FC<ReputationPanelProps> = ({ uid, isOwn, compact =
               <div style={{ fontSize: 17, fontWeight: 800, color: '#1c1917' }}>
                 {profile.totalEvidenceCount}
               </div>
-              <div style={{ fontSize: 10, color: '#78716c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ fontSize: 10, color: '#57534e', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Signals
               </div>
             </div>
@@ -286,7 +286,7 @@ const ReputationPanel: React.FC<ReputationPanelProps> = ({ uid, isOwn, compact =
               <div style={{ fontSize: 17, fontWeight: 800, color: '#1c1917' }}>
                 {profile.domains.length}
               </div>
-              <div style={{ fontSize: 10, color: '#78716c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ fontSize: 10, color: '#57534e', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Domains
               </div>
             </div>
@@ -294,14 +294,14 @@ const ReputationPanel: React.FC<ReputationPanelProps> = ({ uid, isOwn, compact =
               <div style={{ fontSize: 17, fontWeight: 800, color: '#1c1917' }}>
                 {profile.domains.filter(d => d.tier !== 'emerging').length}
               </div>
-              <div style={{ fontSize: 10, color: '#78716c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ fontSize: 10, color: '#57534e', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Verified
               </div>
             </div>
           </div>
 
           {/* Last computed note */}
-          <p style={{ margin: '12px 0 0', fontSize: 10, color: '#a8a29e', textAlign: 'right' }}>
+          <p style={{ margin: '12px 0 0', fontSize: 10, color: '#57534e', textAlign: 'right' }}>
             Updated {new Date(profile.lastComputedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
           </p>
         </>

@@ -146,7 +146,7 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
     }
   };
 
-    const inputClass = "w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:border-green-700 transition";
+    const inputClass = "w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:border-green-700 transition";
 
   return (
     <AuthLayout
@@ -158,7 +158,7 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
       onNavigateToCommunity={onNavigateToCommunity}
     >
       {isPolicyVisible && <BillingPolicyModal onClose={() => setIsPolicyVisible(false)} />}
-      <p className="text-sm text-center text-stone-500 -mt-3 mb-6 text-pretty">{t('registerSubtitle')}</p>
+      <p className="text-sm text-center text-stone-600 -mt-3 mb-6 text-pretty">{t('registerSubtitle')}</p>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <p className="text-red-600 text-sm text-center bg-red-50 border border-red-200 p-3 rounded-xl">{error}</p>}
         <div>
@@ -183,14 +183,14 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
 
         {isRecruiter && (
             <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-3 animate-fade-in-up">
-                <p className="text-xs text-center text-stone-500">
+                <p className="text-xs text-center text-stone-600">
                     {t('recruiterTrialInfo')}
                 </p>
                 <PaymentForm onReady={handleStripeReady} disabled={isProcessing} />
                  <div>
                     <label className="flex items-center space-x-2 cursor-pointer mt-2">
                         <input type="checkbox" checked={agreedToPolicy} onChange={(e) => setAgreedToPolicy(e.target.checked)} className="h-4 w-4 rounded border-stone-300 text-green-700 focus:ring-green-700" disabled={isProcessing}/>
-                        <span className="text-stone-500 text-xs">
+                        <span className="text-stone-600 text-xs">
                             {t('agreeToPolicy')}{' '}
                             <button type="button" onClick={() => setIsPolicyVisible(true)} className="font-semibold text-cyan-400 hover:underline">
                                 {t('billingPolicy')}
@@ -206,7 +206,7 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
         </button>
       </form>
       <div className="mt-6 text-center">
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-600">
           {t('alreadyHaveAccount')}{' '}
           <button onClick={onNavigateToLogin} className="font-semibold hover:underline" style={{ color: "#1a6b52" }}>
             {t('signIn')}

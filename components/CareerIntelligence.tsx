@@ -211,13 +211,13 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-stone-900">Career Intelligence</h1>
-          <p className="text-sm text-stone-500 mt-1">
+          <p className="text-sm text-stone-600 mt-1">
             Insights derived from your activity on BeWatu — updated as you build.
           </p>
         </div>
         <button
           onClick={() => setRefreshKey(k => k + 1)}
-          className="flex items-center gap-1.5 text-xs font-semibold text-stone-500 hover:text-stone-800 border border-stone-200 rounded-xl px-3 py-2 hover:bg-stone-50 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-800 border border-stone-200 rounded-xl px-3 py-2 hover:bg-stone-50 transition-colors"
         >
           <RefreshCw size={12} /> Refresh
         </button>
@@ -261,7 +261,7 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
         </div>
         {profile.missing.length > 0 ? (
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-stone-500 mb-1.5">Add these to strengthen your profile:</p>
+            <p className="text-xs font-semibold text-stone-600 mb-1.5">Add these to strengthen your profile:</p>
             {profile.missing.slice(0, 3).map(m => (
               <div key={m} className="flex items-center gap-2">
                 <AlertCircle size={11} className="text-amber-500 flex-shrink-0" />
@@ -291,7 +291,7 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
               <div key={arena} className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold text-stone-800">{arena}</p>
-                  <p className="text-[11px] text-stone-500">{matchedSkills.slice(0, 3).join(', ')}</p>
+                  <p className="text-[11px] text-stone-600">{matchedSkills.slice(0, 3).join(', ')}</p>
                 </div>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex-shrink-0">
                   {matchCount} skill{matchCount !== 1 ? 's' : ''} match
@@ -329,7 +329,7 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
           ].map(({ label, value }) => (
             <div key={label} className="text-center bg-stone-50 rounded-xl p-2.5">
               <p className="text-lg font-bold text-stone-900">{value}</p>
-              <p className="text-[10px] text-stone-500">{label}</p>
+              <p className="text-[10px] text-stone-600">{label}</p>
             </div>
           ))}
         </div>

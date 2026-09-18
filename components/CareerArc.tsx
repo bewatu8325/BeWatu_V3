@@ -79,7 +79,7 @@ const InflectionPoint: React.FC<{
               style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
               {cfg.label}
             </span>
-            <span className="text-xs text-stone-400">{point.year}</span>
+            <span className="text-xs text-stone-600">{point.year}</span>
           </div>
           {isOwn && onDelete && (
             <button onClick={() => onDelete(point.id)}
@@ -94,7 +94,7 @@ const InflectionPoint: React.FC<{
         {/* Reflection — expandable if long */}
         {point.reflection && (
           <>
-            <p className="text-xs text-stone-500 leading-relaxed"
+            <p className="text-xs text-stone-600 leading-relaxed"
               style={{ display: expanded || point.reflection.length < 120 ? 'block' : '-webkit-box',
                 WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as React.CSSProperties}>
               {point.reflection}
@@ -113,7 +113,7 @@ const InflectionPoint: React.FC<{
         {point.skills && point.skills.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {point.skills.map(s => (
-              <span key={s} className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 font-medium">
+              <span key={s} className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                 {s}
               </span>
             ))}
@@ -154,7 +154,7 @@ const AddInflectionForm: React.FC<{
     <div className="border rounded-2xl p-4 space-y-3 mt-3" style={{ borderColor: '#e7e5e4', backgroundColor: '#fafaf9' }}>
       {/* Moment type */}
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-2 block">
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-2 block">
           Type of moment
         </label>
         <div className="flex flex-wrap gap-2">
@@ -172,20 +172,20 @@ const AddInflectionForm: React.FC<{
             );
           })}
         </div>
-        <p className="text-[11px] text-stone-400 mt-1.5">{MOMENT_CONFIG[type].description}</p>
+        <p className="text-[11px] text-stone-600 mt-1.5">{MOMENT_CONFIG[type].description}</p>
       </div>
 
       {/* Year + title */}
       <div className="grid grid-cols-4 gap-2">
         <div>
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Year</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Year</label>
           <input type="number" min="1960" max={new Date().getFullYear()} value={year}
             onChange={e => setYear(parseInt(e.target.value))}
             className="w-full px-3 py-2 rounded-xl border text-sm text-stone-900 focus:outline-none"
             style={{ borderColor: '#e7e5e4' }} />
         </div>
         <div className="col-span-3">
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">What happened</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">What happened</label>
           <input type="text" value={title} onChange={e => setTitle(e.target.value)}
             className="w-full px-3 py-2 rounded-xl border text-sm text-stone-900 focus:outline-none"
             style={{ borderColor: '#e7e5e4' }}
@@ -195,18 +195,18 @@ const AddInflectionForm: React.FC<{
 
       {/* Reflection */}
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">
           What you learned / why it mattered
         </label>
         <textarea value={reflection} onChange={e => setReflection(e.target.value)} rows={2}
-          className="w-full px-3 py-2 rounded-xl border text-sm text-stone-900 focus:outline-none resize-none placeholder:text-stone-400"
+          className="w-full px-3 py-2 rounded-xl border text-sm text-stone-900 focus:outline-none resize-none placeholder:text-stone-600"
           style={{ borderColor: '#e7e5e4' }}
           placeholder="The honest reflection — this is what makes your arc worth reading" />
       </div>
 
       {/* Skills */}
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">
           Skills gained (press Enter)
         </label>
         <input value={skillInput} onChange={e => setSkillInput(e.target.value)} onKeyDown={addSkill}
@@ -215,7 +215,7 @@ const AddInflectionForm: React.FC<{
         {skills.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {skills.map(s => (
-              <span key={s} className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-500 font-medium">
+              <span key={s} className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                 {s}
                 <button onClick={() => setSkills(ss => ss.filter(x => x !== s))}
                   className="text-stone-300 hover:text-red-400 ml-0.5">×</button>
@@ -271,7 +271,7 @@ export const CareerArc: React.FC<CareerArcProps> = ({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="font-bold text-stone-900 text-sm">Career Arc</h3>
-          <p className="text-xs text-stone-400 mt-0.5">
+          <p className="text-xs text-stone-600 mt-0.5">
             {sorted.length === 0
               ? 'The moments that shaped your professional journey'
               : `${sorted.length} defining moment${sorted.length !== 1 ? 's' : ''}`}
@@ -291,7 +291,7 @@ export const CareerArc: React.FC<CareerArcProps> = ({
         <div className="text-center py-6 border-2 border-dashed rounded-xl" style={{ borderColor: '#e7e5e4' }}>
           <p className="text-2xl mb-2">🗺️</p>
           <p className="text-sm font-semibold text-stone-600 mb-1">Your career arc is empty</p>
-          <p className="text-xs text-stone-400 max-w-xs mx-auto mb-4">
+          <p className="text-xs text-stone-600 max-w-xs mx-auto mb-4">
             Add 3–5 moments that genuinely shaped your path. Pivots, breakthroughs, setbacks, leaps.
             This is what makes your profile worth reading.
           </p>
@@ -326,7 +326,7 @@ export const CareerArc: React.FC<CareerArcProps> = ({
 
       {/* Max reached */}
       {isOwn && sorted.length >= 5 && (
-        <p className="text-xs text-stone-400 text-center mt-2">
+        <p className="text-xs text-stone-600 text-center mt-2">
           5 moments maximum — edit existing ones to refine your arc
         </p>
       )}

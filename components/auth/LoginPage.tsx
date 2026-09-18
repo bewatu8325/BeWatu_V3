@@ -110,7 +110,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
       {/* ── Right panel — light form ────────────────────────────────────── */}
       <div className="flex-1 flex flex-col items-center justify-center bg-stone-50 px-6 py-12">
         {/* Mobile logo */}
-        <button onClick={onNavigateToLanding} className="mb-8 lg:hidden hover:opacity-80 transition-opacity">
+        <button onClick={onNavigateToLanding} aria-label="Go to BeWatu home" className="mb-8 lg:hidden hover:opacity-80 transition-opacity">
           <LogoIcon className="h-10 w-auto" style={{ color: '#1a4a3a' }} />
         </button>
 
@@ -119,7 +119,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             <h1 className="text-3xl font-bold text-gray-900">
               {userType === 'recruiter' ? 'Recruiter Login' : 'Welcome back'}
             </h1>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-600">
               {userType === 'recruiter'
                 ? 'Access your recruiter console'
                 : 'Sign in to continue your professional journey'}
@@ -137,7 +137,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
@@ -166,7 +166,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                 </button>
               </div>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
@@ -181,8 +181,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowPassword(s => !s)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 text-gray-600 hover:text-gray-800 transition"
                 >
                   {showPassword ? (
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -222,7 +222,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             <>
               <div className="my-5 flex items-center gap-3">
                 <div className="h-px flex-1 bg-gray-200" />
-                <span className="text-xs text-gray-400">or</span>
+                <span className="text-xs text-gray-600">or</span>
                 <div className="h-px flex-1 bg-gray-200" />
               </div>
 
@@ -245,7 +245,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
           )}
 
           {/* Footer links */}
-          <p className="mt-7 text-center text-sm text-gray-500">
+          <p className="mt-7 text-center text-sm text-gray-600">
             {userType === 'user' ? (
               <>
                 Don't have an account?{' '}

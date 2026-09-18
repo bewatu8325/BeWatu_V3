@@ -184,10 +184,10 @@ export function UnverifiedWarningBanner({
   if (status === 'verified') return null;
   if (status === 'suspended') return (
     <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 flex items-start gap-3">
-      <XCircle className="w-5 h-5 text-stone-400 flex-shrink-0 mt-0.5" />
+      <XCircle className="w-5 h-5 text-stone-600 flex-shrink-0 mt-0.5" />
       <div>
         <p className="font-bold text-stone-700 text-sm">Account suspended</p>
-        <p className="text-xs text-stone-500 mt-0.5">Contact <a href="mailto:support@bewatu.com" className="underline">support@bewatu.com</a> to resolve.</p>
+        <p className="text-xs text-stone-600 mt-0.5">Contact <a href="mailto:support@bewatu.com" className="underline">support@bewatu.com</a> to resolve.</p>
       </div>
     </div>
   );
@@ -363,7 +363,7 @@ export function PostingRestrictionNotice({
 
       <div className="space-y-1">
         <p className="font-black text-stone-900">{copy.title}</p>
-        <p className="text-sm text-stone-500 max-w-xs mx-auto leading-relaxed">
+        <p className="text-sm text-stone-600 max-w-xs mx-auto leading-relaxed">
           {isPending
             ? 'Your verification is under review. This feature will unlock automatically once approved.'
             : isRejected && rejectionReason
@@ -385,7 +385,7 @@ export function PostingRestrictionNotice({
 
       {/* What to expect */}
       {!isPending && !isRejected && (
-        <div className="flex items-center gap-1.5 text-xs text-stone-400">
+        <div className="flex items-center gap-1.5 text-xs text-stone-600">
           <Info className="w-3.5 h-3.5 flex-shrink-0" />
           <span>Takes under 2 minutes · Work email or document review</span>
         </div>

@@ -81,7 +81,7 @@ function MemberRings({ count }: { count: number }) {
           </div>
         ))}
       </div>
-      {count > 4 && <span className="ml-2 text-xs text-stone-400">+{count - 4}</span>}
+      {count > 4 && <span className="ml-2 text-xs text-stone-600">+{count - 4}</span>}
     </div>
   );
 }
@@ -138,14 +138,14 @@ function PodInfoModal({ circle, onClose, onJoin, onApply, currentUserId }: {
               </div>
               <div className="min-w-0">
                 <p className="font-extrabold text-stone-900 text-base leading-tight">{circle.name}</p>
-                <p className="text-xs text-stone-500 mt-0.5">{circle.members.length} member{circle.members.length !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-stone-600 mt-0.5">{circle.members.length} member{circle.members.length !== 1 ? 's' : ''}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <PodTypeBadge type={type} />
               <button
-                onClick={onClose}
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-black/10 transition-colors text-stone-500"
+                onClick={onClose} aria-label="Close"
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-black/10 transition-colors text-stone-600"
               >
                 <X size={14} />
               </button>
@@ -176,7 +176,7 @@ function PodInfoModal({ circle, onClose, onJoin, onApply, currentUserId }: {
                 </span>
               )}
               {(circle.rolesNeeded ?? []).length > 0 && (
-                <span className="text-xs text-stone-500">
+                <span className="text-xs text-stone-600">
                   Seeking: {circle.rolesNeeded!.join(', ')}
                 </span>
               )}
@@ -192,7 +192,7 @@ function PodInfoModal({ circle, onClose, onJoin, onApply, currentUserId }: {
 
           {/* Generational */}
           {type === 'generational' && (circle.minExperienceYears !== undefined || circle.maxExperienceYears !== undefined) && (
-            <div className="flex items-center gap-2 text-sm text-stone-500">
+            <div className="flex items-center gap-2 text-sm text-stone-600">
               <GitMerge size={13} />
               {circle.minExperienceYears !== undefined && circle.maxExperienceYears !== undefined
                 ? `Open to ${circle.minExperienceYears}–${circle.maxExperienceYears} years experience`
@@ -206,7 +206,7 @@ function PodInfoModal({ circle, onClose, onJoin, onApply, currentUserId }: {
           <div className="flex items-center gap-2">
             <MemberRings count={circle.members.length} />
             {circle.members.length === 0 && (
-              <span className="text-xs text-stone-400">Be the first to join</span>
+              <span className="text-xs text-stone-600">Be the first to join</span>
             )}
           </div>
         </div>
@@ -234,10 +234,10 @@ function PodInfoModal({ circle, onClose, onJoin, onApply, currentUserId }: {
               >
                 <UserPlus size={14} /> Request to join
               </button>
-              <p className="text-center text-xs text-stone-400">The pod admin will review your request</p>
+              <p className="text-center text-xs text-stone-600">The pod admin will review your request</p>
             </div>
           ) : (
-            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm text-stone-400 bg-stone-50">
+            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm text-stone-600 bg-stone-50">
               <Lock size={14} /> This pod is invite-only
             </div>
           )}
@@ -310,14 +310,14 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
             </div>
             <div className="min-w-0">
               <p className="font-bold text-stone-900 truncate text-sm">{circle.name}</p>
-              <p className="text-[10px] text-stone-400 mt-0.5">{circle.members.length} member{circle.members.length !== 1 ? 's' : ''}</p>
+              <p className="text-[10px] text-stone-600 mt-0.5">{circle.members.length} member{circle.members.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           <PodTypeBadge type={type} />
         </div>
 
         {/* Description */}
-        <p className="text-xs text-stone-500 leading-relaxed line-clamp-2">{circle.description}</p>
+        <p className="text-xs text-stone-600 leading-relaxed line-clamp-2">{circle.description}</p>
 
         {/* Innovation — problem + stage + roles */}
         {type === 'innovation' && circle.problemStatement && (
@@ -333,7 +333,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
               {circle.stage}
             </span>
             {(circle.rolesNeeded ?? []).length > 0 && (
-              <span className="text-[10px] text-stone-400">
+              <span className="text-[10px] text-stone-600">
                 Seeking: {circle.rolesNeeded!.slice(0, 2).join(', ')}{circle.rolesNeeded!.length > 2 ? ` +${circle.rolesNeeded!.length - 2}` : ''}
               </span>
             )}
@@ -349,7 +349,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
 
         {/* Generational — experience range */}
         {type === 'generational' && (circle.minExperienceYears !== undefined || circle.maxExperienceYears !== undefined) && (
-          <div className="flex items-center gap-1.5 text-[11px] text-stone-400">
+          <div className="flex items-center gap-1.5 text-[11px] text-stone-600">
             <GitMerge size={11} />
             {circle.minExperienceYears !== undefined && circle.maxExperienceYears !== undefined
               ? `${circle.minExperienceYears}–${circle.maxExperienceYears} yrs experience mix`
@@ -372,7 +372,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
                       {leaving ? '…' : 'Yes'}
                     </button>
                     <button onClick={e => { e.stopPropagation(); setConfirmLeave(false); }}
-                      className="text-[10px] text-stone-400 hover:text-stone-600">
+                      className="text-[10px] text-stone-600 hover:text-stone-600">
                       No
                     </button>
                   </div>
@@ -405,7 +405,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
               <UserPlus size={11} /> Apply
             </button>
           ) : (
-            <span className="flex items-center gap-1 text-[10px] text-stone-400">
+            <span className="flex items-center gap-1 text-[10px] text-stone-600">
               <Lock size={10} /> Invite only
             </span>
           )}
@@ -510,12 +510,12 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
             <h2 className="text-lg font-bold text-stone-900">
               {step === 'type' ? 'What kind of pod?' : 'Set it up'}
             </h2>
-            <p className="text-xs text-stone-400 mt-0.5">
+            <p className="text-xs text-stone-600 mt-0.5">
               {step === 'type' ? 'Choose the type that fits your goal' :
                 selectedType ? `${POD_TYPE_CONFIG[selectedType].emoji} ${POD_TYPE_CONFIG[selectedType].label} pod` : ''}
             </p>
           </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600"><X size={16} /></button>
+          <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600"><X size={16} /></button>
         </div>
 
         {/* Progress */}
@@ -541,9 +541,9 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-stone-900 text-sm">{cfg.label} Pod</p>
-                    <p className="text-xs text-stone-500 mt-0.5">{cfg.description}</p>
+                    <p className="text-xs text-stone-600 mt-0.5">{cfg.description}</p>
                   </div>
-                  <ChevronRight size={15} className="text-stone-400 flex-shrink-0" />
+                  <ChevronRight size={15} className="text-stone-600 flex-shrink-0" />
                 </button>
               );
             })}
@@ -556,9 +556,9 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
             {error && <p className="text-red-600 text-xs bg-red-50 border border-red-200 p-2.5 rounded-xl">{error}</p>}
 
             <div>
-              <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Pod name</label>
+              <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Pod name</label>
               <input type="text" value={name} onChange={e => setName(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-400 placeholder:text-stone-400"
+                className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-400 placeholder:text-stone-600"
                 placeholder={
                   selectedType === 'community'  ? 'e.g. Fintech Builders London' :
                   selectedType === 'innovation' ? 'e.g. AI for Healthcare'       :
@@ -568,22 +568,22 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Description</label>
+              <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Description</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-400 resize-none placeholder:text-stone-400"
+                className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-400 resize-none placeholder:text-stone-600"
                 rows={2} placeholder="Who should join and why?" disabled={creating} />
             </div>
 
             {selectedType === 'innovation' && (
               <>
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Problem statement</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Problem statement</label>
                   <textarea value={problemStatement} onChange={e => setProblem(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-400 resize-none placeholder:text-stone-400"
+                    className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-400 resize-none placeholder:text-stone-600"
                     rows={2} placeholder="What specific problem are you solving?" disabled={creating} />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Current stage</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Current stage</label>
                   <div className="flex gap-2">
                     {INNOVATION_STAGES.map(s => (
                       <button key={s} type="button" onClick={() => setPodStage(s)}
@@ -597,16 +597,16 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Roles needed (press Enter)</label>
+                  <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Roles needed (press Enter)</label>
                   <input value={rolesInput} onChange={e => setRolesInput(e.target.value)} onKeyDown={addRole}
-                    className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-400 placeholder:text-stone-400"
+                    className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-400 placeholder:text-stone-600"
                     placeholder="e.g. Designer, Backend Dev, Growth" disabled={creating} />
                   {rolesNeeded.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {rolesNeeded.map(r => (
                         <span key={r} className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                           {r}
-                          <button type="button" onClick={() => setRolesNeeded(rs => rs.filter(x => x !== r))} className="text-stone-400 hover:text-red-400 ml-0.5">×</button>
+                          <button type="button" onClick={() => setRolesNeeded(rs => rs.filter(x => x !== r))} className="text-stone-600 hover:text-red-400 ml-0.5">×</button>
                         </span>
                       ))}
                     </div>
@@ -617,17 +617,17 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
 
             {selectedType === 'challenge' && (
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">
                   Select an Arena challenge
                 </label>
                 {challengesLoading ? (
-                  <div className="flex items-center gap-2 py-4 text-stone-400 text-sm">
+                  <div className="flex items-center gap-2 py-4 text-stone-600 text-sm">
                     <Loader2 size={14} className="animate-spin" /> Loading live challenges…
                   </div>
                 ) : challenges.length === 0 ? (
                   <div className="text-center py-6 border border-dashed border-stone-200 rounded-xl">
                     <Trophy size={18} className="text-stone-300 mx-auto mb-2" />
-                    <p className="text-xs text-stone-400">No live challenges right now</p>
+                    <p className="text-xs text-stone-600">No live challenges right now</p>
                     <p className="text-[10px] text-stone-300 mt-1">Check back when new arena challenges are posted</p>
                   </div>
                 ) : (
@@ -636,7 +636,7 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
                     <input
                       value={challengeFilter}
                       onChange={e => setChallengeFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-stone-400 placeholder:text-stone-400 mb-1"
+                      className="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-stone-400 placeholder:text-stone-600 mb-1"
                       placeholder="Search challenges…"
                     />
                     {challenges
@@ -661,12 +661,12 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-bold text-stone-900 line-clamp-1">{challenge.title}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] text-stone-400">{challenge.arenaIndustry}</span>
+                                  <span className="text-[10px] text-stone-600">{challenge.arenaIndustry}</span>
                                   {challenge.prize && (
                                     <span className="text-[10px] font-semibold text-emerald-600">{challenge.prize}</span>
                                   )}
                                   {daysLeft !== null && (
-                                    <span className={`text-[10px] font-medium ${daysLeft <= 7 ? 'text-red-500' : 'text-stone-400'}`}>
+                                    <span className={`text-[10px] font-medium ${daysLeft <= 7 ? 'text-red-500' : 'text-stone-600'}`}>
                                       {daysLeft}d left
                                     </span>
                                   )}
@@ -693,19 +693,19 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
 
             {selectedType === 'generational' && (
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Experience range (years)</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Experience range (years)</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <input type="number" value={minExp} onChange={e => setMinExp(e.target.value)} min="0" max="50"
                       className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-400"
                       placeholder="Min (e.g. 0)" disabled={creating} />
-                    <p className="text-[10px] text-stone-400 mt-1">Junior end</p>
+                    <p className="text-[10px] text-stone-600 mt-1">Junior end</p>
                   </div>
                   <div>
                     <input type="number" value={maxExp} onChange={e => setMaxExp(e.target.value)} min="0" max="50"
                       className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-400"
                       placeholder="Max (e.g. 20)" disabled={creating} />
-                    <p className="text-[10px] text-stone-400 mt-1">Senior end</p>
+                    <p className="text-[10px] text-stone-600 mt-1">Senior end</p>
                   </div>
                 </div>
               </div>
@@ -713,7 +713,7 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
 
             {selectedType !== 'community' && (
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Who can join?</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Who can join?</label>
                 <div className="flex gap-2">
                   {([
                     { value: 'open',   label: 'Anyone'        },
@@ -821,7 +821,7 @@ const Circles: React.FC<CirclesProps> = ({
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-extrabold text-stone-900 tracking-tight">Pods</h1>
-          <p className="text-stone-500 mt-1 text-sm max-w-md">
+          <p className="text-stone-600 mt-1 text-sm max-w-md">
             Small, intentional groups built to create, collaborate, and connect across generations.
           </p>
         </div>
@@ -840,7 +840,7 @@ const Circles: React.FC<CirclesProps> = ({
             <Hexagon size={28} className="text-stone-300" />
           </div>
           <p className="font-bold text-stone-700 text-lg mb-1">No pods yet</p>
-          <p className="text-stone-400 text-sm mb-6 max-w-xs mx-auto">
+          <p className="text-stone-600 text-sm mb-6 max-w-xs mx-auto">
             Start a Community, Innovation, Challenge, or Generational pod.
           </p>
           {onCreateCircle && (
@@ -858,8 +858,8 @@ const Circles: React.FC<CirclesProps> = ({
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <Sparkles size={14} className="text-amber-500" />
-                <h2 className="text-xs font-bold text-stone-500 uppercase tracking-widest">Your pods</h2>
-                <span className="text-xs bg-stone-100 text-stone-500 rounded-full px-2 py-0.5">{myPods.length}</span>
+                <h2 className="text-xs font-bold text-stone-600 uppercase tracking-widest">Your pods</h2>
+                <span className="text-xs bg-stone-100 text-stone-600 rounded-full px-2 py-0.5">{myPods.length}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myPods.map(circle => (
@@ -879,9 +879,9 @@ const Circles: React.FC<CirclesProps> = ({
             <section>
               <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-2">
-                  <Users size={14} className="text-stone-400" />
-                  <h2 className="text-xs font-bold text-stone-500 uppercase tracking-widest">Discover</h2>
-                  <span className="text-xs bg-stone-100 text-stone-500 rounded-full px-2 py-0.5">{filteredOther.length}</span>
+                  <Users size={14} className="text-stone-600" />
+                  <h2 className="text-xs font-bold text-stone-600 uppercase tracking-widest">Discover</h2>
+                  <span className="text-xs bg-stone-100 text-stone-600 rounded-full px-2 py-0.5">{filteredOther.length}</span>
                 </div>
                 <div className="flex items-center gap-1 overflow-x-auto">
                   {FILTER_TABS.map(tab => (
@@ -898,7 +898,7 @@ const Circles: React.FC<CirclesProps> = ({
 
               {/* Recommendation banner — only show when profile has enough data */}
               {profile && profile.confidence !== 'early' && (
-                <p className="text-[11px] text-stone-400 mb-3 flex items-center gap-1">
+                <p className="text-[11px] text-stone-600 mb-3 flex items-center gap-1">
                   <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
                   </svg>
@@ -908,7 +908,7 @@ const Circles: React.FC<CirclesProps> = ({
 
               {filteredOther.length === 0 ? (
                 <div className="text-center py-12 border border-dashed border-stone-200 rounded-2xl">
-                  <p className="text-stone-400 text-sm">No {activeFilter} pods yet</p>
+                  <p className="text-stone-600 text-sm">No {activeFilter} pods yet</p>
                   <button onClick={() => setIsModalOpen(true)} className="mt-3 text-xs font-semibold hover:underline" style={{ color: GREEN }}>
                     Start one →
                   </button>
@@ -926,7 +926,7 @@ const Circles: React.FC<CirclesProps> = ({
                           onApply={() => onApplyToCircle?.(circle.id)} />
                         {/* Recommendation reason — shown only when meaningful */}
                         {reasons.length > 0 && reasons[0] && (
-                          <p className="text-[10px] text-stone-400 px-1 truncate flex items-center gap-1">
+                          <p className="text-[10px] text-stone-600 px-1 truncate flex items-center gap-1">
                             <svg className="w-2.5 h-2.5 flex-shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 8 8">
                               <circle cx="4" cy="4" r="4"/>
                             </svg>

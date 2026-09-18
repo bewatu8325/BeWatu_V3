@@ -80,7 +80,7 @@ function ReelPlayerModal({
 
         {/* Top bar */}
         <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-10">
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white">
+          <button onClick={onClose} aria-label="Close" className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white">
             <X className="w-5 h-5" />
           </button>
           <div className="flex gap-1">
@@ -182,7 +182,7 @@ export default function ProfileReelsStrip({ fbUid, isCurrentUser, onNavigate }: 
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500" />
             <span className="font-semibold text-stone-800 text-sm">Reel Vibes</span>
-            <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full font-medium">
+            <span className="text-xs text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full font-medium">
               {reels.length}
             </span>
           </div>
@@ -205,7 +205,7 @@ export default function ProfileReelsStrip({ fbUid, isCurrentUser, onNavigate }: 
               <Plus className="w-5 h-5" style={{ color: GREEN }} />
             </div>
             <p className="text-sm font-semibold text-stone-600">Share your first Reel Vibe</p>
-            <p className="text-xs text-stone-400">30-second skill showcase</p>
+            <p className="text-xs text-stone-600">30-second skill showcase</p>
           </button>
         ) : (
           /* Horizontal scroll strip */
@@ -250,8 +250,8 @@ export default function ProfileReelsStrip({ fbUid, isCurrentUser, onNavigate }: 
                 className="flex-shrink-0 rounded-xl border-2 border-dashed border-stone-200 hover:border-stone-300 transition-colors flex flex-col items-center justify-center gap-1"
                 style={{ width: 96, height: 160 }}
               >
-                <Plus className="w-5 h-5 text-stone-400" />
-                <span className="text-[10px] text-stone-400 font-medium">Add</span>
+                <Plus className="w-5 h-5 text-stone-600" />
+                <span className="text-[10px] text-stone-600 font-medium">Add</span>
               </button>
             )}
           </div>

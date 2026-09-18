@@ -83,7 +83,7 @@ function SlotPicker({
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
         <div className="col-span-1">
-          <label className="text-xs font-medium text-stone-500 mb-1 block">Date</label>
+          <label className="text-xs font-medium text-stone-600 mb-1 block">Date</label>
           <input
             type="date"
             min={minDate}
@@ -93,7 +93,7 @@ function SlotPicker({
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-stone-500 mb-1 block">Time</label>
+          <label className="text-xs font-medium text-stone-600 mb-1 block">Time</label>
           <input
             type="time"
             value={time}
@@ -102,7 +102,7 @@ function SlotPicker({
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-stone-500 mb-1 block">Duration</label>
+          <label className="text-xs font-medium text-stone-600 mb-1 block">Duration</label>
           <select
             value={duration}
             onChange={e => setDuration(Number(e.target.value))}
@@ -119,7 +119,7 @@ function SlotPicker({
       <button
         onClick={addSlot}
         disabled={!date || !time || slots.length >= 3}
-        className="w-full rounded-lg border border-dashed border-stone-200 py-2 text-xs font-medium text-stone-500 hover:border-[#1a4a3a] hover:text-[#1a6b52] disabled:opacity-40 transition-colors"
+        className="w-full rounded-lg border border-dashed border-stone-200 py-2 text-xs font-medium text-stone-600 hover:border-[#1a4a3a] hover:text-[#1a6b52] disabled:opacity-40 transition-colors"
       >
         + Add slot ({slots.length}/3)
       </button>
@@ -132,9 +132,9 @@ function SlotPicker({
                 <span className="text-xs font-bold text-[#1a6b52] w-4">#{i + 1}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-stone-800">{f.date}</p>
-                  <p className="text-xs text-stone-500">{f.time} · {s.duration} min</p>
+                  <p className="text-xs text-stone-600">{f.time} · {s.duration} min</p>
                 </div>
-                <button onClick={() => removeSlot(s.id)} className="text-stone-500 hover:text-red-400 transition-colors">
+                <button onClick={() => removeSlot(s.id)} className="text-stone-600 hover:text-red-400 transition-colors">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -205,35 +205,35 @@ function ProposeModal({
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-base font-bold text-stone-900">Propose Interview Times</h3>
-            <p className="text-xs text-stone-500 mt-0.5">{candidateName} · {jobTitle}</p>
+            <p className="text-xs text-stone-600 mt-0.5">{candidateName} · {jobTitle}</p>
           </div>
-          <button onClick={onClose} className="text-stone-500 hover:text-stone-800"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-800"><X className="h-5 w-5" /></button>
         </div>
 
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-stone-600">
           Propose up to 3 time slots. The candidate will receive a notification and can pick one — no emails needed.
         </p>
 
         <SlotPicker slots={slots} onChange={setSlots} />
 
         <div>
-          <label className="text-xs font-medium text-stone-500 mb-1 block">Meeting Link (optional)</label>
+          <label className="text-xs font-medium text-stone-600 mb-1 block">Meeting Link (optional)</label>
           <input
             value={meetingLink}
             onChange={e => setMeetingLink(e.target.value)}
             placeholder="https://meet.google.com/..."
-            className="w-full rounded-lg border bg-white px-3 py-2 text-xs text-stone-800 placeholder:text-stone-500 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+            className="w-full rounded-lg border bg-white px-3 py-2 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
           />
         </div>
 
         <div>
-          <label className="text-xs font-medium text-stone-500 mb-1 block">Note to candidate (optional)</label>
+          <label className="text-xs font-medium text-stone-600 mb-1 block">Note to candidate (optional)</label>
           <textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
             rows={2}
             placeholder="e.g. We'll be discussing your approach to system design..."
-            className="w-full resize-none rounded-lg border bg-white  px-3 py-2 text-xs text-stone-800 placeholder:text-stone-500 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+            className="w-full resize-none rounded-lg border bg-white  px-3 py-2 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
           />
         </div>
 
@@ -276,7 +276,7 @@ function InterviewCard({
     pending:   'bg-amber-500/10 border-amber-500/20 text-amber-400',
     confirmed: 'bg-green-500/10 border-green-500/20 text-green-400',
     cancelled: 'bg-red-500/10 border-red-500/20 text-red-400',
-    completed: 'bg-stone-300/10 border-stone-300/20 text-stone-500',
+    completed: 'bg-stone-300/10 border-stone-300/20 text-stone-600',
   };
 
   return (
@@ -287,12 +287,12 @@ function InterviewCard({
             <img src={interview.candidateAvatar} alt="" className="h-9 w-9 rounded-full object-cover shrink-0" />
           ) : (
             <div className="h-9 w-9 rounded-full bg-stone-100 flex items-center justify-center shrink-0">
-              <User className="h-4 w-4 text-stone-500" />
+              <User className="h-4 w-4 text-stone-600" />
             </div>
           )}
           <div className="min-w-0">
             <p className="text-sm font-semibold text-stone-900 truncate">{interview.candidateName}</p>
-            <p className="text-xs text-stone-500 truncate">{interview.jobTitle}</p>
+            <p className="text-xs text-stone-600 truncate">{interview.jobTitle}</p>
           </div>
         </div>
         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${statusColors[interview.status]}`}>
@@ -304,12 +304,12 @@ function InterviewCard({
         <div className="rounded-lg bg-green-500/5 border border-green-500/20 p-3">
           <p className="text-xs font-semibold text-green-400 mb-1">Confirmed time</p>
           <p className="text-sm font-medium text-stone-900">{formatSlot(interview.confirmedSlot.datetime).full}</p>
-          <p className="text-xs text-stone-500">{interview.confirmedSlot.duration} minutes</p>
+          <p className="text-xs text-stone-600">{interview.confirmedSlot.duration} minutes</p>
           {interview.meetingLink && (
             <div className="mt-2 flex items-center gap-2">
               <a href={interview.meetingLink} target="_blank" rel="noreferrer"
                 className="text-xs text-[#1a6b52] hover:underline truncate flex-1">{interview.meetingLink}</a>
-              <button onClick={copyLink} className="shrink-0 text-stone-500 hover:text-[#1a6b52] transition-colors">
+              <button onClick={copyLink} className="shrink-0 text-stone-600 hover:text-[#1a6b52] transition-colors">
                 {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             </div>
@@ -319,14 +319,14 @@ function InterviewCard({
 
       {interview.status === 'pending' && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-stone-500">Proposed slots (awaiting candidate response)</p>
+          <p className="text-xs font-medium text-stone-600">Proposed slots (awaiting candidate response)</p>
           {interview.proposedSlots.map((s, i) => {
             const f = formatSlot(s.datetime);
             return (
               <div key={s.id} className="flex items-center gap-2 rounded-lg bg-stone-100/50 px-3 py-2">
                 <span className="text-xs font-bold text-amber-400 w-4">#{i + 1}</span>
                 <p className="text-xs text-stone-800">{f.date} at {f.time}</p>
-                <span className="text-xs text-stone-500 ml-auto">{s.duration} min</span>
+                <span className="text-xs text-stone-600 ml-auto">{s.duration} min</span>
               </div>
             );
           })}
@@ -334,7 +334,7 @@ function InterviewCard({
       )}
 
       {interview.notes && (
-        <p className="text-xs text-stone-500 italic">"{interview.notes}"</p>
+        <p className="text-xs text-stone-600 italic">"{interview.notes}"</p>
       )}
 
       {interview.status === 'pending' && (
@@ -401,7 +401,7 @@ export function InterviewScheduler({ quickPropose, onClose }: InterviewScheduler
           <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
             <Calendar className="h-5 w-5 text-[#1a6b52]" />Interview Scheduler
           </h1>
-          <p className="mt-0.5 text-sm text-stone-500">Propose times, candidates confirm — no email chains.</p>
+          <p className="mt-0.5 text-sm text-stone-600">Propose times, candidates confirm — no email chains.</p>
         </div>
         <button
           onClick={() => setShowPropose(true)}
@@ -427,11 +427,11 @@ export function InterviewScheduler({ quickPropose, onClose }: InterviewScheduler
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-stone-500" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-stone-600" /></div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-16 text-center">
-          <Calendar className="h-10 w-10 text-stone-400" />
-          <p className="mt-3 text-sm text-stone-500">
+          <Calendar className="h-10 w-10 text-stone-600" />
+          <p className="mt-3 text-sm text-stone-600">
             {interviews.length === 0 ? 'No interviews scheduled yet.' : 'No interviews match this filter.'}
           </p>
         </div>

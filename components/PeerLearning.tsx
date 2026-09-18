@@ -178,7 +178,7 @@ function LessonCard({
               <span style={{ width: 22, height: 22, color: meta.color, flexShrink: 0, marginTop: 2 }}><meta.Icon /></span>
               <div className="min-w-0">
                 <p className="font-bold text-sm text-stone-900 leading-snug">{lesson.linkTitle || lesson.linkUrl}</p>
-                {lesson.linkDescription && <p className="text-xs text-stone-500 mt-1 leading-relaxed">{lesson.linkDescription}</p>}
+                {lesson.linkDescription && <p className="text-xs text-stone-600 mt-1 leading-relaxed">{lesson.linkDescription}</p>}
                 <p className="text-xs mt-1.5 truncate" style={{ color: meta.color }}>{lesson.linkUrl}</p>
               </div>
             </a>
@@ -212,11 +212,11 @@ function LessonCard({
                   >
                     {done && <span style={{ width: 11, height: 11 }}><Ic.Check /></span>}
                   </div>
-                  <p className={`text-sm leading-snug ${done ? 'line-through text-stone-400' : 'text-stone-800'}`}>{step}</p>
+                  <p className={`text-sm leading-snug ${done ? 'line-through text-stone-600' : 'text-stone-800'}`}>{step}</p>
                 </button>
               );
             })}
-            <p className="text-xs text-stone-400 text-right pt-1">
+            <p className="text-xs text-stone-600 text-right pt-1">
               {localSteps.length}/{lesson.steps.length} steps done
             </p>
           </div>
@@ -228,7 +228,7 @@ function LessonCard({
         {author && <Avatar user={author} size={28} />}
         <div>
           <p className="text-xs font-semibold text-stone-800">{author?.name ?? 'Someone'}</p>
-          <p className="text-xs text-stone-400">{timeAgo(lesson.createdAt)}</p>
+          <p className="text-xs text-stone-600">{timeAgo(lesson.createdAt)}</p>
         </div>
       </div>
     </div>
@@ -298,12 +298,12 @@ function LessonPlayer({
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#f5f5f4' }}>
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b flex-shrink-0" style={{ borderColor: '#e7e5e4' }}>
-        <button onClick={onClose} className="rounded-full p-2 hover:bg-stone-100 transition-colors" style={{ width: 36, height: 36 }}>
-          <span style={{ width: 20, height: 20, display: 'block', color: '#78716c' }}><Ic.X /></span>
+        <button onClick={onClose} aria-label="Close" className="rounded-full p-2 hover:bg-stone-100 transition-colors" style={{ width: 36, height: 36 }}>
+          <span style={{ width: 20, height: 20, display: 'block', color: '#57534e' }}><Ic.X /></span>
         </button>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-stone-900 text-sm truncate">{request.skill}</p>
-          <p className="text-xs text-stone-400">{total} lesson{total !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-stone-600">{total} lesson{total !== 1 ? 's' : ''}</p>
         </div>
         {request.status === 'open' && currentUser.id === request.authorId && (
           <button
@@ -353,7 +353,7 @@ function LessonPlayer({
               <span style={{ width: 32, height: 32, color: GREEN }}><Ic.Bulb /></span>
             </div>
             <p className="font-bold text-stone-900 text-lg">No lessons yet</p>
-            <p className="text-stone-500 text-sm max-w-xs">Be the first to share a micro-lesson with the pod!</p>
+            <p className="text-stone-600 text-sm max-w-xs">Be the first to share a micro-lesson with the pod!</p>
             <button
               onClick={onAddLesson}
               className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white hover:opacity-90"
@@ -472,7 +472,7 @@ function AddLessonSheet({
     }
   };
 
-  const inputCls = "w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 focus:outline-none focus:ring-2 placeholder:text-stone-400";
+  const inputCls = "w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 focus:outline-none focus:ring-2 placeholder:text-stone-600";
   const inputFocus = { '--tw-ring-color': GREEN } as any;
 
   return (
@@ -543,7 +543,7 @@ function AddLessonSheet({
               <div className="space-y-2">
                 {steps.map((step, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-stone-400 w-5 text-center">{i + 1}</span>
+                    <span className="text-xs font-bold text-stone-600 w-5 text-center">{i + 1}</span>
                     <input
                       className={`${inputCls} flex-1`}
                       style={inputFocus}
@@ -597,7 +597,7 @@ function NewRequestSheet({ onClose, onSubmit }: {
     finally { setBusy(false); }
   };
 
-  const inputCls = "w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 focus:outline-none focus:ring-2 placeholder:text-stone-400";
+  const inputCls = "w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 focus:outline-none focus:ring-2 placeholder:text-stone-600";
 
   return (
     <div className="fixed inset-0 z-60 flex flex-col justify-end" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
@@ -606,10 +606,10 @@ function NewRequestSheet({ onClose, onSubmit }: {
         <div className="px-5 pb-8 space-y-4">
           <div>
             <h2 className="font-black text-stone-900 text-lg">Post a Learn Request</h2>
-            <p className="text-stone-500 text-sm mt-0.5">Ask pod members to teach you something</p>
+            <p className="text-stone-600 text-sm mt-0.5">Ask pod members to teach you something</p>
           </div>
           <div>
-            <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">What do you want to learn?</label>
+            <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">What do you want to learn?</label>
             <input
               className={inputCls}
               placeholder="e.g. How do I give better design feedback?"
@@ -618,7 +618,7 @@ function NewRequestSheet({ onClose, onSubmit }: {
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-stone-500 uppercase tracking-wider block mb-1.5">Context / goals <span className="font-normal normal-case">(optional)</span></label>
+            <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Context / goals <span className="font-normal normal-case">(optional)</span></label>
             <textarea
               className={inputCls}
               rows={3}
@@ -676,11 +676,11 @@ function LearnRequestCard({
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: GREEN_LT, color: GREEN }}>
                 Wants to learn
               </span>
-              {!done && <span className="text-xs text-stone-400">{timeAgo(req.createdAt)}</span>}
+              {!done && <span className="text-xs text-stone-600">{timeAgo(req.createdAt)}</span>}
             </div>
             <p className="font-black text-stone-900 text-base mt-1 leading-snug">{req.skill}</p>
             {req.context && (
-              <p className="text-stone-500 text-sm mt-1 leading-relaxed line-clamp-2">{req.context}</p>
+              <p className="text-stone-600 text-sm mt-1 leading-relaxed line-clamp-2">{req.context}</p>
             )}
           </div>
         </div>
@@ -695,7 +695,7 @@ function LearnRequestCard({
           >
             <span style={{ width: 14, height: 14, color: GREEN }}><Ic.Book /></span>
             {req.lessonCount === 0 ? 'Be first to teach' : `${req.lessonCount} lesson${req.lessonCount !== 1 ? 's' : ''}`}
-            <span style={{ width: 14, height: 14, color: '#78716c' }}><Ic.ChevR /></span>
+            <span style={{ width: 14, height: 14, color: '#57534e' }}><Ic.ChevR /></span>
           </button>
         </div>
       </div>
@@ -822,7 +822,7 @@ const PeerLearning: React.FC<PeerLearningProps> = ({ circleId, allUsers, current
           ].map(stat => (
             <div key={stat.label} className="rounded-2xl border p-3 text-center" style={{ borderColor: stat.bg, background: stat.bg }}>
               <p className="text-2xl font-black" style={{ color: stat.color }}>{stat.value}</p>
-              <p className="text-xs font-medium text-stone-500 leading-tight mt-0.5">{stat.label}</p>
+              <p className="text-xs font-medium text-stone-600 leading-tight mt-0.5">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -854,7 +854,7 @@ const PeerLearning: React.FC<PeerLearningProps> = ({ circleId, allUsers, current
           <div className="flex flex-col items-center justify-center py-14 text-center gap-3 bg-white rounded-2xl border" style={{ borderColor: '#e7e5e4' }}>
             <span style={{ width: 40, height: 40, color: '#d6d3d1' }}><Ic.Bulb /></span>
             <p className="font-bold text-stone-600">No {filter !== 'all' ? filter : ''} learn requests yet</p>
-            <p className="text-stone-400 text-sm max-w-xs">Pod members can ask each other to share bite-sized lessons on any skill.</p>
+            <p className="text-stone-600 text-sm max-w-xs">Pod members can ask each other to share bite-sized lessons on any skill.</p>
             <button
               onClick={() => setShowNewReq(true)}
               className="mt-1 text-sm font-bold hover:opacity-70"
