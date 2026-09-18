@@ -171,7 +171,7 @@ const SkillsGraphModal: React.FC<Props> = ({
                         )}
                         {name}
                         <button onClick={() => onRemoveUserSkill(name)}
-                          className="ml-0.5 flex-shrink-0 text-stone-600 hover:text-red-500 transition-colors">
+                          className="ml-0.5 flex-shrink-0 text-stone-600 hover:text-red-600 transition-colors">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                           </svg>
@@ -194,7 +194,7 @@ const SkillsGraphModal: React.FC<Props> = ({
                         style={{ backgroundColor: '#fefce8', color: '#713f12', borderColor: '#fbbf24' }}>
                         {name}
                         <button onClick={() => unstage(name)}
-                          className="ml-0.5 flex-shrink-0 text-amber-400 hover:text-red-500 transition-colors">
+                          className="ml-0.5 flex-shrink-0 text-amber-400 hover:text-red-600 transition-colors">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                           </svg>

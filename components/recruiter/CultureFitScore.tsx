@@ -127,7 +127,7 @@ function FitRow({ result, isBlind, idx }: { result: FitResult; isBlind: boolean;
               <p className="text-xs font-medium text-stone-600 mb-1.5">Potential friction</p>
               <div className="flex flex-wrap gap-1.5">
                 {result.mismatches.map(m => (
-                  <span key={m} className="rounded-full bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 text-xs text-red-400">{m}</span>
+                  <span key={m} className="rounded-full bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 text-xs text-red-600">{m}</span>
                 ))}
               </div>
             </div>

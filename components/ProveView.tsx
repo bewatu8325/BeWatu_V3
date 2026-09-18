@@ -364,7 +364,7 @@ function UploadReelModal({
               </div>
               <input ref={inputRef} type="file" accept="video/*" className="hidden"
                 onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
-              {error && <p className="text-xs text-red-500 mt-2 text-center">{error}</p>}
+              {error && <p className="text-xs text-red-600 mt-2 text-center">{error}</p>}
             </div>
           )}
 
@@ -384,7 +384,7 @@ function UploadReelModal({
               {/* Pitch */}
               <div>
                 <label className="block text-xs font-semibold text-stone-600 mb-1.5 uppercase tracking-widest">
-                  Written pitch <span className="text-red-400">*</span>
+                  Written pitch <span className="text-red-600">*</span>
                 </label>
                 <textarea
                   value={pitch}
@@ -400,7 +400,7 @@ function UploadReelModal({
               {/* Skills */}
               <div>
                 <label className="block text-xs font-semibold text-stone-600 mb-1.5 uppercase tracking-widest">
-                  Skill tags <span className="text-red-400">*</span>
+                  Skill tags <span className="text-red-600">*</span>
                 </label>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {skills.map(s => (
@@ -461,7 +461,7 @@ function UploadReelModal({
                 </div>
               </div>
 
-              {error && <p className="text-xs text-red-500">{error}</p>}
+              {error && <p className="text-xs text-red-600">{error}</p>}
 
               <button
                 onClick={handleUpload}

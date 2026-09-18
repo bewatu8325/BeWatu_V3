@@ -268,7 +268,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
 
             <div className="mt-8">
               {isSearching && <div className="text-center py-8"><p>Analyzing candidates...</p></div>}
-              {error && <p className="text-center text-red-400 py-8">{error}</p>}
+              {error && <p className="text-center text-red-600 py-8">{error}</p>}
               {searchResults.length > 0 && (
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold">AI Shortlist</h2>

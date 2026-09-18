@@ -152,7 +152,7 @@ const AIChat: React.FC<AIChatProps> = ({ currentUser }) => {
                  </div>
              </div>
         )}
-        {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+        {error && <p className="text-red-600 text-sm text-center">{error}</p>}
         <div ref={messagesEndRef} />
       </div>
 

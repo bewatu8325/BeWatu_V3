@@ -60,7 +60,7 @@ function FunnelBar({ stage, maxCount, isBlind }: { stage: StageStats; maxCount: 
           <Clock className="h-3 w-3" />{stage.avgDaysInStage.toFixed(1)}d avg
         </span>
         {stage.dropOffRate > 0 && (
-          <span className="text-red-400">-{stage.dropOffRate}%</span>
+          <span className="text-red-600">-{stage.dropOffRate}%</span>
         )}
       </div>
     </div>
@@ -132,7 +132,7 @@ export function PipelineAnalytics() {
   );
 
   if (error) return (
-    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center text-sm text-red-400">{error}</div>
+    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center text-sm text-red-600">{error}</div>
   );
 
   if (!data || data.totalApplications === 0) return (

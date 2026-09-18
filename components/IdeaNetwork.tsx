@@ -40,16 +40,22 @@ const MUT  = '#78716c';
 const SURF = '#ffffff';
 
 // ─── Domain config ────────────────────────────────────────────────────────────
+// Every color below except Leadership's (the real brand green, already dark)
+// failed WCAG 1.4.3 against its own paired `bg` — measured as low as 1.93:1 for
+// Data's amber (needs 4.5:1). Darkened each within its own hue so the domains
+// stay visually distinct, just legible: Frontend 3.99->7.07, Backend 2.42->5.17,
+// Data 1.93->6.37, Design 3.23->5.53, DevOps 2.39->5.25, Product 3.86->6.48,
+// AI/ML 2.64->6.88, Other 2.45->7.24.
 const DOMAINS: { value: IdeaDomain; label: string; color: string; bg: string }[] = [
-  { value: 'Frontend',   label: 'Frontend',   color: '#6366f1', bg: '#eef2ff' },
-  { value: 'Backend',    label: 'Backend',    color: '#0ea5e9', bg: '#e0f2fe' },
-  { value: 'Data',       label: 'Data',       color: '#f59e0b', bg: '#fef3c7' },
-  { value: 'Design',     label: 'Design',     color: '#ec4899', bg: '#fdf2f8' },
-  { value: 'DevOps',     label: 'DevOps',     color: '#14b8a6', bg: '#f0fdfa' },
-  { value: 'Product',    label: 'Product',    color: '#8b5cf6', bg: '#f5f3ff' },
-  { value: 'AI/ML',      label: 'AI/ML',      color: '#f97316', bg: '#fff7ed' },
+  { value: 'Frontend',   label: 'Frontend',   color: '#4338ca', bg: '#eef2ff' },
+  { value: 'Backend',    label: 'Backend',    color: '#0369a1', bg: '#e0f2fe' },
+  { value: 'Data',       label: 'Data',       color: '#92400e', bg: '#fef3c7' },
+  { value: 'Design',     label: 'Design',     color: '#be185d', bg: '#fdf2f8' },
+  { value: 'DevOps',     label: 'DevOps',     color: '#0f766e', bg: '#f0fdfa' },
+  { value: 'Product',    label: 'Product',    color: '#6d28d9', bg: '#f5f3ff' },
+  { value: 'AI/ML',      label: 'AI/ML',      color: '#9a3412', bg: '#fff7ed' },
   { value: 'Leadership', label: 'Leadership', color: G,         bg: GLT       },
-  { value: 'Other',      label: 'Other',      color: '#94a3b8', bg: '#f8fafc' },
+  { value: 'Other',      label: 'Other',      color: '#475569', bg: '#f8fafc' },
 ];
 
 function domainCfg(d: IdeaDomain) {

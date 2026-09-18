@@ -260,7 +260,7 @@ const RecordTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: s
     <div className="flex flex-col gap-4">
       <div className="relative aspect-video rounded-xl overflow-hidden bg-stone-100">
         {permission === 'denied' && (
-          <div className="flex h-full items-center justify-center text-sm text-red-500 px-6 text-center">
+          <div className="flex h-full items-center justify-center text-sm text-red-600 px-6 text-center">
             Camera access denied. Enable it in your browser settings and reload.
           </div>
         )}
@@ -315,7 +315,7 @@ const RecordTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: s
       {status === 'uploading' && <UploadProgress pct={uploadPct} />}
 
       {error && (
-        <div className="text-sm text-red-500 text-center">{error}</div>
+        <div className="text-sm text-red-600 text-center">{error}</div>
       )}
 
       <div className="flex items-center justify-center gap-3 pt-1">

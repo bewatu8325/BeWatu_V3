@@ -240,7 +240,7 @@ function PoolCard({
             )}
             <div className="flex-1" />
             <button onClick={onRemove}
-              className="flex items-center gap-1.5 rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors">
+              className="flex items-center gap-1.5 rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-600 hover:bg-red-500/10 transition-colors">
               <Trash2 className="h-3 w-3" />Remove
             </button>
           </div>

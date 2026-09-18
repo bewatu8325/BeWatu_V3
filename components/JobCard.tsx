@@ -44,7 +44,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, company, onViewCompany, onAnalyz
                   <div style={{ position: 'absolute', right: 0, top: '110%', background: '#fff', border: '1px solid #e7e5e4', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.1)', zIndex: 50, minWidth: 160, overflow: 'hidden' }}>
                     <button
                       onClick={() => { setMenuOpen(false); onReportJob(String(job.id), job.title); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#ef4444', fontWeight: 600, fontFamily: 'inherit' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#dc2626', fontWeight: 600, fontFamily: 'inherit' }}
                       onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                     >

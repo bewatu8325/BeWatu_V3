@@ -207,11 +207,11 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
             onChange={val => setFilters(f => ({ ...f, company: val }))}
             allCompanies={allCompanies as any}
           />
-          <select name="industry" value={filters.industry} onChange={handleFilterChange} className={inputStyles}>
+          <select name="industry" aria-label="Filter by industry" value={filters.industry} onChange={handleFilterChange} className={inputStyles}>
             <option value="">All Industries</option>
             {industries.map(industry => <option key={industry} value={industry}>{industry}</option>)}
           </select>
-          <select name="experienceLevel" value={filters.experienceLevel} onChange={handleFilterChange} className={inputStyles}>
+          <select name="experienceLevel" aria-label="Filter by experience level" value={filters.experienceLevel} onChange={handleFilterChange} className={inputStyles}>
             <option value="">All Experience Levels</option>
             <option value="Entry-level">Entry-level</option>
             <option value="Mid-level">Mid-level</option>

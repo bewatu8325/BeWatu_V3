@@ -227,7 +227,7 @@ export const CreateWisdomThread: React.FC<{
     <div>
       <div className="flex items-baseline gap-2 mb-1.5">
         <label className="text-xs font-bold text-stone-600 uppercase tracking-widest">{label}</label>
-        {required && <span className="text-xs text-red-400">required</span>}
+        {required && <span className="text-xs text-red-600">required</span>}
         {hint && <span className="text-xs text-stone-600 normal-case">{hint}</span>}
       </div>
       <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows}
@@ -268,7 +268,7 @@ export const CreateWisdomThread: React.FC<{
       <div>
         <div className="flex items-baseline gap-2 mb-1.5">
           <label className="text-xs font-bold text-stone-600 uppercase tracking-widest">The lesson in one sentence</label>
-          <span className="text-xs text-red-400">required</span>
+          <span className="text-xs text-red-600">required</span>
         </div>
         <input type="text" value={headline} onChange={e => setHeadline(e.target.value)}
           className="w-full px-3.5 py-2.5 rounded-xl border text-sm text-stone-900 focus:outline-none"
@@ -298,7 +298,7 @@ export const CreateWisdomThread: React.FC<{
             {tags.map(t => (
               <span key={t} className="flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                 #{t}
-                <button onClick={() => setTags(ts => ts.filter(x => x !== t))} className="text-stone-600 hover:text-red-400 ml-0.5">×</button>
+                <button onClick={() => setTags(ts => ts.filter(x => x !== t))} className="text-stone-600 hover:text-red-600 ml-0.5">×</button>
               </span>
             ))}
           </div>

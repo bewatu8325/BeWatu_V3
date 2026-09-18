@@ -381,7 +381,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
     <header className="fixed top-0 right-0 left-0 z-50 border-b bg-white/95 backdrop-blur-sm" style={{ borderColor: "#e7e5e4" }}>
       <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center gap-2 sm:gap-4 px-3 sm:px-4">
         {/* Logo */}
-        <button onClick={() => onNavigate(View.Feed)} className="flex items-center shrink-0">
+        <button onClick={() => onNavigate(View.Feed)} aria-label="Go to feed" className="flex items-center shrink-0">
           <LogoIcon className="h-8 sm:h-10 w-auto" style={{ color: "#1a4a3a" }} />
         </button>
 
@@ -430,6 +430,8 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setNotifOpen(o => !o)}
+            aria-label={notificationCount > 0 ? `Notifications (${notificationCount} unread)` : 'Notifications'}
+            aria-expanded={notifOpen}
             className="relative flex h-9 w-9 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 hover:text-stone-800 transition-colors"
           >
             <Bell className="h-5 w-5" />
@@ -518,7 +520,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
               </button>
               <div className="my-1 h-px bg-stone-100" />
               <button onClick={() => { setMenuOpen(false); onLogout(); }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 transition-colors">
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-900/20 transition-colors">
                 <LogOut className="h-4 w-4" />Sign out
               </button>
             </div>

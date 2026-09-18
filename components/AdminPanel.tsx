@@ -161,7 +161,7 @@ function ConfirmModal({
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
         <div className="flex items-start gap-3">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${danger ? 'bg-red-50' : 'bg-amber-50'}`}>
-            <AlertTriangle className={`w-5 h-5 ${danger ? 'text-red-500' : 'text-amber-500'}`} />
+            <AlertTriangle className={`w-5 h-5 ${danger ? 'text-red-600' : 'text-amber-500'}`} />
           </div>
           <div>
             <h3 className="font-black text-stone-900">{title}</h3>
@@ -628,7 +628,7 @@ function CompanyDetail({
 
           {/* Danger zone */}
           <div className="rounded-2xl border border-red-200 bg-red-50 p-5 space-y-3">
-            <p className="text-xs font-black text-red-500 uppercase tracking-wider">Danger zone</p>
+            <p className="text-xs font-black text-red-600 uppercase tracking-wider">Danger zone</p>
             <button onClick={() => setModal('delete')}
               className="flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-black text-red-600 hover:bg-red-50 transition-colors">
               <Trash2 className="w-4 h-4" /> Delete company permanently
@@ -703,7 +703,7 @@ function CompanyDetail({
                       )}
                       {!isAdmin && (
                         <button onClick={() => handleRevokeRecruiter(uid, u?.name ?? uid)}
-                          className="text-stone-300 hover:text-red-500 transition-colors p-1" title="Revoke access">
+                          className="text-stone-300 hover:text-red-600 transition-colors p-1" title="Revoke access">
                           <UserX className="w-4 h-4" />
                         </button>
                       )}

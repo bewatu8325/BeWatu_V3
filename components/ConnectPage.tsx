@@ -105,7 +105,7 @@ const ConnectPage: React.FC<{
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 {error && (
-                  <p className="text-xs text-red-500 text-center bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                  <p className="text-xs text-red-600 text-center bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
                     {error}
                   </p>
                 )}

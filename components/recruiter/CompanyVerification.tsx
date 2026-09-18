@@ -117,7 +117,7 @@ function DeleteModal({ companyName, onConfirm, onCancel, loading }: {
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
+            <AlertTriangle className="w-5 h-5 text-red-600" />
           </div>
           <div>
             <h3 className="font-black text-stone-900">Delete company</h3>
@@ -684,7 +684,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                       <p className="text-xs text-stone-600">{uid === company.adminUid ? 'Admin' : ''}{uid === fbUser?.uid ? (uid === company.adminUid ? ' · You' : 'You') : ''}</p>
                     </div>
                     {isAdmin && uid !== fbUser?.uid && (
-                      <button onClick={() => handleRemove(uid)} className="text-stone-300 hover:text-red-500 transition-colors p-1"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => handleRemove(uid)} className="text-stone-300 hover:text-red-600 transition-colors p-1"><Trash2 className="h-4 w-4" /></button>
                     )}
                   </div>
                 ))}
@@ -710,7 +710,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
             {/* Danger zone */}
             {isAdmin && (
               <div className="rounded-2xl border border-red-200 bg-red-50 p-5 space-y-3">
-                <p className="text-xs font-black text-red-500 uppercase tracking-wider">Danger zone</p>
+                <p className="text-xs font-black text-red-600 uppercase tracking-wider">Danger zone</p>
                 <p className="text-xs text-red-600 leading-relaxed">Deleting your company permanently removes it from BeWatu and hides all associated job listings. This cannot be undone.</p>
                 <button onClick={() => setShowDelete(true)}
                   className="flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-black text-red-600 hover:bg-red-50 transition-colors">

@@ -53,7 +53,7 @@ export default function AccountDeletionModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center">
-              <Trash2 size={15} className="text-red-500" />
+              <Trash2 size={15} className="text-red-600" />
             </div>
             <h2 className="text-sm font-semibold text-stone-900">Delete account</h2>
           </div>
@@ -68,7 +68,7 @@ export default function AccountDeletionModal({
         {step === 'warning' && (
           <div className="p-6 space-y-4">
             <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-100">
-              <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <AlertTriangle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-red-700">This action is irreversible</p>
                 <p className="text-xs text-red-600 leading-relaxed">
@@ -89,7 +89,7 @@ export default function AccountDeletionModal({
                   'Your subscription (no refund for remaining period)',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2">
-                    <span className="text-red-400 mt-0.5 flex-shrink-0">×</span>
+                    <span className="text-red-600 mt-0.5 flex-shrink-0">×</span>
                     {item}
                   </li>
                 ))}
@@ -151,7 +151,7 @@ export default function AccountDeletionModal({
             />
 
             {error && (
-              <p className="text-xs text-red-500">{error}</p>
+              <p className="text-xs text-red-600">{error}</p>
             )}
 
             <div className="flex gap-2">

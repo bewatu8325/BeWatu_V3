@@ -83,7 +83,7 @@ const InflectionPoint: React.FC<{
           </div>
           {isOwn && onDelete && (
             <button onClick={() => onDelete(point.id)}
-              className="text-stone-300 hover:text-red-400 transition-colors flex-shrink-0">
+              className="text-stone-300 hover:text-red-600 transition-colors flex-shrink-0">
               <X size={13} />
             </button>
           )}
@@ -218,7 +218,7 @@ const AddInflectionForm: React.FC<{
               <span key={s} className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                 {s}
                 <button onClick={() => setSkills(ss => ss.filter(x => x !== s))}
-                  className="text-stone-300 hover:text-red-400 ml-0.5">×</button>
+                  className="text-stone-300 hover:text-red-600 ml-0.5">×</button>
               </span>
             ))}
           </div>

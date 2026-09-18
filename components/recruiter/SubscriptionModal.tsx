@@ -117,7 +117,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
         </div>
 
         {errorMessage && (
-          <p className="text-red-400 text-sm mb-4">{errorMessage}</p>
+          <p className="text-red-600 text-sm mb-4">{errorMessage}</p>
         )}
 
         <button

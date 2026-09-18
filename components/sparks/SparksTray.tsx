@@ -40,7 +40,7 @@ const FlameBadge: React.FC<{ active?: boolean }> = ({ active = true }) => (
       {/* Main flame body with secondary left-shoulder tip */}
       <path
         d="M4.5 0.4 C5.3 1.8 7.5 3.2 8 5.5 C8.5 7.8 7.2 9.8 5.8 10.8 C5.2 11.2 4.9 11.4 4.5 11.4 C4.1 11.4 3.8 11.2 3.2 10.8 C1.8 9.8 0.5 7.8 1 5.5 C1.5 3.2 3.7 1.8 4.5 0.4 Z M2.2 3.2 C2.2 4.6 1.2 5.5 0.8 7 C1.8 6 3 5 3.4 3.6 Z"
-        fill={active ? '#f59e0b' : '#a8a29e'}
+        fill={active ? '#f59e0b' : '#57534e'}
       />
     </svg>
   </div>

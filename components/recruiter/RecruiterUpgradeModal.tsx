@@ -180,7 +180,7 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
               <div>
                 <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Work email *</label>
                 <input type="email" value={workEmail} onChange={e => setWorkEmail(e.target.value)} className={inp} style={{ borderColor: emailValid ? GREEN : "#e7e5e4" }} placeholder="you@yourcompany.com" />
-                {workEmail && isPersonalEmail(workEmail) && <p className="flex items-center gap-1.5 text-xs text-red-500 mt-1.5"><AlertCircle size={12} /> Personal email not accepted.</p>}
+                {workEmail && isPersonalEmail(workEmail) && <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5"><AlertCircle size={12} /> Personal email not accepted.</p>}
                 {emailValid && <p className="flex items-center gap-1.5 text-xs mt-1.5" style={{ color: GREEN }}><CheckCircle size={12} /> Company domain: <strong>@{emailDomain}</strong></p>}
               </div>
               <div><label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Company name *</label><input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className={inp} style={{ borderColor: "#e7e5e4" }} placeholder="e.g. Acme Corp" /></div>
@@ -189,7 +189,7 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
                 <Shield size={13} className="mt-0.5 flex-shrink-0" />
                 <p>We'll send a 6-digit code to your work email to verify your company domain.</p>
               </div>
-              {error && <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
+              {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
               <button onClick={handleSendOtp} disabled={!emailValid || !companyName.trim() || !role.trim() || loading}
                 className="w-full py-3 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-40 transition-opacity" style={{ backgroundColor: GREEN }}>
                 {loading ? "Sending…" : <><Mail size={15} /> Send verification code</>}
@@ -206,7 +206,7 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
                   className="w-full px-3.5 py-3 rounded-xl border text-center text-2xl font-bold focus:outline-none" autoFocus
                   style={{ borderColor: otp.length===6?GREEN:"#e7e5e4", letterSpacing:"0.5em" }} placeholder="——————" />
               </div>
-              {error && <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
+              {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
               <button onClick={handleVerifyOtp} disabled={otp.length!==6||loading}
                 className="w-full py-3 rounded-xl font-bold text-white text-sm hover:opacity-90 disabled:opacity-40 transition-opacity" style={{ backgroundColor: GREEN }}>
                 {loading ? "Verifying…" : "Verify & continue"}
@@ -253,7 +253,7 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
                 <Clock size={13} className="mt-0.5 flex-shrink-0 text-stone-600" />
                 <p>Your application will be reviewed by the BeWatu ops team within <strong>1–2 business days</strong>.</p>
               </div>
-              {error && <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
+              {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
               <button onClick={handleSubmitForApproval} disabled={!rulesAccepted||!noAgencyDeclared||loading}
                 className="w-full py-3 rounded-xl font-bold text-white text-sm hover:opacity-90 disabled:opacity-40 transition-opacity" style={{ backgroundColor: GREEN }}>
                 {loading ? "Submitting…" : "Submit for approval"}

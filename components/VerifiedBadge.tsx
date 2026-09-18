@@ -211,7 +211,7 @@ export function UnverifiedWarningBanner({
   if (status === 'rejected') return (
     <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
       <div className="flex items-start gap-3">
-        <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+        <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
         <div className="flex-1">
           <p className="font-bold text-red-800 text-sm">Verification not approved</p>
           {rejectionReason && (

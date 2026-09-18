@@ -643,7 +643,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
         onLeaveCircle && (
             <button
               onClick={() => onLeaveCircle(circle.id)}
-              className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors font-medium">
+              className="text-xs text-red-600 hover:text-red-600 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors font-medium">
               Leave pod
             </button>
           )}
@@ -821,7 +821,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                                 </div>
                             </button>
                             {isCurrentUserAdmin && currentUser.id !== member.id && (
-                                <button onClick={() => onRemoveMember(circle.id, member.id)} className="text-xs text-red-400 hover:underline px-2">Remove</button>
+                                <button onClick={() => onRemoveMember(circle.id, member.id)} className="text-xs text-red-600 hover:underline px-2">Remove</button>
                             )}
                         </div>
                     ))}

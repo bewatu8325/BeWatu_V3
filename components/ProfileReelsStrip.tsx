@@ -126,7 +126,7 @@ function ReelPlayerModal({
         <div className="absolute right-3 bottom-24 flex flex-col items-center gap-5 z-10">
           <button onClick={(e) => { e.stopPropagation(); handleLike(); }} className="flex flex-col items-center gap-1">
             <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: liked ? 'rgba(239,68,68,0.3)' : 'rgba(0,0,0,0.4)' }}>
-              <Heart className={`w-5 h-5 ${liked ? 'text-red-400 fill-red-400' : 'text-white'}`} />
+              <Heart className={`w-5 h-5 ${liked ? 'text-red-600 fill-red-400' : 'text-white'}`} />
             </div>
             <span className="text-white text-xs font-bold">{likeCount}</span>
           </button>

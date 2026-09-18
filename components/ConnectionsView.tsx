@@ -263,7 +263,7 @@ function PendingTab({
                     </div>
                   )}
                   {expired && (
-                    <p className="text-xs text-center text-red-500 font-medium">Request expired</p>
+                    <p className="text-xs text-center text-red-600 font-medium">Request expired</p>
                   )}
 
                   {/* Actions */}

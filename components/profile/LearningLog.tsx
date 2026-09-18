@@ -174,7 +174,7 @@ const LearningLog: React.FC<Props> = ({ profileUid, isOwn }) => {
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-[11px] font-medium text-stone-600">{timeAgo(entry.createdMs)}</span>
                 {isOwn && (
-                  <button onClick={() => handleDelete(entry.id)} className="text-stone-300 hover:text-red-500">
+                  <button onClick={() => handleDelete(entry.id)} className="text-stone-300 hover:text-red-600">
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
                 )}
