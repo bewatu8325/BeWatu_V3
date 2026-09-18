@@ -11,8 +11,9 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Shield, FileText, Users, AlertTriangle, ExternalLink, Check } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 export const TERMS_VERSION = '1.0';
 
@@ -55,6 +56,10 @@ export default function TermsConsentModal({
   const [agreed,   setAgreed]   = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // No dismiss action -- this is a mandatory consent screen, not
+  // Escape-closeable by design. Still needs initial focus + a Tab trap.
+  useModalA11y(dialogRef, null);
 
   async function handleAgree() {
     if (!agreed || saving) return;
@@ -69,7 +74,13 @@ export default function TermsConsentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Terms and privacy agreement"
+        tabIndex={-1}
+        className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
 
         {/* Header */}
         <div className="px-7 pt-7 pb-5" style={{ background: `linear-gradient(135deg, ${GREEN} 0%, #2d7a5e 100%)` }}>
