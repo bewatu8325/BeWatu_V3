@@ -1193,6 +1193,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Same reasoning: api/cron/healthcheck.ts's uptime-alert cooldown state
+    // (P2, uptime monitoring) — server-side only via Admin SDK.
+    match /_ops_internal/{docId} {
+      allow read, write: if false;
+    }
+
     // api/cosentiment-teaser.ts's per-domain cache (launch-readiness
     // review). This collection previously had NO rule at all here — which
     // meant every read/write from that endpoint's old plain-REST-with-
