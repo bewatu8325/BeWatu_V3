@@ -483,10 +483,6 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
           </div>
         )}
       </div>
-      <style>{`
-        @keyframes bwReportIn { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
-        @keyframes bwSpin { to { transform:rotate(360deg) } }
-      `}</style>
     </div>
   );
 };

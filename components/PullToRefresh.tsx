@@ -141,9 +141,6 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, children, clas
       )}
 
       {children}
-
-      {/* Keyframe for spinner — injected once */}
-      <style>{`@keyframes ptr-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };

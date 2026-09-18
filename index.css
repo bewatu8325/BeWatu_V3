@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bw-green:       #1a4a3a;
+  --bw-green-mid:   #1a6b52;
+  --bw-green-light: #e8f4f0;
+  --bw-bg:          #f5f5f4;
+  --bw-surface:     #ffffff;
+  --bw-border:      #e7e5e4;
+  --bw-text:        #1c1917;
+  --bw-muted:       #78716c;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { height: -webkit-fill-available; }
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bw-bg);
+  color: var(--bw-text);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+#root { min-height: 100vh; display: flex; flex-direction: column; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 3px; }
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fade-in-up 0.4s ease-out forwards; }
+.pb-safe { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Moved from components/PullToRefresh.tsx's inline <style> — a real <style>
+   element needs 'unsafe-inline' in the CSP style-src; a bundled stylesheet
+   doesn't. */
+@keyframes ptr-spin { to { transform: rotate(360deg); } }
+
+/* Moved from components/ReportModal.tsx's inline <style>, same reason. */
+@keyframes bwReportIn { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+@keyframes bwSpin { to { transform:rotate(360deg) } }
