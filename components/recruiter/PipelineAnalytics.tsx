@@ -56,7 +56,7 @@ function FunnelBar({ stage, maxCount, isBlind }: { stage: StageStats; maxCount: 
         </span>
       </div>
       <div className="w-28 shrink-0 flex gap-2 text-xs">
-        <span className="flex items-center gap-0.5 text-stone-500">
+        <span className="flex items-center gap-0.5 text-stone-600">
           <Clock className="h-3 w-3" />{stage.avgDaysInStage.toFixed(1)}d avg
         </span>
         {stage.dropOffRate > 0 && (
@@ -80,7 +80,7 @@ function SourceCard({ source }: { source: SourceStats }) {
       </div>
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs">
-          <span className="text-stone-500">Advanced</span>
+          <span className="text-stone-600">Advanced</span>
           <span className="text-stone-800 font-medium">{source.advancedCount}</span>
         </div>
         <div className="h-1.5 rounded-full bg-stone-100 overflow-hidden">
@@ -90,7 +90,7 @@ function SourceCard({ source }: { source: SourceStats }) {
           />
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-stone-500">Conversion</span>
+          <span className="text-stone-600">Conversion</span>
           <span className="font-bold text-[#1a6b52]">{source.conversionRate}%</span>
         </div>
       </div>
@@ -103,9 +103,9 @@ function SourceCard({ source }: { source: SourceStats }) {
 function StatTile({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
   return (
     <div className="rounded-xl border bg-white  p-4" style={{ borderColor:"#e7e5e4" }}>
-      <p className="text-xs font-medium text-stone-500 mb-1">{label}</p>
+      <p className="text-xs font-medium text-stone-600 mb-1">{label}</p>
       <p className={`text-2xl font-bold ${accent ?? 'text-stone-900'}`}>{value}</p>
-      {sub && <p className="text-xs text-stone-500 mt-0.5">{sub}</p>}
+      {sub && <p className="text-xs text-stone-600 mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -128,7 +128,7 @@ export function PipelineAnalytics() {
   }, [fbUser]);
 
   if (loading) return (
-    <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-stone-500" /></div>
+    <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-stone-600" /></div>
   );
 
   if (error) return (
@@ -137,9 +137,9 @@ export function PipelineAnalytics() {
 
   if (!data || data.totalApplications === 0) return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 py-20 text-center">
-      <BarChart3 className="h-10 w-10 text-stone-400" />
-      <p className="mt-3 text-sm text-stone-500">No pipeline data yet.</p>
-      <p className="text-xs text-stone-500 mt-1">Analytics will appear once candidates start applying.</p>
+      <BarChart3 className="h-10 w-10 text-stone-600" />
+      <p className="mt-3 text-sm text-stone-600">No pipeline data yet.</p>
+      <p className="text-xs text-stone-600 mt-1">Analytics will appear once candidates start applying.</p>
     </div>
   );
 
@@ -151,7 +151,7 @@ export function PipelineAnalytics() {
         <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
           <BarChart3 className="h-5 w-5 text-[#1a6b52]" />Pipeline Analytics
         </h1>
-        <p className="mt-0.5 text-sm text-stone-500">Time-in-stage, drop-off rates, and source effectiveness.</p>
+        <p className="mt-0.5 text-sm text-stone-600">Time-in-stage, drop-off rates, and source effectiveness.</p>
       </div>
 
       {/* KPI tiles */}
@@ -195,9 +195,9 @@ export function PipelineAnalytics() {
           <div className="space-y-2">
             {data.recentActivity.slice(0, 8).map((a, i) => (
               <div key={i} className="flex items-center gap-3 text-xs">
-                <span className="w-20 shrink-0 text-stone-500">{new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span className="w-20 shrink-0 text-stone-600">{new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                 <span className="flex-1 text-stone-700">{a.event}</span>
-                <span className="text-stone-500 truncate max-w-[120px]">{a.candidateName}</span>
+                <span className="text-stone-600 truncate max-w-[120px]">{a.candidateName}</span>
               </div>
             ))}
           </div>

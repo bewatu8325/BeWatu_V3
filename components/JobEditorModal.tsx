@@ -175,14 +175,14 @@ const JobEditorModal: React.FC<JobEditorModalProps> = ({ job, companies, recruit
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-sm font-bold text-purple-300">Prove Challenge (Optional)</p>
-                                    <p className="text-xs text-stone-500 mt-0.5">
+                                    <p className="text-xs text-stone-600 mt-0.5">
                                         Attach a challenge — applicants complete it before being considered. You'll see ranked results, not just CVs.
                                     </p>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="text-xs font-medium text-stone-500 mb-1 block">Select Challenge</label>
+                                <label className="text-xs font-medium text-stone-600 mb-1 block">Select Challenge</label>
                                 <select
                                     value={linkedChallengeId}
                                     onChange={e => setLinkedChallengeId(e.target.value)}
@@ -228,7 +228,7 @@ const JobEditorModal: React.FC<JobEditorModalProps> = ({ job, companies, recruit
                         {/* ── End Prove Challenge ───────────────────────────────────── */}
                     </div>
                     <div className="p-4 border-t border-stone-200 flex justify-end space-x-2">
-                        <button type="button" onClick={onClose} className="bg-stone-200 text-stone-800 font-semibold px-4 py-2 rounded-lg hover:bg-stone-300 transition-colors">{t('cancel')}</button>
+                        <button type="button" onClick={onClose} aria-label="Close" className="bg-stone-200 text-stone-800 font-semibold px-4 py-2 rounded-lg hover:bg-stone-300 transition-colors">{t('cancel')}</button>
                         <button type="submit" className="bg-[#1a4a3a] text-white font-semibold px-6 py-2 rounded-lg hover:bg-[#163d30] transition-colors">{t('saveJob')}</button>
                     </div>
                 </form>

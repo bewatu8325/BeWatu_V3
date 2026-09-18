@@ -109,8 +109,8 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
 
         {/* Close button */}
         <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition-colors"
+          onClick={onClose} aria-label="Close"
+          className="absolute top-4 right-4 text-stone-600 hover:text-stone-600 transition-colors"
         >
           <X className="h-5 w-5" />
         </button>
@@ -124,7 +124,7 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
             <h2 className="text-2xl font-bold text-stone-900 mb-2">
               {tier === 'factory' ? '🏭 Factory Unlocked!' : `Welcome to ${config.label}!`}
             </h2>
-            <p className="text-stone-500 text-sm">
+            <p className="text-stone-600 text-sm">
               Your {config.label} plan is now active.
               {tier === 'factory' && ' Your startup workspace is ready.'}
             </p>
@@ -151,13 +151,13 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
             <h2 className="text-xl font-bold text-stone-900 mb-1">
               {tier === 'factory' ? 'Unlock Factory' : `Upgrade to ${config.label}`}
             </h2>
-            <p className="text-stone-500 text-sm mb-6">
+            <p className="text-stone-600 text-sm mb-6">
               ${config.price}/month — {tier === 'pro' ? '30' : '14'}-day free trial, cancel anytime
             </p>
 
             {/* Feature summary */}
             <div className="bg-stone-50 rounded-xl p-4 mb-6">
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">
+              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-3">
                 What you get
               </p>
               <ul className="space-y-2">
@@ -168,7 +168,7 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
                   </li>
                 ))}
                 {config.features.length > 5 && (
-                  <li className="text-xs text-stone-400">
+                  <li className="text-xs text-stone-600">
                     + {config.features.length - 5} more features
                   </li>
                 )}
@@ -177,7 +177,7 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
 
             {/* Payment form */}
             <div className="mb-6">
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">
+              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-3">
                 Payment details
               </p>
               <PaymentForm onReady={handleStripeReady} disabled={step === 'processing'} />
@@ -200,7 +200,7 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
             </button>
 
             {/* Trust badge */}
-            <div className="flex items-center justify-center gap-1.5 mt-4 text-xs text-stone-400">
+            <div className="flex items-center justify-center gap-1.5 mt-4 text-xs text-stone-600">
               <Shield className="h-3.5 w-3.5" />
               Secured by Stripe. Cancel anytime.
             </div>

@@ -248,7 +248,7 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500" />
             <span className="text-sm font-bold text-stone-800">Reel Vibes</span>
-            <span className="text-xs text-stone-400">· from your network</span>
+            <span className="text-xs text-stone-600">· from your network</span>
           </div>
 
         </div>
@@ -261,7 +261,7 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
                 {currentUser.avatarUrl ? (
                   <img src={currentUser.avatarUrl} alt="" className="w-full h-full object-cover opacity-60" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-stone-400 font-bold text-lg">
+                  <div className="w-full h-full flex items-center justify-center text-stone-600 font-bold text-lg">
                     {currentUser.name[0]}
                   </div>
                 )}
@@ -269,7 +269,7 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
                   <Plus className="w-3 h-3 text-white" />
                 </div>
               </div>
-              <span className="text-[10px] text-stone-500 font-medium w-16 text-center truncate">Your Reel</span>
+              <span className="text-[10px] text-stone-600 font-medium w-16 text-center truncate">Your Reel</span>
             </button>
           )}
 
@@ -307,7 +307,7 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
           })}
 
           {uniqueReels.length === 0 && (
-            <p className="text-sm text-stone-400 py-1">No reels from your network yet — be the first!</p>
+            <p className="text-sm text-stone-600 py-1">No reels from your network yet — be the first!</p>
           )}
         </div>
       </div>

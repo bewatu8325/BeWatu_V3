@@ -95,7 +95,7 @@ const DataRequestModal: React.FC<DataRequestModalProps> = ({
         <div className="px-6 pt-6 pb-4 border-b" style={{ borderColor: '#f5f5f4' }}>
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-stone-900">Download my data</h2>
-            <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
+            <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600 transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -145,7 +145,7 @@ const DataRequestModal: React.FC<DataRequestModalProps> = ({
                 <p>📧 <strong className="text-stone-800">Delivery:</strong> Download link sent to {userEmail}</p>
                 <p>⏱️ <strong className="text-stone-800">Link expires:</strong> 7 days after delivery</p>
               </div>
-              <p className="text-xs text-stone-400">
+              <p className="text-xs text-stone-600">
                 This request is processed by the BeWatu Trust & Safety team in accordance with our Privacy Policy and applicable data protection regulations.
               </p>
               <button
@@ -167,12 +167,12 @@ const DataRequestModal: React.FC<DataRequestModalProps> = ({
                   </svg>
                 </div>
                 <h3 className="font-bold text-stone-900">Confirm your identity</h3>
-                <p className="text-sm text-stone-500 mt-1">
+                <p className="text-sm text-stone-600 mt-1">
                   For your security, please enter your password before we process this request.
                 </p>
               </div>
               <div>
-                <label className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Password</label>
+                <label className="text-xs font-semibold text-stone-600 uppercase tracking-wide">Password</label>
                 <input
                   type="password"
                   value={password}
@@ -201,7 +201,7 @@ const DataRequestModal: React.FC<DataRequestModalProps> = ({
               </button>
               <button
                 onClick={() => setStep('confirm')}
-                className="w-full text-sm text-stone-400 hover:text-stone-600 transition-colors">
+                className="w-full text-sm text-stone-600 hover:text-stone-600 transition-colors">
                 ← Back
               </button>
             </div>
@@ -217,7 +217,7 @@ const DataRequestModal: React.FC<DataRequestModalProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-stone-900">Request received</h3>
-                <p className="text-sm text-stone-500 mt-2">
+                <p className="text-sm text-stone-600 mt-2">
                   We've received your data export request. Our team will process it within <strong className="text-stone-700">3–5 business days</strong>.
                 </p>
               </div>
@@ -245,7 +245,7 @@ const DataRequestModal: React.FC<DataRequestModalProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-stone-900">Something went wrong</h3>
-                <p className="text-sm text-stone-500 mt-1">{error || 'Unable to submit your request. Please try again.'}</p>
+                <p className="text-sm text-stone-600 mt-1">{error || 'Unable to submit your request. Please try again.'}</p>
               </div>
               <button onClick={() => { setStep('kyc'); setError(''); }}
                 className="w-full py-3 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: GREEN }}>

@@ -22,13 +22,13 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
           {onBack && (
             <button onClick={onBack}
-              className="text-stone-500 hover:text-stone-900 text-sm font-medium flex items-center gap-1.5 transition-colors">
+              className="text-stone-600 hover:text-stone-900 text-sm font-medium flex items-center gap-1.5 transition-colors">
               ← Back
             </button>
           )}
           <div>
             <h1 className="text-base font-semibold text-stone-900">Privacy Policy</h1>
-            <p className="text-xs text-stone-500">Effective {EFFECTIVE_DATE} · Version 1.0</p>
+            <p className="text-xs text-stone-600">Effective {EFFECTIVE_DATE} · Version 1.0</p>
           </div>
         </div>
       </div>
@@ -128,7 +128,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-stone-900">11. Contact Us</h2>
             <p>If you have questions about this Privacy Policy or our data practices, please contact our privacy team at <a href={`mailto:${PRIVACY_EMAIL}`} className="text-[#1a4a3a] underline">{PRIVACY_EMAIL}</a>.</p>
-            <p className="text-stone-500 text-xs">{COMPANY} · United States</p>
+            <p className="text-stone-600 text-xs">{COMPANY} · United States</p>
           </section>
 
         </div>

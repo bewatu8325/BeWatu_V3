@@ -89,7 +89,7 @@ function IndustryCard({
           </div>
           <ChevronRight
             size={16}
-            className="text-stone-300 group-hover:text-stone-500 group-hover:translate-x-0.5 transition-all mt-1"
+            className="text-stone-300 group-hover:text-stone-600 group-hover:translate-x-0.5 transition-all mt-1"
           />
         </div>
 
@@ -97,21 +97,21 @@ function IndustryCard({
         <h3 className="font-semibold text-stone-900 text-base mb-1 group-hover:text-stone-700 transition-colors">
           {industry.name}
         </h3>
-        <p className="text-stone-500 text-xs leading-relaxed mb-4">
+        <p className="text-stone-600 text-xs leading-relaxed mb-4">
           {industry.tagline}
         </p>
 
         {/* Stats row */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
-            <Trophy size={12} className="text-stone-400" />
+            <Trophy size={12} className="text-stone-600" />
             <span className="text-xs font-medium text-stone-700">
               {liveCount} live
             </span>
           </div>
           {prizePool > 0 && (
             <div className="flex items-center gap-1.5">
-              <Zap size={12} className="text-stone-400" />
+              <Zap size={12} className="text-stone-600" />
               <span className="text-xs font-medium text-stone-700">
                 {formatPrize(prizePool)} in prizes
               </span>
@@ -141,7 +141,7 @@ function IndustryCard({
         </div>
       ) : (
         <div className="border-t border-stone-100 px-5 py-2.5 flex items-center gap-2">
-          <span className="text-xs text-stone-400 italic">Sponsorship available</span>
+          <span className="text-xs text-stone-600 italic">Sponsorship available</span>
         </div>
       )}
     </button>
@@ -155,7 +155,7 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: string |
     <div className="bg-stone-50 rounded-xl border border-stone-200 px-5 py-4">
       <div className="flex items-center gap-2 mb-1">
         <Icon size={13} />
-        <span className="text-xs font-medium text-stone-500 uppercase tracking-wide">{label}</span>
+        <span className="text-xs font-medium text-stone-600 uppercase tracking-wide">{label}</span>
       </div>
       <p className="text-2xl font-bold text-stone-900">{value}</p>
     </div>
@@ -247,7 +247,7 @@ export default function ArenaDiscovery({
             <Trophy size={22} className="text-stone-800" />
             <h1 className="text-2xl font-bold text-stone-900">BeWatu Arenas</h1>
           </div>
-          <p className="text-stone-500 text-sm max-w-lg">
+          <p className="text-stone-600 text-sm max-w-lg">
             Industry-sponsored challenge arenas. Verified companies post real problems
             with real prizes. Solve them to build your reputation.
           </p>
@@ -273,27 +273,27 @@ export default function ArenaDiscovery({
 
       {/* How it works strip */}
       <div className="bg-stone-50 rounded-2xl border border-stone-200 p-5 mb-8">
-        <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">How arenas work</p>
+        <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-3">How arenas work</p>
         <div className="grid grid-cols-3 gap-6 text-sm">
           <div className="flex items-start gap-3">
             <div className="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center text-xs font-bold text-stone-600 flex-shrink-0 mt-0.5">1</div>
             <div>
               <p className="font-medium text-stone-800 mb-0.5">Browse challenges</p>
-              <p className="text-stone-500 text-xs leading-relaxed">Pick an industry arena. Find real problems posted by verified companies with confirmed prizes.</p>
+              <p className="text-stone-600 text-xs leading-relaxed">Pick an industry arena. Find real problems posted by verified companies with confirmed prizes.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <div className="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center text-xs font-bold text-stone-600 flex-shrink-0 mt-0.5">2</div>
             <div>
               <p className="font-medium text-stone-800 mb-0.5">Submit your solution</p>
-              <p className="text-stone-500 text-xs leading-relaxed">Your identity is hidden until shortlisted. Companies judge work on merit, not your CV.</p>
+              <p className="text-stone-600 text-xs leading-relaxed">Your identity is hidden until shortlisted. Companies judge work on merit, not your CV.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <div className="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center text-xs font-bold text-stone-600 flex-shrink-0 mt-0.5">3</div>
             <div>
               <p className="font-medium text-stone-800 mb-0.5">Win prizes & reputation</p>
-              <p className="text-stone-500 text-xs leading-relaxed">Winners receive cash prizes and earn arena performance scores that unlock Factory access.</p>
+              <p className="text-stone-600 text-xs leading-relaxed">Winners receive cash prizes and earn arena performance scores that unlock Factory access.</p>
             </div>
           </div>
         </div>
@@ -319,12 +319,12 @@ export default function ArenaDiscovery({
             <BadgeCheck size={16} className="text-stone-600" />
             <p className="font-semibold text-stone-900">Post challenges in your industry</p>
           </div>
-          <p className="text-stone-500 text-sm">
+          <p className="text-stone-600 text-sm">
             Verified companies can post challenges starting at $500. Get solutions from top talent across our network.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="text-xs text-stone-500 flex items-center gap-1.5">
+          <div className="text-xs text-stone-600 flex items-center gap-1.5">
             <Lock size={11} />
             Industry verification required
           </div>

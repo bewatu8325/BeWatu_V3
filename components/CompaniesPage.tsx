@@ -50,14 +50,14 @@ const CompanyCard: React.FC<{
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold text-stone-900 truncate">{company.name}</h3>
             {company.ticker && (
-              <span className="text-xs text-stone-400 font-mono">{company.ticker}</span>
+              <span className="text-xs text-stone-600 font-mono">{company.ticker}</span>
             )}
             {company.claimed && (
               <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
             )}
           </div>
           {company.industry && (
-            <p className="text-xs text-stone-500 mt-0.5">{company.industry}</p>
+            <p className="text-xs text-stone-600 mt-0.5">{company.industry}</p>
           )}
         </div>
       </div>
@@ -74,7 +74,7 @@ const CompanyCard: React.FC<{
           target="_blank"
           rel="noopener noreferrer"
           onClick={e => e.stopPropagation()}
-          className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-600 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-stone-600 hover:text-stone-600 transition-colors"
         >
           <Globe className="h-3.5 w-3.5" />
           {(company.domain ?? company.website).replace(/^www\./, '')}
@@ -99,7 +99,7 @@ const CompanyCard: React.FC<{
           </button>
         )}
         {!company.claimed && !canClaim && (
-          <span className="flex-1 py-2 text-center rounded-xl text-xs text-stone-400 border border-dashed border-stone-200">
+          <span className="flex-1 py-2 text-center rounded-xl text-xs text-stone-600 border border-dashed border-stone-200">
             Unclaimed
           </span>
         )}
@@ -168,13 +168,13 @@ export default function CompaniesPage({ onViewCompany }: CompaniesPageProps) {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-stone-900 mb-2">Companies</h1>
-        <p className="text-stone-500">Discover companies, follow their updates, and explore opportunities.</p>
+        <p className="text-stone-600">Discover companies, follow their updates, and explore opportunities.</p>
       </div>
 
       {/* Search + Filter */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-600" />
           <input
             type="text"
             placeholder="Search companies..."
@@ -191,7 +191,7 @@ export default function CompaniesPage({ onViewCompany }: CompaniesPageProps) {
               className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
                 industry === ind
                   ? 'text-white'
-                  : 'text-stone-500 bg-white border border-stone-200 hover:bg-stone-50'
+                  : 'text-stone-600 bg-white border border-stone-200 hover:bg-stone-50'
               }`}
               style={industry === ind ? { backgroundColor: '#1a4a3a' } : {}}
             >
@@ -217,7 +217,7 @@ export default function CompaniesPage({ onViewCompany }: CompaniesPageProps) {
       {/* Recruiter claim hint */}
       {isRecruiter && (
         <div className="mb-6 p-4 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-600 flex items-start gap-2">
-          <Tag className="h-4 w-4 mt-0.5 shrink-0 text-stone-400" />
+          <Tag className="h-4 w-4 mt-0.5 shrink-0 text-stone-600" />
           <span>
             Is your company listed? Click <strong>Claim</strong> on your company profile.
             Your corporate email must match the company domain for verification.
@@ -231,14 +231,14 @@ export default function CompaniesPage({ onViewCompany }: CompaniesPageProps) {
           <Loader2 className="h-8 w-8 animate-spin text-stone-300" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 text-stone-400">
+        <div className="text-center py-20 text-stone-600">
           <Building2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No companies found</p>
           {search && <p className="text-sm mt-1">Try a different search term</p>}
         </div>
       ) : (
         <>
-          <p className="text-sm text-stone-400 mb-4">{filtered.length} companies</p>
+          <p className="text-sm text-stone-600 mb-4">{filtered.length} companies</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(company => (
               <CompanyCard

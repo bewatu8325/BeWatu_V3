@@ -51,7 +51,7 @@ function CompanyAutocomplete({
         value={value}
         onChange={e => { onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
-        className="w-full p-2 bg-white text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-400"
+        className="w-full p-2 bg-white text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-600"
       />
       {open && suggestions.length > 0 && (
         <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white border border-stone-200 rounded-xl shadow-lg overflow-hidden">
@@ -73,10 +73,10 @@ function CompanyAutocomplete({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-stone-800 truncate">{company.name}</p>
-                {company.industry && <p className="text-xs text-stone-400 truncate">{company.industry}</p>}
+                {company.industry && <p className="text-xs text-stone-600 truncate">{company.industry}</p>}
               </div>
               {(company as any).ticker && (
-                <span className="text-xs text-stone-400 font-mono shrink-0">{(company as any).ticker}</span>
+                <span className="text-xs text-stone-600 font-mono shrink-0">{(company as any).ticker}</span>
               )}
             </button>
           ))}
@@ -84,7 +84,7 @@ function CompanyAutocomplete({
           {!suggestions.some(c => c.name.toLowerCase() === value.toLowerCase()) && value.trim() && (
             <button
               onClick={() => setOpen(false)}
-              className="w-full px-3 py-2 text-xs text-stone-400 hover:bg-stone-50 text-left border-t border-stone-100"
+              className="w-full px-3 py-2 text-xs text-stone-600 hover:bg-stone-50 text-left border-t border-stone-100"
             >
               Search for "{value}"
             </button>
@@ -192,7 +192,7 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
     });
   }, [jobs, algoliaHits, hasActiveSearch, companies, filters.industry]);
 
-  const inputStyles = 'w-full p-2 bg-white text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-400';
+  const inputStyles = 'w-full p-2 bg-white text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-600';
 
   return (
     <div className="space-y-6">
@@ -227,7 +227,7 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
       <div className="space-y-4">
         {isSearching ? (
           <div className="text-center py-10 bg-stone-50 rounded-2xl border" style={{ borderColor: '#e7e5e4' }}>
-            <p className="text-stone-400">Searching&hellip;</p>
+            <p className="text-stone-600">Searching&hellip;</p>
           </div>
         ) : filteredJobs.length > 0 ? (
           filteredJobs.map(job => job.company
@@ -235,7 +235,7 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
             : null)
         ) : (
           <div className="text-center py-10 bg-stone-50 rounded-2xl border" style={{ borderColor: '#e7e5e4' }}>
-            <p className="text-stone-400">No jobs found matching your criteria.</p>
+            <p className="text-stone-600">No jobs found matching your criteria.</p>
           </div>
         )}
       </div>

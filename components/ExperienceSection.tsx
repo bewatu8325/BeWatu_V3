@@ -81,29 +81,29 @@ const ExperienceForm: React.FC<{
     }
   };
 
-  const inputCls = "w-full rounded-lg border bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30";
+  const inputCls = "w-full rounded-lg border bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30";
   const borderStyle = { borderColor: '#e7e5e4' };
 
   return (
     <div className="rounded-xl border bg-stone-50 p-4 space-y-4" style={borderStyle}>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 sm:col-span-1">
-          <label className="text-xs font-semibold text-stone-500 mb-1 block">Role / Title</label>
+          <label className="text-xs font-semibold text-stone-600 mb-1 block">Role / Title</label>
           <input className={inputCls} style={borderStyle} placeholder="e.g. Senior Product Designer"
             value={form.role} onChange={e => set('role', e.target.value)} />
         </div>
         <div className="col-span-2 sm:col-span-1">
-          <label className="text-xs font-semibold text-stone-500 mb-1 block">Company</label>
+          <label className="text-xs font-semibold text-stone-600 mb-1 block">Company</label>
           <input className={inputCls} style={borderStyle} placeholder="e.g. Acme Corp"
             value={form.company} onChange={e => set('company', e.target.value)} />
         </div>
         <div>
-          <label className="text-xs font-semibold text-stone-500 mb-1 block">Start</label>
+          <label className="text-xs font-semibold text-stone-600 mb-1 block">Start</label>
           <input className={inputCls} style={borderStyle} placeholder="Jan 2022"
             value={form.startDate} onChange={e => set('startDate', e.target.value)} />
         </div>
         <div>
-          <label className="text-xs font-semibold text-stone-500 mb-1 block">End</label>
+          <label className="text-xs font-semibold text-stone-600 mb-1 block">End</label>
           <input className={inputCls} style={borderStyle} placeholder="Present"
             value={form.endDate} onChange={e => set('endDate', e.target.value)} />
         </div>
@@ -111,8 +111,8 @@ const ExperienceForm: React.FC<{
 
       {/* Outcomes */}
       <div>
-        <label className="text-xs font-semibold text-stone-500 mb-1.5 block">
-          Impact & Outcomes <span className="text-stone-400 font-normal">(focus on what changed, not what you did)</span>
+        <label className="text-xs font-semibold text-stone-600 mb-1.5 block">
+          Impact & Outcomes <span className="text-stone-600 font-normal">(focus on what changed, not what you did)</span>
         </label>
         <div className="space-y-2">
           {form.outcomes.map((o, i) => (
@@ -138,8 +138,8 @@ const ExperienceForm: React.FC<{
 
       {/* Key metric */}
       <div>
-        <label className="text-xs font-semibold text-stone-500 mb-1 block">
-          Key Metric <span className="text-stone-400 font-normal">(optional — the headline number)</span>
+        <label className="text-xs font-semibold text-stone-600 mb-1 block">
+          Key Metric <span className="text-stone-600 font-normal">(optional — the headline number)</span>
         </label>
         <input className={inputCls} style={borderStyle} placeholder='e.g. "↑ 40% conversion · $2M ARR · 0→1 product"'
           value={form.metrics ?? ''} onChange={e => set('metrics', e.target.value)} />
@@ -147,7 +147,7 @@ const ExperienceForm: React.FC<{
 
       {/* Skills */}
       <div>
-        <label className="text-xs font-semibold text-stone-500 mb-1.5 block">Skills used</label>
+        <label className="text-xs font-semibold text-stone-600 mb-1.5 block">Skills used</label>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {form.skills?.map(s => (
             <span key={s} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
@@ -212,12 +212,12 @@ const ExperienceCard: React.FC<{
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
               <span className="text-sm font-semibold break-words" style={{ color: GREEN_MID }}>{exp.company}</span>
               <span className="text-stone-300 text-xs">·</span>
-              <span className="text-xs text-stone-400">{exp.startDate} — {exp.endDate || 'Present'}</span>
+              <span className="text-xs text-stone-600">{exp.startDate} — {exp.endDate || 'Present'}</span>
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={() => setExpanded(e => !e)}
-              className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 transition-colors"
+              className="rounded-lg p-1.5 text-stone-600 hover:bg-stone-100 transition-colors"
               title={expanded ? 'Collapse' : 'Expand'}>
               <span className={`block transition-transform duration-200 ${expanded ? '' : 'rotate-180'}`}>
                 <IconArrowUp />
@@ -225,10 +225,10 @@ const ExperienceCard: React.FC<{
             </button>
             {isOwn && (
               <>
-                <button onClick={onEdit} className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 transition-colors" title="Edit">
+                <button onClick={onEdit} className="rounded-lg p-1.5 text-stone-600 hover:bg-stone-100 transition-colors" title="Edit">
                   <IconEdit />
                 </button>
-                <button onClick={onDelete} className="rounded-lg p-1.5 text-stone-400 hover:text-red-400 hover:bg-red-50 transition-colors" title="Delete">
+                <button onClick={onDelete} className="rounded-lg p-1.5 text-stone-600 hover:text-red-400 hover:bg-red-50 transition-colors" title="Delete">
                   <IconTrash />
                 </button>
               </>
@@ -313,7 +313,7 @@ const ExperienceSection: React.FC<ExperienceSectionProps> = ({ experiences, isOw
           </div>
           <div>
             <h3 className="font-bold text-stone-900">Experience & Work History</h3>
-            <p className="text-xs text-stone-400">Outcomes over job titles</p>
+            <p className="text-xs text-stone-600">Outcomes over job titles</p>
           </div>
         </div>
         {isOwn && !adding && editingId === null && (
@@ -345,7 +345,7 @@ const ExperienceSection: React.FC<ExperienceSectionProps> = ({ experiences, isOw
             </svg>
           </div>
           <p className="font-medium text-stone-600 text-sm">No experience added yet</p>
-          <p className="text-xs text-stone-400 mt-1">Add roles and let your impact speak for itself</p>
+          <p className="text-xs text-stone-600 mt-1">Add roles and let your impact speak for itself</p>
           {isOwn && (
             <button onClick={startAdd}
               className="mt-4 flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity"

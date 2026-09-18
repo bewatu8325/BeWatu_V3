@@ -117,7 +117,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
                 <span className="text-xl mt-0.5 select-none">🍪</span>
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-stone-900">Your cookie choices</p>
-                  <p className="text-xs text-stone-500 leading-relaxed">
+                  <p className="text-xs text-stone-600 leading-relaxed">
                     We use essential cookies to keep BeWatu running. You choose whether we collect analytics or marketing data.{' '}
                     <button
                       onClick={onShowPrivacy}
@@ -155,7 +155,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowDetail(false)}
-                  className="text-stone-400 hover:text-stone-700 text-sm transition-colors">
+                  className="text-stone-600 hover:text-stone-700 text-sm transition-colors">
                   ←
                 </button>
                 <p className="text-sm font-semibold text-stone-900">Manage cookies</p>
@@ -165,7 +165,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
               <div className="flex items-start justify-between gap-4 pb-3 border-b border-stone-100">
                 <div className="space-y-0.5 flex-1">
                   <p className="text-xs font-semibold text-stone-800">Essential</p>
-                  <p className="text-xs text-stone-500 leading-relaxed">
+                  <p className="text-xs text-stone-600 leading-relaxed">
                     Sign-in, security, and core functionality. Required for BeWatu to work.
                   </p>
                 </div>
@@ -180,7 +180,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
               <div className="flex items-start justify-between gap-4 pb-3 border-b border-stone-100">
                 <div className="space-y-0.5 flex-1">
                   <p className="text-xs font-semibold text-stone-800">Analytics</p>
-                  <p className="text-xs text-stone-500 leading-relaxed">
+                  <p className="text-xs text-stone-600 leading-relaxed">
                     Helps us understand how you use BeWatu so we can improve it. No data is sold or shared with advertisers.
                   </p>
                 </div>
@@ -193,7 +193,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
               <div className="flex items-start justify-between gap-4 pb-3 border-b border-stone-100">
                 <div className="space-y-0.5 flex-1">
                   <p className="text-xs font-semibold text-stone-800">Marketing</p>
-                  <p className="text-xs text-stone-500 leading-relaxed">
+                  <p className="text-xs text-stone-600 leading-relaxed">
                     Allows us to show you relevant opportunities and platform updates beyond BeWatu. You can opt out at any time.
                   </p>
                 </div>
@@ -206,12 +206,12 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
               <div className="flex items-start justify-between gap-4 pb-1">
                 <div className="space-y-0.5 flex-1">
                   <p className="text-xs font-semibold text-stone-800">Payment processing</p>
-                  <p className="text-xs text-stone-500 leading-relaxed">
+                  <p className="text-xs text-stone-600 leading-relaxed">
                     Required for subscription and payment functionality. Governed by our payment processor's privacy policy.
                   </p>
                 </div>
                 <div className="flex-shrink-0 pt-0.5">
-                  <span className="text-[11px] font-medium text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
+                  <span className="text-[11px] font-medium text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full">
                     Required
                   </span>
                 </div>
@@ -224,7 +224,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
                 Save my choices
               </button>
 
-              <p className="text-[11px] text-stone-400 text-center leading-relaxed">
+              <p className="text-[11px] text-stone-600 text-center leading-relaxed">
                 You can update these at any time from your profile settings.
               </p>
             </div>

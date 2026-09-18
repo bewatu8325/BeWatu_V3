@@ -98,7 +98,7 @@ function ChallengeCard({
             />
           ) : (
             <div className="h-7 w-7 rounded-lg bg-stone-100 flex items-center justify-center">
-              <Building2 size={14} className="text-stone-400" />
+              <Building2 size={14} className="text-stone-600" />
             </div>
           )}
           <span className="text-xs font-medium text-stone-600">{companyName}</span>
@@ -111,8 +111,8 @@ function ChallengeCard({
           <div className="ml-auto flex items-center gap-2">
             {arenaData && <SponsorChallengeBadge industry={arenaData} compact />}
             <div className="flex items-center gap-1">
-              <Clock size={11} className="text-stone-400" />
-              <span className={`text-xs font-medium ${daysLeft <= 3 ? "text-red-500" : "text-stone-400"}`}>
+              <Clock size={11} className="text-stone-600" />
+              <span className={`text-xs font-medium ${daysLeft <= 3 ? "text-red-500" : "text-stone-600"}`}>
                 {daysLeft}d left
               </span>
             </div>
@@ -123,7 +123,7 @@ function ChallengeCard({
         <h3 className="font-semibold text-stone-900 text-sm mb-1.5 line-clamp-2 group-hover:text-stone-700 transition-colors">
           {challenge.title}
         </h3>
-        <p className="text-stone-500 text-xs leading-relaxed mb-4 line-clamp-2">
+        <p className="text-stone-600 text-xs leading-relaxed mb-4 line-clamp-2">
           {description}
         </p>
 
@@ -139,7 +139,7 @@ function ChallengeCard({
               </span>
             ))}
             {challenge.skills.length > 3 && (
-              <span className="text-xs text-stone-400">+{challenge.skills.length - 3}</span>
+              <span className="text-xs text-stone-600">+{challenge.skills.length - 3}</span>
             )}
           </div>
         )}
@@ -154,8 +154,8 @@ function ChallengeCard({
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <Users size={11} className="text-stone-400" />
-              <span className="text-xs text-stone-500">{challenge.submissionCount ?? 0}</span>
+              <Users size={11} className="text-stone-600" />
+              <span className="text-xs text-stone-600">{challenge.submissionCount ?? 0}</span>
             </div>
           </div>
           <ChevronRight
@@ -235,7 +235,7 @@ export default function ArenaIndustryView({
 
   if (!arenaData && !loading) {
     return (
-      <div className="p-8 text-center text-stone-500">
+      <div className="p-8 text-center text-stone-600">
         Arena not found.
         <button onClick={onBack} className="ml-2 underline">Go back</button>
       </div>
@@ -249,7 +249,7 @@ export default function ArenaIndustryView({
       {/* Back nav */}
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-stone-500 hover:text-stone-800 text-sm mb-6 transition-colors"
+        className="flex items-center gap-1.5 text-stone-600 hover:text-stone-800 text-sm mb-6 transition-colors"
       >
         <ArrowLeft size={15} />
         All Arenas
@@ -295,7 +295,7 @@ export default function ArenaIndustryView({
               {arenaData?.requiresRegulatory && (
                 <div className="flex items-center gap-1.5">
                   <Shield size={13} className="text-emerald-600" />
-                  <span className="text-stone-500 text-xs">Regulated companies</span>
+                  <span className="text-stone-600 text-xs">Regulated companies</span>
                 </div>
               )}
               {/* Inline sponsor badge in header stats row */}
@@ -308,7 +308,7 @@ export default function ArenaIndustryView({
       {/* Filters + search */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-600" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -317,7 +317,7 @@ export default function ArenaIndustryView({
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter size={14} className="text-stone-400" />
+          <Filter size={14} className="text-stone-600" />
           {(["all", "standard", "featured", "exclusive"] as const).map((t) => (
             <button
               key={t}
@@ -353,7 +353,7 @@ export default function ArenaIndustryView({
       ) : filtered.length === 0 ? (
         <div className="text-center py-20">
           <Trophy size={32} className="text-stone-200 mx-auto mb-3" />
-          <p className="text-stone-500 text-sm">
+          <p className="text-stone-600 text-sm">
             {challenges.length === 0
               ? "No challenges posted yet in this arena."
               : "No challenges match your filters."}
@@ -381,7 +381,7 @@ export default function ArenaIndustryView({
           <p className="font-semibold text-stone-800 text-sm mb-1">
             Post a challenge in this arena
           </p>
-          <p className="text-stone-500 text-xs">
+          <p className="text-stone-600 text-xs">
             {isVerified
               ? `Your company is verified for the ${arenaData?.name ?? "this"} arena. Challenges start at $500.`
               : `Requires industry verification for ${arenaData?.name ?? "this arena"}. Verification takes 1–2 business days.`}
@@ -389,7 +389,7 @@ export default function ArenaIndustryView({
         </div>
         <div className="flex items-center gap-3">
           {!isVerified && (
-            <div className="flex items-center gap-1.5 text-xs text-stone-500">
+            <div className="flex items-center gap-1.5 text-xs text-stone-600">
               <Lock size={11} />
               Verify your company first
             </div>

@@ -59,13 +59,13 @@ const RecommendationInsights: React.FC<Props> = ({ uid }) => {
           What BeWatu recommends to you
         </h3>
       </div>
-      <p className="text-sm text-stone-500 mb-4">
+      <p className="text-sm text-stone-600 mb-4">
         These are the content interests we use to suggest pods and challenges. We
         infer interests, not personality — and you can turn this off anytime.
       </p>
 
       {loading ? (
-        <p className="text-sm text-stone-400">Loading…</p>
+        <p className="text-sm text-stone-600">Loading…</p>
       ) : optedOut ? (
         <div className="rounded-xl p-4 mb-4" style={{ backgroundColor: '#f5f5f4' }}>
           <p className="text-sm text-stone-600">
@@ -86,12 +86,12 @@ const RecommendationInsights: React.FC<Props> = ({ uid }) => {
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: GREEN_LT, color: GREEN }}>
               {confidenceLabel[profile.confidence]}
             </span>
-            <span className="text-xs text-stone-400">based on {profile.eventCount} recent actions</span>
+            <span className="text-xs text-stone-600">based on {profile.eventCount} recent actions</span>
           </div>
 
           {topIndustries.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Topics you engage with</p>
+              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">Topics you engage with</p>
               <div className="space-y-1.5">
                 {topIndustries.map(([industry, weight]) => (
                   <div key={industry} className="flex items-center gap-3">
@@ -99,7 +99,7 @@ const RecommendationInsights: React.FC<Props> = ({ uid }) => {
                     <div className="flex-1 bg-stone-100 rounded-full h-2">
                       <div className="h-2 rounded-full" style={{ width: `${Math.round((weight as number) * 100)}%`, backgroundColor: GREEN }} />
                     </div>
-                    <span className="text-xs text-stone-400 w-10 text-right">{Math.round((weight as number) * 100)}%</span>
+                    <span className="text-xs text-stone-600 w-10 text-right">{Math.round((weight as number) * 100)}%</span>
                   </div>
                 ))}
               </div>
@@ -109,7 +109,7 @@ const RecommendationInsights: React.FC<Props> = ({ uid }) => {
           <div className="grid grid-cols-2 gap-3">
             {profile.difficultyPreference !== null && (
               <div className="rounded-lg border p-3" style={{ borderColor: '#e7e5e4' }}>
-                <p className="text-xs text-stone-400">Difficulty you take on</p>
+                <p className="text-xs text-stone-600">Difficulty you take on</p>
                 <p className="text-sm font-semibold text-stone-800">
                   {['', 'Beginner', 'Intermediate', 'Advanced', 'Expert', 'Elite'][Math.round(profile.difficultyPreference)] ?? '—'}
                 </p>
@@ -117,13 +117,13 @@ const RecommendationInsights: React.FC<Props> = ({ uid }) => {
             )}
             {profile.followThroughRate !== null && (
               <div className="rounded-lg border p-3" style={{ borderColor: '#e7e5e4' }}>
-                <p className="text-xs text-stone-400">You finish what you start</p>
+                <p className="text-xs text-stone-600">You finish what you start</p>
                 <p className="text-sm font-semibold text-stone-800">{Math.round(profile.followThroughRate * 100)}% of the time</p>
               </div>
             )}
             {profile.initiationTendency !== null && (
               <div className="rounded-lg border p-3" style={{ borderColor: '#e7e5e4' }}>
-                <p className="text-xs text-stone-400">Your style</p>
+                <p className="text-xs text-stone-600">Your style</p>
                 <p className="text-sm font-semibold text-stone-800">
                   {profile.initiationTendency >= 0.6 ? 'Initiator' : profile.initiationTendency <= 0.4 ? 'Contributor' : 'Balanced'}
                 </p>
@@ -131,13 +131,13 @@ const RecommendationInsights: React.FC<Props> = ({ uid }) => {
             )}
             {topRoles.length > 0 && (
               <div className="rounded-lg border p-3" style={{ borderColor: '#e7e5e4' }}>
-                <p className="text-xs text-stone-400">Roles you choose</p>
+                <p className="text-xs text-stone-600">Roles you choose</p>
                 <p className="text-sm font-semibold text-stone-800 capitalize">{topRoles.map(([r]) => r).join(', ')}</p>
               </div>
             )}
           </div>
 
-          <p className="text-xs text-stone-400">
+          <p className="text-xs text-stone-600">
             This describes your <strong>content preferences</strong> to help you find relevant pods and
             challenges. It is never shown to recruiters and is never used to rank or score you against others.
           </p>
@@ -148,7 +148,7 @@ const RecommendationInsights: React.FC<Props> = ({ uid }) => {
       <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: '#f5f5f4' }}>
         <div>
           <p className="text-sm font-semibold text-stone-800">Personalized recommendations</p>
-          <p className="text-xs text-stone-400">{optedOut ? 'Off — general suggestions only' : 'On — tuned to your activity'}</p>
+          <p className="text-xs text-stone-600">{optedOut ? 'Off — general suggestions only' : 'On — tuned to your activity'}</p>
         </div>
         <button
           onClick={handleToggle}

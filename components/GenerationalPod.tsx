@@ -99,7 +99,7 @@ export const GenerationalPodCard: React.FC<{
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          {pod.isPrivate && <Lock size={11} className="text-stone-400" />}
+          {pod.isPrivate && <Lock size={11} className="text-stone-600" />}
           {isMember && <CheckCircle size={13} style={{ color: GREEN }} />}
         </div>
       </div>
@@ -107,7 +107,7 @@ export const GenerationalPodCard: React.FC<{
       <div className="p-5">
         {/* Name + purpose */}
         <h3 className="font-bold text-stone-900 text-base mb-1">{pod.name}</h3>
-        <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-2">{pod.topic}</p>
+        <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">{pod.topic}</p>
         <p className="text-sm text-stone-600 leading-relaxed mb-4">{pod.purpose}</p>
 
         {/* Generation mix bars */}
@@ -124,7 +124,7 @@ export const GenerationalPodCard: React.FC<{
                 <div className="flex items-center justify-between mb-0.5">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-semibold" style={{ color: info.colour }}>{info.label}</span>
-                    <span className="text-[10px] text-stone-400">{info.years}</span>
+                    <span className="text-[10px] text-stone-600">{info.years}</span>
                   </div>
                   <span className="text-[10px] font-semibold" style={{ color: metMin ? info.colour : '#9ca3af' }}>
                     {count}/{max} {metMin ? '✓' : `need ${min}`}
@@ -141,7 +141,7 @@ export const GenerationalPodCard: React.FC<{
 
         {/* Health score */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-xs text-stone-400">Generational balance</span>
+          <span className="text-xs text-stone-600">Generational balance</span>
           <span className="text-xs font-bold px-2 py-0.5 rounded-full"
             style={{
               backgroundColor: health >= 75 ? '#d1fae5' : health >= 50 ? '#fef3c7' : '#fee2e2',
@@ -152,7 +152,7 @@ export const GenerationalPodCard: React.FC<{
         </div>
 
         {/* Members total */}
-        <div className="flex items-center justify-between text-xs text-stone-400 mb-4">
+        <div className="flex items-center justify-between text-xs text-stone-600 mb-4">
           <div className="flex items-center gap-1.5">
             <Users size={12} />
             <span>{pod.members.length} / {pod.capacity} members</span>
@@ -180,7 +180,7 @@ export const GenerationalPodCard: React.FC<{
             {joining ? 'Joining…' : 'Join as ' + stageInfo.label}
           </button>
         ) : (
-          <div className="w-full py-2.5 rounded-xl text-sm font-semibold text-center text-stone-400 border border-dashed"
+          <div className="w-full py-2.5 rounded-xl text-sm font-semibold text-center text-stone-600 border border-dashed"
             style={{ borderColor: '#e7e5e4' }}>
             {myCount >= mySlot.max ? `${stageInfo.label} slots full` : 'Pod is full'}
           </div>
@@ -229,19 +229,19 @@ export const CreateGenerationalPod: React.FC<{
 
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Pod name</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Pod name</label>
           <input value={name} onChange={e => setName(e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none"
             style={{ borderColor: '#e7e5e4' }} placeholder="e.g. Cross-gen Product Thinkers" />
         </div>
         <div className="col-span-2">
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Topic / domain</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Topic / domain</label>
           <input value={topic} onChange={e => setTopic(e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none"
             style={{ borderColor: '#e7e5e4' }} placeholder="e.g. Product strategy, Leadership, Fintech" />
         </div>
         <div className="col-span-2">
-          <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Purpose</label>
+          <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Purpose</label>
           <textarea value={purpose} onChange={e => setPurpose(e.target.value)} rows={2}
             className="w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none resize-none"
             style={{ borderColor: '#e7e5e4' }}
@@ -251,7 +251,7 @@ export const CreateGenerationalPod: React.FC<{
 
       {/* Slot configuration */}
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-3 block">
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-3 block">
           Member slots per stage
         </label>
         <div className="space-y-2">
@@ -262,9 +262,9 @@ export const CreateGenerationalPod: React.FC<{
                 style={{ backgroundColor: info.bg }}>
                 <div className="flex-1">
                   <span className="text-xs font-bold" style={{ color: info.colour }}>{info.label}</span>
-                  <span className="text-[10px] text-stone-400 ml-1.5">{info.years}</span>
+                  <span className="text-[10px] text-stone-600 ml-1.5">{info.years}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-stone-500">
+                <div className="flex items-center gap-2 text-xs text-stone-600">
                   <span>Min</span>
                   <input type="number" min="0" max="10" value={slots[stage].min}
                     onChange={e => updateSlot(stage, 'min', parseInt(e.target.value) || 0)}

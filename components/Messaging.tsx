@@ -35,11 +35,11 @@ function NewMessagePicker({
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#e7e5e4' }}>
           <h3 className="font-bold text-stone-900">New Message</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-600"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-3 border-b" style={{ borderColor: '#e7e5e4' }}>
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-600" />
             <input
               autoFocus
               type="text"
@@ -52,7 +52,7 @@ function NewMessagePicker({
         </div>
         <div className="max-h-64 overflow-y-auto">
           {filtered.length === 0 ? (
-            <p className="p-6 text-sm text-stone-400 text-center">No people found</p>
+            <p className="p-6 text-sm text-stone-600 text-center">No people found</p>
           ) : (
             filtered.map(user => (
               <button
@@ -63,7 +63,7 @@ function NewMessagePicker({
                 <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                 <div className="min-w-0">
                   <p className="font-semibold text-stone-900 text-sm truncate">{user.name}</p>
-                  <p className="text-xs text-stone-400 truncate">{user.headline}</p>
+                  <p className="text-xs text-stone-600 truncate">{user.headline}</p>
                 </div>
               </button>
             ))
@@ -182,7 +182,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
           <div className="flex-1 overflow-y-auto">
             {conversationPartners.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
-                <p className="text-sm text-stone-400">No conversations yet</p>
+                <p className="text-sm text-stone-600">No conversations yet</p>
                 <button
                   onClick={() => setShowNewMessage(true)}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
@@ -201,7 +201,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
                   <img src={user.avatarUrl} alt={user.name} className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="font-semibold text-stone-900 truncate">{user.name}</p>
-                    <p className="text-sm text-stone-500 truncate">{user.headline}</p>
+                    <p className="text-sm text-stone-600 truncate">{user.headline}</p>
                   </div>
                 </div>
               ))
@@ -215,7 +215,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
             <>
               <div className="p-3 border-b flex items-center gap-3 flex-shrink-0" style={{ borderColor: '#e7e5e4' }}>
                 <button
-                  className="md:hidden p-1.5 rounded-lg hover:bg-stone-100 text-stone-500 mr-1"
+                  className="md:hidden p-1.5 rounded-lg hover:bg-stone-100 text-stone-600 mr-1"
                   onClick={() => setActiveChatUserId(null)}
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
@@ -223,13 +223,13 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
                 <img src={activeChatPartner.avatarUrl} alt={activeChatPartner.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
                 <div className="min-w-0">
                   <h2 className="text-base font-bold text-stone-900 truncate">{activeChatPartner.name}</h2>
-                  <p className="text-xs text-stone-400 truncate">{activeChatPartner.headline}</p>
+                  <p className="text-xs text-stone-600 truncate">{activeChatPartner.headline}</p>
                 </div>
               </div>
 
               <div className="flex-grow p-4 overflow-y-auto bg-stone-50 space-y-4">
                 {messagesForActiveChat.length === 0 && (
-                  <p className="text-center text-sm text-stone-400 pt-8">
+                  <p className="text-center text-sm text-stone-600 pt-8">
                     Start a conversation with {activeChatPartner.name}
                   </p>
                 )}
@@ -240,7 +240,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
                       style={msg.senderId === currentUser.id ? { backgroundColor: GREEN } : { borderColor: '#e7e5e4' }}
                     >
                       <p>{msg.text}</p>
-                      <p className={`text-xs mt-1 ${msg.senderId === currentUser.id ? 'text-white/60' : 'text-stone-400'}`}>{msg.timestamp}</p>
+                      <p className={`text-xs mt-1 ${msg.senderId === currentUser.id ? 'text-white/60' : 'text-stone-600'}`}>{msg.timestamp}</p>
                     </div>
                   </div>
                 ))}
@@ -262,7 +262,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
                     value={messageText}
                     onChange={e => setMessageText(e.target.value)}
                     placeholder="Type a message..."
-                    className="w-full p-2 bg-stone-50 text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-400"
+                    className="w-full p-2 bg-stone-50 text-stone-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-600"
                     style={{ borderColor: '#e7e5e4' }}
                   />
                   <button
@@ -286,7 +286,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
                 </form>
                 {toneAnalysisResult && (
                   <div className="mt-3 p-3 bg-stone-50 rounded-xl text-sm text-stone-700 border relative" style={{ borderColor: '#e7e5e4' }}>
-                    <button onClick={() => setToneAnalysisResult(null)} className="absolute top-1 right-2 text-stone-400 hover:text-stone-700 text-lg">&times;</button>
+                    <button onClick={() => setToneAnalysisResult(null)} className="absolute top-1 right-2 text-stone-600 hover:text-stone-700 text-lg">&times;</button>
                     <p className="font-semibold mb-1 text-stone-900">Tone Analysis:</p>
                     <div className="whitespace-pre-wrap">{toneAnalysisResult}</div>
                   </div>
@@ -294,7 +294,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-4 text-stone-400">
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-stone-600">
               <p className="text-sm">Select a conversation or start a new one</p>
               <button
                 onClick={() => setShowNewMessage(true)}

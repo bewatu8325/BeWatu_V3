@@ -43,7 +43,7 @@ import { VerifiedBadge, UnverifiedWarningBanner } from '../VerifiedBadge';
 const GREEN    = '#1a4a3a';
 const GREEN_LT = '#e8f4f0';
 const CARD  = 'rounded-2xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm';
-const INPUT = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 outline-none focus:border-[#1a4a3a] focus:ring-2 focus:ring-[#1a4a3a]/10 transition-all';
+const INPUT = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-600 outline-none focus:border-[#1a4a3a] focus:ring-2 focus:ring-[#1a4a3a]/10 transition-all';
 const BTN_G = 'rounded-xl px-4 py-2.5 text-sm font-black text-white hover:opacity-90 disabled:opacity-40 transition-opacity';
 const BTN_O = 'rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors';
 
@@ -99,10 +99,10 @@ function EmailDomainPill({ email, website }: { email: string; website: string })
   );
   return (
     <div className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
-      <FileText className="w-4 h-4 text-stone-400 flex-shrink-0" />
+      <FileText className="w-4 h-4 text-stone-600 flex-shrink-0" />
       <div>
         <p className="text-xs font-black text-stone-700">Manual review required</p>
-        <p className="text-xs text-stone-500 mt-0.5"><strong>{domain}</strong> doesn't match the website — our team will review.</p>
+        <p className="text-xs text-stone-600 mt-0.5"><strong>{domain}</strong> doesn't match the website — our team will review.</p>
       </div>
     </div>
   );
@@ -121,13 +121,13 @@ function DeleteModal({ companyName, onConfirm, onCancel, loading }: {
           </div>
           <div>
             <h3 className="font-black text-stone-900">Delete company</h3>
-            <p className="text-sm text-stone-500 mt-1 leading-relaxed">
+            <p className="text-sm text-stone-600 mt-1 leading-relaxed">
               This permanently deletes <strong>{companyName}</strong> and hides all associated job listings. This cannot be undone.
             </p>
           </div>
         </div>
         <div>
-          <p className="text-xs font-bold text-stone-500 mb-1.5">
+          <p className="text-xs font-bold text-stone-600 mb-1.5">
             Type <strong className="text-stone-800">{companyName}</strong> to confirm
           </p>
           <input className={INPUT} placeholder={companyName} value={typed}
@@ -153,7 +153,7 @@ function FieldRow({ label, value, editing, inputType = 'text', onChange, placeho
 }) {
   return (
     <div className="py-3 border-b border-stone-50 last:border-0">
-      <p className="text-[10px] font-black text-stone-400 uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-[10px] font-black text-stone-600 uppercase tracking-wider mb-1">{label}</p>
       {editing ? (
         <div>
           {inputType === 'textarea' ? (
@@ -163,11 +163,11 @@ function FieldRow({ label, value, editing, inputType = 'text', onChange, placeho
             <input className={INPUT + ' mt-0.5'} type={inputType}
               value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
           )}
-          {hint && <p className="text-[10px] text-stone-400 mt-1">{hint}</p>}
+          {hint && <p className="text-[10px] text-stone-600 mt-1">{hint}</p>}
         </div>
       ) : (
         <p className="text-sm text-stone-800 font-medium min-h-[1.25rem]">
-          {value || <span className="text-stone-400 italic font-normal">Not set</span>}
+          {value || <span className="text-stone-600 italic font-normal">Not set</span>}
         </p>
       )}
     </div>
@@ -326,7 +326,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
   };
 
   if (screen === 'loading') return (
-    <div className="flex items-center justify-center py-24"><RefreshCw className="h-6 w-6 animate-spin text-stone-400" /></div>
+    <div className="flex items-center justify-center py-24"><RefreshCw className="h-6 w-6 animate-spin text-stone-600" /></div>
   );
 
   return (
@@ -339,7 +339,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
         <div className="flex items-center gap-3">
           {['create_company','redeem_code','verify_email'].includes(screen) && (
             <button onClick={() => setScreen(company ? 'dashboard' : 'no_company')}
-              className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-400 hover:text-stone-700 transition-colors flex-shrink-0">
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 hover:text-stone-700 transition-colors flex-shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
@@ -347,10 +347,10 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
             <h1 className="text-xl font-black text-stone-900 flex items-center gap-2">
               <Shield className="h-5 w-5 flex-shrink-0" style={{ color: GREEN }} /> Company Verification
             </h1>
-            <p className="mt-0.5 text-sm text-stone-500">Verify your company to post live jobs and contact candidates.</p>
+            <p className="mt-0.5 text-sm text-stone-600">Verify your company to post live jobs and contact candidates.</p>
           </div>
           {screen === 'dashboard' && (
-            <button onClick={() => load()} className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-400 hover:text-stone-700 transition-colors" title="Refresh">
+            <button onClick={() => load()} className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 hover:text-stone-700 transition-colors" title="Refresh">
               <RefreshCw className="h-4 w-4" />
             </button>
           )}
@@ -388,11 +388,11 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                 <button key={s} onClick={() => setScreen(s)}
                   className="flex flex-col items-start gap-3 rounded-2xl border-2 border-dashed border-stone-200 p-5 text-left hover:border-[#1a4a3a] hover:bg-[#e8f4f0] transition-all group">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-100 group-hover:bg-[#1a4a3a] transition-colors">
-                    <Icon className="h-5 w-5 text-stone-500 group-hover:text-white transition-colors" />
+                    <Icon className="h-5 w-5 text-stone-600 group-hover:text-white transition-colors" />
                   </div>
                   <div>
                     <p className="font-bold text-stone-800">{title}</p>
-                    <p className="text-xs text-stone-500 mt-0.5">{sub}</p>
+                    <p className="text-xs text-stone-600 mt-0.5">{sub}</p>
                   </div>
                 </button>
               ))}
@@ -405,7 +405,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
           <div className={CARD + ' space-y-5'}>
             <div>
               <h2 className="font-black text-stone-900 flex items-center gap-2"><Building2 className="h-5 w-5" style={{ color: GREEN }} /> Company profile</h2>
-              <p className="text-xs text-stone-500 mt-1">A website is required — we match it against your work email for instant verification.</p>
+              <p className="text-xs text-stone-600 mt-1">A website is required — we match it against your work email for instant verification.</p>
             </div>
             {recruiterEmail && createForm.website && <EmailDomainPill email={recruiterEmail} website={createForm.website} />}
             {createErrors.length > 0 && (
@@ -421,9 +421,9 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                 </div>
               ))}
               <div>
-                <label className="mb-1.5 block text-xs font-bold text-stone-600">Website * <span className="font-normal text-stone-400 ml-1">— required for email domain verification</span></label>
+                <label className="mb-1.5 block text-xs font-bold text-stone-600">Website * <span className="font-normal text-stone-600 ml-1">— required for email domain verification</span></label>
                 <div className="relative">
-                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-600" />
                   <input className={INPUT + ' pl-9'} placeholder="https://acme.com" value={createForm.website} onChange={e => setCreateForm(p => ({ ...p, website: e.target.value }))} />
                 </div>
               </div>
@@ -444,7 +444,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
           <div className={CARD + ' space-y-4'}>
             <div>
               <h2 className="font-black text-stone-900 flex items-center gap-2"><Link2 className="h-5 w-5" style={{ color: GREEN }} /> Enter invite code</h2>
-              <p className="text-sm text-stone-500 mt-1">Ask your admin to generate a code from their Company page.</p>
+              <p className="text-sm text-stone-600 mt-1">Ask your admin to generate a code from their Company page.</p>
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-bold text-stone-600">Invite code</label>
@@ -462,12 +462,12 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
           <div className={CARD + ' space-y-5'}>
             <div>
               <h2 className="font-black text-stone-900 flex items-center gap-2"><ShieldCheck className="h-5 w-5" style={{ color: GREEN }} /> Request verification</h2>
-              <p className="text-xs text-stone-500 mt-1">We verify companies to protect candidates from fraudulent listings.</p>
+              <p className="text-xs text-stone-600 mt-1">We verify companies to protect candidates from fraudulent listings.</p>
             </div>
             <div className="space-y-2">
-              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider">Your verification email</p>
+              <p className="text-xs font-bold text-stone-600 uppercase tracking-wider">Your verification email</p>
               <div className="flex items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
-                <Mail className="h-4 w-4 text-stone-400 flex-shrink-0" />
+                <Mail className="h-4 w-4 text-stone-600 flex-shrink-0" />
                 <span className="text-sm text-stone-700 font-medium">{recruiterEmail || '(no email)'}</span>
               </div>
               {recruiterEmail && company.website && <EmailDomainPill email={recruiterEmail} website={company.website} />}
@@ -484,7 +484,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                   <p className="text-sm text-amber-700 leading-relaxed">Our team reviews within <strong>1–2 business days</strong>.</p>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold text-stone-600">Additional context <span className="font-normal text-stone-400">(optional but recommended)</span></label>
+                  <label className="mb-1.5 block text-xs font-bold text-stone-600">Additional context <span className="font-normal text-stone-600">(optional but recommended)</span></label>
                   <textarea className={INPUT + ' resize-none'} rows={3} placeholder="e.g. I'm the Head of Talent at Acme. LinkedIn: linkedin.com/company/acme" value={verifyNotes} onChange={e => setVerifyNotes(e.target.value)} maxLength={500} />
                   <p className="text-[10px] text-stone-300 text-right mt-0.5">{verifyNotes.length}/500</p>
                 </div>
@@ -517,7 +517,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                   <p className="font-black text-stone-900 text-lg">{company.name}</p>
                   <VerifiedBadge status={verifStatus} />
                 </div>
-                <p className="text-sm text-stone-500 mt-0.5 truncate">
+                <p className="text-sm text-stone-600 mt-0.5 truncate">
                   {company.industry}
                   {company.companySize && <span className="text-stone-300 mx-1">·</span>}
                   {company.companySize && <span>{company.companySize} employees</span>}
@@ -531,7 +531,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                   )}
                 </p>
                 {(company.headquartersLocation || company.trustScore !== undefined) && (
-                  <p className="text-xs text-stone-400 mt-0.5 flex items-center gap-2">
+                  <p className="text-xs text-stone-600 mt-0.5 flex items-center gap-2">
                     {company.headquartersLocation && <span>📍 {company.headquartersLocation}</span>}
                     {company.trustScore !== undefined && company.trustScore > 0 && (
                       <span className="flex items-center gap-0.5">
@@ -573,7 +573,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                 )}
                 {editing && (
                   <div className="flex items-center gap-2">
-                    <button onClick={handleCancelEdit} className="text-xs font-bold text-stone-400 hover:text-stone-600 px-2 py-1 rounded-lg hover:bg-stone-100 transition-colors">Cancel</button>
+                    <button onClick={handleCancelEdit} className="text-xs font-bold text-stone-600 hover:text-stone-600 px-2 py-1 rounded-lg hover:bg-stone-100 transition-colors">Cancel</button>
                     <button onClick={handleSaveEdit} disabled={editLoading || !editForm.name.trim()}
                       className="flex items-center gap-1.5 text-xs font-black text-white px-3 py-1.5 rounded-xl hover:opacity-90 disabled:opacity-40 transition-opacity"
                       style={{ background: GREEN }}>
@@ -585,8 +585,8 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
 
               {!isAdmin && (
                 <div className="flex items-center gap-2 mb-3 mt-2 rounded-xl border border-stone-100 bg-stone-50 px-3 py-2">
-                  <Info className="h-3.5 w-3.5 text-stone-400 flex-shrink-0" />
-                  <p className="text-xs text-stone-500">Only the company admin can edit these details.</p>
+                  <Info className="h-3.5 w-3.5 text-stone-600 flex-shrink-0" />
+                  <p className="text-xs text-stone-600">Only the company admin can edit these details.</p>
                 </div>
               )}
 
@@ -615,9 +615,9 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="rounded-full px-2.5 py-0.5 text-xs font-black" style={{ background: display.bg, color: display.color, border: `1px solid ${display.border}` }}>{display.badgeLabel}</span>
-                      <span className="text-xs text-stone-400">{verifRequest.verificationType === 'email_domain' ? '⚡ Instant' : '👤 Manual review'}</span>
+                      <span className="text-xs text-stone-600">{verifRequest.verificationType === 'email_domain' ? '⚡ Instant' : '👤 Manual review'}</span>
                     </div>
-                    {verifRequest.submittedAt?.toDate && <p className="text-xs text-stone-400">Submitted {verifRequest.submittedAt.toDate().toLocaleDateString()}</p>}
+                    {verifRequest.submittedAt?.toDate && <p className="text-xs text-stone-600">Submitted {verifRequest.submittedAt.toDate().toLocaleDateString()}</p>}
                     {company.rejectionReason && <p className="text-xs text-red-700"><strong>Reason:</strong> {company.rejectionReason}</p>}
                   </div>
                   {verifStatus === 'rejected' && isAdmin && (
@@ -641,7 +641,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                   <span className="text-sm text-stone-700">{label}</span>
                   {ok ? <span className="text-xs font-black flex items-center gap-1" style={{ color: GREEN }}><CheckCircle className="h-3.5 w-3.5" /> On</span>
                   : partial ? <span className="text-xs font-black text-amber-600 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {partialLabel}</span>
-                  : <span className="text-xs font-black text-stone-400 flex items-center gap-1"><X className="h-3.5 w-3.5" /> Locked</span>}
+                  : <span className="text-xs font-black text-stone-600 flex items-center gap-1"><X className="h-3.5 w-3.5" /> Locked</span>}
                 </div>
               ))}
             </div>
@@ -681,7 +681,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-stone-800 truncate">{memberNames[uid] ?? 'Recruiter'}</p>
-                      <p className="text-xs text-stone-400">{uid === company.adminUid ? 'Admin' : ''}{uid === fbUser?.uid ? (uid === company.adminUid ? ' · You' : 'You') : ''}</p>
+                      <p className="text-xs text-stone-600">{uid === company.adminUid ? 'Admin' : ''}{uid === fbUser?.uid ? (uid === company.adminUid ? ' · You' : 'You') : ''}</p>
                     </div>
                     {isAdmin && uid !== fbUser?.uid && (
                       <button onClick={() => handleRemove(uid)} className="text-stone-300 hover:text-red-500 transition-colors p-1"><Trash2 className="h-4 w-4" /></button>
@@ -689,19 +689,19 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                   </div>
                 ))}
               </div>
-              {!isAdmin && <p className="text-xs text-stone-400 text-center py-1">Contact your admin to manage team members.</p>}
+              {!isAdmin && <p className="text-xs text-stone-600 text-center py-1">Contact your admin to manage team members.</p>}
             </div>
 
             {/* Pending invites */}
             {isAdmin && (company.pendingInvites ?? []).filter(i => !i.usedBy && new Date(i.expiresAt) > new Date()).length > 0 && (
               <div className={CARD + ' space-y-3'}>
-                <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2"><Clock className="h-4 w-4 text-stone-500" /> Pending invites</h3>
+                <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2"><Clock className="h-4 w-4 text-stone-600" /> Pending invites</h3>
                 {(company.pendingInvites ?? []).filter(i => !i.usedBy && new Date(i.expiresAt) > new Date()).map(invite => (
                   <div key={invite.code} className="flex items-center gap-3 rounded-xl border px-3 py-2.5" style={{ borderColor: '#e7e5e4' }}>
                     <span className="font-mono text-sm font-black tracking-widest text-stone-700">{invite.code}</span>
-                    {invite.forEmail && <span className="flex items-center gap-1 text-xs text-stone-500"><Mail className="h-3 w-3" />{invite.forEmail}</span>}
-                    <span className="ml-auto text-xs text-stone-400">Expires {new Date(invite.expiresAt).toLocaleDateString()}</span>
-                    <button onClick={() => handleCopy(invite.code)} className="text-stone-400 hover:text-[#1a4a3a] p-1"><Copy className="h-4 w-4" /></button>
+                    {invite.forEmail && <span className="flex items-center gap-1 text-xs text-stone-600"><Mail className="h-3 w-3" />{invite.forEmail}</span>}
+                    <span className="ml-auto text-xs text-stone-600">Expires {new Date(invite.expiresAt).toLocaleDateString()}</span>
+                    <button onClick={() => handleCopy(invite.code)} className="text-stone-600 hover:text-[#1a4a3a] p-1"><Copy className="h-4 w-4" /></button>
                   </div>
                 ))}
               </div>

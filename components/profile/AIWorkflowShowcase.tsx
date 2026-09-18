@@ -101,7 +101,7 @@ const AIWorkflowShowcase: React.FC<Props> = ({ profileUid, isOwn }) => {
           </div>
           <div>
             <h3 className="font-bold text-stone-900 text-sm">AI Workflows</h3>
-            <p className="text-xs text-stone-400">How you orchestrate AI to do real work</p>
+            <p className="text-xs text-stone-600">How you orchestrate AI to do real work</p>
           </div>
         </div>
         {isOwn && (
@@ -124,7 +124,7 @@ const AIWorkflowShowcase: React.FC<Props> = ({ profileUid, isOwn }) => {
           style={{ borderColor: '#d6d3d1' }}
         >
           <p className="text-sm font-medium text-stone-600">Publish your first AI workflow</p>
-          <p className="text-xs text-stone-400 mt-1">
+          <p className="text-xs text-stone-600 mt-1">
             e.g. "My 5-step system for AI-assisted competitive research." Employers pay a premium for people who orchestrate AI, not just use it.
           </p>
         </button>
@@ -141,13 +141,13 @@ const AIWorkflowShowcase: React.FC<Props> = ({ profileUid, isOwn }) => {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-stone-900">{wf.title}</p>
-                      <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">{wf.task}</p>
+                      <p className="text-xs text-stone-600 mt-0.5 line-clamp-1">{wf.task}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="text-[10px] font-medium rounded-full px-2 py-0.5" style={{ backgroundColor: GREEN_LT, color: '#1a6b52' }}>
                         {wf.steps.length} steps
                       </span>
-                      <svg className={`w-4 h-4 text-stone-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
+                      <svg className={`w-4 h-4 text-stone-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
                   </div>
                 </button>
@@ -189,7 +189,7 @@ const AIWorkflowShowcase: React.FC<Props> = ({ profileUid, isOwn }) => {
                     {/* Owner actions */}
                     {isOwn && (
                       <div className="flex gap-2 mt-3">
-                        <button onClick={() => { setEditing(wf); setEditorOpen(true); }} className="text-xs font-semibold text-stone-500 hover:text-stone-700">Edit</button>
+                        <button onClick={() => { setEditing(wf); setEditorOpen(true); }} className="text-xs font-semibold text-stone-600 hover:text-stone-700">Edit</button>
                         <button onClick={() => handleDelete(wf.id)} className="text-xs font-semibold text-red-400 hover:text-red-600">Delete</button>
                       </div>
                     )}
@@ -265,7 +265,7 @@ function WorkflowEditor({ existing, authorUid, onClose, onSaved }: {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: '#e7e5e4' }}>
           <h2 className="font-bold text-stone-900">{existing ? 'Edit workflow' : 'New AI workflow'}</h2>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
+          <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -299,7 +299,7 @@ function WorkflowEditor({ existing, authorUid, onClose, onSaved }: {
                           className="text-[11px] font-semibold rounded-md px-2 py-0.5 transition-all"
                           style={step.type === t
                             ? { backgroundColor: STEP_META[t].bg, color: STEP_META[t].color }
-                            : { backgroundColor: 'transparent', color: '#a8a29e' }}>
+                            : { backgroundColor: 'transparent', color: '#57534e' }}>
                           {STEP_META[t].label}
                         </button>
                       ))}
@@ -343,7 +343,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return (
     <div>
       <label className="text-xs font-semibold text-stone-600 block mb-1.5">
-        {label}{hint && <span className="font-normal text-stone-400 ml-1.5">· {hint}</span>}
+        {label}{hint && <span className="font-normal text-stone-600 ml-1.5">· {hint}</span>}
       </label>
       {children}
     </div>

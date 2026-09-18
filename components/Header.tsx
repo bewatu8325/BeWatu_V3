@@ -195,7 +195,7 @@ function NotificationsPanel({
     if (type === 'connection_request') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-50"><Users size={14} className="text-blue-500" /></div>;
     }
-    return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-100"><Bell size={14} className="text-stone-400" /></div>;
+    return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-100"><Bell size={14} className="text-stone-600" /></div>;
   }
 
   return (
@@ -204,7 +204,7 @@ function NotificationsPanel({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: '#f3f4f6' }}>
         <h3 className="font-bold text-stone-900">Notifications</h3>
-        <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
+        <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600 transition-colors">
           <X size={16} />
         </button>
       </div>
@@ -218,7 +218,7 @@ function NotificationsPanel({
         ) : notifs.length === 0 ? (
           <div className="text-center py-10">
             <Bell size={24} className="text-stone-200 mx-auto mb-2" />
-            <p className="text-sm text-stone-400">No notifications yet</p>
+            <p className="text-sm text-stone-600">No notifications yet</p>
           </div>
         ) : (
           notifs.map(n => {
@@ -234,7 +234,7 @@ function NotificationsPanel({
                   }
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-stone-800 leading-snug">{n.message}</p>
-                    <p className="text-xs text-stone-400 mt-0.5">{timeAgo(n.createdAt)}</p>
+                    <p className="text-xs text-stone-600 mt-0.5">{timeAgo(n.createdAt)}</p>
 
                     {/* Circle invite — accept/decline from bell */}
                     {n.type === 'circle_invite' && !actioned && (
@@ -293,7 +293,7 @@ function NotificationsPanel({
                       <p className="text-xs mt-1 font-medium" style={{ color: GREEN }}>✓ You're in</p>
                     )}
                     {n.type === 'circle_denied' && (
-                      <p className="text-xs mt-1 font-medium text-stone-400">Request not approved</p>
+                      <p className="text-xs mt-1 font-medium text-stone-600">Request not approved</p>
                     )}
                   </div>
                   {!n.isRead && (
@@ -387,13 +387,13 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
 
         {/* Search */}
         <form onSubmit={handleSearch} className="relative hidden flex-1 max-w-md md:block">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-600" />
           <input
             type="search"
             placeholder="Search people..."
             value={searchQuery}
             onChange={handleSearchChange}
-            className="h-9 w-full rounded-full border bg-stone-100 pl-9 pr-4 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:border-stone-400"
+            className="h-9 w-full rounded-full border bg-stone-100 pl-9 pr-4 text-sm text-stone-800 placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:border-stone-400"
             style={{ borderColor: "#e7e5e4" }}
           />
         </form>
@@ -407,7 +407,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
               <button
                 key={view}
                 onClick={() => onNavigate(view)}
-                className={`relative flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${active ? "font-semibold" : "text-stone-500 hover:text-stone-800"}`}
+                className={`relative flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${active ? "font-semibold" : "text-stone-600 hover:text-stone-800"}`}
                 style={active ? { color: "#1a4a3a" } : {}}
               >
                 <span className="relative">
@@ -430,7 +430,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setNotifOpen(o => !o)}
-            className="relative flex h-9 w-9 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition-colors"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 hover:text-stone-800 transition-colors"
           >
             <Bell className="h-5 w-5" />
             {notificationCount > 0 && (
@@ -462,14 +462,14 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
                 {initials}
               </div>
             )}
-            <ChevronDown className="hidden h-3.5 w-3.5 text-stone-500 sm:block" />
+            <ChevronDown className="hidden h-3.5 w-3.5 text-stone-600 sm:block" />
           </button>
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-56 rounded-xl border bg-white p-1.5 shadow-xl shadow-black/10" style={{ borderColor: "#e7e5e4" }}>
               <div className="px-3 py-2">
                 <p className="text-sm font-semibold text-stone-900">{currentUser?.name ?? 'User'}</p>
-                <p className="text-xs text-stone-500 truncate">{currentUser?.headline ?? 'BeWatu member'}</p>
+                <p className="text-xs text-stone-600 truncate">{currentUser?.headline ?? 'BeWatu member'}</p>
               </div>
               <div className="my-1 h-px bg-stone-100" />
               <button onClick={() => { onNavigate(View.Profile); setMenuOpen(false); }}
@@ -485,7 +485,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
               {onEnterAdminPanel && (
                 <button onClick={() => { onEnterAdminPanel(); setMenuOpen(false); }}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-stone-100 transition-colors text-stone-700">
-                  <Shield className="h-4 w-4 text-stone-500" />Platform Admin
+                  <Shield className="h-4 w-4 text-stone-600" />Platform Admin
                 </button>
               )}
               {/* There's no dedicated Settings view yet — this intentionally

@@ -76,7 +76,7 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 20v-8H7v8M7 4v4h8"/>
           </svg>
           <p className="font-semibold text-stone-700">Your feed is empty</p>
-          <p className="text-sm text-stone-400 mt-1">Connect with people to see their posts here, or share something yourself.</p>
+          <p className="text-sm text-stone-600 mt-1">Connect with people to see their posts here, or share something yourself.</p>
         </div>
       ) : (
         sortedPosts.map(post => {

@@ -21,13 +21,13 @@ export default function CommunityGuidelines({ onBack }: CommunityGuidelinesProps
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
           {onBack && (
             <button onClick={onBack}
-              className="text-stone-500 hover:text-stone-900 text-sm font-medium flex items-center gap-1.5 transition-colors">
+              className="text-stone-600 hover:text-stone-900 text-sm font-medium flex items-center gap-1.5 transition-colors">
               ← Back
             </button>
           )}
           <div>
             <h1 className="text-base font-semibold text-stone-900">Community Guidelines</h1>
-            <p className="text-xs text-stone-500">Effective {EFFECTIVE_DATE}</p>
+            <p className="text-xs text-stone-600">Effective {EFFECTIVE_DATE}</p>
           </div>
         </div>
       </div>

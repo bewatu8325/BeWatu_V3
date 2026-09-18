@@ -126,7 +126,7 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
             <Briefcase size={15} style={{ color: GREEN }} />
             <span className="font-bold text-stone-900 text-sm">Recruiter Access</span>
           </div>
-          {step !== "pending" && <button onClick={onClose} className="text-stone-400 hover:text-stone-600"><X size={16} /></button>}
+          {step !== "pending" && <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600"><X size={16} /></button>}
         </div>
 
         {step !== "pending" && (
@@ -146,7 +146,7 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
                   <Briefcase size={24} style={{ color: GREEN }} />
                 </div>
                 <h2 className="text-xl font-extrabold text-stone-900">Post roles on BeWatu</h2>
-                <p className="text-stone-500 text-sm mt-1.5 max-w-sm mx-auto">Reach verified professionals who demonstrate capability — not just a polished CV.</p>
+                <p className="text-stone-600 text-sm mt-1.5 max-w-sm mx-auto">Reach verified professionals who demonstrate capability — not just a polished CV.</p>
               </div>
               <div className="space-y-3">
                 {[
@@ -156,14 +156,14 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
                 ].map(({ icon, title, body }) => (
                   <div key={title} className="flex gap-3 p-3.5 rounded-xl border" style={{ borderColor: "#e7e5e4" }}>
                     <div className="mt-0.5 flex-shrink-0">{icon}</div>
-                    <div><p className="font-semibold text-stone-800 text-sm">{title}</p><p className="text-xs text-stone-500 mt-0.5 leading-relaxed">{body}</p></div>
+                    <div><p className="font-semibold text-stone-800 text-sm">{title}</p><p className="text-xs text-stone-600 mt-0.5 leading-relaxed">{body}</p></div>
                   </div>
                 ))}
               </div>
               <div className="p-3 rounded-xl text-xs space-y-1.5" style={{ backgroundColor: "#fafaf9", border: "1px solid #e7e5e4" }}>
                 <p className="font-bold text-stone-600 uppercase tracking-widest text-[10px]">Verification steps</p>
                 {["Company email verification","Email OTP confirmation","No-agency declaration","Ops team review (1–2 business days)"].map((s,i) => (
-                  <div key={s} className="flex items-center gap-2 text-stone-500">
+                  <div key={s} className="flex items-center gap-2 text-stone-600">
                     <span className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold flex-shrink-0" style={{ backgroundColor: GREEN_LT, color: GREEN }}>{i+1}</span>{s}
                   </div>
                 ))}
@@ -176,15 +176,15 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
 
           {step === "details" && (
             <div className="space-y-4">
-              <div><h2 className="text-lg font-extrabold text-stone-900">Your work details</h2><p className="text-stone-500 text-sm mt-1">We verify your company via your work email domain.</p></div>
+              <div><h2 className="text-lg font-extrabold text-stone-900">Your work details</h2><p className="text-stone-600 text-sm mt-1">We verify your company via your work email domain.</p></div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Work email *</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Work email *</label>
                 <input type="email" value={workEmail} onChange={e => setWorkEmail(e.target.value)} className={inp} style={{ borderColor: emailValid ? GREEN : "#e7e5e4" }} placeholder="you@yourcompany.com" />
                 {workEmail && isPersonalEmail(workEmail) && <p className="flex items-center gap-1.5 text-xs text-red-500 mt-1.5"><AlertCircle size={12} /> Personal email not accepted.</p>}
                 {emailValid && <p className="flex items-center gap-1.5 text-xs mt-1.5" style={{ color: GREEN }}><CheckCircle size={12} /> Company domain: <strong>@{emailDomain}</strong></p>}
               </div>
-              <div><label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Company name *</label><input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className={inp} style={{ borderColor: "#e7e5e4" }} placeholder="e.g. Acme Corp" /></div>
-              <div><label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Your role *</label><input type="text" value={role} onChange={e => setRole(e.target.value)} className={inp} style={{ borderColor: "#e7e5e4" }} placeholder="e.g. Head of Talent, Founder, HR Manager" /></div>
+              <div><label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Company name *</label><input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className={inp} style={{ borderColor: "#e7e5e4" }} placeholder="e.g. Acme Corp" /></div>
+              <div><label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Your role *</label><input type="text" value={role} onChange={e => setRole(e.target.value)} className={inp} style={{ borderColor: "#e7e5e4" }} placeholder="e.g. Head of Talent, Founder, HR Manager" /></div>
               <div className="flex items-start gap-2 p-3 rounded-xl text-xs" style={{ backgroundColor: GREEN_LT, color: GREEN }}>
                 <Shield size={13} className="mt-0.5 flex-shrink-0" />
                 <p>We'll send a 6-digit code to your work email to verify your company domain.</p>
@@ -199,9 +199,9 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
 
           {step === "verify" && (
             <div className="space-y-5">
-              <div><h2 className="text-lg font-extrabold text-stone-900">Check your email</h2><p className="text-stone-500 text-sm mt-1">We sent a 6-digit code to <strong>{workEmail}</strong>. Expires in 10 minutes.</p></div>
+              <div><h2 className="text-lg font-extrabold text-stone-900">Check your email</h2><p className="text-stone-600 text-sm mt-1">We sent a 6-digit code to <strong>{workEmail}</strong>. Expires in 10 minutes.</p></div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">Verification code</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Verification code</label>
                 <input type="text" inputMode="numeric" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g,""))}
                   className="w-full px-3.5 py-3 rounded-xl border text-center text-2xl font-bold focus:outline-none" autoFocus
                   style={{ borderColor: otp.length===6?GREEN:"#e7e5e4", letterSpacing:"0.5em" }} placeholder="——————" />
@@ -211,23 +211,23 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
                 className="w-full py-3 rounded-xl font-bold text-white text-sm hover:opacity-90 disabled:opacity-40 transition-opacity" style={{ backgroundColor: GREEN }}>
                 {loading ? "Verifying…" : "Verify & continue"}
               </button>
-              <button onClick={handleSendOtp} disabled={loading} className="w-full py-2 text-xs text-stone-400 hover:text-stone-600 transition-colors">Resend code</button>
+              <button onClick={handleSendOtp} disabled={loading} className="w-full py-2 text-xs text-stone-600 hover:text-stone-600 transition-colors">Resend code</button>
             </div>
           )}
 
           {step === "hiring" && (
             <div className="space-y-5">
-              <div><h2 className="text-lg font-extrabold text-stone-900">What are you hiring for?</h2><p className="text-stone-500 text-sm mt-1">Helps us match you with the right talent.</p></div>
+              <div><h2 className="text-lg font-extrabold text-stone-900">What are you hiring for?</h2><p className="text-stone-600 text-sm mt-1">Helps us match you with the right talent.</p></div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-2 block">Functions</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-2 block">Functions</label>
                 <div className="flex flex-wrap gap-2">{HIRING_FUNCTIONS.map(f => <button key={f} onClick={() => toggle(functions,setFunctions,f)} className="text-xs font-semibold rounded-full px-3 py-1.5 border transition-all" style={chipStyle(functions.includes(f))}>{f}</button>)}</div>
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-2 block">Seniority levels</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-2 block">Seniority levels</label>
                 <div className="flex flex-wrap gap-2">{SENIORITY_LEVELS.map(s => <button key={s} onClick={() => toggle(seniority,setSeniority,s)} className="text-xs font-semibold rounded-full px-3 py-1.5 border transition-all" style={chipStyle(seniority.includes(s))}>{s}</button>)}</div>
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-2 block">Role type</label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-2 block">Role type</label>
                 <div className="flex gap-2">{(["permanent","contract","both"] as const).map(t => <button key={t} onClick={() => setHiringType(t)} className="flex-1 py-2 text-xs font-semibold rounded-xl border capitalize transition-all" style={chipStyle(hiringType===t)}>{t}</button>)}</div>
               </div>
               <button onClick={() => setStep("rules")} disabled={functions.length===0||seniority.length===0}
@@ -237,7 +237,7 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
 
           {step === "rules" && (
             <div className="space-y-5">
-              <div><h2 className="text-lg font-extrabold text-stone-900">BeWatu recruiting rules</h2><p className="text-stone-500 text-sm mt-1">Violations result in account suspension.</p></div>
+              <div><h2 className="text-lg font-extrabold text-stone-900">BeWatu recruiting rules</h2><p className="text-stone-600 text-sm mt-1">Violations result in account suspension.</p></div>
               <div className="space-y-2.5">{RULES.map(({ icon, rule }) => <div key={rule} className="flex gap-3 p-3 rounded-xl" style={{ backgroundColor:"#fafaf9", border:"1px solid #e7e5e4" }}><span className="text-base flex-shrink-0">{icon}</span><p className="text-sm text-stone-700 leading-relaxed">{rule}</p></div>)}</div>
               <div className="p-4 rounded-xl border-2 space-y-3 transition-all" style={{ borderColor: noAgencyDeclared?GREEN:"#e7e5e4", backgroundColor: noAgencyDeclared?GREEN_LT:"white" }}>
                 <label className="flex items-start gap-3 cursor-pointer">
@@ -249,8 +249,8 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
                 <input type="checkbox" checked={rulesAccepted} onChange={e => setRulesAccepted(e.target.checked)} className="mt-1 rounded flex-shrink-0" />
                 <span className="text-sm text-stone-700">I agree to BeWatu's recruiting rules and understand that violations will result in my recruiter access being revoked.</span>
               </label>
-              <div className="flex items-start gap-2 p-3 rounded-xl text-xs text-stone-500" style={{ backgroundColor:"#fafaf9", border:"1px solid #e7e5e4" }}>
-                <Clock size={13} className="mt-0.5 flex-shrink-0 text-stone-400" />
+              <div className="flex items-start gap-2 p-3 rounded-xl text-xs text-stone-600" style={{ backgroundColor:"#fafaf9", border:"1px solid #e7e5e4" }}>
+                <Clock size={13} className="mt-0.5 flex-shrink-0 text-stone-600" />
                 <p>Your application will be reviewed by the BeWatu ops team within <strong>1–2 business days</strong>.</p>
               </div>
               {error && <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
@@ -268,12 +268,12 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
               </div>
               <div>
                 <h2 className="text-xl font-extrabold text-stone-900">Application submitted</h2>
-                <p className="text-stone-500 text-sm mt-2 max-w-xs mx-auto">We're reviewing your recruiter application for <strong>{companyName}</strong>. You'll receive an email within 1–2 business days.</p>
+                <p className="text-stone-600 text-sm mt-2 max-w-xs mx-auto">We're reviewing your recruiter application for <strong>{companyName}</strong>. You'll receive an email within 1–2 business days.</p>
               </div>
               <div className="p-4 rounded-2xl text-left space-y-2" style={{ backgroundColor: GREEN_LT }}>
                 {["✓ Company email verified","✓ No-agency declaration signed","✓ Recruiter rules accepted","⏳ Ops review pending"].map(item => <p key={item} className="text-sm font-semibold" style={{ color: GREEN }}>{item}</p>)}
               </div>
-              <div className="p-3 rounded-xl text-xs text-stone-500 text-left" style={{ backgroundColor:"#fafaf9", border:"1px solid #e7e5e4" }}>
+              <div className="p-3 rounded-xl text-xs text-stone-600 text-left" style={{ backgroundColor:"#fafaf9", border:"1px solid #e7e5e4" }}>
                 <p className="font-bold text-stone-700 mb-2">While you wait</p>
                 <ul className="space-y-1"><li>· Complete your BeWatu profile for faster approval</li><li>· Questions? <a href="mailto:ops@bewatu.com" className="underline" style={{ color: GREEN }}>ops@bewatu.com</a></li></ul>
               </div>

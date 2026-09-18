@@ -141,9 +141,9 @@ function ReelPlayer({
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-stone-900 truncate">{reel.authorName}</p>
-            <p className="text-xs text-stone-500 truncate">{reel.authorTitle}</p>
+            <p className="text-xs text-stone-600 truncate">{reel.authorTitle}</p>
           </div>
-          <div className="flex items-center gap-1 text-xs text-stone-400">
+          <div className="flex items-center gap-1 text-xs text-stone-600">
             <Eye size={11} />
             {reel.views ?? 0}
           </div>
@@ -161,7 +161,7 @@ function ReelPlayer({
               </span>
             ))}
             {reel.skills.length > 4 && (
-              <span className="text-xs text-stone-400">+{reel.skills.length - 4}</span>
+              <span className="text-xs text-stone-600">+{reel.skills.length - 4}</span>
             )}
           </div>
         )}
@@ -189,7 +189,7 @@ function ReelPlayer({
             }`}
           >
             <Zap size={12} fill={hasSparked ? 'currentColor' : 'none'} />
-            {hasSparked ? 'Sparked' : 'Spark'} {reel.sparks?.length > 0 && <span className="text-stone-400 font-normal">{reel.sparks.length}</span>}
+            {hasSparked ? 'Sparked' : 'Spark'} {reel.sparks?.length > 0 && <span className="text-stone-600 font-normal">{reel.sparks.length}</span>}
           </button>
 
           {reel.authorUid !== currentUid && (
@@ -341,10 +341,10 @@ function UploadReelModal({
             </div>
             <div>
               <p className="text-sm font-bold text-stone-900">Upload your reel</p>
-              <p className="text-xs text-stone-500">30–90 seconds · showcase your skills</p>
+              <p className="text-xs text-stone-600">30–90 seconds · showcase your skills</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
+          <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600 transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -360,7 +360,7 @@ function UploadReelModal({
               >
                 <Upload size={28} className="text-stone-300 mx-auto mb-3" />
                 <p className="text-sm font-semibold text-stone-700 mb-1">Click to upload your reel</p>
-                <p className="text-xs text-stone-400">MP4, MOV, WebM · max 200MB · 10–90 seconds</p>
+                <p className="text-xs text-stone-600">MP4, MOV, WebM · max 200MB · 10–90 seconds</p>
               </div>
               <input ref={inputRef} type="file" accept="video/*" className="hidden"
                 onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
@@ -383,7 +383,7 @@ function UploadReelModal({
 
               {/* Pitch */}
               <div>
-                <label className="block text-xs font-semibold text-stone-500 mb-1.5 uppercase tracking-widest">
+                <label className="block text-xs font-semibold text-stone-600 mb-1.5 uppercase tracking-widest">
                   Written pitch <span className="text-red-400">*</span>
                 </label>
                 <textarea
@@ -392,14 +392,14 @@ function UploadReelModal({
                   placeholder="What can you do? What problem do you solve? What makes you different?"
                   rows={3}
                   maxLength={280}
-                  className="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-stone-400 resize-none"
+                  className="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-600 focus:outline-none focus:border-stone-400 resize-none"
                 />
-                <p className="text-xs text-stone-400 mt-1 text-right">{pitch.length}/280</p>
+                <p className="text-xs text-stone-600 mt-1 text-right">{pitch.length}/280</p>
               </div>
 
               {/* Skills */}
               <div>
-                <label className="block text-xs font-semibold text-stone-500 mb-1.5 uppercase tracking-widest">
+                <label className="block text-xs font-semibold text-stone-600 mb-1.5 uppercase tracking-widest">
                   Skill tags <span className="text-red-400">*</span>
                 </label>
                 <div className="flex flex-wrap gap-1.5 mb-2">
@@ -429,7 +429,7 @@ function UploadReelModal({
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {SKILL_SUGGESTIONS.filter(s => !skills.includes(s)).slice(0, 8).map(s => (
                     <button key={s} onClick={() => addSkill(s)}
-                      className="text-xs bg-stone-50 text-stone-500 border border-stone-200 rounded-full px-2.5 py-0.5 hover:bg-stone-100 transition-colors">
+                      className="text-xs bg-stone-50 text-stone-600 border border-stone-200 rounded-full px-2.5 py-0.5 hover:bg-stone-100 transition-colors">
                       + {s}
                     </button>
                   ))}
@@ -438,7 +438,7 @@ function UploadReelModal({
 
               {/* Industries */}
               <div>
-                <label className="block text-xs font-semibold text-stone-500 mb-1.5 uppercase tracking-widest">
+                <label className="block text-xs font-semibold text-stone-600 mb-1.5 uppercase tracking-widest">
                   Industries (optional)
                 </label>
                 <div className="flex flex-wrap gap-1.5">
@@ -451,7 +451,7 @@ function UploadReelModal({
                       className={`text-xs rounded-full px-2.5 py-1 border transition-all ${
                         industries.includes(ind)
                           ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                          : 'bg-stone-50 text-stone-500 border-stone-200 hover:border-stone-300'
+                          : 'bg-stone-50 text-stone-600 border-stone-200 hover:border-stone-300'
                       }`}
                     >
                       {industries.includes(ind) && <span className="mr-0.5">✓</span>}
@@ -477,10 +477,10 @@ function UploadReelModal({
           {step === 'compressing' && (
             <div className="py-8 text-center">
               <div className="w-16 h-16 rounded-2xl bg-stone-50 flex items-center justify-center mx-auto mb-4">
-                <Video size={24} className="text-stone-400 animate-pulse" />
+                <Video size={24} className="text-stone-600 animate-pulse" />
               </div>
               <p className="text-sm font-semibold text-stone-900 mb-1">Optimising your reel...</p>
-              <p className="text-xs text-stone-400">Resizing to fit the reel player. This takes a few seconds.</p>
+              <p className="text-xs text-stone-600">Resizing to fit the reel player. This takes a few seconds.</p>
             </div>
           )}
 
@@ -494,7 +494,7 @@ function UploadReelModal({
               <div className="h-2 bg-stone-100 rounded-full overflow-hidden mx-8 mb-2">
                 <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
               </div>
-              <p className="text-xs text-stone-400">{progress}%</p>
+              <p className="text-xs text-stone-600">{progress}%</p>
             </div>
           )}
 
@@ -505,7 +505,7 @@ function UploadReelModal({
                 <CheckCircle2 size={28} className="text-emerald-600" />
               </div>
               <p className="text-sm font-bold text-stone-900 mb-1">Reel uploaded!</p>
-              <p className="text-xs text-stone-500">Your reel is now live on the Prove feed.</p>
+              <p className="text-xs text-stone-600">Your reel is now live on the Prove feed.</p>
             </div>
           )}
         </div>
@@ -520,11 +520,11 @@ function OpportunityMatch({ job, onView }: { job: any; onView: () => void }) {
   return (
     <div className="bg-white border border-stone-200 rounded-xl p-4 flex items-center gap-3 hover:border-stone-300 transition-colors cursor-pointer" onClick={onView}>
       <div className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center flex-shrink-0">
-        <Briefcase size={14} className="text-stone-500" />
+        <Briefcase size={14} className="text-stone-600" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-stone-900 truncate">{job.title}</p>
-        <p className="text-xs text-stone-500 truncate">{job.company}</p>
+        <p className="text-xs text-stone-600 truncate">{job.company}</p>
       </div>
       <div className="flex items-center gap-1 text-xs font-semibold text-emerald-600 flex-shrink-0">
         <Sparkles size={11} />
@@ -679,7 +679,7 @@ export default function ProveView({
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-900 mb-1">Prove</h1>
-          <p className="text-stone-500 text-sm">
+          <p className="text-stone-600 text-sm">
             Show what you can do. Upload a 30–90s reel and let your skills speak.
           </p>
         </div>
@@ -708,7 +708,7 @@ export default function ProveView({
                 className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-all ${
                   activeTab === tab.id
                     ? 'bg-white text-stone-900 shadow-sm'
-                    : 'text-stone-500 hover:text-stone-700'
+                    : 'text-stone-600 hover:text-stone-700'
                 }`}
               >
                 {tab.label}
@@ -720,7 +720,7 @@ export default function ProveView({
           {activeTab !== 'mine' && (
             <div className="flex gap-2 mb-5 flex-wrap">
               <div className="relative flex-1 min-w-40">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-600" />
                 <input
                   value={search}
                   onChange={e => { setSearch(e.target.value); setFilterSkill(null); setFilterIndustry(null); }}
@@ -766,7 +766,7 @@ export default function ProveView({
           ) : filtered.length === 0 ? (
             <div className="text-center py-20 border border-dashed border-stone-200 rounded-2xl">
               <Video size={28} className="text-stone-200 mx-auto mb-3" />
-              <p className="text-stone-500 text-sm mb-1">
+              <p className="text-stone-600 text-sm mb-1">
                 {activeTab === 'mine'
                   ? "You haven't uploaded a reel yet."
                   // Bug fix: this checked a tab id ('matches') that was
@@ -810,7 +810,7 @@ export default function ProveView({
             {/* My reel stats */}
             {reels.filter(r => r.authorUid === currentUid).length > 0 && (
               <div className="bg-white border border-stone-200 rounded-2xl p-4">
-                <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest mb-3">Your reels</p>
+                <p className="text-xs font-semibold text-stone-600 uppercase tracking-widest mb-3">Your reels</p>
                 {reels.filter(r => r.authorUid === currentUid).map(r => (
                   <div key={r.id} className="flex items-center gap-2 mb-2 last:mb-0">
                     <div className="w-8 h-8 rounded-lg bg-stone-900 flex items-center justify-center flex-shrink-0">
@@ -818,7 +818,7 @@ export default function ProveView({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-stone-700 truncate">{r.pitch?.slice(0, 40)}...</p>
-                      <div className="flex items-center gap-2 text-xs text-stone-400 mt-0.5">
+                      <div className="flex items-center gap-2 text-xs text-stone-600 mt-0.5">
                         <span className="flex items-center gap-0.5"><Zap size={9} />{r.sparks?.length ?? 0}</span>
                         <span className="flex items-center gap-0.5"><Eye size={9} />{r.views ?? 0}</span>
                       </div>
@@ -840,7 +840,7 @@ export default function ProveView({
                     <OpportunityMatch key={job.id} job={job} onView={() => {}} />
                   ))}
                 </div>
-                <p className="text-xs text-stone-400 mt-3 text-center">
+                <p className="text-xs text-stone-600 mt-3 text-center">
                   Based on skills in your reels
                 </p>
               </div>

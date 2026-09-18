@@ -74,7 +74,7 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
                 {job.title}
               </p>
               <p className="text-xs text-stone-600">{getCompanyName(job.companyId)}</p>
-              <p className="text-xs text-stone-400">{job.location}</p>
+              <p className="text-xs text-stone-600">{job.location}</p>
             </div>
           ))}
         </div>
@@ -104,7 +104,7 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
                 <button onClick={() => onViewProfile(user.id)} className="font-semibold text-sm text-stone-900 hover:underline text-left truncate block w-full">
                   {user.name}
                 </button>
-                <p className="text-xs text-stone-500 truncate">{user.headline}</p>
+                <p className="text-xs text-stone-600 truncate">{user.headline}</p>
               </div>
               <button
                 onClick={() => handleFollow(user.id)}
@@ -131,7 +131,7 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
           <h3 className="font-bold text-md text-stone-800 mb-1 border-b pb-2" style={{ borderColor: '#e7e5e4' }}>
             Companies to follow
           </h3>
-          <p className="text-xs text-stone-400 mb-3">Follow to see their skill challenges in your Prove feed</p>
+          <p className="text-xs text-stone-600 mb-3">Follow to see their skill challenges in your Prove feed</p>
           <div className="space-y-3">
             {suggestedCompanies.map(company => {
               const state = companyFollowState[company.id];
@@ -157,7 +157,7 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
                     <button onClick={() => onViewCompany?.((company as any)._firestoreId ?? company.numericId ?? company.id)} className="font-semibold text-sm text-stone-900 hover:underline text-left truncate block w-full">
                       {company.name}
                     </button>
-                    <p className="text-xs text-stone-500 truncate">{company.industry}</p>
+                    <p className="text-xs text-stone-600 truncate">{company.industry}</p>
                   </div>
 
                   <button

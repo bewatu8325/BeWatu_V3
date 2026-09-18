@@ -82,12 +82,12 @@ function CommentItem({ comment }: { comment: PostComment }) {
           <div className="flex items-baseline gap-1.5 flex-wrap">
             <span className="text-xs font-bold text-stone-900">{comment.authorName}</span>
             {comment.authorHeadline && (
-              <span className="text-xs text-stone-400 truncate max-w-[140px]">{comment.authorHeadline}</span>
+              <span className="text-xs text-stone-600 truncate max-w-[140px]">{comment.authorHeadline}</span>
             )}
           </div>
           <p className="text-sm text-stone-700 mt-0.5 leading-relaxed">{comment.content}</p>
         </div>
-        <span className="text-xs text-stone-400 ml-2 mt-0.5 block">{timeAgo(comment.createdAt)}</span>
+        <span className="text-xs text-stone-600 ml-2 mt-0.5 block">{timeAgo(comment.createdAt)}</span>
       </div>
     </div>
   );
@@ -218,10 +218,10 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
               {displayName}
             </button>
             {displayHl && (
-              <span className="text-xs text-stone-400 truncate">{displayHl}</span>
+              <span className="text-xs text-stone-600 truncate">{displayHl}</span>
             )}
           </div>
-          <p className="text-xs text-stone-400">{timeAgo((post as any).createdAt)}</p>
+          <p className="text-xs text-stone-600">{timeAgo((post as any).createdAt)}</p>
         </div>
       </div>
 
@@ -234,7 +234,7 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
       {totalReactions > 0 && (
         <div className="px-4 pb-2 flex items-center gap-3">
           {REACTIONS.map(r => reactions[r.type] > 0 && (
-            <span key={r.type} className="flex items-center gap-1 text-xs text-stone-400">
+            <span key={r.type} className="flex items-center gap-1 text-xs text-stone-600">
               <span style={{ color: r.color }}>{r.icon}</span>
               {reactions[r.type]}
             </span>
@@ -303,7 +303,7 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
                 onKeyDown={handleKeyDown}
                 placeholder="Write a comment… (Enter to post)"
                 rows={1}
-                className="flex-1 resize-none bg-transparent text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none"
+                className="flex-1 resize-none bg-transparent text-sm text-stone-800 placeholder:text-stone-600 focus:outline-none"
                 style={{ minHeight: 20, maxHeight: 120 }}
               />
               <button

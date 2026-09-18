@@ -209,7 +209,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
               <div className="h-full rounded-full transition-all duration-700"
                 style={{ width: `${score}%`, backgroundColor: color }} />
             </div>
-            <div className="flex items-center justify-between text-xs text-stone-400 mb-2">
+            <div className="flex items-center justify-between text-xs text-stone-600 mb-2">
               <span>{score}% complete</span>
               <button onClick={() => onNavigate(View.Connections)}
                 className="flex items-center gap-1 font-semibold transition-colors hover:opacity-80"
@@ -219,7 +219,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
               </button>
             </div>
             {missing.length > 0 && (
-              <p className="text-xs text-stone-400 leading-relaxed">
+              <p className="text-xs text-stone-600 leading-relaxed">
                 Add: {missing.slice(0, 2).join(' · ')}
                 {missing.length > 2 && ` +${missing.length - 2} more`}
               </p>
@@ -251,7 +251,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
               </h3>
               {/* Disclaimer inline — small, not alarming */}
               <span className="group relative cursor-default">
-                <svg className="w-3.5 h-3.5 text-stone-300 hover:text-stone-500 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 text-stone-300 hover:text-stone-600 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="absolute right-0 top-5 z-20 w-64 rounded-xl border bg-white p-3 shadow-lg text-xs text-stone-600 leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{ borderColor: '#e7e5e4' }}>
@@ -265,7 +265,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
                 <div key={skill.name} className="group relative">
                   <div className="flex justify-between items-center mb-1">
                     <p className="text-sm font-medium text-stone-700">{skill.name}</p>
-                    <p className="text-xs text-stone-400">{skill.proficiency}</p>
+                    <p className="text-xs text-stone-600">{skill.proficiency}</p>
                   </div>
                   <div className="w-full bg-stone-100 rounded-full h-1.5">
                     <div className={`h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`} style={{ backgroundColor: '#1a4a3a' }} />
@@ -285,7 +285,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         {(user.skills?.length ?? 0) > 0 && (
           <div className={user.verifiedSkills && user.verifiedSkills.length > 0 ? 'border-t pt-4' : ''} style={user.verifiedSkills && user.verifiedSkills.length > 0 ? { borderColor: '#f0efee' } : {}}>
             {(user.verifiedSkills?.length ?? 0) > 0 && (
-              <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-2">Self-reported</p>
+              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">Self-reported</p>
             )}
             {!(user.verifiedSkills?.length) && (
               <h3 className="font-semibold text-stone-800 text-sm mb-3">Skills</h3>
@@ -309,7 +309,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         {/* Empty state */}
         {(user.skills?.length ?? 0) === 0 && !(user.verifiedSkills?.length) && (
           <div className="text-center py-2">
-            <p className="text-sm text-stone-400">No skills added yet</p>
+            <p className="text-sm text-stone-600">No skills added yet</p>
           </div>
         )}
 
@@ -335,7 +335,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
           {/* Header with add friend action */}
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-stone-800 text-md flex items-center">
-              <CirclesIcon className="w-5 h-5 mr-2 text-stone-500" />
+              <CirclesIcon className="w-5 h-5 mr-2 text-stone-600" />
               My Circles
             </h3>
             <button
@@ -391,7 +391,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         <div className="bg-white rounded-2xl border p-6 shadow-sm text-center" style={{ borderColor: '#e7e5e4' }}>
           <CirclesIcon className="w-8 h-8 mx-auto mb-2 text-stone-300" />
           <p className="text-sm font-semibold text-stone-700 mb-1">No circles yet</p>
-          <p className="text-xs text-stone-400 mb-3">Join pods or connect with people to build your circles.</p>
+          <p className="text-xs text-stone-600 mb-3">Join pods or connect with people to build your circles.</p>
           <button
             onClick={() => onNavigate(View.Connections)}
             className="text-xs font-semibold px-4 py-1.5 rounded-lg border transition hover:opacity-80"

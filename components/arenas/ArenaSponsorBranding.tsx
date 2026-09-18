@@ -138,7 +138,7 @@ export function SponsorChallengeBadge({
           {initials}
         </div>
       )}
-      <span className="text-xs font-semibold text-stone-500">
+      <span className="text-xs font-semibold text-stone-600">
         Sponsored by {sponsor.name}
       </span>
     </div>
@@ -197,7 +197,7 @@ export function SponsorSpotlight({ industry }: { industry: ArenaIndustry }) {
 
         {/* Footer */}
         <div className="flex items-center justify-between mt-4 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
-          <p className="text-xs text-stone-400 max-w-xs">
+          <p className="text-xs text-stone-600 max-w-xs">
             {sponsor.name} reviews top submissions and reaches out directly to standout solvers.
           </p>
           {sponsor.website && (

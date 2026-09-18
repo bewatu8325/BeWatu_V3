@@ -96,7 +96,7 @@ export default function TermsConsentModal({
 
         {/* Content */}
         <div className="px-7 py-5 max-h-[50vh] overflow-y-auto">
-          <p className="text-xs text-stone-500 mb-4">
+          <p className="text-xs text-stone-600 mb-4">
             Here's a plain-English summary of what you're agreeing to. Full documents linked below.
           </p>
 
@@ -105,9 +105,9 @@ export default function TermsConsentModal({
               <button key={i} onClick={() => setExpanded(expanded === i ? null : i)}
                 className="w-full text-left rounded-2xl border border-stone-100 hover:border-stone-200 transition-all overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="flex-shrink-0 text-stone-400">{point.icon}</div>
+                  <div className="flex-shrink-0 text-stone-600">{point.icon}</div>
                   <p className="text-sm font-semibold text-stone-800 flex-1">{point.title}</p>
-                  <div className={`text-stone-400 transition-transform ${expanded === i ? 'rotate-180' : ''}`}>
+                  <div className={`text-stone-600 transition-transform ${expanded === i ? 'rotate-180' : ''}`}>
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                       <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
@@ -115,7 +115,7 @@ export default function TermsConsentModal({
                 </div>
                 {expanded === i && (
                   <div className="px-4 pb-3">
-                    <p className="text-xs text-stone-500 leading-relaxed">{point.body}</p>
+                    <p className="text-xs text-stone-600 leading-relaxed">{point.body}</p>
                   </div>
                 )}
               </button>
@@ -189,7 +189,7 @@ export default function TermsConsentModal({
             )}
           </button>
 
-          <p className="text-[10px] text-stone-400 text-center mt-3 leading-relaxed">
+          <p className="text-[10px] text-stone-600 text-center mt-3 leading-relaxed">
             Bewatu LLC · US · support@bewatu.com · v{TERMS_VERSION} · {new Date().getFullYear()}
           </p>
         </div>

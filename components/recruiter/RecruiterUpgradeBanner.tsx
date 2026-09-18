@@ -39,7 +39,7 @@ export const RecruiterUpgradeBanner: React.FC<RecruiterUpgradeBannerProps> = ({
 
         <div className="flex-1 min-w-0">
           <p className="font-bold text-stone-900 text-sm">Hiring someone?</p>
-          <p className="text-xs text-stone-500 mt-0.5">
+          <p className="text-xs text-stone-600 mt-0.5">
             Post roles and reach verified talent. First 3 listings free.
           </p>
         </div>
@@ -53,7 +53,7 @@ export const RecruiterUpgradeBanner: React.FC<RecruiterUpgradeBannerProps> = ({
 
         <button
           onClick={() => setDismissed(true)}
-          className="text-stone-400 hover:text-stone-600 transition-colors flex-shrink-0">
+          className="text-stone-600 hover:text-stone-600 transition-colors flex-shrink-0">
           <X size={14} />
         </button>
       </div>

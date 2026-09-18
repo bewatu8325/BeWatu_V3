@@ -118,10 +118,10 @@ const SkillsGraphModal: React.FC<Props> = ({
               </div>
               <div>
                 <h2 className="text-base font-bold text-stone-900">Skills</h2>
-                <p className="text-xs text-stone-400">Add your skills or request evidence-based verification</p>
+                <p className="text-xs text-stone-600">Add your skills or request evidence-based verification</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-stone-400 hover:text-stone-600 mt-1">
+            <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600 mt-1">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -157,7 +157,7 @@ const SkillsGraphModal: React.FC<Props> = ({
               {/* Current skills */}
               {currentSkills.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
+                  <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">
                     Your skills ({currentSkills.length})
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -171,7 +171,7 @@ const SkillsGraphModal: React.FC<Props> = ({
                         )}
                         {name}
                         <button onClick={() => onRemoveUserSkill(name)}
-                          className="ml-0.5 flex-shrink-0 text-stone-400 hover:text-red-500 transition-colors">
+                          className="ml-0.5 flex-shrink-0 text-stone-600 hover:text-red-500 transition-colors">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                           </svg>
@@ -207,7 +207,7 @@ const SkillsGraphModal: React.FC<Props> = ({
 
               {/* Input */}
               <div>
-                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
+                <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">
                   Add a skill
                 </p>
                 <div className="flex gap-2">
@@ -227,13 +227,13 @@ const SkillsGraphModal: React.FC<Props> = ({
                     Add
                   </button>
                 </div>
-                <p className="text-xs text-stone-400 mt-1.5">Press Enter or click Add. Skills appear here before saving.</p>
+                <p className="text-xs text-stone-600 mt-1.5">Press Enter or click Add. Skills appear here before saving.</p>
               </div>
 
               {/* Empty state */}
               {currentSkills.length === 0 && staged.length === 0 && (
                 <div className="text-center py-4">
-                  <p className="text-sm text-stone-400">No skills yet. Add your first skill above.</p>
+                  <p className="text-sm text-stone-600">No skills yet. Add your first skill above.</p>
                 </div>
               )}
             </div>
@@ -256,7 +256,7 @@ const SkillsGraphModal: React.FC<Props> = ({
               {/* Skill candidates */}
               {unverifiedSkills.length > 0 ? (
                 <div>
-                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
+                  <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">
                     Skills to verify ({unverifiedSkills.length})
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -266,11 +266,11 @@ const SkillsGraphModal: React.FC<Props> = ({
                       </span>
                     ))}
                   </div>
-                  <p className="text-xs text-stone-400 mt-2">All of the above will be considered. Evidence from your AI Workflows and Learning Log is included automatically.</p>
+                  <p className="text-xs text-stone-600 mt-2">All of the above will be considered. Evidence from your AI Workflows and Learning Log is included automatically.</p>
                 </div>
               ) : currentSkills.length === 0 ? (
                 <div className="text-center py-6">
-                  <p className="text-sm text-stone-500">Add some skills in "My Skills" first.</p>
+                  <p className="text-sm text-stone-600">Add some skills in "My Skills" first.</p>
                 </div>
               ) : (
                 <div className="rounded-xl p-3 text-center" style={{ backgroundColor: GREEN_LT }}>
@@ -308,7 +308,7 @@ const SkillsGraphModal: React.FC<Props> = ({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t flex items-center justify-between gap-3" style={{ borderColor: '#e7e5e4' }}>
-          <button onClick={onClose}
+          <button onClick={onClose} aria-label="Close"
             className="px-4 py-2 rounded-xl text-sm font-semibold border hover:bg-stone-50 transition-colors"
             style={{ borderColor: '#e7e5e4', color: '#374151' }}>
             {tab === 'manage' && staged.length === 0 ? 'Close' : 'Cancel'}

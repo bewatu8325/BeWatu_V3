@@ -91,7 +91,7 @@ function ExpiryBadge({ req }: { req: any }) {
     </span>
   );
   return (
-    <span className="text-xs text-stone-400">
+    <span className="text-xs text-stone-600">
       {days}d left
     </span>
   );
@@ -136,7 +136,7 @@ function PendingTab({
   const hasAnything = incoming.length > 0 || outgoing.length > 0 || incomingFollows.length > 0 || outgoingFollows.length > 0;
   if (!hasAnything) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-stone-400">
+      <div className="flex flex-col items-center justify-center py-20 text-stone-600">
         <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
@@ -152,7 +152,7 @@ function PendingTab({
       {/* ── Incoming connection requests — card grid ── */}
       {incoming.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
+          <h3 className="text-sm font-semibold text-stone-600 uppercase tracking-wider mb-4">
             Connection Requests · {incoming.length}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -176,7 +176,7 @@ function PendingTab({
                         className="font-semibold text-stone-900 hover:underline text-left text-sm truncate block w-full">
                         {sender.name}
                       </button>
-                      <p className="text-xs text-stone-500 truncate">{sender.headline}</p>
+                      <p className="text-xs text-stone-600 truncate">{sender.headline}</p>
                     </div>
                     <ExpiryBadge req={req} />
                   </div>
@@ -201,7 +201,7 @@ function PendingTab({
                       </button>
                     </div>
                   ) : (
-                    <p className="text-xs text-center text-stone-400">This request has expired</p>
+                    <p className="text-xs text-center text-stone-600">This request has expired</p>
                   )}
                 </div>
               );
@@ -213,7 +213,7 @@ function PendingTab({
       {/* ── Outgoing connection requests — card grid ── */}
       {outgoing.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
+          <h3 className="text-sm font-semibold text-stone-600 uppercase tracking-wider mb-4">
             Sent Requests · {outgoing.length}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -240,14 +240,14 @@ function PendingTab({
                         className="font-semibold text-stone-900 hover:underline text-left text-sm truncate block w-full">
                         {receiver.name}
                       </button>
-                      <p className="text-xs text-stone-500 truncate">{receiver.headline}</p>
+                      <p className="text-xs text-stone-600 truncate">{receiver.headline}</p>
                     </div>
                   </div>
 
                   {/* Expiry bar */}
                   {days !== null && days > 0 && (
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] text-stone-400">
+                      <div className="flex justify-between text-[10px] text-stone-600">
                         <span>Pending</span>
                         <span>{days}d remaining</span>
                       </div>
@@ -303,7 +303,7 @@ function PendingTab({
       {/* ── Incoming follow requests ── */}
       {incomingFollows.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-stone-600 uppercase tracking-wider mb-4 flex items-center gap-2">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             Follow Requests · {incomingFollows.length}
           </h3>
@@ -321,8 +321,8 @@ function PendingTab({
                       <button onClick={() => onViewProfile(sender.id)} className="font-semibold text-stone-900 hover:underline text-left text-sm truncate block w-full">
                         {sender.name}
                       </button>
-                      <p className="text-xs text-stone-500 truncate">{sender.headline}</p>
-                      <p className="text-xs text-stone-400 mt-0.5">wants to follow you</p>
+                      <p className="text-xs text-stone-600 truncate">{sender.headline}</p>
+                      <p className="text-xs text-stone-600 mt-0.5">wants to follow you</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -352,7 +352,7 @@ function PendingTab({
       {/* ── Outgoing follow requests ── */}
       {outgoingFollows.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
+          <h3 className="text-sm font-semibold text-stone-600 uppercase tracking-wider mb-4">
             Following Requests Sent · {outgoingFollows.length}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -369,7 +369,7 @@ function PendingTab({
                       <button onClick={() => onViewProfile(receiver.id)} className="font-semibold text-stone-900 hover:underline text-left text-sm truncate block w-full">
                         {receiver.name}
                       </button>
-                      <p className="text-xs text-stone-500 truncate">{receiver.headline}</p>
+                      <p className="text-xs text-stone-600 truncate">{receiver.headline}</p>
                     </div>
                   </div>
                   <div className="py-2 rounded-xl text-sm font-medium text-center text-amber-700 bg-amber-50 border border-amber-200">
@@ -404,7 +404,7 @@ function NetworkTab({
 
   if (connections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-stone-400">
+      <div className="flex flex-col items-center justify-center py-20 text-stone-600">
         <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
@@ -418,19 +418,19 @@ function NetworkTab({
     <div className="space-y-4">
       {/* Search */}
       <div className="relative">
-        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search connections..."
-          className="w-full rounded-xl border pl-10 pr-4 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 bg-white"
+          className="w-full rounded-xl border pl-10 pr-4 py-2.5 text-sm text-stone-800 placeholder:text-stone-600 focus:outline-none focus:ring-2 bg-white"
           style={{ borderColor: '#e7e5e4' }}
         />
       </div>
 
-      <p className="text-sm text-stone-500">{connections.length} circle{connections.length !== 1 ? 's' : ''}</p>
+      <p className="text-sm text-stone-600">{connections.length} circle{connections.length !== 1 ? 's' : ''}</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map(user => (
@@ -449,7 +449,7 @@ function NetworkTab({
               >
                 {user.name}
               </button>
-              <p className="text-xs text-stone-500 truncate">{user.headline}</p>
+              <p className="text-xs text-stone-600 truncate">{user.headline}</p>
               {user.isVerified && (
                 <span className="text-xs text-emerald-600 font-medium">✓ Verified</span>
               )}
@@ -457,7 +457,7 @@ function NetworkTab({
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="col-span-full text-center text-stone-400 py-8">No results for "{search}"</p>
+          <p className="col-span-full text-center text-stone-600 py-8">No results for "{search}"</p>
         )}
       </div>
     </div>
@@ -736,7 +736,7 @@ function ConnectionMap({
 
   if (connections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-stone-400">
+      <div className="flex flex-col items-center justify-center py-20 text-stone-600">
         <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <circle cx="12" cy="12" r="3" strokeWidth={1.5} />
           <circle cx="4" cy="6" r="2" strokeWidth={1.5} />
@@ -755,10 +755,10 @@ function ConnectionMap({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-600">
           You have <span className="font-semibold text-stone-800">{connections.length}</span> connection{connections.length !== 1 ? 's' : ''}
         </p>
-        <p className="text-xs text-stone-400">Drag nodes · Click to view profile</p>
+        <p className="text-xs text-stone-600">Drag nodes · Click to view profile</p>
       </div>
 
       <div
@@ -787,7 +787,7 @@ function ConnectionMap({
             }}
           >
             <p className="font-semibold text-stone-900 truncate">{tooltip.user.name}</p>
-            <p className="text-stone-500 text-xs truncate">{tooltip.user.headline}</p>
+            <p className="text-stone-600 text-xs truncate">{tooltip.user.headline}</p>
           </div>
         )}
       </div>
@@ -1051,7 +1051,7 @@ function RecommendedTab({
 
   if (scored.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-stone-400">
+      <div className="flex flex-col items-center justify-center py-20 text-stone-600">
         <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
         </svg>
@@ -1066,7 +1066,7 @@ function RecommendedTab({
 
       {/* Summary line */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-600">
           {topMatches.length > 0 && (
             <span className="font-semibold text-stone-800">{topMatches.length} strong match{topMatches.length !== 1 ? 'es' : ''} · </span>
           )}
@@ -1110,9 +1110,9 @@ function RecommendedTab({
                 >
                   {user.name}
                 </button>
-                <p className="text-xs text-stone-500 truncate">{user.headline}</p>
+                <p className="text-xs text-stone-600 truncate">{user.headline}</p>
                 {user.industry && (
-                  <p className="text-xs text-stone-400 truncate">{user.industry}</p>
+                  <p className="text-xs text-stone-600 truncate">{user.industry}</p>
                 )}
               </div>
             </div>
@@ -1134,7 +1134,7 @@ function RecommendedTab({
 
             {/* Availability badge */}
             {user.availability && user.availability !== 'Not looking' && (
-              <p className="text-[11px] text-stone-400 truncate">
+              <p className="text-[11px] text-stone-600 truncate">
                 {user.availability}
               </p>
             )}
@@ -1145,7 +1145,7 @@ function RecommendedTab({
               disabled={sent.has(user.id)}
               className={`w-full rounded-xl py-2 text-sm font-semibold transition-colors mt-auto ${
                 sent.has(user.id)
-                  ? 'bg-stone-100 text-stone-400 cursor-default'
+                  ? 'bg-stone-100 text-stone-600 cursor-default'
                   : 'text-white hover:opacity-90'
               }`}
               style={sent.has(user.id) ? {} : { backgroundColor: '#1a4a3a' }}
@@ -1161,7 +1161,7 @@ function RecommendedTab({
         <div className="text-center">
           <button
             onClick={() => setShowAll(true)}
-            className="text-sm font-medium text-stone-500 hover:text-stone-800 border border-stone-200 rounded-xl px-5 py-2.5 hover:bg-stone-50 transition-colors"
+            className="text-sm font-medium text-stone-600 hover:text-stone-800 border border-stone-200 rounded-xl px-5 py-2.5 hover:bg-stone-50 transition-colors"
           >
             Show {scored.length - 12} more
           </button>
@@ -1230,7 +1230,7 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-stone-900">Circles</h1>
-        <p className="text-sm text-stone-500 mt-1">Your professional connections and recommendations</p>
+        <p className="text-sm text-stone-600 mt-1">Your professional connections and recommendations</p>
       </div>
 
       {/* Tabs */}
@@ -1242,7 +1242,7 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
             className={`px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
               tab === t.id
                 ? 'bg-white shadow-sm text-stone-900'
-                : 'text-stone-500 hover:text-stone-700'
+                : 'text-stone-600 hover:text-stone-700'
             }`}
           >
             {t.label}

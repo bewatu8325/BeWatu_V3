@@ -31,13 +31,13 @@ const JobCard: React.FC<JobCardProps> = ({ job, company, onViewCompany, onAnalyz
           <button onClick={() => onViewCompany(company.id)} className="text-md text-stone-700 hover:underline text-left">
             {company.name}
           </button>
-          <p className="text-sm text-stone-500">{job.location} ({job.type})</p>
+          <p className="text-sm text-stone-600">{job.location} ({job.type})</p>
         </div>
         <div className="flex items-center space-x-2">
             {onReportJob && (
               <div ref={menuRef} style={{ position: 'relative' }}>
                 <button onClick={() => setMenuOpen(v => !v)} title="More options"
-                  className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors">
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 hover:text-stone-600 transition-colors">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
                 </button>
                 {menuOpen && (

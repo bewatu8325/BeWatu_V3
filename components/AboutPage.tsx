@@ -42,7 +42,7 @@ const AboutPage: React.FC<{
           We're rebuilding what it means<br />
           <span style={{ color: GREEN }}>to connect professionally.</span>
         </h1>
-        <p className="text-lg text-stone-500 leading-relaxed max-w-2xl mx-auto">
+        <p className="text-lg text-stone-600 leading-relaxed max-w-2xl mx-auto">
           Professional networking today is noisy, transactional, and built for algorithms — not people.
           We believe it's time for something different. Something human. Something fair.
         </p>
@@ -52,7 +52,7 @@ const AboutPage: React.FC<{
       <section className="border-y py-16" style={{ borderColor: '#e8e4dc' }}>
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-3xl font-extrabold text-stone-900 mb-4">Our mission</h2>
-          <p className="text-lg text-stone-500 leading-relaxed mb-6">
+          <p className="text-lg text-stone-600 leading-relaxed mb-6">
             To democratise opportunity by creating a professional network where every person —
             regardless of background, geography, or title — can connect, collaborate, and grow
             on equal footing.
@@ -69,7 +69,7 @@ const AboutPage: React.FC<{
         <div className="mx-auto max-w-4xl px-6">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-extrabold text-stone-900 mb-3">Why we exist</h2>
-            <p className="text-stone-500 max-w-xl mx-auto">
+            <p className="text-stone-600 max-w-xl mx-auto">
               Talent is universal. But access isn't. And the gap between generations of professionals
               is one of the most underused sources of value in the world.
             </p>
@@ -97,7 +97,7 @@ const AboutPage: React.FC<{
                 className="bg-white rounded-2xl border p-6 shadow-sm"
                 style={{ borderColor: '#e8e4dc' }}>
                 <h3 className="font-bold text-stone-900 mb-2">{title}</h3>
-                <p className="text-sm text-stone-500 leading-relaxed">{body}</p>
+                <p className="text-sm text-stone-600 leading-relaxed">{body}</p>
               </div>
             ))}
           </div>
@@ -117,7 +117,7 @@ const AboutPage: React.FC<{
               <div key={n} className="bg-white rounded-2xl border p-5" style={{ borderColor: '#c7e8d8' }}>
                 <p className="text-xs font-bold mb-2" style={{ color: GREENMID }}>{n}</p>
                 <p className="font-bold text-stone-900 text-sm mb-1.5">{title}</p>
-                <p className="text-xs text-stone-500 leading-relaxed">{body}</p>
+                <p className="text-xs text-stone-600 leading-relaxed">{body}</p>
               </div>
             ))}
           </div>
@@ -128,7 +128,7 @@ const AboutPage: React.FC<{
       <section className="py-16">
         <div className="mx-auto max-w-xl px-6 text-center">
           <h2 className="text-2xl font-extrabold text-stone-900 mb-3">Want to talk to us?</h2>
-          <p className="text-stone-500 text-sm mb-6">
+          <p className="text-stone-600 text-sm mb-6">
             We're a small team building something we genuinely believe in. If you want to partner,
             invest, or just tell us what you think — we'd love to hear from you.
           </p>

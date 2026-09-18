@@ -123,7 +123,7 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/80 backdrop-blur-sm" onClick={onClose}>
       <div className="relative w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-stone-900/60 text-white hover:bg-stone-900/80 transition-colors">
+        <button onClick={onClose} aria-label="Close" className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-stone-900/60 text-white hover:bg-stone-900/80 transition-colors">
           <X className="h-5 w-5" />
         </button>
         {(sparkIdx > 0 || groupIdx > 0) && (
@@ -153,7 +153,7 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
             )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white truncate">{group.authorName}</p>
-              <p className="text-[11px] text-stone-400">{timeAgo}</p>
+              <p className="text-[11px] text-stone-600">{timeAgo}</p>
             </div>
             <div className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-gradient-to-r ${format.gradient} ${format.accent}`}>
               <FormatIcon className="h-3.5 w-3.5" />
@@ -220,38 +220,38 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
         <div className="flex items-center justify-between border-b p-4" style={{ borderColor: '#e7e5e4' }}>
           <div>
             <h2 className="text-base font-bold text-stone-900">Share a Spark ⚡</h2>
-            <p className="text-xs text-stone-400">Celebrate an achievement or share what you're working on — disappears in 48h</p>
+            <p className="text-xs text-stone-600">Celebrate an achievement or share what you're working on — disappears in 48h</p>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-stone-100 transition-colors">
-            <X className="h-4 w-4 text-stone-400" />
+          <button onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-stone-100 transition-colors">
+            <X className="h-4 w-4 text-stone-600" />
           </button>
         </div>
         <div className="p-4 flex flex-col gap-4">
           {error && <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>}
           <div>
-            <label className="text-xs font-medium text-stone-500 mb-2 block">Format</label>
+            <label className="text-xs font-medium text-stone-600 mb-2 block">Format</label>
             <div className="flex flex-wrap gap-2">
               {FORMATS.map(({ value, label, icon: Icon }) => (
                 <button key={value} onClick={() => setFormat(value)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all border ${format === value ? 'border-stone-800 text-white' : 'border-stone-200 text-stone-500 hover:bg-stone-50'}`}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all border ${format === value ? 'border-stone-800 text-white' : 'border-stone-200 text-stone-600 hover:bg-stone-50'}`}
                   style={format === value ? { backgroundColor: '#1a4a3a' } : {}}>
                   <Icon className="h-3.5 w-3.5" />{label}
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[11px] text-stone-400">{selectedFormat.hint}</p>
+            <p className="mt-2 text-[11px] text-stone-600">{selectedFormat.hint}</p>
           </div>
           {format === 'win' && (
             <div>
-              <label className="text-xs font-medium text-stone-500 mb-1 block">Key stat (optional)</label>
+              <label className="text-xs font-medium text-stone-600 mb-1 block">Key stat (optional)</label>
               <input type="text" value={stat} onChange={e => setStat(e.target.value)}
                 placeholder='e.g. "10k users" or "3x faster"' maxLength={50}
-                className="w-full rounded-xl border bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2"
+                className="w-full rounded-xl border bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-600 focus:outline-none focus:ring-2"
                 style={{ borderColor: '#e7e5e4' }} />
             </div>
           )}
           <div>
-            <label className="text-xs font-medium text-stone-500 mb-1 block">Your Spark</label>
+            <label className="text-xs font-medium text-stone-600 mb-1 block">Your Spark</label>
             <textarea value={content} onChange={e => setContent(e.target.value.slice(0, maxLength))}
               placeholder={
                 format === 'win' ? 'What did you ship or achieve?' :
@@ -261,9 +261,9 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
                 'What is your current availability?'
               }
               rows={3}
-              className="w-full resize-none rounded-xl border bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2"
+              className="w-full resize-none rounded-xl border bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-600 focus:outline-none focus:ring-2"
               style={{ borderColor: '#e7e5e4' }} />
-            <p className="mt-1 text-right text-[10px] text-stone-400">{content.length}/{maxLength}</p>
+            <p className="mt-1 text-right text-[10px] text-stone-600">{content.length}/{maxLength}</p>
           </div>
           <button onClick={handleCreate} disabled={creating || !content.trim()}
             className="w-full rounded-xl px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
@@ -315,7 +315,7 @@ export function SparksTray() {
             <Flame className="h-3.5 w-3.5 text-amber-500" />
             <h2 className="text-xs font-bold text-stone-700">Sparks</h2>
           </div>
-          <span className="text-[10px] text-stone-400">48h</span>
+          <span className="text-[10px] text-stone-600">48h</span>
         </div>
 
         <div className="flex items-center gap-3 overflow-x-auto px-3 pb-3 pt-1"
@@ -338,7 +338,7 @@ export function SparksTray() {
                 <Plus className="h-3 w-3" />
               </div>
             </div>
-            <span className="max-w-[56px] truncate text-[10px] text-stone-500">Your Spark</span>
+            <span className="max-w-[56px] truncate text-[10px] text-stone-600">Your Spark</span>
           </button>
 
           {/* Spark groups */}
@@ -362,7 +362,7 @@ export function SparksTray() {
                   </div>
                   <FlameBadge active={hasUnviewed} />
                 </div>
-                <span className="max-w-[60px] truncate text-[10px] text-stone-500">
+                <span className="max-w-[60px] truncate text-[10px] text-stone-600">
                   {group.authorId === fbUser.uid ? 'You' : group.authorName.split(' ')[0]}
                 </span>
               </button>
@@ -371,7 +371,7 @@ export function SparksTray() {
 
           {groups.length === 0 && (
             <div className="flex items-center gap-2 py-1">
-              <p className="text-xs text-stone-400">No sparks yet — share a win with your network</p>
+              <p className="text-xs text-stone-600">No sparks yet — share a win with your network</p>
             </div>
           )}
         </div>

@@ -94,7 +94,7 @@ function Steps({ current, total }: { current: number; total: number }) {
                 ? "bg-stone-900 text-white"
                 : i === current
                 ? "bg-stone-900 text-white ring-4 ring-stone-200"
-                : "bg-stone-100 text-stone-400"
+                : "bg-stone-100 text-stone-600"
             }`}
           >
             {i < current ? <CheckCircle2 size={14} /> : i + 1}
@@ -140,7 +140,7 @@ function StepEligibility({
   return (
     <div>
       <h2 className="text-xl font-bold text-stone-900 mb-1">Choose your arena</h2>
-      <p className="text-stone-500 text-sm mb-6">
+      <p className="text-stone-600 text-sm mb-6">
         Select the industry arena for your challenge. Your company must be verified for that arena.
       </p>
 
@@ -164,7 +164,7 @@ function StepEligibility({
             <div className="min-w-0">
               <p className="text-sm font-medium text-stone-800 truncate">{ind.name.replace(" Arena", "")}</p>
               {ind.requiresRegulatory && (
-                <p className="text-xs text-stone-400 flex items-center gap-1 mt-0.5">
+                <p className="text-xs text-stone-600 flex items-center gap-1 mt-0.5">
                   <Shield size={10} /> Regulatory licence required
                 </p>
               )}
@@ -235,7 +235,7 @@ function StepDetails({
   return (
     <div>
       <h2 className="text-xl font-bold text-stone-900 mb-1">Challenge details</h2>
-      <p className="text-stone-500 text-sm mb-6">Describe the problem you want solved.</p>
+      <p className="text-stone-600 text-sm mb-6">Describe the problem you want solved.</p>
 
       <div className="space-y-4">
         <div>
@@ -248,7 +248,7 @@ function StepDetails({
             className="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-stone-400"
             maxLength={120}
           />
-          <p className="text-xs text-stone-400 mt-1">{form.title.length}/120</p>
+          <p className="text-xs text-stone-600 mt-1">{form.title.length}/120</p>
         </div>
 
         <div>
@@ -286,7 +286,7 @@ function StepDetails({
             rows={3}
             className="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-stone-400 resize-none"
           />
-          <p className="text-xs text-stone-400 mt-1">One per line</p>
+          <p className="text-xs text-stone-600 mt-1">One per line</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -297,7 +297,7 @@ function StepDetails({
               placeholder="Python, ML, SQL, React…"
               className="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-stone-400"
             />
-            <p className="text-xs text-stone-400 mt-1">Comma-separated</p>
+            <p className="text-xs text-stone-600 mt-1">Comma-separated</p>
           </div>
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1.5">Difficulty</label>
@@ -322,7 +322,7 @@ function StepDetails({
             min={minDateStr}
             className="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-stone-400"
           />
-          <p className="text-xs text-stone-400 mt-1">Minimum 7 days from today</p>
+          <p className="text-xs text-stone-600 mt-1">Minimum 7 days from today</p>
         </div>
       </div>
 
@@ -361,7 +361,7 @@ function StepTierAndPrize({
   return (
     <div>
       <h2 className="text-xl font-bold text-stone-900 mb-1">Choose tier & prize</h2>
-      <p className="text-stone-500 text-sm mb-6">Pick a posting tier and set the prize for the winner.</p>
+      <p className="text-stone-600 text-sm mb-6">Pick a posting tier and set the prize for the winner.</p>
 
       {/* Tier selector */}
       <div className="space-y-3 mb-6">
@@ -387,7 +387,7 @@ function StepTierAndPrize({
               <ul className="space-y-1">
                 {cfg.perks.map((perk) => (
                   <li key={perk} className="flex items-center gap-2 text-xs text-stone-600">
-                    <CheckCircle2 size={11} className="text-stone-400 flex-shrink-0" />
+                    <CheckCircle2 size={11} className="text-stone-600 flex-shrink-0" />
                     {perk}
                   </li>
                 ))}
@@ -482,14 +482,14 @@ function StepPayment({
   return (
     <div>
       <h2 className="text-xl font-bold text-stone-900 mb-1">Review & pay</h2>
-      <p className="text-stone-500 text-sm mb-6">Confirm your challenge details before payment.</p>
+      <p className="text-stone-600 text-sm mb-6">Confirm your challenge details before payment.</p>
 
       {/* Summary */}
       <div className="bg-stone-50 border border-stone-200 rounded-xl overflow-hidden mb-5">
         <div className="p-4 border-b border-stone-200">
-          <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">Your challenge</p>
+          <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-3">Your challenge</p>
           <p className="font-semibold text-stone-900 text-sm mb-1 line-clamp-2">{title}</p>
-          <p className="text-xs text-stone-500">{industry}</p>
+          <p className="text-xs text-stone-600">{industry}</p>
         </div>
         <div className="p-4 space-y-3">
           <div className="flex justify-between text-sm">
@@ -514,8 +514,8 @@ function StepPayment({
       </div>
 
       <div className="bg-stone-900 rounded-xl p-4 mb-5 flex items-start gap-2.5">
-        <Lock size={14} className="text-stone-400 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-stone-400 leading-relaxed">
+        <Lock size={14} className="text-stone-600 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-stone-600 leading-relaxed">
           Payment is processed securely by Stripe. Your challenge will go live within 1 business day after ops review.
           For verified companies with 3+ prior challenges, approval is automatic.
         </p>
@@ -547,7 +547,7 @@ function StepConfirmation({ onDone }: { onDone: () => void }) {
         <CheckCircle2 size={32} className="text-emerald-600" />
       </div>
       <h2 className="text-xl font-bold text-stone-900 mb-2">Challenge submitted!</h2>
-      <p className="text-stone-500 text-sm mb-6 max-w-sm mx-auto">
+      <p className="text-stone-600 text-sm mb-6 max-w-sm mx-auto">
         Your challenge is pending ops review. You will be notified by email once it goes live,
         typically within 1 business day.
       </p>
@@ -673,7 +673,7 @@ export default function PostChallengeFlow({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] overflow-y-auto">
         <div className="p-6 border-b border-stone-100 flex items-center justify-between">
           <p className="font-bold text-stone-900">Post an Arena Challenge</p>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-2xl leading-none">×</button>
+          <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600 text-2xl leading-none">×</button>
         </div>
         <div className="p-6">
           {step < 4 && <Steps current={step} total={TOTAL_STEPS} />}

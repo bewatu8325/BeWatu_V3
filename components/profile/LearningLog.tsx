@@ -126,7 +126,7 @@ const LearningLog: React.FC<Props> = ({ profileUid, isOwn }) => {
           </div>
           <div>
             <h3 className="font-bold text-stone-900 text-sm">Learning Log</h3>
-            <p className="text-xs text-stone-400">What you built, what broke, what's next</p>
+            <p className="text-xs text-stone-600">What you built, what broke, what's next</p>
           </div>
         </div>
         {isOwn && (
@@ -165,14 +165,14 @@ const LearningLog: React.FC<Props> = ({ profileUid, isOwn }) => {
         <button onClick={() => setComposerOpen(true)}
           className="w-full text-left rounded-xl border border-dashed p-4 hover:bg-stone-50 transition-colors" style={{ borderColor: '#d6d3d1' }}>
           <p className="text-sm font-medium text-stone-600">Write your first log entry</p>
-          <p className="text-xs text-stone-400 mt-1">A weekly note on what you're building turns your learning curve into a public, searchable asset. Unlike Sparks, these don't expire.</p>
+          <p className="text-xs text-stone-600 mt-1">A weekly note on what you're building turns your learning curve into a public, searchable asset. Unlike Sparks, these don't expire.</p>
         </button>
       ) : (
         <div className="space-y-3">
           {entries.map(entry => (
             <div key={entry.id} className="rounded-xl border p-4" style={{ borderColor: '#e7e5e4' }}>
               <div className="flex items-center justify-between mb-2.5">
-                <span className="text-[11px] font-medium text-stone-400">{timeAgo(entry.createdMs)}</span>
+                <span className="text-[11px] font-medium text-stone-600">{timeAgo(entry.createdMs)}</span>
                 {isOwn && (
                   <button onClick={() => handleDelete(entry.id)} className="text-stone-300 hover:text-red-500">
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -244,16 +244,16 @@ function LogComposer({ authorUid, onClose, onSaved }: {
         <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: '#e7e5e4' }}>
           <div>
             <h2 className="font-bold text-stone-900">Weekly log</h2>
-            <p className="text-xs text-stone-400">Short is fine. Consistency beats length.</p>
+            <p className="text-xs text-stone-600">Short is fine. Consistency beats length.</p>
           </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
+          <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="text-xs font-semibold block mb-1.5" style={{ color: '#1a6b52' }}>What I built <span className="text-stone-400 font-normal">· required</span></label>
+            <label className="text-xs font-semibold block mb-1.5" style={{ color: '#1a6b52' }}>What I built <span className="text-stone-600 font-normal">· required</span></label>
             <textarea value={built} onChange={e => setBuilt(e.target.value)} rows={2} autoFocus
               placeholder="The thing you shipped or made progress on this week"
               className="w-full resize-none rounded-xl border bg-stone-50 px-3 py-2 text-sm focus:outline-none focus:ring-2" style={{ borderColor: '#e7e5e4' }} />

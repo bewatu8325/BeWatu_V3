@@ -19,9 +19,9 @@ const People: React.FC<PeopleProps> = ({ users, onEndorseSkill, onStartMessage, 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-stone-900">People you may know</h1>
-      {isSearching && <p className="text-sm text-stone-400">Searching&hellip;</p>}
+      {isSearching && <p className="text-sm text-stone-600">Searching&hellip;</p>}
       {!isSearching && users.length === 0 && (
-        <p className="text-sm text-stone-400">No one matched your search.</p>
+        <p className="text-sm text-stone-600">No one matched your search.</p>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {users.map(user => {

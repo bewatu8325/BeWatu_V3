@@ -22,8 +22,8 @@ export const FeedItem: React.FC<FeedItemProps> = ({ item }) => {
                     <img src={item.author.avatarUrl} alt={item.author.name} className="h-12 w-12 rounded-full" />
                     <div className="flex-1">
                         <p className="font-semibold text-gray-800">{item.author.name}</p>
-                        <p className="text-xs text-gray-500">{item.author.headline}</p>
-                        <p className="text-xs text-gray-500">{item.timestamp}</p>
+                        <p className="text-xs text-gray-600">{item.author.headline}</p>
+                        <p className="text-xs text-gray-600">{item.timestamp}</p>
                     </div>
                 </div>
                 <p className="mt-4 text-gray-700 text-sm">
@@ -34,7 +34,7 @@ export const FeedItem: React.FC<FeedItemProps> = ({ item }) => {
                 <img src={item.imageUrl} alt="Feed content" className="w-full" />
             )}
             <div className="px-4 py-2">
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-xs text-gray-600">
                     <span>{item.likes} likes</span>
                     <span>{item.comments} comments</span>
                 </div>

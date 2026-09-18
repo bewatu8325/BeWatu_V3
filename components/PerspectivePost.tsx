@@ -117,7 +117,7 @@ export const PerspectivePostCard: React.FC<{
           <Avatar name={post.authorName} url={post.authorAvatar} size={9} />
           <div>
             <p className="font-semibold text-stone-900 text-sm">{post.authorName}</p>
-            <p className="text-xs text-stone-400">
+            <p className="text-xs text-stone-600">
               {new Date(post.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
             </p>
           </div>
@@ -130,12 +130,12 @@ export const PerspectivePostCard: React.FC<{
 
         {/* Context */}
         {post.context && (
-          <p className="text-stone-500 text-sm leading-relaxed mb-3">{post.context}</p>
+          <p className="text-stone-600 text-sm leading-relaxed mb-3">{post.context}</p>
         )}
 
         {/* Seeking from */}
         <div className="flex items-center gap-2 flex-wrap mb-4">
-          <span className="text-xs text-stone-400 font-medium">Seeking perspectives from:</span>
+          <span className="text-xs text-stone-600 font-medium">Seeking perspectives from:</span>
           {post.seekingFrom.map(g => <GenBadge key={g} gen={g} />)}
         </div>
 
@@ -164,7 +164,7 @@ export const PerspectivePostCard: React.FC<{
                   <p className="text-sm text-stone-600 leading-relaxed">{r.content}</p>
                   <button
                     onClick={() => onHelpful(post.id, r.id)}
-                    className="mt-1.5 text-xs text-stone-400 hover:text-stone-600 transition-colors flex items-center gap-1"
+                    className="mt-1.5 text-xs text-stone-600 hover:text-stone-600 transition-colors flex items-center gap-1"
                   >
                     👍 Helpful · {r.helpful}
                   </button>
@@ -178,7 +178,7 @@ export const PerspectivePostCard: React.FC<{
         {showForm ? (
           <div className="border rounded-xl p-4 space-y-3" style={{ borderColor: '#e7e5e4', backgroundColor: '#fafaf9' }}>
             <div>
-              <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+              <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">
                 Your generation
               </label>
               <select
@@ -197,7 +197,7 @@ export const PerspectivePostCard: React.FC<{
               onChange={e => setResponse(e.target.value)}
               placeholder="Share your perspective from your career experience..."
               rows={3}
-              className="w-full px-3 py-2 rounded-lg border text-sm text-stone-800 bg-white focus:outline-none resize-none placeholder:text-stone-400"
+              className="w-full px-3 py-2 rounded-lg border text-sm text-stone-800 bg-white focus:outline-none resize-none placeholder:text-stone-600"
               style={{ borderColor: '#e7e5e4' }}
             />
             <div className="flex gap-2">
@@ -269,7 +269,7 @@ export const CreatePerspectivePost: React.FC<{
       </div>
 
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">
           Your question
         </label>
         <textarea
@@ -277,13 +277,13 @@ export const CreatePerspectivePost: React.FC<{
           onChange={e => setQuestion(e.target.value)}
           placeholder="e.g. How did you navigate your first big career pivot? What do you wish you'd known?"
           rows={2}
-          className="w-full px-3.5 py-2.5 rounded-xl border text-sm text-stone-900 focus:outline-none placeholder:text-stone-400 resize-none"
+          className="w-full px-3.5 py-2.5 rounded-xl border text-sm text-stone-900 focus:outline-none placeholder:text-stone-600 resize-none"
           style={{ borderColor: '#e7e5e4' }}
         />
       </div>
 
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-1.5 block">
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">
           Context (optional)
         </label>
         <textarea
@@ -291,13 +291,13 @@ export const CreatePerspectivePost: React.FC<{
           onChange={e => setContext(e.target.value)}
           placeholder="Give people context so they can give you a more useful answer..."
           rows={2}
-          className="w-full px-3.5 py-2.5 rounded-xl border text-sm text-stone-900 focus:outline-none placeholder:text-stone-400 resize-none"
+          className="w-full px-3.5 py-2.5 rounded-xl border text-sm text-stone-900 focus:outline-none placeholder:text-stone-600 resize-none"
           style={{ borderColor: '#e7e5e4' }}
         />
       </div>
 
       <div>
-        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-2 block">
+        <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-2 block">
           Seeking perspectives from
         </label>
         <div className="flex flex-wrap gap-2">

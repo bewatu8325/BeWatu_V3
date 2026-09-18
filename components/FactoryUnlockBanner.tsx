@@ -50,7 +50,7 @@ export default function FactoryUnlockBanner({ onUnlock }: FactoryUnlockBannerPro
       {/* Dismiss */}
       <button
         onClick={() => setDismissed(true)}
-        className="absolute top-3 right-3 text-stone-400 hover:text-stone-600"
+        className="absolute top-3 right-3 text-stone-600 hover:text-stone-600"
       >
         <X className="h-4 w-4" />
       </button>
@@ -59,7 +59,7 @@ export default function FactoryUnlockBanner({ onUnlock }: FactoryUnlockBannerPro
         <div className={`p-2 rounded-lg ${qualified ? 'bg-emerald-100' : 'bg-stone-100'}`}>
           {qualified
             ? <Factory className="h-5 w-5 text-emerald-600" />
-            : <Flame className="h-5 w-5 text-stone-500" />
+            : <Flame className="h-5 w-5 text-stone-600" />
           }
         </div>
 
@@ -84,7 +84,7 @@ export default function FactoryUnlockBanner({ onUnlock }: FactoryUnlockBannerPro
               <p className="font-semibold text-stone-900 text-sm">
                 You're {progress.percentage}% of the way to Factory
               </p>
-              <p className="text-stone-500 text-xs mt-0.5">
+              <p className="text-stone-600 text-xs mt-0.5">
                 Keep contributing to unlock your startup workspace.
               </p>
 
@@ -99,7 +99,7 @@ export default function FactoryUnlockBanner({ onUnlock }: FactoryUnlockBannerPro
               {/* Signal breakdown */}
               <div className="mt-3 grid grid-cols-2 gap-1.5">
                 {progress.signals.map((signal) => (
-                  <div key={signal.label} className="text-xs text-stone-500">
+                  <div key={signal.label} className="text-xs text-stone-600">
                     <span className="font-medium text-stone-700">{signal.label}:</span>{' '}
                     {signal.score}/100
                   </div>

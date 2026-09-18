@@ -75,11 +75,11 @@ const ExpandedPipelineView: React.FC<ExpandedPipelineViewProps> = ({
     <div className="bg-stone-50/70 p-4 rounded-b-lg border border-stone-200 border-t-0 -mt-1 animate-fade-in-up space-y-3">
       {candidate.bio && <p className="text-sm text-stone-700 line-clamp-3">{candidate.bio}</p>}
       <div className="text-xs space-y-1">
-        <p><strong className="text-stone-500 font-semibold">{t('topSkills')}:</strong> <span className="text-[#1a6b52]">{topSkills || 'N/A'}</span></p>
-        <p><strong className="text-stone-500 font-semibold">{t('availability')}:</strong> {candidate.availability ?? 'N/A'}</p>
-        <p><strong className="text-stone-500 font-semibold">{t('values')}:</strong> {(candidate.values ?? []).join(', ') || 'N/A'}</p>
+        <p><strong className="text-stone-600 font-semibold">{t('topSkills')}:</strong> <span className="text-[#1a6b52]">{topSkills || 'N/A'}</span></p>
+        <p><strong className="text-stone-600 font-semibold">{t('availability')}:</strong> {candidate.availability ?? 'N/A'}</p>
+        <p><strong className="text-stone-600 font-semibold">{t('values')}:</strong> {(candidate.values ?? []).join(', ') || 'N/A'}</p>
         {candidate.notes && (
-          <p className="whitespace-pre-line pt-1 border-t border-stone-200 mt-1"><strong className="text-stone-500 font-semibold">Notes:</strong> {candidate.notes}</p>
+          <p className="whitespace-pre-line pt-1 border-t border-stone-200 mt-1"><strong className="text-stone-600 font-semibold">Notes:</strong> {candidate.notes}</p>
         )}
       </div>
 
@@ -191,7 +191,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate, displayNumber,
         <p className="text-sm font-semibold text-stone-800">
           {isBlindMode ? `Candidate #${displayNumber}` : candidate.name}
         </p>
-        <p className="text-xs text-stone-500 truncate">{isBlindMode ? '' : candidate.headline}</p>
+        <p className="text-xs text-stone-600 truncate">{isBlindMode ? '' : candidate.headline}</p>
       </div>
     </div>
   </button>
@@ -220,7 +220,7 @@ const PipelineColumn: React.FC<PipelineColumnProps> = ({
   <div className="flex-shrink-0 w-[260px] sm:w-72 bg-white rounded-lg border border-stone-200">
     <h3 className="p-3 text-md font-semibold text-stone-900 border-b border-stone-200 flex justify-between items-center">
       {title}
-      <span className="text-sm font-normal text-stone-500 bg-stone-100 px-2 rounded-full">{candidates.length}</span>
+      <span className="text-sm font-normal text-stone-600 bg-stone-100 px-2 rounded-full">{candidates.length}</span>
     </h3>
     <div className="p-2 space-y-2 h-[calc(100vh-22rem)] sm:h-[calc(100vh-20rem)] overflow-y-auto">
       {candidates.map((candidate, i) => (
@@ -246,7 +246,7 @@ const PipelineColumn: React.FC<PipelineColumnProps> = ({
         </div>
       ))}
       {candidates.length === 0 && (
-        <p className="text-xs text-stone-400 text-center py-6">No candidates</p>
+        <p className="text-xs text-stone-600 text-center py-6">No candidates</p>
       )}
     </div>
   </div>
@@ -282,7 +282,7 @@ const TalentPipelines: React.FC<TalentPipelinesProps> = ({
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-stone-900">{t('talentPipelines')}</h1>
-          <p className="text-stone-500 text-sm mt-1">{t('talentPipelinesDesc')}</p>
+          <p className="text-stone-600 text-sm mt-1">{t('talentPipelinesDesc')}</p>
         </div>
         {onToggleBlindMode && (
           <button

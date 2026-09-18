@@ -65,20 +65,20 @@ const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ videoUrl, onClose }
 
         {hasError ? (
           <div className="flex flex-col items-center justify-center gap-4 py-14 px-8 text-center">
-            <svg className="w-10 h-10 text-stone-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-10 h-10 text-stone-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
             </svg>
             {isCors ? (
               <>
                 <p className="text-sm font-bold text-stone-300">Storage access blocked</p>
-                <p className="text-xs text-stone-500 max-w-xs leading-relaxed">
+                <p className="text-xs text-stone-600 max-w-xs leading-relaxed">
                   Firebase Storage is blocking playback from this domain. Add <code className="text-stone-300">bewatu.com</code> to your Storage CORS config in Firebase Console.
                 </p>
                 <a
                   href={videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 text-xs font-bold underline text-stone-400 hover:text-white"
+                  className="mt-1 text-xs font-bold underline text-stone-600 hover:text-white"
                 >
                   Try opening directly →
                 </a>
@@ -86,14 +86,14 @@ const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ videoUrl, onClose }
             ) : (
               <>
                 <p className="text-sm font-bold text-stone-300">Video unavailable</p>
-                <p className="text-xs text-stone-500">
+                <p className="text-xs text-stone-600">
                   This clip could not be loaded.{errorCode > 0 ? ` (error ${errorCode})` : ''}
                 </p>
                 <a
                   href={videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 text-xs font-bold underline text-stone-400 hover:text-white"
+                  className="mt-1 text-xs font-bold underline text-stone-600 hover:text-white"
                 >
                   Try opening directly →
                 </a>

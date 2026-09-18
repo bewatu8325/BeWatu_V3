@@ -22,7 +22,7 @@ const TIER_ICONS = {
 };
 
 const TIER_COLORS = {
-  free:     { bg: 'bg-stone-50',   border: 'border-stone-200',  btn: 'bg-stone-800 hover:bg-stone-700',       icon: 'text-stone-500'  },
+  free:     { bg: 'bg-stone-50',   border: 'border-stone-200',  btn: 'bg-stone-800 hover:bg-stone-700',       icon: 'text-stone-600'  },
   pro:      { bg: 'bg-blue-50',    border: 'border-blue-200',   btn: 'bg-blue-600 hover:bg-blue-500',          icon: 'text-blue-500'   },
   factory:  { bg: 'bg-emerald-50', border: 'border-emerald-300',btn: 'bg-emerald-600 hover:bg-emerald-500',    icon: 'text-emerald-600'},
   investor: { bg: 'bg-amber-50',   border: 'border-amber-200',  btn: 'bg-amber-600 hover:bg-amber-500',        icon: 'text-amber-500'  },
@@ -39,7 +39,7 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
   return (
     <div className="min-h-screen bg-white py-16 px-4">
       {onClose && (
-        <button onClick={onClose} className="absolute top-4 right-4 text-stone-400 hover:text-stone-600">
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-stone-600 hover:text-stone-600">
           ✕
         </button>
       )}
@@ -49,7 +49,7 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
         <h1 className="text-4xl font-bold text-stone-900 mb-4">
           Build your future on BeWatu
         </h1>
-        <p className="text-lg text-stone-500 mb-8">
+        <p className="text-lg text-stone-600 mb-8">
           Start free. Upgrade when you're ready to level up.
         </p>
 
@@ -57,13 +57,13 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
         <div className="inline-flex items-center gap-3 bg-stone-100 rounded-full px-4 py-2">
           <button
             onClick={() => setAnnual(false)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${!annual ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${!annual ? 'bg-white shadow text-stone-900' : 'text-stone-600'}`}
           >
             Monthly
           </button>
           <button
             onClick={() => setAnnual(true)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${annual ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${annual ? 'bg-white shadow text-stone-900' : 'text-stone-600'}`}
           >
             Annual
             <span className="ml-1.5 text-xs text-emerald-600 font-semibold">Save 17%</span>
@@ -106,9 +106,9 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
                     <span className="text-3xl font-bold text-stone-900">
                       ${annual ? Math.round(price / 12) : price}
                     </span>
-                    <span className="text-stone-500 text-sm">/month</span>
+                    <span className="text-stone-600 text-sm">/month</span>
                     {annual && (
-                      <p className="text-xs text-stone-400 mt-0.5">
+                      <p className="text-xs text-stone-600 mt-0.5">
                         ${price}/year
                       </p>
                     )}
@@ -128,11 +128,11 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
 
               {/* CTA */}
               {isCurrent ? (
-                <div className="text-center py-2.5 text-sm font-medium text-stone-500 border border-stone-200 rounded-xl">
+                <div className="text-center py-2.5 text-sm font-medium text-stone-600 border border-stone-200 rounded-xl">
                   Current plan
                 </div>
               ) : tier.price === 0 ? (
-                <div className="text-center py-2.5 text-sm font-medium text-stone-400">
+                <div className="text-center py-2.5 text-sm font-medium text-stone-600">
                   Always free
                 </div>
               ) : (
@@ -160,7 +160,7 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
       {/* Enterprise CTA */}
       <div className="max-w-2xl mx-auto mt-12 text-center p-8 bg-stone-900 rounded-2xl text-white">
         <h3 className="text-xl font-bold mb-2">Enterprise</h3>
-        <p className="text-stone-400 mb-4 text-sm">
+        <p className="text-stone-600 mb-4 text-sm">
           Arena sponsorship, talent scouting, startup pipeline, API access, and dedicated support.
           Custom contracts and invoicing available.
         </p>

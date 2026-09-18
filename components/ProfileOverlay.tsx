@@ -106,11 +106,11 @@ function PrivateProfileView({ user, onBack, onConnect, alreadyConnected }: {
             )}
           </div>
           <h1 className="text-lg font-bold text-stone-900">{user.name}</h1>
-          {user.headline && <p className="text-sm text-stone-500 mt-0.5">{user.headline}</p>}
+          {user.headline && <p className="text-sm text-stone-600 mt-0.5">{user.headline}</p>}
 
           {/* Privacy notice */}
           <div className="mt-4 flex items-start gap-3 rounded-xl p-3" style={{ backgroundColor: '#fafaf9', border: '1px solid #e7e5e4' }}>
-            <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-stone-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-stone-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
             </svg>
             <p className="text-sm text-stone-600 leading-relaxed">This user's profile is private.</p>
@@ -184,7 +184,7 @@ function PublicProfileView({ user, isConnected, isFollowing, onBack, onConnect, 
           {/* Name + headline */}
           <h1 className="text-xl font-bold text-stone-900">{user.name}</h1>
           {user.headline && <p className="text-sm text-stone-600 mt-0.5">{user.headline}</p>}
-          {user.industry && <p className="text-xs text-stone-400 mt-0.5">{user.industry}</p>}
+          {user.industry && <p className="text-xs text-stone-600 mt-0.5">{user.industry}</p>}
 
           {/* Availability */}
           {user.availability && user.availability !== 'Not specified' && (
@@ -203,7 +203,7 @@ function PublicProfileView({ user, isConnected, isFollowing, onBack, onConnect, 
           {/* Skills */}
           {skills.length > 0 && (
             <div className="mt-4">
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
+              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">
                 {(user.verifiedSkills ?? []).length > 0 ? 'Verified Skills' : 'Skills'}
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -365,7 +365,7 @@ const ProfileOverlay: React.FC<ProfileOverlayProps> = ({
   if (status === 'not-found') return (
     <div className="max-w-xl mx-auto pt-8 px-4">
       <BackBtn onBack={onBack} />
-      <p className="text-stone-500 text-sm">This profile could not be found.</p>
+      <p className="text-stone-600 text-sm">This profile could not be found.</p>
     </div>
   );
 

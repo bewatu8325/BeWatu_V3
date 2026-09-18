@@ -58,12 +58,12 @@ function domainCfg(d: IdeaDomain) {
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
 const STAGE_CFG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  seed:        { label: 'Seed',        color: '#78716c', bg: '#f5f5f4', border: BDR       },
+  seed:        { label: 'Seed',        color: '#57534e', bg: '#f5f5f4', border: BDR       },
   developing:  { label: 'Developing',  color: '#0369a1', bg: '#e0f2fe', border: '#bae6fd' },
   arena_ready: { label: 'Arena Ready', color: G,         bg: GLT,       border: '#b6ddd2' },
   in_progress: { label: 'In Progress', color: '#7c3aed', bg: '#f5f3ff', border: '#c4b5fd' },
   shipped:     { label: 'Shipped',     color: '#16a34a', bg: '#f0fdf4', border: '#86efac' },
-  archived:    { label: 'Archived',    color: '#a8a29e', bg: '#fafaf9', border: BDR       },
+  archived:    { label: 'Archived',    color: '#57534e', bg: '#fafaf9', border: BDR       },
 };
 
 // ─── Tiny inline icons ────────────────────────────────────────────────────────
@@ -177,7 +177,7 @@ const CreateIdeaForm: React.FC<CreateIdeaFormProps> = ({ currentUser, podId, onC
       >
         <img src={avatar || `https://picsum.photos/seed/${uid}/40`} alt=""
           style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-        <span style={{ fontSize: 14, color: '#a8a29e' }}>Post a problem worth solving…</span>
+        <span style={{ fontSize: 14, color: '#57534e' }}>Post a problem worth solving…</span>
         <span style={{
           marginLeft: 'auto', fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
           letterSpacing: '0.06em', color: G, background: GLT, padding: '4px 10px',

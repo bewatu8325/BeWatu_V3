@@ -13,7 +13,7 @@ const StatCard: React.FC<{ title: string; score: number }> = ({ title, score }) 
     const color = score > 75 ? 'text-green-400' : score > 50 ? 'text-yellow-400' : 'text-orange-400';
     return (
         <div className="bg-stone-50 p-4 rounded-lg text-center border border-stone-200">
-            <p className="text-sm text-stone-500">{title}</p>
+            <p className="text-sm text-stone-600">{title}</p>
             <p className={`text-3xl font-bold ${color}`}>{score}%</p>
         </div>
     );
@@ -50,9 +50,9 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
              <p className="text-stone-600">{user.headline}</p>
           </div>
           <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 space-y-2">
-            <p><strong className="text-stone-500">Availability:</strong> {user.availability}</p>
-            <p><strong className="text-stone-500">Values:</strong> {user.values.join(', ')}</p>
-            <p><strong className="text-stone-500">Reputation:</strong> <span className="text-green-400 font-semibold">{user.reputation}</span></p>
+            <p><strong className="text-stone-600">Availability:</strong> {user.availability}</p>
+            <p><strong className="text-stone-600">Values:</strong> {user.values.join(', ')}</p>
+            <p><strong className="text-stone-600">Reputation:</strong> <span className="text-green-400 font-semibold">{user.reputation}</span></p>
           </div>
           <div>
             <h3 className="font-semibold text-stone-800 mb-2">Integrations</h3>
@@ -107,7 +107,7 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
                         <div key={project.id} className="bg-stone-50 p-4 rounded-lg border border-stone-200">
                             <h4 className="font-bold text-stone-900">{project.title}</h4>
                             <p className="text-sm text-stone-600 mt-1">{project.description}</p>
-                            <p className="text-xs text-stone-500 mt-2"><strong className="font-semibold">Outcome:</strong> {project.outcome}</p>
+                            <p className="text-xs text-stone-600 mt-2"><strong className="font-semibold">Outcome:</strong> {project.outcome}</p>
                             <p className="text-xs text-[#1a6b52] mt-1"><strong className="font-semibold">AI Summary:</strong> {project.aiGeneratedSummary}</p>
                         </div>
                     ))}
@@ -120,7 +120,7 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
                     {user.verifiedAchievements.map(ach => (
                         <div key={ach.id} className="bg-stone-50 p-3 rounded-lg border border-stone-200">
                             <p className="text-stone-800">"{ach.achievement}"</p>
-                            <p className="text-xs text-stone-500 text-right mt-1">&mdash; {ach.verifierName}, {ach.verifierTitle} @ {ach.verifierCompany}</p>
+                            <p className="text-xs text-stone-600 text-right mt-1">&mdash; {ach.verifierName}, {ach.verifierTitle} @ {ach.verifierCompany}</p>
                         </div>
                     ))}
                 </div>
