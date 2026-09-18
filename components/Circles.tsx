@@ -366,7 +366,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
               {!isOwner && onLeave && (
                 confirmLeave ? (
                   <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                    <span className="text-[10px] text-red-500">Leave?</span>
+                    <span className="text-[10px] text-red-600">Leave?</span>
                     <button onClick={handleLeave} disabled={leaving}
                       className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50">
                       {leaving ? '…' : 'Yes'}
@@ -378,7 +378,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
                   </div>
                 ) : (
                   <button onClick={handleLeave}
-                    className="flex items-center gap-1 text-[10px] text-stone-300 hover:text-red-400 transition-colors"
+                    className="flex items-center gap-1 text-[10px] text-stone-300 hover:text-red-600 transition-colors"
                     title="Leave pod">
                     <LogOut size={10} /> Leave
                   </button>
@@ -606,7 +606,7 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
                       {rolesNeeded.map(r => (
                         <span key={r} className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                           {r}
-                          <button type="button" onClick={() => setRolesNeeded(rs => rs.filter(x => x !== r))} className="text-stone-600 hover:text-red-400 ml-0.5">×</button>
+                          <button type="button" onClick={() => setRolesNeeded(rs => rs.filter(x => x !== r))} className="text-stone-600 hover:text-red-600 ml-0.5">×</button>
                         </span>
                       ))}
                     </div>
@@ -666,7 +666,7 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
                                     <span className="text-[10px] font-semibold text-emerald-600">{challenge.prize}</span>
                                   )}
                                   {daysLeft !== null && (
-                                    <span className={`text-[10px] font-medium ${daysLeft <= 7 ? 'text-red-500' : 'text-stone-600'}`}>
+                                    <span className={`text-[10px] font-medium ${daysLeft <= 7 ? 'text-red-600' : 'text-stone-600'}`}>
                                       {daysLeft}d left
                                     </span>
                                   )}

@@ -240,7 +240,7 @@ function StepDetails({
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-            Challenge title <span className="text-red-500">*</span>
+            Challenge title <span className="text-red-600">*</span>
           </label>
           <input
             value={form.title} onChange={set("title")}
@@ -253,7 +253,7 @@ function StepDetails({
 
         <div>
           <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-            Short description <span className="text-red-500">*</span>
+            Short description <span className="text-red-600">*</span>
           </label>
           <textarea
             value={form.description} onChange={set("description")}
@@ -266,7 +266,7 @@ function StepDetails({
 
         <div>
           <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-            Full brief <span className="text-red-500">*</span>
+            Full brief <span className="text-red-600">*</span>
           </label>
           <textarea
             value={form.fullDescription} onChange={set("fullDescription")}
@@ -315,7 +315,7 @@ function StepDetails({
 
         <div>
           <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-            Submission deadline <span className="text-red-500">*</span>
+            Submission deadline <span className="text-red-600">*</span>
           </label>
           <input
             type="date" value={form.deadline} onChange={set("deadline")}

@@ -176,7 +176,7 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
               </button>
             </>
           )}
-          {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+          {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
         </div>
       ) : (
         <>

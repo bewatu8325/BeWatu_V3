@@ -10,7 +10,7 @@ interface CandidateDetailViewProps {
 }
 
 const StatCard: React.FC<{ title: string; score: number }> = ({ title, score }) => {
-    const color = score > 75 ? 'text-green-400' : score > 50 ? 'text-yellow-400' : 'text-orange-400';
+    const color = score > 75 ? 'text-green-800' : score > 50 ? 'text-yellow-800' : 'text-orange-800';
     return (
         <div className="bg-stone-50 p-4 rounded-lg text-center border border-stone-200">
             <p className="text-sm text-stone-600">{title}</p>

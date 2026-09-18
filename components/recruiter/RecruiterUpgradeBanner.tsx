@@ -53,6 +53,7 @@ export const RecruiterUpgradeBanner: React.FC<RecruiterUpgradeBannerProps> = ({
 
         <button
           onClick={() => setDismissed(true)}
+          aria-label="Dismiss"
           className="text-stone-600 hover:text-stone-600 transition-colors flex-shrink-0">
           <X size={14} />
         </button>

@@ -552,7 +552,7 @@ function AddLessonSheet({
                       onChange={e => updateStep(i, e.target.value)}
                     />
                     {steps.length > 1 && (
-                      <button onClick={() => removeStep(i)} className="p-1 text-stone-300 hover:text-red-400">
+                      <button onClick={() => removeStep(i)} className="p-1 text-stone-300 hover:text-red-600">
                         <span style={{ width: 14, height: 14, display: 'block' }}><Ic.X /></span>
                       </button>
                     )}

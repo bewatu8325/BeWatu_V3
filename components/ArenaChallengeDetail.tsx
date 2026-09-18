@@ -830,7 +830,7 @@ export default function ArenaChallengeDetail({
                 </div>
 
                 {submitError && (
-                  <p className="text-xs text-red-500 text-center">{submitError}</p>
+                  <p className="text-xs text-red-600 text-center">{submitError}</p>
                 )}
 
                 <button

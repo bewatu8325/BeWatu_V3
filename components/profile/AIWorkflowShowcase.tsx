@@ -190,7 +190,7 @@ const AIWorkflowShowcase: React.FC<Props> = ({ profileUid, isOwn }) => {
                     {isOwn && (
                       <div className="flex gap-2 mt-3">
                         <button onClick={() => { setEditing(wf); setEditorOpen(true); }} className="text-xs font-semibold text-stone-600 hover:text-stone-700">Edit</button>
-                        <button onClick={() => handleDelete(wf.id)} className="text-xs font-semibold text-red-400 hover:text-red-600">Delete</button>
+                        <button onClick={() => handleDelete(wf.id)} className="text-xs font-semibold text-red-600 hover:text-red-600">Delete</button>
                       </div>
                     )}
                   </div>
@@ -305,7 +305,7 @@ function WorkflowEditor({ existing, authorUid, onClose, onSaved }: {
                       ))}
                     </div>
                     {steps.length > 1 && (
-                      <button onClick={() => removeStep(i)} className="text-stone-300 hover:text-red-500">
+                      <button onClick={() => removeStep(i)} className="text-stone-300 hover:text-red-600">
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
                       </button>
                     )}

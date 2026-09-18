@@ -134,7 +134,7 @@ function SlotPicker({
                   <p className="text-xs font-medium text-stone-800">{f.date}</p>
                   <p className="text-xs text-stone-600">{f.time} · {s.duration} min</p>
                 </div>
-                <button onClick={() => removeSlot(s.id)} className="text-stone-600 hover:text-red-400 transition-colors">
+                <button onClick={() => removeSlot(s.id)} className="text-stone-600 hover:text-red-600 transition-colors">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -237,7 +237,7 @@ function ProposeModal({
           />
         </div>
 
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-600">{error}</p>}
 
         <button
           onClick={handleSend}
@@ -275,7 +275,7 @@ function InterviewCard({
   const statusColors = {
     pending:   'bg-amber-500/10 border-amber-500/20 text-amber-400',
     confirmed: 'bg-green-500/10 border-green-500/20 text-green-400',
-    cancelled: 'bg-red-500/10 border-red-500/20 text-red-400',
+    cancelled: 'bg-red-500/10 border-red-500/20 text-red-600',
     completed: 'bg-stone-300/10 border-stone-300/20 text-stone-600',
   };
 
@@ -340,7 +340,7 @@ function InterviewCard({
       {interview.status === 'pending' && (
         <button
           onClick={() => onCancel(interview.id)}
-          className="text-xs text-red-400 hover:text-red-300 transition-colors"
+          className="text-xs text-red-600 hover:text-red-300 transition-colors"
         >
           Cancel interview
         </button>

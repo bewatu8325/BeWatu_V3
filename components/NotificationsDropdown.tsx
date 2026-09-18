@@ -13,11 +13,16 @@ interface NotificationsDropdownProps {
 const NotificationIcon: React.FC<{type: Notification['type']}> = ({ type }) => {
     const iconClass = "w-6 h-6";
     switch(type) {
-        case 'MESSAGE': return <MessageSquareIcon className={`${iconClass} text-green-500`}/>;
-        case 'ENDORSEMENT': return <ThumbUpIcon className={`${iconClass} text-cyan-400`} />;
-        case 'CONNECTION_REQUEST': return <UsersIcon className={`${iconClass} text-purple-400`} />;
-        case 'CONNECTION_ACCEPTED': return <UsersIcon className={`${iconClass} text-purple-400`} />;
-        case 'SECURITY_ALERT': return <ShieldCheckIcon className={`${iconClass} text-yellow-400`} />;
+        // All five colors below measured under WCAG 1.4.11's 3:1 non-text
+        // minimum against this dropdown's white background (green-500 2.28,
+        // cyan-400 1.81, purple-400 2.64, yellow-400 1.53) — darkened one to
+        // two steps each, kept the same hue so each notification type still
+        // reads as its own color.
+        case 'MESSAGE': return <MessageSquareIcon className={`${iconClass} text-green-600`}/>;
+        case 'ENDORSEMENT': return <ThumbUpIcon className={`${iconClass} text-cyan-600`} />;
+        case 'CONNECTION_REQUEST': return <UsersIcon className={`${iconClass} text-purple-600`} />;
+        case 'CONNECTION_ACCEPTED': return <UsersIcon className={`${iconClass} text-purple-600`} />;
+        case 'SECURITY_ALERT': return <ShieldCheckIcon className={`${iconClass} text-yellow-700`} />;
         default: return <BriefcaseIcon className={iconClass} />;
     }
 }

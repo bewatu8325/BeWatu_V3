@@ -26,7 +26,7 @@ export interface OutreachTemplate {
 
 const CATEGORIES = [
   { value: 'invite',     label: 'Interview Invite', color: 'text-[#1a6b52]',   bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20'   },
-  { value: 'rejection',  label: 'Rejection',        color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20'     },
+  { value: 'rejection',  label: 'Rejection',        color: 'text-red-600',    bg: 'bg-red-500/10 border-red-500/20'     },
   { value: 'offer',      label: 'Job Offer',        color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20' },
   { value: 'follow_up',  label: 'Follow-up',        color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },
   { value: 'custom',     label: 'Custom',           color: 'text-stone-600',  bg: 'bg-stone-300/10 border-stone-300/20' },
@@ -295,7 +295,7 @@ function TemplateCard({
         <span className="text-[10px] text-stone-600">Used {template.usageCount} times</span>
         <div className="flex gap-1">
           <button onClick={onEdit} className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 hover:text-stone-800 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
-          <button onClick={onDelete} className="p-1.5 rounded-lg text-stone-600 hover:bg-red-900/20 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+          <button onClick={onDelete} className="p-1.5 rounded-lg text-stone-600 hover:bg-red-900/20 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
           <button onClick={onUse} className="flex items-center gap-1 rounded-lg bg-[#1a4a3a] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1a4a3a] transition-colors">
             <Send className="h-3 w-3" />Use
           </button>

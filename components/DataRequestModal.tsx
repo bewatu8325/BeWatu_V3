@@ -183,7 +183,7 @@ const DataRequestModal: React.FC<DataRequestModalProps> = ({
                   style={{ borderColor: error ? '#ef4444' : '#e7e5e4', '--tw-ring-color': GREEN } as any}
                   autoFocus
                 />
-                {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+                {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
               </div>
               <button
                 onClick={handleKyc}
@@ -239,7 +239,7 @@ const DataRequestModal: React.FC<DataRequestModalProps> = ({
           {step === 'error' && (
             <div className="text-center space-y-4 py-2">
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto bg-red-50">
-                <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>

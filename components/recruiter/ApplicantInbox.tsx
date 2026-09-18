@@ -49,7 +49,7 @@ const STATUS_CONFIG = {
   new:         { label: 'New',         color: 'text-[#1a6b52]',   bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20',   icon: AlertCircle  },
   reviewing:   { label: 'Reviewing',   color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock        },
   shortlisted: { label: 'Shortlisted', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20', icon: CheckCircle  },
-  rejected:    { label: 'Rejected',    color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20',     icon: XCircle      },
+  rejected:    { label: 'Rejected',    color: 'text-red-600',    bg: 'bg-red-500/10 border-red-500/20',     icon: XCircle      },
   hired:       { label: 'Hired',       color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', icon: UserCheck  },
 };
 
@@ -254,7 +254,7 @@ function JobRow({ job, isSelected, onClick }: { job: JobWithCount; isSelected: b
           </span>
         )}
         {expired && (
-          <span className="text-[10px] text-red-400">Expired</span>
+          <span className="text-[10px] text-red-600">Expired</span>
         )}
       </div>
       <ChevronRight className={`h-4 w-4 text-stone-600 shrink-0 transition-transform ${isSelected ? 'rotate-90 text-[#1a6b52]' : ''}`} />

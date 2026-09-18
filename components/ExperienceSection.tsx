@@ -122,7 +122,7 @@ const ExperienceForm: React.FC<{
                 placeholder='e.g. "Reduced load time by 60%, improving retention 18%"'
                 value={o} onChange={e => updateOutcome(i, e.target.value)} />
               {form.outcomes.length > 1 && (
-                <button onClick={() => removeOutcome(i)} className="mt-2 text-stone-300 hover:text-red-400 transition-colors">
+                <button onClick={() => removeOutcome(i)} className="mt-2 text-stone-300 hover:text-red-600 transition-colors">
                   <IconX />
                 </button>
               )}
@@ -228,7 +228,7 @@ const ExperienceCard: React.FC<{
                 <button onClick={onEdit} className="rounded-lg p-1.5 text-stone-600 hover:bg-stone-100 transition-colors" title="Edit">
                   <IconEdit />
                 </button>
-                <button onClick={onDelete} className="rounded-lg p-1.5 text-stone-600 hover:text-red-400 hover:bg-red-50 transition-colors" title="Delete">
+                <button onClick={onDelete} className="rounded-lg p-1.5 text-stone-600 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
                   <IconTrash />
                 </button>
               </>

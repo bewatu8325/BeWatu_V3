@@ -79,7 +79,7 @@ export default function RecruiterAnalyticsDashboard() {
   if (error) return (
     <div className="max-w-2xl mx-auto py-12 px-4">
       <div className="flex items-start gap-3 p-4 rounded-2xl bg-red-50 border border-red-200">
-        <AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+        <AlertCircle size={16} className="text-red-600 mt-0.5 flex-shrink-0" />
         <div>
           <p className="text-sm font-semibold text-red-800">Failed to load analytics</p>
           <p className="text-xs text-red-600 mt-0.5">{error}</p>
@@ -175,8 +175,8 @@ export default function RecruiterAnalyticsDashboard() {
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={weeklyApplications} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0ede6" />
-              <XAxis dataKey="week" tick={{ fontSize: 11, fill: '#a8a29e' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#a8a29e' }} allowDecimals={false} />
+              <XAxis dataKey="week" tick={{ fontSize: 11, fill: '#57534e' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#57534e' }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{ borderRadius: 12, border: '1px solid #e7e5e4', fontSize: 12 }}
                 labelStyle={{ fontWeight: 700 }}

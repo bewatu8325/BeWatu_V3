@@ -143,7 +143,7 @@ function JobForm({
         <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Job title *</label>
         <input value={form.title} onChange={e => set('title', e.target.value)}
           className={inputCls('title')} placeholder="e.g. Senior Product Manager" />
-        {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title}</p>}
+        {errors.title && <p className="text-xs text-red-600 mt-1">{errors.title}</p>}
       </div>
 
       {/* Location + type */}
@@ -152,7 +152,7 @@ function JobForm({
           <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Location *</label>
           <input value={form.location} onChange={e => set('location', e.target.value)}
             className={inputCls('location')} placeholder="London / Remote" />
-          {errors.location && <p className="text-xs text-red-500 mt-1">{errors.location}</p>}
+          {errors.location && <p className="text-xs text-red-600 mt-1">{errors.location}</p>}
         </div>
         <div>
           <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Type</label>
@@ -203,7 +203,7 @@ function JobForm({
           </select>
         </div>
         {errors.salary && (
-          <p className="flex items-center gap-1.5 text-xs text-red-500 mt-1.5">
+          <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
             <AlertCircle size={11} /> {errors.salary}
           </p>
         )}
@@ -218,7 +218,7 @@ function JobForm({
         <textarea value={form.description} onChange={e => set('description', e.target.value)} rows={5}
           className={`${inputCls('description')} resize-none`}
           placeholder="Role overview, key responsibilities, what good looks like in this role..." />
-        {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description}</p>}
+        {errors.description && <p className="text-xs text-red-600 mt-1">{errors.description}</p>}
       </div>
 
       {/* Direct employer confirmation */}
@@ -238,7 +238,7 @@ function JobForm({
           </div>
         </label>
         {errors.isDirectEmployer && (
-          <p className="text-xs text-red-500 mt-2 ml-6">{errors.isDirectEmployer}</p>
+          <p className="text-xs text-red-600 mt-2 ml-6">{errors.isDirectEmployer}</p>
         )}
       </div>
 
@@ -306,7 +306,7 @@ function JobCard({
             {isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
           </button>
           <button onClick={onDelete}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-stone-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-stone-300 hover:text-red-600 hover:bg-red-50 transition-colors">
             <Trash2 size={13} />
           </button>
         </div>

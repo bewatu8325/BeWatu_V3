@@ -134,7 +134,7 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
         {/* Error state */}
         {step === 'error' && (
           <div className="p-8 text-center">
-            <p className="text-red-500 font-medium mb-4">{errorMessage}</p>
+            <p className="text-red-600 font-medium mb-4">{errorMessage}</p>
             <button
               onClick={() => setStep('payment')}
               className="px-4 py-2 bg-stone-900 text-white rounded-lg text-sm"

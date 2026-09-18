@@ -225,7 +225,7 @@ function CreateChallengeSheet({
                 <textarea className={inputCls} style={focusStyle} rows={3} placeholder="What participants need to build, solve, or create..." value={description} onChange={e => setDescription(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Primary skill being tested <span className="text-red-400">*</span></label>
+                <label className="text-xs font-bold text-stone-600 uppercase tracking-wider block mb-1.5">Primary skill being tested <span className="text-red-600">*</span></label>
                 <input className={inputCls} style={focusStyle} placeholder="e.g. React, Product Strategy, Copywriting" value={targetedSkill} onChange={e => setTargetedSkill(e.target.value)} />
               </div>
               <div>
@@ -513,7 +513,7 @@ function ChallengeCard({
               ✓ Skill match
             </span>
           )}
-          {expired && <span className="text-xs font-bold text-red-400 bg-red-50 px-2 py-0.5 rounded-full">Expired</span>}
+          {expired && <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Expired</span>}
         </div>
       </div>
 
@@ -543,11 +543,11 @@ function ChallengeCard({
           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{challenge.timeLimit}m</span>
           <span className="flex items-center gap-1"><Users className="w-3 h-3" />{challenge.submissionCount || 0}</span>
           {challenge.reward?.credits > 0 && (
-            <span className="flex items-center gap-1 font-bold" style={{ color: '#f59e0b' }}>
+            <span className="flex items-center gap-1 font-bold" style={{ color: '#92400e' }}>
               <Zap className="w-3 h-3" />{challenge.reward.credits}
             </span>
           )}
-          {dl !== null && !expired && <span className={dl <= 3 ? 'text-red-400 font-semibold' : ''}>{dl}d left</span>}
+          {dl !== null && !expired && <span className={dl <= 3 ? 'text-red-600 font-semibold' : ''}>{dl}d left</span>}
         </div>
 
         {/* Submission status badge */}

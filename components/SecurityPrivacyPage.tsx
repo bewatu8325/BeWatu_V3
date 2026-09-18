@@ -224,7 +224,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
               ))}
             </div>
           )}
-          {passwordError && <p className="text-red-500 text-sm">{passwordError}</p>}
+          {passwordError && <p className="text-red-600 text-sm">{passwordError}</p>}
           {passwordSuccess && <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: GREEN }}><IconCheck /> Password updated</p>}
           <div className="flex justify-end">
             <button type="submit" disabled={!newPassword || !confirmPassword || !currentPasswordInput || changingPassword}
@@ -323,7 +323,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
       {/* Danger Zone */}
       {onDeleteAccount && (
         <div className="bg-white rounded-2xl border border-red-100 p-5 sm:p-6 space-y-4">
-          <div className="flex items-center gap-2"><Trash2 size={16} className="text-red-500" /><h2 className="font-bold text-red-600">Danger Zone</h2></div>
+          <div className="flex items-center gap-2"><Trash2 size={16} className="text-red-600" /><h2 className="font-bold text-red-600">Danger Zone</h2></div>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="font-semibold text-sm text-stone-900">Delete account</p>

@@ -209,14 +209,14 @@ const ProgressDots: React.FC<{ step: number }> = ({ step }) => (
 const DetailsArea: React.FC<{ value: string; onChange: (v: string) => void; placeholder: string; required?: boolean }> = ({ value, onChange, placeholder, required }) => (
   <div>
     <label style={{ color: '#57534e', fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-      {required ? <>What happened <span style={{ color: '#ef4444' }}>*</span></> : <>Additional details <span style={{ color: '#57534e', fontWeight: 400 }}>(optional)</span></>}
+      {required ? <>What happened <span style={{ color: '#dc2626' }}>*</span></> : <>Additional details <span style={{ color: '#57534e', fontWeight: 400 }}>(optional)</span></>}
     </label>
     <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={required ? 4 : 3}
       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e7e5e4', background: '#fafaf9', color: '#1c1917', fontSize: 13, lineHeight: 1.5, resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
       onFocus={e => (e.target.style.borderColor = '#1a4a3a')}
       onBlur={e  => (e.target.style.borderColor = '#e7e5e4')}
     />
-    {required && <p style={{ color: value.trim().length < 10 ? '#f59e0b' : '#a8a29e', fontSize: 11, marginTop: 4 }}>{value.trim().length}/10 minimum characters</p>}
+    {required && <p style={{ color: value.trim().length < 10 ? '#92400e' : '#57534e', fontSize: 11, marginTop: 4 }}>{value.trim().length}/10 minimum characters</p>}
   </div>
 );
 

@@ -135,7 +135,7 @@ export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0 
                 onClick={() => navigate(view)}
                 className="flex flex-col items-center justify-center gap-1 flex-1 py-1.5 rounded-xl transition-all active:scale-95 active:bg-stone-50"
                 style={{ 
-                  color: active ? GREEN : '#a8a29e', 
+                  color: active ? GREEN : '#57534e', 
                   minWidth: 0,
                   minHeight: '52px', // Minimum 44px touch target + padding
                 }}
@@ -166,7 +166,7 @@ export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0 
             onClick={() => setShowMore(m => !m)}
             className="flex flex-col items-center justify-center gap-1 flex-1 py-1.5 rounded-xl transition-all active:scale-95 active:bg-stone-50"
             style={{ 
-              color: isMoreActive || showMore ? GREEN : '#a8a29e', 
+              color: isMoreActive || showMore ? GREEN : '#57534e', 
               minWidth: 0,
               minHeight: '52px',
             }}
@@ -193,7 +193,7 @@ export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0 
             onClick={() => navigate(View.Profile)}
             className="flex flex-col items-center justify-center gap-1 flex-1 py-1.5 rounded-xl transition-all active:scale-95 active:bg-stone-50"
             style={{ 
-              color: currentView === View.Profile ? GREEN : '#a8a29e', 
+              color: currentView === View.Profile ? GREEN : '#57534e', 
               minWidth: 0,
               minHeight: '52px',
             }}

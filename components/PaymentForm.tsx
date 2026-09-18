@@ -23,8 +23,8 @@ const STRIPE_ELEMENT_STYLE = {
         },
     },
     invalid: {
-        color: '#f87171', // red-400
-        iconColor: '#f87171',
+        color: '#dc2626', // red-600 — red-400 measured 2.77:1 on white, fails WCAG 1.4.3 (needs 4.5:1)
+        iconColor: '#dc2626',
     },
 };
 

@@ -112,7 +112,7 @@ function ChallengeCard({
             {arenaData && <SponsorChallengeBadge industry={arenaData} compact />}
             <div className="flex items-center gap-1">
               <Clock size={11} className="text-stone-600" />
-              <span className={`text-xs font-medium ${daysLeft <= 3 ? "text-red-500" : "text-stone-600"}`}>
+              <span className={`text-xs font-medium ${daysLeft <= 3 ? "text-red-600" : "text-stone-600"}`}>
                 {daysLeft}d left
               </span>
             </div>
