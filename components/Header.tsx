@@ -8,7 +8,7 @@ import { LogoIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { View } from '../types';
 import { Factory, Loader2 } from 'lucide-react';
-import { redirectToFactory } from '../lib/handoff';
+import { goToFactory } from '../utils/factoryHandoff';
 
 const GREEN    = '#1a4a3a';
 const GREEN_LT = '#e8f4f0';
@@ -370,7 +370,17 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
   async function handleGoToFactory() {
   setFactoryLoading(true);
   try {
-    await redirectToFactory("/");
+    // lib/handoff.ts's redirectToFactory() used to be called here — it did
+    // a bare `window.location.href = "https://factory.bewatu.com/"` with no
+    // token at all, on the false assumption that "Firebase auth is shared
+    // across domains via the same Firebase project" (it isn't — Auth
+    // sessions are stored per-origin, and bewatu.com / factory.bewatu.com
+    // are different origins). Every real click landed signed-out on
+    // Factory, which immediately bounced back to bewatu.com — this button
+    // has never actually worked. goToFactory() (already used correctly
+    // elsewhere in App.tsx) does the real handoff: mints a custom token via
+    // api/factory-token and redirects with it.
+    await goToFactory(fbUser ?? null);
   } catch (err) {
     console.error("Handoff failed:", err);
     setFactoryLoading(false);
