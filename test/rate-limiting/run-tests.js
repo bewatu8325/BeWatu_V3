@@ -61,6 +61,7 @@ async function main() {
     "claude_rate_limits",
     "gemini_rate_limits",
     "skills_trajectory_rate_limits",
+    "_ops_internal",
   ];
 
   for (const coll of collections) {
