@@ -1851,6 +1851,14 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Belt-and-braces (P2): v2 already defaults to deny for any path with
+    // no matching rule above, so this changes nothing today — it's a
+    // terminal guard against a future collection being added to the app
+    // without a matching rule ever being written for it here.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
   }
   }
 
