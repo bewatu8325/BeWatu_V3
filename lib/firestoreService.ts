@@ -867,9 +867,11 @@ export async function fetchCircles(): Promise<Circle[]> {
 
   // Legacy fallback: circles collection — only read if pods is empty
   // Remove this block after running the migration script
+  // Capped at 200 for the same reason as the primary pods query above —
+  // this was an unbounded getDocs() with no limit at all.
   if (results.length === 0) {
     try {
-      const snap = await getDocs(collection(db, 'circles'));
+      const snap = await getDocs(query(collection(db, 'circles'), limit(200)));
       for (const d of snap.docs) {
         if (seen.has(d.id)) continue;
         seen.add(d.id);
