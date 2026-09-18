@@ -240,6 +240,13 @@ jobs:
         # isOpsStaff() regardless, so any active ops staffer could read
         # data their own role was never granted.
         run: firebase emulators:exec --project demo-bewatu --only firestore "node test/ops-rbac-read-scope/run-tests.js"
+      - name: Run verification-requests-factory tests against the Firestore emulator
+        # Cross-repo audit finding: bewatu-factory's two writers into this
+        # collection (investor_application, factory_nomination) were both
+        # writing a field this rule never checks, so both were
+        # unconditionally permission-denied — fixed on the Factory side.
+        # This guards the contract from the side that owns firestore.rules.
+        run: firebase emulators:exec --project demo-bewatu --only firestore "node test/verification-requests-factory/run-tests.js"
 
   # ── 5. Cloud posture ───────────────────────────────────────────────────────
   posture:
