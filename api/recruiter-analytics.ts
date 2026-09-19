@@ -13,7 +13,26 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { deriveApplicationStage } from '../lib/applicationStage';
+
+// Inlined rather than imported from lib/applicationStage.ts: this is the
+// only api/ file that ever imported across the api//lib boundary, and it
+// crashed production with FUNCTION_INVOCATION_FAILED (module-load failure
+// under Vercel's real serverless bundler -- doesn't reproduce in local
+// tsc/build, same failure class as the jwks-rsa/jose incident earlier in
+// this review). Duplicating this ~10-line pure function is cheap; sharing
+// it across that boundary was not proven safe. Keep in sync with
+// lib/applicationStage.ts's deriveApplicationStage by hand if that ever
+// changes.
+const CANONICAL_STAGES = new Set([
+  'New Applicants', 'Sourced', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected',
+]);
+function deriveApplicationStage(data: { stage?: string | null; status?: string | null }): string {
+  if (data.stage && CANONICAL_STAGES.has(data.stage)) return data.stage;
+  if (data.status === 'rejected') return 'Rejected';
+  if (data.status === 'hired') return 'Hired';
+  if (data.status === 'shortlisted') return 'Sourced';
+  return 'New Applicants';
+}
 
 // P0 7 (least privilege): this endpoint only ever reads (applications,
 // interviews, jobs, users) — confirmed no .set()/.update()/.add()/.delete()
