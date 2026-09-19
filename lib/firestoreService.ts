@@ -1177,8 +1177,15 @@ export async function shortlistSubmission(
   if (!subSnap.exists()) return;
   const sub = subSnap.data();
   if (jobId) {
+    // Field names matched to applyToJobWithProfile's, the real "Apply"
+    // flow and the actual convention every reader of this collection uses
+    // (ApplicantInbox.tsx reads applicant.appliedAt) -- this branch has no
+    // live caller today (shortlistSubmission's jobId param is never
+    // passed), but keeping the same field names here means it won't
+    // silently miscount schema decision 2's response-time metrics or
+    // break ApplicantInbox's display if it ever is wired up.
     await addDoc(collection(db, 'applications'), {
-      jobId,
+      jobFirestoreId: jobId,
       userId: sub.userId,
       message: 'Shortlisted from Prove challenge',
       status: 'applied',
@@ -1186,7 +1193,7 @@ export async function shortlistSubmission(
       source: 'prove',
       challengeId,
       submissionId,
-      createdAt: serverTimestamp(),
+      appliedAt: serverTimestamp(),
     });
   }
 }
@@ -1294,7 +1301,26 @@ export async function movePipelineCandidate(
   applicationId: string,
   toStage: string
 ) {
-  await updateDoc(doc(db, 'applications', applicationId), { stage: toStage });
+  // Schema decision 2 (launch-readiness review, computed company metrics):
+  // responseTimeP50/timeToDecision need real event timestamps to compute
+  // from, and until now nothing here ever wrote one -- every stage move
+  // just overwrote `stage` with no record of when it happened.
+  // respondedAt is the FIRST stage move only (a company's response time is
+  // measured once, not reset every time a recruiter reorganizes their
+  // board); decidedAt is set when the application reaches its one real
+  // terminal stage moved-to here, 'Hired' (the other terminal outcome,
+  // rejection, is its own function below).
+  const ref = doc(db, 'applications', applicationId);
+  const snap = await getDoc(ref);
+  const data = snap.data();
+  const updates: Record<string, unknown> = { stage: toStage };
+  if (!data?.respondedAt) {
+    updates.respondedAt = serverTimestamp();
+  }
+  if (toStage === 'Hired' && !data?.decidedAt) {
+    updates.decidedAt = serverTimestamp();
+  }
+  await updateDoc(ref, updates);
 }
 
 export async function addPipelineNote(applicationId: string, note: string) {
@@ -1316,10 +1342,22 @@ export async function rejectPipelineCandidate(
   applicationId: string,
   reason: string
 ) {
-  await updateDoc(doc(db, 'applications', applicationId), {
+  // Same reasoning as movePipelineCandidate above -- rejection is the
+  // application's other terminal outcome, and (unlike a stage move) also
+  // counts as a response if the recruiter rejects before ever touching the
+  // pipeline board.
+  const ref = doc(db, 'applications', applicationId);
+  const snap = await getDoc(ref);
+  const data = snap.data();
+  const updates: Record<string, unknown> = {
     status: 'rejected',
     rejectionReason: reason,
-  });
+    decidedAt: data?.decidedAt ?? serverTimestamp(),
+  };
+  if (!data?.respondedAt) {
+    updates.respondedAt = serverTimestamp();
+  }
+  await updateDoc(ref, updates);
 }
 
 
@@ -2035,7 +2073,13 @@ export async function inviteCandidateFromChallenge(
       source: 'challenge',
       challengeId,
       submissionId,
-      createdAt: serverTimestamp(),
+      // appliedAt, not createdAt -- schema decision 2 (launch-readiness
+      // review): this collection's actual convention is appliedAt
+      // (applyToJobWithProfile, the real "Apply" flow, and its only real
+      // reader, ApplicantInbox.tsx). createdAt here was a silent drift
+      // that would have made this creation path invisible to the
+      // response-time metrics computed from appliedAt.
+      appliedAt: serverTimestamp(),
     });
   }
 }
@@ -2127,7 +2171,9 @@ export async function linkSubmissionToJob(
     source: 'challenge',
     challengeId,
     submissionId,
-    createdAt: serverTimestamp(),
+    // appliedAt, not createdAt -- see the identical note in
+    // inviteCandidateFromChallenge above.
+    appliedAt: serverTimestamp(),
   });
   return ref.id;
 }

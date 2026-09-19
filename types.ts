@@ -152,6 +152,16 @@ claimed?: boolean;
   // real bug: ArenaIndustryView's isVerified check always saw undefined.
   verifiedIndustries?: string[];
   regulatedIndustries?: string[];
+  // Schema decision 2 (launch-readiness review): computed, not claimed --
+  // written only by functions/src/index.ts's recomputeCompanyResponseMetrics
+  // (firestore.rules blocks every client write to these two fields,
+  // including the company's own admin). Both in hours; null/absent means
+  // not enough data yet (no applications with a recorded response/decision
+  // for this company), not "instant" -- render accordingly, don't default
+  // to 0.
+  responseTimeP50?: number | null;
+  timeToDecision?: number | null;
+  metricsUpdatedAt?: string;
 }
 
 export interface Job {

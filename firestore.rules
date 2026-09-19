@@ -911,11 +911,21 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read:   if isAuth();
       allow create: if isAuth();
+      // Schema decision 2 (launch-readiness review): responseTimeP50/
+      // timeToDecision/metricsUpdatedAt are computed, not claimed —
+      // written only by functions/src/index.ts's
+      // recomputeCompanyResponseMetrics (Admin SDK, bypasses these rules
+      // entirely). Blocked here from every client branch, including the
+      // company's own admin and ops/platform_admin, not just narrowed —
+      // "written only by Cloud Functions" has to mean nobody's client
+      // session can set these, not just that most people can't.
       allow update: if isAuth() && (
         resource.data.adminUid == request.auth.uid
         || onlyFields(['verifiedRecruiters', 'updatedAt'])
         || isOpsStaff()
         || isPlatformAdmin()
+      ) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
+        ['responseTimeP50', 'timeToDecision', 'metricsUpdatedAt']
       );
       allow delete: if isAuth() && resource.data.adminUid == request.auth.uid;
     }
@@ -1353,12 +1363,25 @@ service cloud.firestore {
         || isPlatformAdmin()
       );
       allow create: if isAuth();
+      // Schema decision 2 (launch-readiness review): respondedAt/decidedAt
+      // feed a reputational, company-facing metric (responseTimeP50/
+      // timeToDecision) — nothing before this stopped a recruiter's own
+      // client session from backdating either field to make their
+      // response look faster than it was. If a write touches either
+      // field, its new value must be the real server request time, not
+      // whatever timestamp the client sent.
       allow update: if isAuth() && (
         resource.data.applicantUid == request.auth.uid
         || resource.data.recruiterUid == request.auth.uid
         || resource.data.recruiterId == request.auth.uid
         || isOpsStaff()
         || isPlatformAdmin()
+      ) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['respondedAt'])
+        || request.resource.data.respondedAt == request.time
+      ) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['decidedAt'])
+        || request.resource.data.decidedAt == request.time
       );
       allow delete: if false;
     }
