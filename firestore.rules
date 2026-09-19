@@ -1181,12 +1181,14 @@ service cloud.firestore {
     }
 
     // Same reasoning: the paid-AI-proxy endpoints' per-uid rate-limit
-    // counters (api/claude.js, api/gemini.ts, api/skills-trajectory.ts —
-    // launch-readiness review) — server-side only via Admin SDK.
-    match /claude_rate_limits/{docId} {
-      allow read, write: if false;
-    }
-    match /gemini_rate_limits/{docId} {
+    // counters (api/ai.ts, api/skills-trajectory.ts — launch-readiness
+    // review) — server-side only via Admin SDK. api/claude.js and
+    // api/gemini.ts (and their separate claude_rate_limits/
+    // gemini_rate_limits collections) were unified into api/ai.ts/
+    // ai_rate_limits — one active AI provider behind one endpoint,
+    // switchable via an env var instead of a client-visible provider
+    // choice baked into five different call sites.
+    match /ai_rate_limits/{docId} {
       allow read, write: if false;
     }
     match /skills_trajectory_rate_limits/{docId} {

@@ -58,8 +58,7 @@ async function main() {
     "verify_reel_rate_limits",
     "cosentiment_rate_limits",
     "cosentiment_cache",
-    "claude_rate_limits",
-    "gemini_rate_limits",
+    "ai_rate_limits",
     "skills_trajectory_rate_limits",
     "_ops_internal",
   ];
