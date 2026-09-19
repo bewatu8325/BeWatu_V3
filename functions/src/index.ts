@@ -1312,3 +1312,119 @@ export const sendCoSentimentSignal = onCall({
 
   return { ok: true };
 });
+
+// ===================================================================
+// Company response metrics (schema decision 2, launch-readiness review)
+// ===================================================================
+//
+// responseTimeP50/timeToDecision live on the company doc, computed here,
+// never client-writable (firestore.rules blocks every client write to
+// these two fields, including the company's own admin — see the
+// `companies` match block). Both are medians, in hours.
+//
+// Getting real data to compute from needed two prerequisite fixes, done
+// alongside this:
+//   1. lib/firestoreService.ts's movePipelineCandidate/rejectPipelineCandidate
+//      never wrote a timestamp on a stage/status transition, only on the
+//      original application — there was no event history to compute a
+//      delta from at all. They now stamp respondedAt (first transition
+//      only) and decidedAt (the terminal outcome — Hired or rejected).
+//   2. Four different call sites created `applications` docs with three
+//      different field-name conventions for "when this happened"
+//      (createdAt in three places, appliedAt in the real "Apply" flow —
+//      the one ApplicantInbox.tsx actually reads). Standardised all four
+//      on appliedAt, the one every real reader already used.
+
+// Denormalises companyId onto each application at creation so the metrics
+// trigger below can query "every application for this company" directly,
+// instead of a two-hop join (application -> job -> companyId) on every
+// event, or an `in` query capped at 30 job ids for a company with more
+// than 30 open jobs. Applications only ever carried jobFirestoreId before
+// this.
+export const stampApplicationCompanyId = onDocumentCreated(
+  "applications/{applicationId}",
+  async (event) => {
+    const data = event.data?.data();
+    if (!data || data.companyId != null || !data.jobFirestoreId) return null;
+
+    const jobSnap = await db.collection("jobs").doc(data.jobFirestoreId).get();
+    const companyId = jobSnap.data()?.companyId;
+    if (companyId == null) return null;
+
+    await event.data!.ref.update({ companyId });
+    return null;
+  }
+);
+
+// Bounds the recompute query's cost. Simplest correct thing at this app's
+// current scale — recomputes the median from scratch on every qualifying
+// event rather than maintaining an incremental structure. Revisit (a
+// running-median structure, or a scheduled batch job instead of
+// per-event) if a single company's real application volume ever makes
+// this limit the binding constraint rather than a safety margin.
+const METRIC_SAMPLE_LIMIT = 200;
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+}
+
+export const recomputeCompanyResponseMetrics = onDocumentUpdated(
+  "applications/{applicationId}",
+  async (event) => {
+    const before = event.data!.before.data();
+    const after = event.data!.after.data();
+
+    // Only recompute when this write is what actually changed one of the
+    // two metrics' inputs — not on every unrelated edit (a note, an
+    // interview date) to an application that already has both timestamps.
+    const respondedAtNew = !before.respondedAt && after.respondedAt;
+    const decidedAtNew = !before.decidedAt && after.decidedAt;
+    if (!respondedAtNew && !decidedAtNew) return null;
+
+    const companyId = after.companyId;
+    if (companyId == null) return null;
+
+    const companySnap = await db
+      .collection("companies")
+      .where("numericId", "==", companyId)
+      .limit(1)
+      .get();
+    if (companySnap.empty) return null;
+    const companyRef = companySnap.docs[0].ref;
+
+    const appsSnap = await db
+      .collection("applications")
+      .where("companyId", "==", companyId)
+      .orderBy("appliedAt", "desc")
+      .limit(METRIC_SAMPLE_LIMIT)
+      .get();
+
+    const responseTimesHours: number[] = [];
+    const decisionTimesHours: number[] = [];
+    for (const appDoc of appsSnap.docs) {
+      const app = appDoc.data();
+      const appliedAtMs: number | undefined = app.appliedAt?.toMillis?.();
+      if (!appliedAtMs) continue;
+      const respondedAtMs: number | undefined = app.respondedAt?.toMillis?.();
+      const decidedAtMs: number | undefined = app.decidedAt?.toMillis?.();
+      if (respondedAtMs) {
+        responseTimesHours.push((respondedAtMs - appliedAtMs) / (1000 * 60 * 60));
+      }
+      if (decidedAtMs) {
+        decisionTimesHours.push((decidedAtMs - appliedAtMs) / (1000 * 60 * 60));
+      }
+    }
+
+    await companyRef.update({
+      responseTimeP50: median(responseTimesHours),
+      timeToDecision: median(decisionTimesHours),
+      metricsUpdatedAt: FieldValue.serverTimestamp(),
+    });
+    return null;
+  }
+);
