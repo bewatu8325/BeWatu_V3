@@ -19,6 +19,7 @@ import {
   FileText, UserPlus, Zap, Star, ChevronDown, ChevronUp, Info,
 } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
+import type { ArenaRubricScores, ArenaSubmissionReview } from '../types';
 
 const GREEN    = '#1a4a3a';
 const GREEN_LT = '#e8f4f0';
@@ -99,6 +100,7 @@ interface Submission {
   submittedAt: any;
   status: 'submitted' | 'shortlisted' | 'winner' | 'rejected';
   score?: number;
+  review?: ArenaSubmissionReview;
   collaborators?: string[];
   attachmentUrl?: string;
   isShortlisted?: boolean;
@@ -132,16 +134,22 @@ function difficultyColor(d: string) {
 // ── Anonymous submission card (company view) ──────────────────────────────────
 
 function SubmissionCard({
-  submission, isRecruiter, onShortlist, onScore, challengeId,
+  submission, isRecruiter, onShortlist, onScore, onReview, challengeId,
 }: {
   submission: Submission;
   isRecruiter: boolean;
   onShortlist: (id: string) => void;
   onScore: (id: string, score: number) => void;
+  onReview: (id: string, rubricScores: ArenaRubricScores, feedback: string) => void;
   challengeId: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [scoring,  setScoring]  = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [rubricDraft, setRubricDraft] = useState<ArenaRubricScores>(
+    submission.review?.rubricScores ?? { correctness: 5, approach: 5, communication: 5 }
+  );
+  const [feedbackDraft, setFeedbackDraft] = useState(submission.review?.feedback ?? '');
 
   const isShortlisted = submission.status === 'shortlisted' || submission.status === 'winner';
 
@@ -221,6 +229,67 @@ function SubmissionCard({
                         {i + 1}
                       </button>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Structured rubric review -- separate from the quick 1-10 score
+                above. Feedback is required: "anti-black-box" is the actual
+                product promise here, not just a nice-to-have. */}
+            {isRecruiter && isShortlisted && (
+              <div className="pt-1">
+                {!reviewOpen ? (
+                  <button onClick={() => setReviewOpen(true)}
+                    className="text-xs font-bold underline" style={{ color: GREEN }}>
+                    {submission.review ? 'Edit detailed review' : 'Add detailed review'}
+                  </button>
+                ) : (
+                  <div className="bg-stone-50 rounded-xl p-3 space-y-3">
+                    {(['correctness', 'approach', 'communication'] as const).map(key => (
+                      <div key={key}>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-semibold text-stone-700 capitalize">{key}</label>
+                          <span className="text-xs font-bold text-stone-600">{rubricDraft[key]}/10</span>
+                        </div>
+                        <input type="range" min={0} max={10} step={1} value={rubricDraft[key]}
+                          onChange={e => setRubricDraft(prev => ({ ...prev, [key]: Number(e.target.value) }))}
+                          className="w-full" aria-label={`${key} score, 0 to 10`} />
+                      </div>
+                    ))}
+                    <div>
+                      <label htmlFor={`feedback-${submission.id}`} className="text-xs font-semibold text-stone-700 block mb-1">
+                        Feedback (required)
+                      </label>
+                      <textarea id={`feedback-${submission.id}`} value={feedbackDraft}
+                        onChange={e => setFeedbackDraft(e.target.value)}
+                        placeholder="What worked, what didn't, and why this score"
+                        className="w-full text-sm rounded-lg border border-stone-200 p-2 min-h-[72px]" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={feedbackDraft.trim().length === 0}
+                        onClick={() => { onReview(submission.id, rubricDraft, feedbackDraft.trim()); setReviewOpen(false); }}
+                        className="text-xs font-bold px-3 py-2 rounded-xl text-white disabled:opacity-40"
+                        style={{ backgroundColor: GREEN }}>
+                        Save review
+                      </button>
+                      <button onClick={() => setReviewOpen(false)}
+                        className="text-xs font-bold px-3 py-2 rounded-xl text-stone-600">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {submission.review && !reviewOpen && (
+                  <div className="mt-2 bg-stone-50 rounded-xl p-3">
+                    <p className="text-xs font-bold text-stone-700 mb-1">
+                      Overall {submission.review.overallScore.toFixed(1)}/10
+                      &nbsp;&middot;&nbsp; correctness {submission.review.rubricScores.correctness},
+                      approach {submission.review.rubricScores.approach},
+                      communication {submission.review.rubricScores.communication}
+                    </p>
+                    <p className="text-xs text-stone-600 leading-relaxed">{submission.review.feedback}</p>
                   </div>
                 )}
               </div>
@@ -398,6 +467,24 @@ export default function ArenaChallengeDetail({
       const { db } = await import('../lib/firebase');
       await updateDoc(doc(db, 'arena_challenges', challenge._firestoreId, 'submissions', submissionId), { score });
     } catch (e) { console.error('Score failed:', e); }
+  }
+
+  async function handleReview(submissionId: string, rubricScores: ArenaRubricScores, feedback: string) {
+    if (!fbUser) return;
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      const overallScore = (rubricScores.correctness + rubricScores.approach + rubricScores.communication) / 3;
+      const review: ArenaSubmissionReview = {
+        reviewerUid: fbUser.uid,
+        rubricScores,
+        overallScore,
+        feedback,
+        reviewedAt: new Date().toISOString(),
+      };
+      await updateDoc(doc(db, 'arena_challenges', challenge._firestoreId, 'submissions', submissionId), { review });
+      setSubmissions(prev => prev.map(s => s.id === submissionId ? { ...s, review } : s));
+    } catch (e) { console.error('Review failed:', e); }
   }
 
   const inviteCandidates = allUsers.filter(u =>
@@ -639,6 +726,7 @@ export default function ArenaChallengeDetail({
                     isRecruiter={isRecruiter}
                     onShortlist={handleShortlist}
                     onScore={handleScore}
+                    onReview={handleReview}
                     challengeId={challenge._firestoreId}
                   />
                 ))}

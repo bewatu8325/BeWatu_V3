@@ -330,6 +330,46 @@ export interface ChallengeSubmission {
   submittedAt: string;
 }
 
+// Schema decision 3 (launch-readiness review): Arena submissions carry a
+// structured rubric + mandatory feedback, not just a single star rating.
+// Fixed criteria set on purpose -- not free-form -- so scores are
+// comparable across every submission on a challenge, not just within one
+// recruiter's head. Adjust weights per challenge if needed later; keep the
+// three field names fixed platform-wide.
+export interface ArenaRubricScores {
+  correctness:   number; // 0-10
+  approach:      number; // 0-10
+  communication: number; // 0-10
+}
+
+export interface ArenaSubmissionReview {
+  reviewerUid:   string;        // the challenge's recruiter (challengeRecruiterId)
+  rubricScores:  ArenaRubricScores;
+  overallScore:  number;        // 0-10, average of rubricScores -- stored so
+                                 // sorting/display doesn't recompute it every render
+  feedback:      string;        // required, non-empty -- the product's own
+                                 // "anti-black-box" promise: no silent scores
+  reviewedAt:    string;        // ISO string
+}
+
+// Internal-only anti-cheating signal. Deliberately NOT on the submission
+// document itself -- Firestore rules can only allow/deny a whole document,
+// not individual fields, so if this lived as a field on `submissions/{id}`
+// it would be exposed to anyone who can read that submission (the author,
+// the recruiter). Lives in its own subcollection with its own rules
+// instead: readable only by BeWatu platform staff, never the recruiter or
+// the candidate, and never written by any client (a future detection
+// pipeline would write it via the Admin SDK). A high aiDetectionScore is a
+// prompt for a human to look closer -- it must never, by itself, reject,
+// flag publicly, or notify anyone.
+export interface ArenaSubmissionIntegrity {
+  similarityScore?:    number;  // 0-1, vs. other submissions on the same challenge
+  aiDetectionScore?:   number;  // 0-1, informational only -- see note above
+  originalityChecked:  boolean;
+  flaggedForReview:    boolean; // set by a human decision, never by the scores above
+  checkedAt?:          string;  // ISO string
+}
+
 export interface SkillChallenge {
   id: string;
   title: string;

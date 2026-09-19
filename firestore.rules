@@ -1550,9 +1550,58 @@ service cloud.firestore {
       );
       allow create: if isAuth()
         && request.resource.data.authorUid == request.auth.uid;
-      allow update: if isAuth()
-        && resource.data.authorUid == request.auth.uid;
+      // P0-caliber bug, found and fixed alongside schema decision 3 (Arena
+      // rubric + integrity): this used to be "only the author can update" --
+      // but the only real write this collection ever gets is the
+      // challenge's recruiter scoring/shortlisting a submission
+      // (components/ArenaChallengeDetail.tsx's handleScore/handleReview).
+      // The author never updates their own submission anywhere in the live
+      // app. So recruiter scoring has been silently permission-denied since
+      // this feature shipped -- confirmed by reading every updateDoc call
+      // against this path, there is exactly one, and it's the recruiter's.
+      allow update: if isAuth() && (
+        (
+          resource.data.challengeRecruiterId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['score', 'review', 'status', 'isShortlisted'])
+          // If this write touches `review`, it must be a real, complete,
+          // self-attested review -- not a blank or spoofed one. Feedback
+          // required: the product's own "anti-black-box" promise, not a
+          // nice-to-have.
+          && (
+            !('review' in request.resource.data)
+            || (
+              request.resource.data.review.reviewerUid == request.auth.uid
+              && request.resource.data.review.feedback is string
+              && request.resource.data.review.feedback.size() > 0
+              && request.resource.data.review.overallScore is number
+              && request.resource.data.review.rubricScores.correctness is number
+              && request.resource.data.review.rubricScores.approach is number
+              && request.resource.data.review.rubricScores.communication is number
+            )
+          )
+        )
+        || (
+          resource.data.authorUid == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys()
+               .hasAny(['score', 'review', 'status', 'isShortlisted', 'authorUid', 'challengeRecruiterId'])
+        )
+      );
       allow delete: if false;
+
+      // Anti-cheating signal, deliberately isolated in its own subcollection
+      // with its own rules -- Firestore rules can only allow/deny a whole
+      // document, not individual fields, so this can't live as a field on
+      // the submission doc above without also being exposed to whoever can
+      // read that doc (the author, the recruiter). Platform-staff-only,
+      // client-write-never: a future detection pipeline would write this
+      // via the Admin SDK, which bypasses these rules entirely. A high
+      // aiDetectionScore is a prompt for a human to look closer -- it must
+      // never, by itself, reject a candidate or notify anyone.
+      match /integrity/{docId} {
+        allow read:  if isAuth() && isPlatformAdmin();
+        allow write: if false;
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════
