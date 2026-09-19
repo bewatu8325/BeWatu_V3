@@ -24,7 +24,7 @@ interface Applicant {
   userLocation?: string;
   userSkills?: string[];
   appliedAt: any;
-  status: 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired';
+  status: 'new' | 'applied' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired';
   source: 'applied' | 'prove' | 'sourced';
   notes?: { text: string; createdAt: string }[];
   score?: number;
@@ -46,6 +46,9 @@ interface JobWithCount {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
+  // 'applied' is what the real "Apply" flow (applyToJobWithProfile) actually
+  // writes on creation -- treated identically to 'new' (not yet reviewed).
+  applied:     { label: 'New',         color: 'text-[#1a6b52]',   bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20',   icon: AlertCircle  },
   new:         { label: 'New',         color: 'text-[#1a6b52]',   bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20',   icon: AlertCircle  },
   reviewing:   { label: 'Reviewing',   color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock        },
   shortlisted: { label: 'Shortlisted', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20', icon: CheckCircle  },
@@ -77,7 +80,10 @@ function ApplicantCard({
   const [savingNote, setSavingNote] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
 
-  const cfg = STATUS_CONFIG[applicant.status];
+  // Fallback guards against any status value STATUS_CONFIG doesn't know about
+  // yet (this crashed the whole app for every normally-applied candidate
+  // before 'applied' was added above -- see git history for details).
+  const cfg = STATUS_CONFIG[applicant.status] ?? STATUS_CONFIG.new;
   const StatusIcon = cfg.icon;
   const displayName = isBlind ? `Candidate #${index + 1}` : (applicant.userName || 'Unknown');
   const displayAvatar = isBlind ? null : applicant.userAvatar;
@@ -294,7 +300,12 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
     if (!selectedJobId) { setApplicants([]); return; }
     setLoadingApplicants(true);
     fetchApplicantsForJob(selectedJobId)
-      .then(setApplicants)
+      // applyToJobWithProfile (the real "Apply" flow) writes status: 'applied',
+      // which this component's status vocabulary doesn't otherwise know --
+      // normalize it to 'new' so filtering/counts/badges are all consistent.
+      .then(apps => setApplicants(apps.map((a: Applicant) =>
+        a.status === 'applied' ? { ...a, status: 'new' } : a
+      )))
       .catch(console.error)
       .finally(() => setLoadingApplicants(false));
   }, [selectedJobId]);
