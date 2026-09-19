@@ -93,7 +93,7 @@ async function checkSiteUp(): Promise<CheckResult> {
 // proves the function loaded and ran its auth check; anything else (a 500,
 // a timeout, a non-401 4xx) means the function itself is broken, not just
 // "correctly rejecting an unauthenticated caller".
-const AUTH_GATED_ROUTES = ['/api/factory-token', '/api/recruiter-analytics', '/api/claude'];
+const AUTH_GATED_ROUTES = ['/api/factory-token', '/api/recruiter-analytics', '/api/ai'];
 
 async function checkAuthGatedRoute(path: string): Promise<CheckResult> {
   const url = `${SITE_ORIGIN}${path}`;
