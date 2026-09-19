@@ -6,7 +6,7 @@
  * experiences, careerArc, professionalGoals, values, availability, industry.
  *
  * Owner-only. Sits in the right column of ProfilePage below ExperienceSection.
- * Calls /api/claude (the existing working proxy — no SDK dependency).
+ * Calls /api/ai (the unified AI proxy — no SDK dependency).
  * Result is displayed inline and can be copied as plain text.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -100,12 +100,12 @@ const SkillResume: React.FC<SkillResumeProps> = ({ user, isOwn }) => {
     setResume('');
     setExpanded(true);
     try {
-      // api/claude requires a Firebase ID token (P1 fix — it was an
+      // api/ai requires a Firebase ID token (P1 fix — it was an
       // unauthenticated proxy to a paid API before).
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) throw new Error('Not signed in');
 
-      const res = await fetch('/api/claude', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({

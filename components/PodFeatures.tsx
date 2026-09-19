@@ -36,15 +36,15 @@ const STAGE_CONFIG: Record<CareerStage, { label: string; colour: string; bg: str
   veteran:     { label: 'Veteran',     colour: '#1a4a3a', bg: '#d1fae5', years: '20+ yrs' },
 };
 
-// ── Claude API helper ─────────────────────────────────────────────────────────
+// ── AI helper ─────────────────────────────────────────────────────────
 
 async function askClaude(prompt: string, maxTokens = 800): Promise<string> {
-  // api/claude requires a Firebase ID token (P1 fix — it was an
+  // api/ai requires a Firebase ID token (P1 fix — it was an
   // unauthenticated proxy to a paid API before).
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) throw new Error('Not signed in');
 
-  const res = await fetch('/api/claude', {
+  const res = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
     body: JSON.stringify({
@@ -53,7 +53,7 @@ async function askClaude(prompt: string, maxTokens = 800): Promise<string> {
       maxTokens,
     }),
   });
-  if (!res.ok) throw new Error('Claude API error');
+  if (!res.ok) throw new Error('AI API error');
   const data = await res.json();
   return (data.text ?? data.content ?? '').trim();
 }

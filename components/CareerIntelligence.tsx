@@ -183,12 +183,12 @@ Missing from profile: ${profile.missing.slice(0, 2).join(', ') || 'nothing'}
 
 Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
 
-    // api/claude requires a Firebase ID token (P1 fix — it was an
+    // api/ai requires a Firebase ID token (P1 fix — it was an
     // unauthenticated proxy to a paid API before).
     auth.currentUser?.getIdToken()
       .then(idToken => {
         if (!idToken) throw new Error('Not signed in');
-        return fetch('/api/claude', {
+        return fetch('/api/ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
           body: JSON.stringify({

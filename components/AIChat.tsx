@@ -28,27 +28,22 @@ const AIChat: React.FC<AIChatProps> = ({ currentUser }) => {
       setIsLoading(true);
       setError(null);
       try {
-          // api/gemini.ts now requires a Firebase ID token (P1 fix — it was
-          // an unauthenticated proxy to a paid API before).
+          // api/ai requires a Firebase ID token (P1 fix — it was an
+          // unauthenticated proxy to a paid API before).
           const idToken = await auth.currentUser?.getIdToken();
           if (!idToken) throw new Error('Not signed in');
 
-          const response = await fetch('/api/gemini', {
+          const response = await fetch('/api/ai', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
               body: JSON.stringify({
-                  model: 'gemini-2.5-flash',
-                  contents: {
-                      history: [], // No history for the first message
-                      systemInstruction: systemInstruction,
-                      generationConfig: { candidateCount: 1 }
-                  },
-                  isChat: true,
-                  userMessage: "Hello! Introduce yourself."
+                  system: systemInstruction,
+                  prompt: "Hello! Introduce yourself.",
+                  maxTokens: 300,
               }),
           });
           if (!response.ok) throw new Error('Failed to start chat session');
-          
+
           const data = await response.json();
           setHistory([{ role: 'model', parts: [{ text: data.text }] }]);
       } catch (err) {
@@ -85,22 +80,23 @@ const AIChat: React.FC<AIChatProps> = ({ currentUser }) => {
         const idToken = await auth.currentUser?.getIdToken();
         if (!idToken) throw new Error('Not signed in');
 
-        const response = await fetch('/api/gemini', {
+        const response = await fetch('/api/ai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify({
-                model: 'gemini-2.5-flash',
-                contents: {
-                    history: history, // Send the current history
-                    systemInstruction: systemInstruction,
-                    generationConfig: { candidateCount: 1 }
-                },
-                isChat: true,
-                userMessage: currentInput
+                system: systemInstruction,
+                // Prior turns only — the new message goes in `prompt`, not
+                // duplicated into history.
+                history: history.map(m => ({
+                    role: m.role === 'model' ? 'assistant' : 'user',
+                    text: m.parts[0]?.text ?? '',
+                })),
+                prompt: currentInput,
+                maxTokens: 500,
             }),
         });
         if (!response.ok) throw new Error('API response was not ok.');
-        
+
         const data = await response.json();
         setHistory(prev => [...prev, { role: 'model', parts: [{ text: data.text }] }]);
 
