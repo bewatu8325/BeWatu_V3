@@ -81,25 +81,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const interviews   = interviewsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     // ── Pipeline funnel ─────────────────────────────────────────────────────
+    // Bucket by the real values TalentPipeline.tsx's DEFAULT_PIPELINE_STAGES
+    // actually writes ('New Applicants'/'Sourced'/'Screening'/'Interview'/
+    // 'Offer'/'Hired') -- this used to compare against lowercase literals
+    // ('screening'/'interview'/'offer'/'hired') that never matched a single
+    // real document, so every bucket but "Applied" silently read 0.
     const stageCounts: Record<string, number> = {};
     for (const app of applications) {
-      const stage = (app as any).stage ?? 'applied';
+      const stage = (app as any).stage ?? 'New Applicants';
       stageCounts[stage] = (stageCounts[stage] ?? 0) + 1;
     }
 
     const funnel = [
-      { stage: 'Applied',    count: stageCounts['applied']    ?? applications.length },
-      { stage: 'Screening',  count: stageCounts['screening']  ?? 0 },
-      { stage: 'Interview',  count: stageCounts['interview']  ?? interviews.length },
-      { stage: 'Offer',      count: stageCounts['offer']      ?? 0 },
-      { stage: 'Hired',      count: stageCounts['hired']      ?? 0 },
+      { stage: 'Applied',    count: (stageCounts['New Applicants'] ?? 0) + (stageCounts['Sourced'] ?? 0) },
+      { stage: 'Screening',  count: stageCounts['Screening'] ?? 0 },
+      { stage: 'Interview',  count: stageCounts['Interview'] ?? 0 },
+      { stage: 'Offer',      count: stageCounts['Offer']     ?? 0 },
+      { stage: 'Hired',      count: stageCounts['Hired']     ?? 0 },
     ];
 
     // ── Time-to-hire ────────────────────────────────────────────────────────
-    const hired = applications.filter((a: any) => a.stage === 'hired' && a.hiredAt && a.appliedAt);
+    // hiredAt was never written by any real code path -- movePipelineCandidate
+    // (lib/firestoreService.ts) stamps decidedAt when a candidate reaches the
+    // real, capitalized 'Hired' stage. Both this and the stage casing above
+    // meant avgDaysToHire was unconditionally null.
+    const hired = applications.filter((a: any) => a.stage === 'Hired' && a.decidedAt && a.appliedAt);
     const avgDaysToHire = hired.length > 0
       ? Math.round(hired.reduce((sum: number, a: any) => {
-          const diff = new Date(a.hiredAt?.toDate?.() ?? a.hiredAt).getTime()
+          const diff = new Date(a.decidedAt?.toDate?.() ?? a.decidedAt).getTime()
                      - new Date(a.appliedAt?.toDate?.() ?? a.appliedAt).getTime();
           return sum + diff / (1000 * 60 * 60 * 24);
         }, 0) / hired.length)
