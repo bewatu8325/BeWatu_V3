@@ -13,6 +13,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { deriveApplicationStage } from '../lib/applicationStage';
 
 // P0 7 (least privilege): this endpoint only ever reads (applications,
 // interviews, jobs, users) — confirmed no .set()/.update()/.add()/.delete()
@@ -81,14 +82,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const interviews   = interviewsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     // ── Pipeline funnel ─────────────────────────────────────────────────────
-    // Bucket by the real values TalentPipeline.tsx's DEFAULT_PIPELINE_STAGES
-    // actually writes ('New Applicants'/'Sourced'/'Screening'/'Interview'/
-    // 'Offer'/'Hired') -- this used to compare against lowercase literals
-    // ('screening'/'interview'/'offer'/'hired') that never matched a single
-    // real document, so every bucket but "Applied" silently read 0.
+    // deriveApplicationStage (schema decision 2, part 2's single canonical
+    // vocabulary, shared with lib/firestoreService.ts and
+    // ApplicantInbox.tsx) handles both current documents and any still
+    // carrying the pre-unification stage/status split.
     const stageCounts: Record<string, number> = {};
     for (const app of applications) {
-      const stage = (app as any).stage ?? 'New Applicants';
+      const stage = deriveApplicationStage(app as any);
       stageCounts[stage] = (stageCounts[stage] ?? 0) + 1;
     }
 
@@ -105,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // (lib/firestoreService.ts) stamps decidedAt when a candidate reaches the
     // real, capitalized 'Hired' stage. Both this and the stage casing above
     // meant avgDaysToHire was unconditionally null.
-    const hired = applications.filter((a: any) => a.stage === 'Hired' && a.decidedAt && a.appliedAt);
+    const hired = applications.filter((a: any) => deriveApplicationStage(a) === 'Hired' && a.decidedAt && a.appliedAt);
     const avgDaysToHire = hired.length > 0
       ? Math.round(hired.reduce((sum: number, a: any) => {
           const diff = new Date(a.decidedAt?.toDate?.() ?? a.decidedAt).getTime()

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
+import { PIPELINE_STAGES } from '../../lib/applicationStage';
 
 // ── Exported types & constants expected by RecruiterConsole ───────────────────
 export interface PipelineCandidate {
@@ -22,9 +23,12 @@ export interface PipelineCandidate {
   applicantUid?: string;
 }
 
-export const DEFAULT_PIPELINE_STAGES = [
-  'New Applicants', 'Sourced', 'Screening', 'Interview', 'Offer', 'Hired',
-];
+// Schema decision 2, part 2 (launch-readiness review): sourced from the
+// single canonical stage vocabulary shared with lib/firestoreService.ts
+// and ApplicantInbox.tsx, rather than a locally-duplicated list. Includes
+// 'Rejected' as a real column now -- a rejected candidate used to leave
+// the board entirely (see RecruiterConsole.tsx's onReject before this).
+export const DEFAULT_PIPELINE_STAGES: string[] = PIPELINE_STAGES;
 
 // ── Expanded card: bio/skills/availability/values + the action row ────────────
 

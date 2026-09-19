@@ -346,10 +346,10 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
             }}
             onReject={async (id, reason) => {
               await rejectPipelineCandidate(id, reason);
-              // DEFAULT_PIPELINE_STAGES has no "Rejected" column — a
-              // rejected candidate has nowhere to render, so it leaves the
-              // board entirely rather than sitting in an unrendered stage.
-              setCandidates(c => c.filter(x => x.id !== id));
+              // Schema decision 2, part 2: DEFAULT_PIPELINE_STAGES now has
+              // a real "Rejected" column, so the candidate moves there
+              // instead of leaving the board entirely.
+              setCandidates(c => c.map(x => x.id === id ? { ...x, stage: 'Rejected' } : x));
             }}
             onViewProfile={onViewProfile ? (userId) => onViewProfile(Number(userId)) : undefined}
             isBlindMode={isBlindMode}
