@@ -9,8 +9,9 @@
  * 5. Shows success state
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { X, Check, Loader2, Shield } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 import { TIERS, SubscriptionTier } from '../lib/subscription';
 import { setStripeCustomerId, updateUserInFirestore } from '../lib/firebaseAuth';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -29,6 +30,8 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
   const [step,         setStep]         = useState<Step>('review');
   const [stripeRef,    setStripeRef]    = useState<{ stripe: any; card: any } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y(dialogRef, onClose);
 
   const config = TIERS[tier];
 
@@ -105,7 +108,13 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Upgrade to ${config.label}`}
+        tabIndex={-1}
+        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
 
         {/* Close button */}
         <button
@@ -133,7 +142,7 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
 
         {/* Error state */}
         {step === 'error' && (
-          <div className="p-8 text-center">
+          <div className="p-8 text-center" role="alert">
             <p className="text-red-600 font-medium mb-4">{errorMessage}</p>
             <button
               onClick={() => setStep('payment')}

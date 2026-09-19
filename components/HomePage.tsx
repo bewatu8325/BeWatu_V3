@@ -59,6 +59,13 @@ const HomePage: React.FC<HomePageProps> = (props) => {
             </aside>
             {/* Main Content */}
             <main className="col-span-12 md:col-span-8 lg:col-span-6 space-y-4 sm:space-y-5">
+                {/* This is the app's default landing view for every signed-in
+                    user, and had no heading anywhere — a screen-reader user
+                    navigating by heading (H in NVDA/JAWS) landed on an
+                    unrelated sidebar heading instead. Visually hidden since
+                    the reels strip/composer already establish the page
+                    visually; still needed as the real page title. */}
+                <h1 className="sr-only">Feed</h1>
                 {/* Reels Strip */}
                 <FeedReelsStrip
                     currentUser={currentUser}

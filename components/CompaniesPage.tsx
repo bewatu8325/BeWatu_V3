@@ -48,7 +48,10 @@ const CompanyCard: React.FC<{
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-semibold text-stone-900 truncate">{company.name}</h3>
+            {/* Was h3 with no h2 anywhere on the page between this and the
+                page's own h1 — each card is a top-level item on this page,
+                not a subsection of one, so h2 is the correct level. */}
+            <h2 className="font-semibold text-stone-900 truncate">{company.name}</h2>
             {company.ticker && (
               <span className="text-xs text-stone-600 font-mono">{company.ticker}</span>
             )}
