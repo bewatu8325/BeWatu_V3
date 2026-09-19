@@ -29,6 +29,7 @@ import {
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { deriveApplicationStage, PIPELINE_STAGES, type ApplicationStage } from './applicationStage';
 import {
   Post,
   User,
@@ -1183,13 +1184,15 @@ export async function shortlistSubmission(
     // live caller today (shortlistSubmission's jobId param is never
     // passed), but keeping the same field names here means it won't
     // silently miscount schema decision 2's response-time metrics or
-    // break ApplicantInbox's display if it ever is wired up.
+    // break ApplicantInbox's display if it ever is wired up. `stage`
+    // uses the single canonical pipeline vocabulary (schema decision 2,
+    // part 2) -- 'Sourced' since this is an inbound, recruiter-initiated
+    // channel, same as linkSubmissionToJob below.
     await addDoc(collection(db, 'applications'), {
       jobFirestoreId: jobId,
       userId: sub.userId,
       message: 'Shortlisted from Prove challenge',
-      status: 'applied',
-      stage: 'challenge',
+      stage: 'Sourced' satisfies ApplicationStage,
       source: 'prove',
       challengeId,
       submissionId,
@@ -1230,11 +1233,7 @@ export async function getPipelineCandidates(recruiterId: string): Promise<Pipeli
   // Bug fix (Recruiter Talent Pipeline): this queried `recruiterId` and
   // ordered by `createdAt` — neither field is ever written onto an
   // application doc (applyToJobWithProfile writes `recruiterUid` and
-  // `appliedAt`), so this always returned zero results. Also now excludes
-  // rejected candidates — DEFAULT_PIPELINE_STAGES (the board's columns)
-  // has no "Rejected" column, so a rejected application has nowhere to
-  // render; it should simply leave the board, not error or vanish
-  // silently into an unrendered bucket.
+  // `appliedAt`), so this always returned zero results.
   let docs;
   try {
     const q = query(
@@ -1258,9 +1257,10 @@ export async function getPipelineCandidates(recruiterId: string): Promise<Pipeli
     }
   }
 
-  const applications = docs
-    .map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) }))
-    .filter((a) => a.status !== 'rejected');
+  // Schema decision 2, part 2: 'Rejected' is now a real pipeline stage
+  // with its own board column, so rejected candidates stay in the list
+  // (deriveApplicationStage below) instead of being filtered out.
+  const applications = docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, any>) }));
 
   // Hydrate each application with the applicant's real profile — the
   // pipeline board (and its expanded card view) needs name/avatar/bio/
@@ -1280,7 +1280,7 @@ export async function getPipelineCandidates(recruiterId: string): Promise<Pipeli
       return {
         id: app.id,
         userId: profile.numericId ?? profile.id ?? 0,
-        stage: app.stage ?? 'New Applicants',
+        stage: deriveApplicationStage(app),
         name: profile.name ?? 'Applicant',
         headline: profile.headline ?? '',
         avatarUrl: profile.avatarUrl ?? `https://i.pravatar.cc/150?u=${app.applicantUid}`,
@@ -1307,9 +1307,10 @@ export async function movePipelineCandidate(
   // just overwrote `stage` with no record of when it happened.
   // respondedAt is the FIRST stage move only (a company's response time is
   // measured once, not reset every time a recruiter reorganizes their
-  // board); decidedAt is set when the application reaches its one real
-  // terminal stage moved-to here, 'Hired' (the other terminal outcome,
-  // rejection, is its own function below).
+  // board); decidedAt is set when the application reaches either of its
+  // two real terminal stages, 'Hired' or 'Rejected' (part 2: 'Rejected' is
+  // now a normal board column a candidate can be moved to directly, not
+  // only via rejectPipelineCandidate's dedicated reason-capturing flow).
   const ref = doc(db, 'applications', applicationId);
   const snap = await getDoc(ref);
   const data = snap.data();
@@ -1317,7 +1318,7 @@ export async function movePipelineCandidate(
   if (!data?.respondedAt) {
     updates.respondedAt = serverTimestamp();
   }
-  if (toStage === 'Hired' && !data?.decidedAt) {
+  if ((toStage === 'Hired' || toStage === 'Rejected') && !data?.decidedAt) {
     updates.decidedAt = serverTimestamp();
   }
   await updateDoc(ref, updates);
@@ -1342,15 +1343,18 @@ export async function rejectPipelineCandidate(
   applicationId: string,
   reason: string
 ) {
-  // Same reasoning as movePipelineCandidate above -- rejection is the
-  // application's other terminal outcome, and (unlike a stage move) also
+  // Same reasoning as movePipelineCandidate above -- rejection is one of
+  // the application's two terminal stages, and (unlike a stage move) also
   // counts as a response if the recruiter rejects before ever touching the
-  // pipeline board.
+  // pipeline board. `stage: 'Rejected'`, not the old `status: 'rejected'`
+  // -- schema decision 2, part 2 unifies both onto the single `stage`
+  // vocabulary so this candidate gets a real board column instead of
+  // disappearing.
   const ref = doc(db, 'applications', applicationId);
   const snap = await getDoc(ref);
   const data = snap.data();
   const updates: Record<string, unknown> = {
-    status: 'rejected',
+    stage: 'Rejected' satisfies ApplicationStage,
     rejectionReason: reason,
     decidedAt: data?.decidedAt ?? serverTimestamp(),
   };
@@ -1540,17 +1544,14 @@ export async function applyToJobWithProfile(
   // (or any recruiter reference at all) onto the application doc, so
   // getPipelineCandidates' where('recruiterUid', ...) query — and
   // fetchPipelineAnalytics'/fetchApplicantsWithProfiles' identical queries
-  // — always matched zero documents. `stage` is new too: the pipeline
-  // board buckets candidates by this field (movePipelineCandidate already
-  // wrote it on moves, but nothing ever set an initial value), separate
-  // from `status`, which stays 'applied'/'rejected' for the older
-  // analytics/applicant-inbox consumers that key on it instead.
+  // — always matched zero documents. `stage` buckets the candidate for
+  // every consumer now (schema decision 2, part 2 unified the old
+  // separate `status` field into this single vocabulary).
   const safeUpdates: Record<string, any> = {
     jobFirestoreId,
     jobNumericId,
     applicantUid,
-    status: 'applied',
-    stage: 'New Applicants',
+    stage: 'New Applicants' satisfies ApplicationStage,
     appliedAt: serverTimestamp(),
   };
   if (recruiterUid) safeUpdates.recruiterUid = recruiterUid;
@@ -1625,52 +1626,116 @@ export async function fetchApplicantsForJob(jobFirestoreId: string): Promise<any
   // Hydrate user info where possible
   const withProfiles = await Promise.all(
     applicants.map(async (app: any) => {
+      // Normalized to the canonical stage vocabulary here so every caller
+      // (ApplicantInbox.tsx) sees a real value regardless of which of the
+      // old dual stage/status fields a given document still carries --
+      // this is exactly the gap that crashed ApplicantInbox before schema
+      // decision 2, part 2 unified the two.
+      const stage = deriveApplicationStage(app);
       try {
         const userSnap = await getDocs(
           query(collection(db, 'users'), where('uid', '==', app.applicantUid))
         );
         if (!userSnap.empty) {
           const u = userSnap.docs[0].data();
-          return { ...app, userName: u.name, userAvatar: u.avatarUrl, userHeadline: u.headline, userSkills: u.skills?.map((s: any) => s.name ?? s) ?? [] };
+          return { ...app, stage, userName: u.name, userAvatar: u.avatarUrl, userHeadline: u.headline, userSkills: u.skills?.map((s: any) => s.name ?? s) ?? [] };
         }
       } catch {}
-      return { ...app, userName: 'Applicant', userAvatar: '', userHeadline: '' };
+      return { ...app, stage, userName: 'Applicant', userAvatar: '', userHeadline: '' };
     })
   );
   return withProfiles;
 }
 
-export async function updateApplicationStatus(
+export async function updateApplicationStage(
   applicationId: string,
-  status: string
+  stage: ApplicationStage
 ): Promise<void> {
-  await updateDoc(doc(db, 'applications', applicationId), {
-    status,
-    updatedAt: serverTimestamp(),
-  });
+  const ref = doc(db, 'applications', applicationId);
+  const snap = await getDoc(ref);
+  const data = snap.data();
+  // Same response/decision-timestamp discipline as movePipelineCandidate
+  // (this is the other, ApplicantInbox-driven write path onto the same
+  // `stage` field -- schema decision 2's metrics need both to behave the
+  // same way regardless of which recruiter tool made the change).
+  const updates: Record<string, unknown> = { stage, updatedAt: serverTimestamp() };
+  if (!data?.respondedAt) {
+    updates.respondedAt = serverTimestamp();
+  }
+  if ((stage === 'Hired' || stage === 'Rejected') && !data?.decidedAt) {
+    updates.decidedAt = serverTimestamp();
+  }
+  await updateDoc(ref, updates);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PIPELINE ANALYTICS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function fetchPipelineAnalytics(recruiterId: string): Promise<any> {
-  const [jobs, apps] = await Promise.all([
-    getDocs(query(collection(db, 'jobs'), where('recruiterUid', '==', recruiterId))),
-    getDocs(query(collection(db, 'applications'), where('recruiterUid', '==', recruiterId))),
-  ]);
-  const stages = ['new', 'reviewing', 'shortlisted', 'interview', 'offer', 'hired', 'rejected'];
-  const stageCounts: Record<string, number> = {};
-  stages.forEach(s => { stageCounts[s] = 0; });
+export async function fetchPipelineAnalytics(recruiterId: string): Promise<{
+  totalApplications: number;
+  activeInPipeline: number;
+  hired: number;
+  rejected: number;
+  avgTimeToHire: number;
+  stageStats: { stage: ApplicationStage; label: string; count: number; avgDaysInStage: number; dropOffRate: number }[];
+}> {
+  // Rewritten for schema decision 2, part 2: this used to key on the old
+  // `status` field with a lowercase bucket list ('new'/'reviewing'/
+  // 'shortlisted'/'interview'/'offer'/'hired'/'rejected') that included
+  // values ('interview', 'offer') no real write path ever actually set --
+  // and its return shape never matched what PipelineAnalytics.tsx (its
+  // only caller) actually reads, so the whole dashboard silently rendered
+  // blank tiles and an empty funnel for any recruiter with real data.
+  const apps = await getDocs(query(collection(db, 'applications'), where('recruiterUid', '==', recruiterId)));
+
+  const stageCounts: Record<ApplicationStage, number> = {
+    'New Applicants': 0, Sourced: 0, Screening: 0, Interview: 0, Offer: 0, Hired: 0, Rejected: 0,
+  };
+  const hireDurationsDays: number[] = [];
+
   apps.docs.forEach(d => {
-    const st = d.data().status ?? 'new';
-    stageCounts[st] = (stageCounts[st] ?? 0) + 1;
+    const data = d.data();
+    const stage = deriveApplicationStage(data as any);
+    stageCounts[stage]++;
+    const appliedMs = (data as any).appliedAt?.toDate?.().getTime();
+    const decidedMs = (data as any).decidedAt?.toDate?.().getTime();
+    if (stage === 'Hired' && appliedMs && decidedMs) {
+      hireDurationsDays.push((decidedMs - appliedMs) / (1000 * 60 * 60 * 24));
+    }
   });
+
+  const totalApplications = apps.size;
+  const hired = stageCounts.Hired;
+  const rejected = stageCounts.Rejected;
+  const avgTimeToHire = hireDurationsDays.length > 0
+    ? Math.round(hireDurationsDays.reduce((sum, d) => sum + d, 0) / hireDurationsDays.length)
+    : 0;
+
+  // Funnel is forward progression only, same as the UI's existing design
+  // (no "Rejected" bar) -- excluded here, still counted above for the
+  // `rejected` stat.
+  const stageStats = PIPELINE_STAGES
+    .filter((s): s is Exclude<ApplicationStage, 'Rejected'> => s !== 'Rejected')
+    .map(stage => ({
+      stage,
+      label: stage === 'New Applicants' ? 'New' : stage,
+      count: stageCounts[stage],
+      // Not tracked -- no per-stage-transition history is stored today,
+      // only the current stage and the one-shot respondedAt/decidedAt
+      // timestamps. Real values need a stage-history log, a separate,
+      // larger feature.
+      avgDaysInStage: 0,
+      dropOffRate: 0,
+    }));
+
   return {
-    totalJobs: jobs.size,
-    totalApplications: apps.size,
-    stageCounts,
-    conversionRate: apps.size > 0 ? ((stageCounts['hired'] ?? 0) / apps.size * 100).toFixed(1) : '0',
+    totalApplications,
+    activeInPipeline: totalApplications - hired - rejected,
+    hired,
+    rejected,
+    avgTimeToHire,
+    stageStats,
   };
 }
 
@@ -2069,7 +2134,7 @@ export async function inviteCandidateFromChallenge(
       jobFirestoreId: linkedJobId,
       applicantUid: sub.userId,
       message: 'Invited from skill challenge',
-      status: 'shortlisted',
+      stage: 'Sourced' satisfies ApplicationStage,
       source: 'challenge',
       challengeId,
       submissionId,
@@ -2078,7 +2143,9 @@ export async function inviteCandidateFromChallenge(
       // (applyToJobWithProfile, the real "Apply" flow, and its only real
       // reader, ApplicantInbox.tsx). createdAt here was a silent drift
       // that would have made this creation path invisible to the
-      // response-time metrics computed from appliedAt.
+      // response-time metrics computed from appliedAt. No live caller
+      // exists for this function today (confirmed via a repo-wide grep) --
+      // fixed for consistency, same as shortlistSubmission's dead branch.
       appliedAt: serverTimestamp(),
     });
   }
@@ -2166,8 +2233,7 @@ export async function linkSubmissionToJob(
     applicantUid: submission.userId,
     applicantName: submission.userName,
     message: 'Linked from skill challenge submission',
-    status: 'applied',
-    stage: 'Sourced',
+    stage: 'Sourced' satisfies ApplicationStage,
     source: 'challenge',
     challengeId,
     submissionId,

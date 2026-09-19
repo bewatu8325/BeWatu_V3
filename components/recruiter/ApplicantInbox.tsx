@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Briefcase, Users, ChevronRight, ChevronDown, Loader2,
-  UserCheck, UserX, MessageSquare, Calendar, Star,
+  MessageSquare, Calendar, Star, Search, Award,
   MapPin, Clock, Filter, ArrowLeft, ExternalLink,
   CheckCircle, XCircle, AlertCircle, Inbox,
 } from 'lucide-react';
@@ -9,9 +9,10 @@ import { useFirebase } from '../../contexts/FirebaseContext';
 import {
   fetchJobsForRecruiter,
   fetchApplicantsForJob,
-  updateApplicationStatus,
+  updateApplicationStage,
   addPipelineNote,
 } from '../../lib/firestoreService';
+import { PIPELINE_STAGES, type ApplicationStage } from '../../lib/applicationStage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ interface Applicant {
   userLocation?: string;
   userSkills?: string[];
   appliedAt: any;
-  status: 'new' | 'applied' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired';
+  stage: ApplicationStage;
   source: 'applied' | 'prove' | 'sourced';
   notes?: { text: string; createdAt: string }[];
   score?: number;
@@ -45,31 +46,36 @@ interface JobWithCount {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG = {
-  // 'applied' is what the real "Apply" flow (applyToJobWithProfile) actually
-  // writes on creation -- treated identically to 'new' (not yet reviewed).
-  applied:     { label: 'New',         color: 'text-[#1a6b52]',   bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20',   icon: AlertCircle  },
-  new:         { label: 'New',         color: 'text-[#1a6b52]',   bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20',   icon: AlertCircle  },
-  reviewing:   { label: 'Reviewing',   color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock        },
-  shortlisted: { label: 'Shortlisted', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20', icon: CheckCircle  },
-  rejected:    { label: 'Rejected',    color: 'text-red-600',    bg: 'bg-red-500/10 border-red-500/20',     icon: XCircle      },
-  hired:       { label: 'Hired',       color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', icon: UserCheck  },
+// Schema decision 2, part 2 (launch-readiness review): this used to be a
+// separate 5-value `status` vocabulary (new/reviewing/shortlisted/rejected/
+// hired) that didn't recognize 'applied' -- the value the real "Apply" flow
+// actually writes -- and crashed this whole component for every normally-
+// applied candidate. Now keyed on the same canonical `stage` vocabulary
+// TalentPipeline.tsx uses, via lib/applicationStage.ts.
+const STAGE_CONFIG: Record<ApplicationStage, { label: string; color: string; bg: string; icon: typeof AlertCircle }> = {
+  'New Applicants': { label: 'New',        color: 'text-[#1a6b52]', bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20',    icon: AlertCircle },
+  Sourced:          { label: 'Sourced',    color: 'text-sky-600',   bg: 'bg-sky-500/10 border-sky-500/20',     icon: Search      },
+  Screening:        { label: 'Screening',  color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock       },
+  Interview:        { label: 'Interview',  color: 'text-indigo-500',bg: 'bg-indigo-500/10 border-indigo-500/20', icon: Calendar  },
+  Offer:            { label: 'Offer',      color: 'text-purple-400',bg: 'bg-purple-500/10 border-purple-500/20', icon: Award     },
+  Hired:            { label: 'Hired',      color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20', icon: CheckCircle },
+  Rejected:         { label: 'Rejected',   color: 'text-red-600',   bg: 'bg-red-500/10 border-red-500/20',     icon: XCircle     },
 };
 
-const STATUS_ORDER: Applicant['status'][] = ['new', 'reviewing', 'shortlisted', 'hired', 'rejected'];
+const STAGE_ORDER: ApplicationStage[] = PIPELINE_STAGES;
 
 // ─── Applicant Card ───────────────────────────────────────────────────────────
 
 function ApplicantCard({
   applicant,
-  onStatusChange,
+  onStageChange,
   onViewProfile,
   onAddNote,
   isBlind,
   index,
 }: {
   applicant: Applicant;
-  onStatusChange: (id: string, status: Applicant['status']) => void;
+  onStageChange: (id: string, stage: ApplicationStage) => void;
   onViewProfile?: (userId: string) => void;
   onAddNote: (id: string, note: string) => void;
   isBlind: boolean;
@@ -78,20 +84,20 @@ function ApplicantCard({
   const [expanded, setExpanded] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
-  const [changingStatus, setChangingStatus] = useState(false);
+  const [changingStage, setChangingStage] = useState(false);
 
-  // Fallback guards against any status value STATUS_CONFIG doesn't know about
-  // yet (this crashed the whole app for every normally-applied candidate
-  // before 'applied' was added above -- see git history for details).
-  const cfg = STATUS_CONFIG[applicant.status] ?? STATUS_CONFIG.new;
+  // Fallback guards against any stage value STAGE_CONFIG doesn't know about
+  // (this crashed the whole app for every normally-applied candidate before
+  // the old status/stage vocabularies were unified -- see git history).
+  const cfg = STAGE_CONFIG[applicant.stage] ?? STAGE_CONFIG['New Applicants'];
   const StatusIcon = cfg.icon;
   const displayName = isBlind ? `Candidate #${index + 1}` : (applicant.userName || 'Unknown');
   const displayAvatar = isBlind ? null : applicant.userAvatar;
 
-  async function handleStatusChange(status: Applicant['status']) {
-    setChangingStatus(true);
-    try { await onStatusChange(applicant.id, status); }
-    finally { setChangingStatus(false); }
+  async function handleStageChange(stage: ApplicationStage) {
+    setChangingStage(true);
+    try { await onStageChange(applicant.id, stage); }
+    finally { setChangingStage(false); }
   }
 
   async function handleAddNote() {
@@ -170,13 +176,13 @@ function ApplicantCard({
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
-            {STATUS_ORDER.filter(s => s !== applicant.status).map(status => {
-              const c = STATUS_CONFIG[status];
+            {STAGE_ORDER.filter(s => s !== applicant.stage).map(stage => {
+              const c = STAGE_CONFIG[stage];
               return (
                 <button
-                  key={status}
-                  onClick={() => handleStatusChange(status)}
-                  disabled={changingStatus}
+                  key={stage}
+                  onClick={() => handleStageChange(stage)}
+                  disabled={changingStage}
                   className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${c.bg} ${c.color} hover:opacity-80`}
                 >
                   <c.icon className="h-3 w-3" />
@@ -281,7 +287,7 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingApplicants, setLoadingApplicants] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<Applicant['status'] | 'all'>('all');
+  const [stageFilter, setStageFilter] = useState<ApplicationStage | 'all'>('all');
   const [isBlind, setIsBlind] = useState(false);
   const [mobileShowApplicants, setMobileShowApplicants] = useState(false);
 
@@ -299,23 +305,23 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
   useEffect(() => {
     if (!selectedJobId) { setApplicants([]); return; }
     setLoadingApplicants(true);
+    // fetchApplicantsForJob already normalizes each applicant's `stage` via
+    // deriveApplicationStage (lib/applicationStage.ts), so every document
+    // -- however it was created, whatever vintage of the old dual stage/
+    // status vocabulary it still carries -- arrives with a real, canonical
+    // value here.
     fetchApplicantsForJob(selectedJobId)
-      // applyToJobWithProfile (the real "Apply" flow) writes status: 'applied',
-      // which this component's status vocabulary doesn't otherwise know --
-      // normalize it to 'new' so filtering/counts/badges are all consistent.
-      .then(apps => setApplicants(apps.map((a: Applicant) =>
-        a.status === 'applied' ? { ...a, status: 'new' } : a
-      )))
+      .then(setApplicants)
       .catch(console.error)
       .finally(() => setLoadingApplicants(false));
   }, [selectedJobId]);
 
-  async function handleStatusChange(applicationId: string, status: Applicant['status']) {
-    await updateApplicationStatus(applicationId, status);
-    setApplicants(prev => prev.map(a => a.id === applicationId ? { ...a, status } : a));
+  async function handleStageChange(applicationId: string, stage: ApplicationStage) {
+    await updateApplicationStage(applicationId, stage);
+    setApplicants(prev => prev.map(a => a.id === applicationId ? { ...a, stage } : a));
     // Update new count on job
     setJobs(prev => prev.map(j => j._firestoreId === selectedJobId
-      ? { ...j, newCount: j.newCount - (status !== 'new' ? 1 : 0) }
+      ? { ...j, newCount: j.newCount - (stage !== 'New Applicants' ? 1 : 0) }
       : j
     ));
   }
@@ -331,15 +337,15 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
 
   function selectJob(firestoreId: string) {
     setSelectedJobId(firestoreId);
-    setStatusFilter('all');
+    setStageFilter('all');
     setMobileShowApplicants(true);
   }
 
   const selectedJob = jobs.find(j => j._firestoreId === selectedJobId);
-  const filtered = applicants.filter(a => statusFilter === 'all' || a.status === statusFilter);
+  const filtered = applicants.filter(a => stageFilter === 'all' || a.stage === stageFilter);
 
-  const statusCounts = applicants.reduce((acc, a) => {
-    acc[a.status] = (acc[a.status] ?? 0) + 1;
+  const stageCounts = applicants.reduce((acc, a) => {
+    acc[a.stage] = (acc[a.stage] ?? 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -410,24 +416,24 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
                 </button>
               </div>
 
-              {/* Status filter tabs */}
+              {/* Stage filter tabs */}
               <div className="flex gap-1.5 flex-wrap">
-                {(['all', ...STATUS_ORDER] as const).map(s => {
-                  const count = s === 'all' ? applicants.length : (statusCounts[s] ?? 0);
-                  const cfg = s === 'all' ? null : STATUS_CONFIG[s];
+                {(['all', ...STAGE_ORDER] as const).map(s => {
+                  const count = s === 'all' ? applicants.length : (stageCounts[s] ?? 0);
+                  const cfg = s === 'all' ? null : STAGE_CONFIG[s];
                   return (
                     <button
                       key={s}
-                      onClick={() => setStatusFilter(s)}
+                      onClick={() => setStageFilter(s)}
                       className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        statusFilter === s
+                        stageFilter === s
                           ? s === 'all' ? 'bg-[#1a4a3a] text-white' : `${cfg!.bg} ${cfg!.color} border`
                           : 'bg-stone-100/50 text-stone-600 hover:text-stone-800'
                       }`}
                     >
-                      {s === 'all' ? 'All' : STATUS_CONFIG[s].label}
+                      {s === 'all' ? 'All' : STAGE_CONFIG[s].label}
                       <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                        statusFilter === s ? 'bg-stone-100 text-stone-800' : 'bg-stone-100 text-stone-600'
+                        stageFilter === s ? 'bg-stone-100 text-stone-800' : 'bg-stone-100 text-stone-600'
                       }`}>{count}</span>
                     </button>
                   );
@@ -452,7 +458,7 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
                       applicant={applicant}
                       index={i}
                       isBlind={isBlind}
-                      onStatusChange={handleStatusChange}
+                      onStageChange={handleStageChange}
                       onAddNote={handleAddNote}
                       onViewProfile={onViewProfile ? (uid) => {
                         const numId = applicants.find(a => a.userId === uid)?.userId;

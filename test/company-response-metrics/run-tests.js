@@ -1,6 +1,7 @@
-// Schema decision 2 (launch-readiness review): computed company metrics.
+// Schema decision 2 (launch-readiness review): computed company metrics
+// (part 1) and the application stage/status vocabulary unification (part 2).
 //
-// Two rule changes tested here:
+// Three rule changes tested here:
 //   1. applications/{id}: respondedAt/decidedAt must equal the real server
 //      request time when written -- closes a real gap where a recruiter's
 //      own client session could otherwise backdate either field to make
@@ -9,6 +10,10 @@
 //      blocked from every client-writable branch, including the
 //      company's own admin and ops/platform_admin -- "written only by
 //      Cloud Functions" has to mean nobody's client session can set these.
+//   3. applications/{id}: `stage` must be one of the 7 canonical pipeline
+//      values (lib/applicationStage.ts) -- closes off the exact class of
+//      bug part 2 was built to fix (a typo'd/wrong-case/dead stage string
+//      silently breaking every reader) at the write itself.
 const fs = require("fs");
 const path = require("path");
 const {
@@ -88,6 +93,32 @@ async function main() {
   await check("recruiter CAN still update unrelated fields (e.g. stage) without touching respondedAt/decidedAt", async () => {
     await assertSucceeds(updateDoc(doc(recruiter, "applications", "app1"), {
       stage: "Screening",
+    }));
+  });
+
+  // ── applications: stage must be one of the 7 canonical values ─────────────
+
+  await check("recruiter CAN move a candidate to every real canonical stage, including the new Rejected", async () => {
+    for (const stage of ["New Applicants", "Sourced", "Screening", "Interview", "Offer", "Hired", "Rejected"]) {
+      await assertSucceeds(updateDoc(doc(recruiter, "applications", "app1"), { stage }));
+    }
+  });
+
+  await check("recruiter CANNOT write a garbage stage value", async () => {
+    await assertFails(updateDoc(doc(recruiter, "applications", "app1"), {
+      stage: "not-a-real-stage",
+    }));
+  });
+
+  await check("recruiter CANNOT write the old lowercase status-style value", async () => {
+    await assertFails(updateDoc(doc(recruiter, "applications", "app1"), {
+      stage: "screening",
+    }));
+  });
+
+  await check("recruiter CANNOT write the old dead 'challenge' stage literal", async () => {
+    await assertFails(updateDoc(doc(recruiter, "applications", "app1"), {
+      stage: "challenge",
     }));
   });
 

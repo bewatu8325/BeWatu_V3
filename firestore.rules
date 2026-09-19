@@ -1382,6 +1382,16 @@ service cloud.firestore {
       ) && (
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['decidedAt'])
         || request.resource.data.decidedAt == request.time
+      ) && (
+        // Schema decision 2, part 2: `stage` is now the single canonical
+        // pipeline vocabulary (lib/applicationStage.ts) -- this closes off
+        // the exact class of bug this decision was made to fix (a typo'd
+        // or wrong-case stage string silently breaking every reader of
+        // this field) at the write itself, not just in application code.
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['stage'])
+        || request.resource.data.stage in [
+          'New Applicants', 'Sourced', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'
+        ]
       );
       allow delete: if false;
     }

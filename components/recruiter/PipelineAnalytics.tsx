@@ -37,9 +37,12 @@ interface AnalyticsData {
 
 function FunnelBar({ stage, maxCount, isBlind }: { stage: StageStats; maxCount: number; isBlind: boolean }) {
   const pct = maxCount > 0 ? (stage.count / maxCount) * 100 : 0;
+  // Schema decision 2, part 2: matches fetchPipelineAnalytics' canonical
+  // stage strings now (lib/applicationStage.ts), not the old lowercase
+  // status literals this never actually received real data for.
   const stageColors: Record<string, string> = {
-    applied: 'bg-stone-300', screening: 'bg-blue-500', challenge: 'bg-purple-500',
-    interview: 'bg-[#1a4a3a]', offer: 'bg-green-500', hired: 'bg-emerald-500',
+    'New Applicants': 'bg-stone-300', Sourced: 'bg-sky-500', Screening: 'bg-blue-500',
+    Interview: 'bg-[#1a4a3a]', Offer: 'bg-green-500', Hired: 'bg-emerald-500',
   };
   const barColor = stageColors[stage.stage] ?? 'bg-stone-300';
 
