@@ -4,7 +4,7 @@ import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
-import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/geminiService';
+import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/claudeService';
 import { LoadingIcon } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
@@ -1111,12 +1111,12 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
 
     let verifiedSkills: any[] = [];
     try {
-      // api/claude requires a Firebase ID token (P1 fix — it was an
+      // api/ai requires a Firebase ID token (P1 fix — it was an
       // unauthenticated proxy to a paid API before).
       const idToken = await fbUser?.getIdToken();
       if (!idToken) throw new Error('Not signed in');
 
-      const res = await fetch('/api/claude', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({

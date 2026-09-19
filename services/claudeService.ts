@@ -1,8 +1,11 @@
 // src/services/claudeService.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Replaces geminiService.ts — all AI features now powered by Claude.
-// Routes through /api/claude (Vercel serverless proxy) to keep the API key
-// server-side only. Drop-in replacement: same exports, same signatures.
+// Replaced geminiService.ts (deleted — see the fix that made this the only
+// live AI service file for the note on how that migration got left half
+// done). Routes through /api/ai (the unified AI proxy — one active
+// provider behind one endpoint, switchable via the AI_PROVIDER env var
+// instead of a specific vendor baked into this file's name) to keep the
+// API key server-side only.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { AppData, User, Job, VerifiedSkill, CandidateSearchResult } from '../types';
@@ -11,12 +14,12 @@ import { auth } from '../lib/firebase';
 // ── Base caller ───────────────────────────────────────────────────────────────
 
 async function callClaude(prompt: string, system?: string, maxTokens = 1500): Promise<string> {
-  // api/claude.js now requires a Firebase ID token (P1 fix — it was an
+  // api/ai requires a Firebase ID token (P1 fix — it was an
   // unauthenticated proxy to a paid API before).
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) throw new Error('AI service unavailable. Please try again.');
 
-  const response = await fetch('/api/claude', {
+  const response = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
     body: JSON.stringify({ prompt, system, maxTokens }),
@@ -24,7 +27,7 @@ async function callClaude(prompt: string, system?: string, maxTokens = 1500): Pr
 
   if (!response.ok) {
     const err = await response.text();
-    console.error('Claude API error:', err);
+    console.error('AI API error:', err);
     throw new Error('AI service unavailable. Please try again.');
   }
 

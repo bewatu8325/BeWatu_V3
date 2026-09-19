@@ -92,7 +92,22 @@ jobs:
           BEWATU_SECURITY_TOKEN: ${{ secrets.BEWATU_SECURITY_TOKEN }}
           BEWATU_SECURITY_URL: https://www.bewatu.com/api/security/finding
 
-  # ── 3. Dependency audit ────────────────────────────────────────────────────
+  # ── 3. AI provider boundary ────────────────────────────────────────────────
+  # Fails, doesn't just report, if any file outside api/ai.ts and the
+  # documented allowlist references an AI provider's SDK/key/endpoint
+  # directly -- see scripts/check-ai-provider-boundary.sh for the why. This
+  # is the enforcement half of "one AI provider behind one endpoint,
+  # switchable by an env var": Semgrep above only reports (`|| true`), this
+  # actually blocks the PR.
+  ai-provider-boundary:
+    name: AI provider boundary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for AI provider leakage outside api/ai.ts
+        run: bash scripts/check-ai-provider-boundary.sh
+
+  # ── 4. Dependency audit ────────────────────────────────────────────────────
   dependencies:
     name: Dependency risk
     needs: secrets
@@ -137,7 +152,7 @@ jobs:
           BEWATU_SECURITY_TOKEN: ${{ secrets.BEWATU_SECURITY_TOKEN }}
           BEWATU_SECURITY_URL: https://www.bewatu.com/api/security/finding
 
-  # ── 4. Firestore rules — real behavioral tests, not a text lint ───────────
+  # ── 5. Firestore rules — real behavioral tests, not a text lint ───────────
   # Deliberately NOT gated on `needs: secrets` — that job has been failing
   # independently for months (gitleaks finds something in git history that
   # needs its own investigation) and rules correctness doesn't depend on it.
@@ -269,7 +284,7 @@ jobs:
         # recruiter scoring had been silently permission-denied.
         run: firebase emulators:exec --project demo-bewatu --only firestore "node test/arena-rubric-review/run-tests.js"
 
-  # ── 5. Cloud posture ───────────────────────────────────────────────────────
+  # ── 6. Cloud posture ───────────────────────────────────────────────────────
   posture:
     name: Cloud posture
     needs: [code-analysis, dependencies]
