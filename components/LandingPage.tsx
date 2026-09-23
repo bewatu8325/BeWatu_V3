@@ -101,15 +101,16 @@ const PillarCard: React.FC<{
   title:  string;
   body:   string;
   tag:    string;
-}> = ({ iconBg, icon, title, body, tag }) => (
+  onTagClick: () => void;
+}> = ({ iconBg, icon, title, body, tag, onTagClick }) => (
   <div className="flex flex-col rounded-2xl border bg-white p-6 shadow-sm hover:shadow-md transition-shadow" style={{ borderColor: '#e8e4dc' }}>
     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: iconBg }}>{icon}</div>
     <h3 className="mb-2 text-lg font-bold text-stone-900">{title}</h3>
     <p className="flex-1 text-sm text-stone-600 leading-relaxed">{body}</p>
-    <span className="mt-4 inline-block text-xs font-semibold rounded-full px-3 py-1"
+    <button onClick={onTagClick} className="mt-4 inline-block self-start text-xs font-semibold rounded-full px-3 py-1 hover:opacity-75 transition-opacity"
       style={{ backgroundColor: `${GREEN}15`, color: GREEN }}>
       {tag}
-    </span>
+    </button>
   </div>
 );
 
@@ -182,8 +183,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
         style={{ backgroundColor: `${GREEN}12`, color: GREEN, border: `1px solid ${GREEN}25` }}>
         Where experience meets ambition
       </span>
-      <h1 className="text-5xl font-extrabold leading-tight tracking-tight text-stone-900 sm:text-6xl">
-        The network built for<br />
+      <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-stone-900 sm:text-5xl md:text-6xl">
+        The network built for<br className="hidden sm:block" />{' '}
         <span style={{ color: GREEN }}>authentic careers.</span>
       </h1>
       <p className="mt-6 max-w-xl text-lg text-stone-600 leading-relaxed">
@@ -260,6 +261,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             title="Prove, don't claim"
             body="Upload a 60-second reel showing what you can do. Tag it with your skills. Let your work speak before your title does."
             tag="Prove →"
+            onTagClick={onNavigateToRegister}
           />
           <PillarCard
             iconBg="#d1fae5"
@@ -267,6 +269,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             title="Win real challenges"
             body="Industry arenas post real problems from real companies. Solve them. Get shortlisted. Get hired or funded — based on what you actually built."
             tag="Arenas →"
+            onTagClick={onNavigateToRegister}
           />
           <PillarCard
             iconBg="#ede9fe"
@@ -274,6 +277,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             title="Circles, not connections"
             body="Your professional circle is small and intentional. Our recommendation engine finds complementary professionals — not just people like you."
             tag="Circles →"
+            onTagClick={onNavigateToRegister}
           />
         </div>
       </div>
