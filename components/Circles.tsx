@@ -309,7 +309,7 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
               {getInitials(circle.name)}
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-stone-900 truncate text-sm">{circle.name}</p>
+              <p className="font-bold text-stone-900 line-clamp-2 text-sm">{circle.name}</p>
               <p className="text-[10px] text-stone-600 mt-0.5">{circle.members.length} member{circle.members.length !== 1 ? 's' : ''}</p>
             </div>
           </div>

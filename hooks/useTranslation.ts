@@ -49,6 +49,7 @@ type TranslationKey =
   | 'fullName'
   | 'email'
   | 'password'
+  | 'confirmPassword'
   | 'wantRecruiterAccess'
   | 'recruiterTrialInfo'
   | 'agreeToPolicy'
@@ -95,6 +96,7 @@ const translations: Record<Language, Translations> = {
     fullName:               'Full name',
     email:                  'Email',
     password:               'Password',
+    confirmPassword:        'Confirm password',
     wantRecruiterAccess:    'I want recruiter access',
     recruiterTrialInfo:     'Start your recruiter trial today — cancel anytime, no surprises.',
     agreeToPolicy:          'I agree to the',
@@ -139,6 +141,7 @@ const translations: Record<Language, Translations> = {
     fullName:               'Nome completo',
     email:                  'E-mail',
     password:               'Senha',
+    confirmPassword:        'Confirme a senha',
     wantRecruiterAccess:    'Quero acesso de recrutador',
     recruiterTrialInfo:     'Comece seu teste de recrutador hoje — cancele quando quiser, sem surpresas.',
     agreeToPolicy:          'Concordo com a',
@@ -183,6 +186,7 @@ const translations: Record<Language, Translations> = {
     fullName:               'पूरा नाम',
     email:                  'ईमेल',
     password:               'पासवर्ड',
+    confirmPassword:        'पासवर्ड की पुष्टि करें',
     wantRecruiterAccess:    'मुझे रिक्रूटर एक्सेस चाहिए',
     recruiterTrialInfo:     'आज ही अपना रिक्रूटर ट्रायल शुरू करें — कभी भी रद्द करें, कोई आश्चर्य नहीं।',
     agreeToPolicy:          'मैं सहमत हूं',
