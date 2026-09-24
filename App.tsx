@@ -57,6 +57,7 @@ import {
   fetchUsers,
   fetchUsersByUids,
   fetchCompanyForRecruiter,
+  fetchCompanies,
   subscribeToCirclePosts,
   subscribeToUnreadNotifCount,
   lookupFirebaseUidByNumericId,
@@ -378,7 +379,7 @@ const MainApp: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [firestorePosts, firestoreJobs, firestoreCircles, firestoreConnections, firestoreFollowRequests, firestoreUsers] =
+      const [firestorePosts, firestoreJobs, firestoreCircles, firestoreConnections, firestoreFollowRequests, firestoreUsers, firestoreCompanies] =
         await Promise.all([
           fetchPosts(50).catch(() => ({ posts: [], lastDoc: null })),
           fetchJobs().catch(() => []),
@@ -386,6 +387,7 @@ const MainApp: React.FC = () => {
           fetchConnectionRequests(fbUser?.uid ?? '').catch(() => []),
           fetchFollowRequests(fbUser?.uid ?? '').catch(() => []),
           fetchUsers().catch(() => []),
+          fetchCompanies().catch(() => []),
         ]);
       // Messages are no longer fetched here (P0 11: this used to be an
       // unbounded N+1 fetch — every thread, then every message in every
@@ -451,6 +453,16 @@ const MainApp: React.FC = () => {
           }))
         : { id: 1, _firestoreId: '', name: '', description: '', industry: '', logoUrl: '', website: '' };
 
+      // The job board and company profiles need the full company directory, not
+      // just the current recruiter's own company — without this, Jobs.tsx's
+      // `companies.find(c => c.id === job.companyId)` join fails for every job
+      // and every user, since `companies` only ever held this one entry.
+      // Still fold in the synthesized placeholder for a recruiter who hasn't
+      // created a real company doc yet (Gate 4 not completed).
+      const mergedCompanies = (user as any).isRecruiter === true && !(company as any)._firestoreId
+        ? [...firestoreCompanies, company]
+        : firestoreCompanies;
+
       // Normalize circle members — Firestore stores Firebase UIDs but components
       // check membership using numeric user IDs. Map UIDs → numeric IDs.
       const uidToNumericId: Record<string, number> = {};
@@ -489,7 +501,7 @@ const MainApp: React.FC = () => {
         // into the global feed for all users.
         posts: firestorePosts.posts.filter((p: any) => !p.circleId),
         jobs: firestoreJobs,
-        companies: [company],
+        companies: mergedCompanies,
         messages: firestoreMessages,
         notifications: [],
         connectionRequests: filteredConnections,
