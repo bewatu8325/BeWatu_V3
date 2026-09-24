@@ -45,6 +45,13 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
   const [isPolicyVisible, setIsPolicyVisible] = useState(false);
   
   const [error, setError] = useState('');
+  // Schema decision (UX review, phase 3): per-field errors, shown inline
+  // under the field they belong to. `error` above stays for account/flow-
+  // level problems that aren't about one specific field (billing policy
+  // not agreed to, payment form not ready, a Firebase rejection).
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string; email?: string; password?: string; confirmPassword?: string;
+  }>({});
   const [isProcessing, setIsProcessing] = useState(false);
 
   const stripeElementsRef = useRef<{stripe: any; card: any} | null>(null);
@@ -53,23 +60,49 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
     stripeElementsRef.current = elements;
   }
 
+  // Was: browser-native HTML5 validation (an unstyled tooltip, e.g. "Please
+  // include an '@'") firing on top of this app's own custom error banner --
+  // two different visual languages for the same moment, and the native one
+  // could block `onSubmit` from running at all, leaving a stale banner from
+  // a previous attempt on screen. <form noValidate> below hands all of this
+  // to one consistent, custom, per-field system instead.
+  function validateFields(): boolean {
+    const errors: typeof fieldErrors = {};
+    if (!name.trim()) {
+      errors.name = 'Full name is required.';
+    }
+    if (!email.trim()) {
+      errors.email = 'Email is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'Please enter a valid email address.';
+    }
+    if (!password) {
+      errors.password = 'Password is required.';
+    } else if (password.length < 6) {
+      errors.password = 'Password must be at least 6 characters.';
+    }
+    if (!confirmPassword) {
+      errors.confirmPassword = 'Please confirm your password.';
+    } else if (password && password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  // Clears a field's error the moment the user edits it, rather than
+  // leaving a stale red message up until the next submit attempt.
+  function updateField(setter: (v: string) => void, field: keyof typeof fieldErrors) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      setter(e.target.value);
+      setFieldErrors(prev => (prev[field] ? { ...prev, [field]: undefined } : prev));
+    };
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!name || !email || !password) {
-      setError('Please fill in all primary fields.');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
+    if (!validateFields()) return;
 
     setIsProcessing(true);
 
@@ -171,8 +204,12 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
     }
   };
 
-    const inputClass = "w-full rounded-xl border border-stone-200 bg-white pl-10 pr-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:border-green-700 transition";
-    const passwordInputClass = "w-full rounded-xl border border-stone-200 bg-white pl-10 pr-10 py-2.5 text-sm text-stone-900 placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:border-green-700 transition";
+    const fieldBorderClass = (hasError?: string) => hasError ? "border-red-300 focus:border-red-500" : "border-stone-200 focus:border-green-700";
+    const inputClass = (hasError?: string) => `w-full rounded-xl border ${fieldBorderClass(hasError)} bg-white pl-10 pr-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-600 focus:outline-none focus:ring-2 transition`;
+    const passwordInputClass = (hasError?: string) => `w-full rounded-xl border ${fieldBorderClass(hasError)} bg-white pl-10 pr-10 py-2.5 text-sm text-stone-900 placeholder:text-stone-600 focus:outline-none focus:ring-2 transition`;
+    const FieldError = ({ message }: { message?: string }) => message ? (
+      <p className="mt-1 text-xs text-red-600">{message}</p>
+    ) : null;
 
     // Same icon set as LoginPage.tsx, for visual parity between sign-up and sign-in.
     const FieldIcon = ({ path }: { path: string }) => (
@@ -216,37 +253,41 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
     >
       {isPolicyVisible && <BillingPolicyModal onClose={() => setIsPolicyVisible(false)} />}
       <p className="text-sm text-center text-stone-600 -mt-3 mb-6 text-pretty">{t('registerSubtitle')}</p>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {error && <p className="text-red-600 text-sm text-center bg-red-50 border border-red-200 p-3 rounded-xl">{error}</p>}
         <div>
           <label className="text-stone-700 text-sm font-medium mb-1.5 block">{t('fullName')}</label>
           <div className="relative">
             <FieldIcon path={PERSON_ICON_PATH} />
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Jane Doe" disabled={isProcessing} />
+            <input type="text" value={name} onChange={updateField(setName, 'name')} className={inputClass(fieldErrors.name)} placeholder="Jane Doe" disabled={isProcessing} aria-invalid={!!fieldErrors.name} />
           </div>
+          <FieldError message={fieldErrors.name} />
         </div>
         <div>
           <label className="text-stone-700 text-sm font-medium mb-1.5 block">{t('email')}</label>
           <div className="relative">
             <FieldIcon path={MAIL_ICON_PATH} />
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" disabled={isProcessing} />
+            <input type="email" value={email} onChange={updateField(setEmail, 'email')} className={inputClass(fieldErrors.email)} placeholder="you@example.com" disabled={isProcessing} aria-invalid={!!fieldErrors.email} />
           </div>
+          <FieldError message={fieldErrors.email} />
         </div>
         <div>
           <label className="text-stone-700 text-sm font-medium mb-1.5 block">{t('password')}</label>
           <div className="relative">
             <FieldIcon path={LOCK_ICON_PATH} />
-            <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className={passwordInputClass} placeholder="Enter your password" disabled={isProcessing} />
+            <input type={showPassword ? 'text' : 'password'} value={password} onChange={updateField(setPassword, 'password')} className={passwordInputClass(fieldErrors.password)} placeholder="Enter your password" disabled={isProcessing} aria-invalid={!!fieldErrors.password} />
             <PasswordToggle />
           </div>
+          <FieldError message={fieldErrors.password} />
         </div>
         <div>
           <label className="text-stone-700 text-sm font-medium mb-1.5 block">{t('confirmPassword')}</label>
           <div className="relative">
             <FieldIcon path={LOCK_ICON_PATH} />
-            <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={passwordInputClass} placeholder="Re-enter your password" disabled={isProcessing} />
+            <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={updateField(setConfirmPassword, 'confirmPassword')} className={passwordInputClass(fieldErrors.confirmPassword)} placeholder="Re-enter your password" disabled={isProcessing} aria-invalid={!!fieldErrors.confirmPassword} />
             <PasswordToggle />
           </div>
+          <FieldError message={fieldErrors.confirmPassword} />
         </div>
 
         <div className="pt-2">
