@@ -147,6 +147,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
   const availableUsers = users.filter(u => u.id !== currentUser.id);
 
   const showList = !activeChatUserId;
+  const hasNoConversations = conversationPartners.length === 0;
 
   return (
     <>
@@ -158,6 +159,27 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
         />
       )}
 
+      {hasNoConversations ? (
+        <div
+          className="bg-white rounded-2xl border overflow-hidden flex flex-col items-center justify-center text-center shadow-sm px-6"
+          style={{ borderColor: '#e7e5e4', height: 'calc(100svh - 9rem)' }}
+        >
+          <svg className="h-16 w-16 mb-5 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8-1.06 0-2.077-.163-3.02-.463-.34-.108-.51-.162-.633-.186a1.98 1.98 0 00-.396-.014c-.117.008-.234.032-.468.08l-3.104.62.885-2.655c.076-.229.115-.343.132-.44a1.5 1.5 0 000-.485c-.017-.096-.055-.204-.132-.42C3.75 15.048 3 13.588 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+          <p className="text-lg font-medium text-stone-700">No messages yet</p>
+          <p className="text-sm mt-1.5 text-stone-600 max-w-sm">
+            When you connect with someone or a recruiter reaches out, your conversations will show up here.
+          </p>
+          <button
+            onClick={() => setShowNewMessage(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white mt-6"
+            style={{ backgroundColor: GREEN }}
+          >
+            <Plus className="w-4 h-4" /> Start a conversation
+          </button>
+        </div>
+      ) : (
       <div className="bg-white rounded-2xl border overflow-hidden flex shadow-sm" style={{ borderColor: '#e7e5e4', height: 'calc(100svh - 9rem)' }}>
         {/* Conversation List */}
         <div
@@ -307,6 +329,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
           )}
         </div>
       </div>
+      )}
     </>
   );
 };
