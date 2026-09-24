@@ -40,6 +40,13 @@ interface RecruiterConsoleProps {
   onLogout: () => void;
   isTrialActive: boolean;
   setTrialActive: (isActive: boolean) => void;
+  // Set true right after a brand-new recruiter signs up via Google (no
+  // payment method ever collected, unlike the email/password path) --
+  // opens the subscription/payment modal immediately instead of waiting
+  // for the trial to expire. onPaymentSetupPromptHandled lets the parent
+  // clear the one-shot flag once this modal has been shown.
+  promptPaymentSetup?: boolean;
+  onPaymentSetupPromptHandled?: () => void;
   onSwitchProfile: () => void;
   talentPipeline: { [key: string]: User[] };
   allJobs: Job[];
@@ -60,7 +67,8 @@ type RecruiterView = 'dashboard' | 'inbox' | 'pipelines' | 'interviews' | 'templ
 
 const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const {
-    onLogout, isTrialActive, setTrialActive, onSwitchProfile,
+    onLogout, isTrialActive, setTrialActive,
+    promptPaymentSetup, onPaymentSetupPromptHandled, onSwitchProfile,
     talentPipeline, allJobs, allCompanies, currentUser,
     onAddJob, onUpdateJob, onDeleteJob, onToggleJobStatus, onViewProfile,
     onNavigateToConnect, onNavigateToTerms, onNavigateToPrivacy, onNavigateToCommunity,
@@ -74,7 +82,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
   const [searchResults, setSearchResults] = useState<CandidateSearchResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(!isTrialActive);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(!isTrialActive || !!promptPaymentSetup);
   const [activeView, setActiveView] = useState<RecruiterView>('dashboard');
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateSearchResult | null>(null);
   const [isBlindMode, setIsBlindMode] = useState(false);                   // ← single declaration
@@ -425,8 +433,9 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
     <div className="min-h-screen bg-stone-50 text-stone-800 flex flex-col">
       {isSubscriptionModalOpen && (
         <SubscriptionModal
-          onClose={() => setIsSubscriptionModalOpen(false)}
-          onSubscribe={() => { setTrialActive(true); setIsSubscriptionModalOpen(false); }}
+          reason={promptPaymentSetup ? 'setupPayment' : 'trialEnded'}
+          onClose={() => { setIsSubscriptionModalOpen(false); onPaymentSetupPromptHandled?.(); }}
+          onSubscribe={() => { setTrialActive(true); setIsSubscriptionModalOpen(false); onPaymentSetupPromptHandled?.(); }}
         />
       )}
 

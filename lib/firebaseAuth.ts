@@ -185,7 +185,12 @@ function buildNewUserDoc(
 
 // ── Shared Google upsert ──────────────────────────────────────────────────────
 // Creates the user doc on first sign-in; returns the User on every call.
-async function upsertGoogleUser(fbUser: FirebaseUser, isRecruiter: boolean): Promise<User> {
+// `isNewUser` lets callers tell a fresh signup apart from a returning user
+// logging back in -- needed so a brand-new recruiter can be prompted for
+// payment right away instead of silently getting a trial with no payment
+// method on file (the same gap the email/password signup already closes by
+// showing PaymentForm before the account is even created).
+async function upsertGoogleUser(fbUser: FirebaseUser, isRecruiter: boolean): Promise<{ user: User; isNewUser: boolean }> {
   const ref  = doc(db, 'users', fbUser.uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
@@ -196,9 +201,9 @@ async function upsertGoogleUser(fbUser: FirebaseUser, isRecruiter: boolean): Pro
     );
     await setDoc(ref, newDoc);
     await setPrivateContact(fbUser.uid, { email, location: '' });
-    return docToUser(newDoc);
+    return { user: await docToUser(newDoc), isNewUser: true };
   }
-  return docToUser(snap.data() as Record<string, any>);
+  return { user: await docToUser(snap.data() as Record<string, any>), isNewUser: false };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -256,13 +261,24 @@ function translateAuthError(code: string): string {
   }
 }
 
+// Real bug, found alongside the payment-prompt work below: the Safari
+// redirect path's result handler (in onAuthChange) had no way to know what
+// isRecruiter the user actually intended -- the page fully reloads between
+// signInWithRedirect and getRedirectResult, so any in-memory value is lost.
+// It hardcoded `false`, meaning a Safari user checking "recruiter access"
+// silently got a regular member account instead. Persisted across the
+// reload via sessionStorage, same mechanism this app already uses for
+// other cross-reload state (see beWatuData/termsAgreedThisSession).
+const GOOGLE_SIGNIN_RECRUITER_INTENT_KEY = 'googleSignInIsRecruiterIntent';
+
 /**
  * Sign in / register with Google.
  * Safari → redirect (returns null; result arrives via onAuthChange on reload).
- * Other browsers → popup (returns User immediately).
+ * Other browsers → popup (returns User + whether this was a brand-new signup).
  */
-export async function loginWithGoogle(isRecruiter = false): Promise<User | null> {
+export async function loginWithGoogle(isRecruiter = false): Promise<{ user: User; isNewUser: boolean } | null> {
   if (isSafari()) {
+    sessionStorage.setItem(GOOGLE_SIGNIN_RECRUITER_INTENT_KEY, String(isRecruiter));
     await signInWithRedirect(auth, googleProvider);
     return null; // page reloads; result handled in onAuthChange
   }
@@ -299,11 +315,15 @@ export async function changePassword(currentPassword: string, newPassword: strin
 export function onAuthChange(
   callback: (user: User | null, fbUser: FirebaseUser | null) => void
 ): () => void {
-  // Handle Safari redirect result on page load
+  // Handle Safari redirect result on page load. isRecruiter is read back
+  // from sessionStorage (set just before the redirect in loginWithGoogle) --
+  // see GOOGLE_SIGNIN_RECRUITER_INTENT_KEY's comment for why that's needed.
   getRedirectResult(auth)
     .then(async result => {
       if (result?.user) {
-        await upsertGoogleUser(result.user, false).catch(() => {});
+        const intendedRecruiter = sessionStorage.getItem(GOOGLE_SIGNIN_RECRUITER_INTENT_KEY) === 'true';
+        sessionStorage.removeItem(GOOGLE_SIGNIN_RECRUITER_INTENT_KEY);
+        await upsertGoogleUser(result.user, intendedRecruiter).catch(() => {});
       }
     })
     .catch(() => {});
