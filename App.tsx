@@ -229,6 +229,12 @@ const MainApp: React.FC = () => {
   // search/actions still enforce the real value the moment it's known.
   const [isTrialActive, setIsTrialActive] = useState<boolean>(true);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  // Set right after a brand-new recruiter signs up via Google (popup flow
+  // only -- see loginWithGoogle's comment for why Safari's redirect path
+  // can't wire this the same way). Prompts for payment immediately rather
+  // than leaving it until the trial expires, matching what the email/
+  // password signup already does by showing PaymentForm up front.
+  const [promptRecruiterPaymentSetup, setPromptRecruiterPaymentSetup] = useState(false);
 
   useEffect(() => {
     if (!currentUser?.isRecruiter) return;
@@ -578,11 +584,17 @@ const MainApp: React.FC = () => {
   const handleGoogleLogin = async (isRecruiterLogin = false) => {
     try {
       setLoading(true);
-      const user = await loginWithGoogle(isRecruiterLogin);
-      if (!user) throw new Error('Google sign-in failed.');
+      const result = await loginWithGoogle(isRecruiterLogin);
+      if (!result) throw new Error('Google sign-in failed.');
+      const { user, isNewUser } = result;
       setActiveProfile(isRecruiterLogin ? 'recruiter' : 'user');
       setAuthState('authenticated');
       if (isRecruiterLogin) await startTrialAndRefresh(user);
+      // New recruiter, signed up just now via Google -- no payment method
+      // was ever collected (unlike the email/password path, which shows
+      // PaymentForm before the account even exists). Prompt right away
+      // instead of waiting for the trial to expire.
+      if (isRecruiterLogin && isNewUser) setPromptRecruiterPaymentSetup(true);
       await loadAppData(user);
     } catch (err: any) {
       setError(err.message ?? 'Google sign-in failed.');
@@ -1596,7 +1608,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
     }
 
     if (activeProfile === 'recruiter') {
-      return <RecruiterConsole onLogout={handleLogout} isTrialActive={isTrialActive} setTrialActive={setIsTrialActive} onSwitchProfile={handleSwitchProfile} talentPipeline={talentPipeline} allJobs={data.jobs} allCompanies={data.companies} currentUser={currentUser} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} onToggleJobStatus={handleToggleJobStatus} onNavigateToConnect={handleNavigateToConnect} onNavigateToTerms={() => setShowTermsPage(true)} onNavigateToPrivacy={() => setShowPrivacyPage(true)} onNavigateToCommunity={() => setShowCommunityPage(true)} />;
+      return <RecruiterConsole onLogout={handleLogout} isTrialActive={isTrialActive} setTrialActive={setIsTrialActive} promptPaymentSetup={promptRecruiterPaymentSetup} onPaymentSetupPromptHandled={() => setPromptRecruiterPaymentSetup(false)} onSwitchProfile={handleSwitchProfile} talentPipeline={talentPipeline} allJobs={data.jobs} allCompanies={data.companies} currentUser={currentUser} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} onToggleJobStatus={handleToggleJobStatus} onNavigateToConnect={handleNavigateToConnect} onNavigateToTerms={() => setShowTermsPage(true)} onNavigateToPrivacy={() => setShowPrivacyPage(true)} onNavigateToCommunity={() => setShowCommunityPage(true)} />;
     }
 
     let content: React.ReactNode;
@@ -2147,6 +2159,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         return (
           <RegistrationPage
             onRegisterSuccess={handleRegisterSuccess}
+            onGoogleRegister={handleGoogleLogin}
             onNavigateToLogin={() => setAuthState('login')}
             onNavigateToConnect={handleNavigateToConnect}
             onNavigateToLanding={handleNavigateToLanding}

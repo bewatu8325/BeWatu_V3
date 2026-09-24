@@ -7,6 +7,11 @@ import PaymentForm from '../PaymentForm';
 interface SubscriptionModalProps {
   onClose: () => void;
   onSubscribe: () => void;
+  // 'setupPayment': a brand-new recruiter (signed up via Google, so no
+  // payment step ever ran) is being asked to add a payment method for the
+  // trial they already have -- saying "Your Trial Has Ended" here would be
+  // factually wrong, since it just started.
+  reason?: 'trialEnded' | 'setupPayment';
 }
 
 type Step = 'review' | 'processing' | 'error';
@@ -18,7 +23,7 @@ type Step = 'review' | 'processing' | 'error';
 // card collection -> /api/create-subscription -> Firestore persistence.
 // Confirmed with the user this is the same $20/mo "pro" tier UpgradeModal
 // charges (STRIPE_PRO_PRICE_ID) — not a separate recruiter-only price.
-const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscribe }) => {
+const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscribe, reason = 'trialEnded' }) => {
   const { currentUser, fbUser, refreshUser } = useFirebase();
   const [step, setStep] = useState<Step>('review');
   const [stripeRef, setStripeRef] = useState<{ stripe: any; card: any } | null>(null);
@@ -95,9 +100,13 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
         onClick={e => e.stopPropagation()}
       >
         <LogoIcon className="h-10 w-auto text-cyan-400 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-slate-100">Your Trial Has Ended</h2>
+        <h2 className="text-2xl font-bold text-slate-100">
+          {reason === 'setupPayment' ? 'Add a payment method' : 'Your Trial Has Ended'}
+        </h2>
         <p className="text-slate-300 mt-2">
-          Continue accessing the powerful AI-driven Recruiter Console and find the perfect candidates.
+          {reason === 'setupPayment'
+            ? "You're all set with your trial — add a payment method now so there's no interruption when it ends."
+            : 'Continue accessing the powerful AI-driven Recruiter Console and find the perfect candidates.'}
         </p>
         <div className="my-6 p-4 bg-slate-900/50 border border-slate-700 rounded-lg">
             <p className="text-slate-200 font-semibold">BeWatu Recruiter Pro</p>
@@ -125,7 +134,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
           disabled={step === 'processing' || !stripeRef}
           className="w-full mt-2 bg-cyan-500 text-slate-900 font-semibold py-2.5 rounded-lg hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
-          {step === 'processing' ? 'Processing…' : 'Subscribe Now'}
+          {step === 'processing' ? 'Processing…' : reason === 'setupPayment' ? 'Add payment method' : 'Subscribe Now'}
         </button>
         <button
           onClick={onClose}
