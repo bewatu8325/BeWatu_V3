@@ -53,24 +53,38 @@ const VibeClipTile: React.FC<{
       {hasVideo ? (
         <>
           {user.microIntroductionThumbnail ? (
-            <img
-              src={user.microIntroductionThumbnail}
-              alt={user.name}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+            <>
+              <img
+                src={user.microIntroductionThumbnail}
+                alt={user.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-stone-900/25">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/40">
+                  <PlayIcon className="w-7 h-7 text-white ml-1" />
+                </div>
+              </div>
+            </>
           ) : (
-            <div
-              className="absolute inset-0"
-              style={{
-                background: 'linear-gradient(160deg, #4db89a 0%, #1a6b52 45%, #1a4a3a 100%)',
-              }}
-            />
-          )}
-          <div className="absolute inset-0 flex items-center justify-center bg-stone-900/25">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/40">
-              <PlayIcon className="w-7 h-7 text-white ml-1" />
+            // No saved thumbnail yet -- a bare dark gradient plus a 25%-black
+            // overlay on top of it reads as a flat black box, like the card
+            // is broken. Center the user's own avatar here (same language
+            // as the no-video state below) so it still reads as "your clip"
+            // rather than an empty rectangle, with no extra dark overlay
+            // dulling the gradient.
+            <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #4db89a 0%, #1a6b52 45%, #1a4a3a 100%)' }}>
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-full text-2xl font-black text-white shadow-lg ring-4 ring-white/20" style={{ backgroundColor: '#1a4a3a' }}>
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user.name} className="h-20 w-20 rounded-full object-cover" />
+                ) : (
+                  initials
+                )}
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-stone-900/25">
+                  <PlayIcon className="w-7 h-7 text-white ml-1" />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
           <div
             className="absolute bottom-0 left-0 right-0 h-2/5 pointer-events-none"
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)' }}
