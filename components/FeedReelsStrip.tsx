@@ -240,6 +240,12 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
 
   if (uniqueReels.length === 0 && !onAddReel) return null;
 
+  // The current user's own reel (if they have one) and everyone else's —
+  // kept separate so "you" is never rendered as two adjacent bubbles (an
+  // "add" CTA next to your own existing reel, both showing your own photo).
+  const ownReel = uniqueReels.find(r => r.authorId === currentUser.id);
+  const otherReels = uniqueReels.filter(r => r.authorId !== currentUser.id);
+
   return (
     <>
       <div className="bg-white rounded-2xl border shadow-sm" style={{ borderColor: '#e7e5e4' }}>
@@ -254,8 +260,10 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
         </div>
         <div className="flex items-center gap-3 overflow-x-auto px-3 py-3" style={{ scrollbarWidth: 'none' }}>
 
-          {/* Add your reel bubble */}
-          {onAddReel && (
+          {/* Your reel — one bubble either way, so "you" never appears twice
+              in a row. No reel yet: a dashed add-CTA. Already have one:
+              the reel itself, with a small badge to record a new one. */}
+          {onAddReel && !ownReel && (
             <button onClick={onAddReel} className="flex flex-col items-center gap-1.5 flex-shrink-0 group">
               <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-dashed border-stone-300 group-hover:border-stone-400 transition-colors flex items-center justify-center bg-stone-50">
                 {currentUser.avatarUrl ? (
@@ -273,9 +281,43 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
             </button>
           )}
 
-          {/* Reel bubbles */}
-          {uniqueReels.map((reel, i) => {
-            const allReelsByAuthor = reels.filter(r => r.authorId === reel.authorId);
+          {ownReel && (
+            <button
+              onClick={() => setActiveModal(reels.indexOf(ownReel))}
+              className="flex flex-col items-center gap-1.5 flex-shrink-0 group"
+            >
+              <div
+                className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-transparent p-0.5"
+                style={{ background: 'linear-gradient(135deg, #1a4a3a, #4db89a)' }}
+              >
+                <div className="w-full h-full rounded-full overflow-hidden border-2 border-white">
+                  {ownReel.thumbnailUrl ? (
+                    <img src={ownReel.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                  ) : currentUser.avatarUrl ? (
+                    <img src={currentUser.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm" style={{ background: GREEN }}>
+                      {currentUser.name[0]}
+                    </div>
+                  )}
+                </div>
+                {onAddReel && (
+                  <div
+                    onClick={e => { e.stopPropagation(); onAddReel(); }}
+                    className="absolute bottom-0 right-0 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white"
+                    style={{ background: GREEN }}
+                    title="Record a new reel"
+                  >
+                    <Plus className="w-3 h-3 text-white" />
+                  </div>
+                )}
+              </div>
+              <span className="text-[10px] text-stone-600 font-medium w-16 text-center truncate">Your Reel</span>
+            </button>
+          )}
+
+          {/* Reel bubbles — everyone else's */}
+          {otherReels.map((reel) => {
             const globalIndex = reels.indexOf(reel);
             return (
               <button
@@ -300,14 +342,14 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
                   </div>
                 </div>
                 <span className="text-[10px] text-stone-600 font-medium w-16 text-center truncate">
-                  {reel.authorId === currentUser.id ? 'You' : reel.authorName.split(' ')[0]}
+                  {reel.authorName.split(' ')[0]}
                 </span>
               </button>
             );
           })}
 
-          {uniqueReels.length === 0 && (
-            <p className="text-sm text-stone-600 py-1">No reels from your network yet — be the first!</p>
+          {otherReels.length === 0 && (
+            <p className="text-sm text-stone-600 py-1 flex items-center">No reels from your network yet — be the first!</p>
           )}
         </div>
       </div>
