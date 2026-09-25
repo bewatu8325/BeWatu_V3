@@ -36,22 +36,62 @@ async function uploadVideoToStorage(
 }
 
 // ─── Generate thumbnail from video blob ──────────────────────────────────────
+// Setting `currentTime` before the browser has loaded metadata is silently
+// dropped (the element isn't seekable yet), and drawing on `loadeddata`
+// instead of waiting for the seek to actually land meant this was capturing
+// whatever frame happened to be first available -- often frame 0, which for
+// a freshly-started camera stream is reliably still black while the sensor
+// warms up. Wait for metadata before seeking, then wait for the seek itself
+// to complete (`onseeked`) before drawing, and retry at a couple of later
+// offsets if the captured frame is still effectively black.
+function isFrameBlack(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return false;
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let sum = 0;
+  const step = 40; // sample, don't scan every pixel
+  let samples = 0;
+  for (let i = 0; i < data.length; i += 4 * step) {
+    sum += data[i] + data[i + 1] + data[i + 2];
+    samples++;
+  }
+  return samples > 0 && sum / samples < 8; // near-zero average brightness
+}
+
 async function generateThumbnail(blob: Blob): Promise<Blob> {
+  const OFFSETS = [0.5, 1.5, 3];
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     const url = URL.createObjectURL(blob);
-    video.src = url;
     video.muted = true;
     video.playsInline = true;
-    video.currentTime = 0.5;
-    video.onloadeddata = async () => {
+    video.preload = 'auto';
+    video.src = url;
+
+    let attempt = 0;
+    const canvas = document.createElement('canvas');
+
+    const seekNext = () => {
+      const offset = Math.min(OFFSETS[attempt] ?? OFFSETS[OFFSETS.length - 1], (video.duration || 1) - 0.1);
+      video.currentTime = Math.max(0, offset);
+    };
+
+    video.onloadedmetadata = () => {
+      canvas.width = video.videoWidth || 480;
+      canvas.height = video.videoHeight || 854;
+      seekNext();
+    };
+
+    video.onseeked = () => {
       try {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth || 480;
-        canvas.height = video.videoHeight || 854;
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('Canvas not supported');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        attempt++;
+        if (isFrameBlack(canvas) && attempt < OFFSETS.length) {
+          seekNext();
+          return;
+        }
         canvas.toBlob(thumbBlob => {
           URL.revokeObjectURL(url);
           if (thumbBlob) resolve(thumbBlob);
