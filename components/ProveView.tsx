@@ -18,14 +18,14 @@ import {
   Play, Pause, Upload, X, Plus, Zap, MessageSquare,
   UserPlus, Briefcase, Filter, Search, CheckCircle2,
   Video, ChevronRight, Star, Clock, Tag, Building2,
-  Flame, Eye, Heart, MoreHorizontal, Sparkles,
+  Flame, Eye, Heart, MoreHorizontal, Sparkles, Trash2,
 } from 'lucide-react';
 import {
   collection, addDoc, query, orderBy, onSnapshot,
-  updateDoc, doc, arrayUnion, arrayRemove, serverTimestamp,
+  updateDoc, doc, deleteDoc, arrayUnion, arrayRemove, serverTimestamp,
   where, limit,
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import { compressVideo } from '../lib/compressVideo';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -71,6 +71,7 @@ function ReelPlayer({
   onSpark,
   onConnect,
   onMessage,
+  onDelete,
   currentUid,
   compact = false,
 }: {
@@ -78,6 +79,7 @@ function ReelPlayer({
   onSpark:    (id: string) => void;
   onConnect:  (uid: string) => void;
   onMessage:  (uid: string) => void;
+  onDelete?:  (reel: Reel) => void;
   currentUid: string;
   compact?:   boolean;
 }) {
@@ -120,6 +122,17 @@ function ReelPlayer({
           <Clock size={10} />
           {Math.floor(reel.duration / 60)}:{String(Math.floor(reel.duration % 60)).padStart(2, '0')}
         </div>
+        {/* Delete — own reels only */}
+        {reel.authorUid === currentUid && onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(reel); }}
+            aria-label="Delete reel"
+            title="Delete reel"
+            className="absolute top-3 left-3 w-7 h-7 rounded-full bg-black/60 hover:bg-red-600/80 flex items-center justify-center text-white transition-colors"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
         {/* Progress bar */}
         {playing && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
@@ -586,6 +599,20 @@ export default function ProveView({
     });
   };
 
+  const handleDeleteReel = async (reel: Reel) => {
+    if (reel.authorUid !== currentUid) return;
+    if (!window.confirm('Delete this reel? This can\'t be undone.')) return;
+    // Delete the Firestore doc first -- the onSnapshot listener above removes
+    // it from the UI immediately. Storage cleanup runs after and best-effort:
+    // if it fails (e.g. Storage rules lag behind), the reel is still gone
+    // from the app rather than stuck because a file couldn't be removed.
+    await deleteDoc(doc(db, 'reels', reel.id));
+    await deleteObject(ref(storage, reel.videoUrl)).catch(() => {});
+    if (reel.thumbnailUrl) {
+      await deleteObject(ref(storage, reel.thumbnailUrl)).catch(() => {});
+    }
+  };
+
   // Match reels against user's skills from their profile
   const userSkills = (currentUser?.skills ?? []).map((s: any) =>
     typeof s === 'string' ? s.toLowerCase() : s.name?.toLowerCase()
@@ -796,6 +823,7 @@ export default function ProveView({
                     onConnect(0);
                   }}
                   onMessage={(uid) => onStartMessage(0)}
+                  onDelete={handleDeleteReel}
                   currentUid={currentUid}
                 />
               ))}

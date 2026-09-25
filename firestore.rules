@@ -1099,12 +1099,19 @@ service cloud.firestore {
       allow read: if isAuth();
       allow create: if isAuth()
         && request.resource.data.authorUid == request.auth.uid;
-      // P1 fix: this `reels` collection (distinct from the live
-      // `reelVibes` below) has no app write site at all — appears fully
-      // superseded/dead — but sparks/views was still a blanket
-      // onlyFields() escape hatch reachable by any raw client. Closed
-      // defensively to a plain +1 bump each, same as other dead counters
-      // in this pass.
+      // P1 fix: sparks/views was a blanket onlyFields() escape hatch
+      // reachable by any raw client. Closed defensively to a plain +1 bump
+      // each, same as other counters in this pass.
+      //
+      // Correction (launch-readiness review): an earlier version of this
+      // comment claimed this `reels` collection was dead and superseded by
+      // `reelVibes` below. It's the other way around -- ProveView.tsx (the
+      // "Prove" skill-showcase page) writes here on every upload/spark, and
+      // it's the only reel collection with a live client write site.
+      // `reelVibes`'s own write function (createReelVibe in
+      // lib/firestoreService.ts) has no callers anywhere in the app; the
+      // FeedReelsStrip/ProfileReelsStrip widgets that read from it are
+      // effectively frozen on whatever legacy documents already exist there.
       allow update: if isAuth() && (
         resource.data.authorUid == request.auth.uid
         || (onlyFields(['sparks', 'updatedAt'])
