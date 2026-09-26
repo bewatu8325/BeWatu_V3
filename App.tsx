@@ -215,9 +215,18 @@ const MainApp: React.FC = () => {
   const [showSecurityPage, setShowSecurityPage] = useState(false);
   const [showConnectPage, setShowConnectPage] = useState(false);
   const [showAboutPage, setShowAboutPage]   = useState(false);
-  const [showTermsPage, setShowTermsPage] = useState(false);
-  const [showPrivacyPage, setShowPrivacyPage] = useState(false);
-  const [showCommunityPage, setShowCommunityPage] = useState(false);
+  // bewatu-factory (and other external callers) link directly to
+  // /terms, /privacy and /community-guidelines expecting real pages --
+  // same deep-link gap as /login and /register (see vercel.json rewrites).
+  const [showTermsPage, setShowTermsPage] = useState(
+    () => typeof window !== 'undefined' && window.location.pathname === '/terms'
+  );
+  const [showPrivacyPage, setShowPrivacyPage] = useState(
+    () => typeof window !== 'undefined' && window.location.pathname === '/privacy'
+  );
+  const [showCommunityPage, setShowCommunityPage] = useState(
+    () => typeof window !== 'undefined' && window.location.pathname === '/community-guidelines'
+  );
   const [showDeletionModal, setShowDeletionModal] = useState(false);
   const [showDataRequestModal, setShowDataRequestModal] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<number | null>(null);
