@@ -2,7 +2,10 @@
   "rewrites": [
     { "source": "/be/:username", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },
-    { "source": "/register", "destination": "/index.html" }
+    { "source": "/register", "destination": "/index.html" },
+    { "source": "/terms", "destination": "/index.html" },
+    { "source": "/privacy", "destination": "/index.html" },
+    { "source": "/community-guidelines", "destination": "/index.html" }
   ],
   "crons": [
     {
