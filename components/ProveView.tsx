@@ -568,6 +568,7 @@ export default function ProveView({
 }: ProveViewProps) {
   const { fbUser } = useFirebase();
   const [reels, setReels]         = useState<Reel[]>([]);
+  const [myReels, setMyReels]     = useState<Reel[]>([]);
   const [loading, setLoading]     = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [search, setSearch]       = useState('');
@@ -578,6 +579,11 @@ export default function ProveView({
   const currentUid = fbUser?.uid ?? String(currentUser?.id ?? '');
 
   useEffect(() => {
+    // Recent-across-everyone feed, for the network/discover tabs. Capped at
+    // 50 -- fine for a feed, but NOT a source of truth for "my reels": once
+    // 50 reels exist platform-wide, an older reel of yours falls out of this
+    // window and would silently vanish from your own management view (see
+    // the dedicated myReels query below).
     const q = query(
       collection(db, 'reels'),
       orderBy('createdAt', 'desc'),
@@ -590,8 +596,24 @@ export default function ProveView({
     return unsub;
   }, []);
 
+  useEffect(() => {
+    if (!currentUid) return;
+    // Scoped to this user, independent of the global recent-feed window
+    // above, so "My Reels" (and the sidebar stats / skills-from-my-reels
+    // matching below) always shows everything you've posted, however old.
+    const q = query(
+      collection(db, 'reels'),
+      where('authorUid', '==', currentUid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsub = onSnapshot(q, snap => {
+      setMyReels(snap.docs.map(d => ({ id: d.id, ...d.data() } as Reel)));
+    });
+    return unsub;
+  }, [currentUid]);
+
   const handleSpark = async (reelId: string) => {
-    const reel = reels.find(r => r.id === reelId);
+    const reel = reels.find(r => r.id === reelId) ?? myReels.find(r => r.id === reelId);
     if (!reel) return;
     const hasSparked = reel.sparks?.includes(currentUid);
     await updateDoc(doc(db, 'reels', reelId), {
@@ -632,7 +654,7 @@ export default function ProveView({
     let results = reels;
 
     if (activeTab === 'mine') {
-      return results.filter(r => r.authorUid === currentUid);
+      return myReels;
     }
 
     if (activeTab === 'network') {
@@ -684,8 +706,7 @@ export default function ProveView({
   })();
 
   // Jobs that match reel skills in user's reels
-  const mySkills = reels
-    .filter(r => r.authorUid === currentUid)
+  const mySkills = myReels
     .flatMap(r => r.skills ?? [])
     .map(s => s.toLowerCase());
 
@@ -836,10 +857,10 @@ export default function ProveView({
           <div className="sticky top-24 space-y-4">
 
             {/* My reel stats */}
-            {reels.filter(r => r.authorUid === currentUid).length > 0 && (
+            {myReels.length > 0 && (
               <div className="bg-white border border-stone-200 rounded-2xl p-4">
                 <p className="text-xs font-semibold text-stone-600 uppercase tracking-widest mb-3">Your reels</p>
-                {reels.filter(r => r.authorUid === currentUid).map(r => (
+                {myReels.slice(0, 5).map(r => (
                   <div key={r.id} className="flex items-center gap-2 mb-2 last:mb-0">
                     <div className="w-8 h-8 rounded-lg bg-stone-900 flex items-center justify-center flex-shrink-0">
                       <Play size={10} className="text-white" fill="currentColor" />
