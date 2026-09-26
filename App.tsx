@@ -133,7 +133,17 @@ type ActiveProfile = 'user' | 'recruiter' | 'admin';
 const MainApp: React.FC = () => {
   const { currentUser, fbUser, authLoading, refreshUser } = useFirebase();
 
-  const [authState, setAuthState] = useState<AuthState>('landing');
+  // bewatu-factory (and other external callers) link directly to
+  // /login and /register expecting a real page -- this app has no router,
+  // so without this those paths 404 at the CDN (see vercel.json rewrites)
+  // and, even once rewritten to index.html, would otherwise always land on
+  // the landing page instead of the view the link promised.
+  const [authState, setAuthState] = useState<AuthState>(() => {
+    if (typeof window === 'undefined') return 'landing';
+    if (window.location.pathname === '/register') return 'register';
+    if (window.location.pathname === '/login') return 'login';
+    return 'landing';
+  });
   const [activeProfile, setActiveProfile] = useState<ActiveProfile>('user');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [showTermsWall, setShowTermsWall] = useState(false);
