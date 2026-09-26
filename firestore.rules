@@ -1718,6 +1718,43 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.authorUid == request.auth.uid;
     }
 
+    // Discussion comments (bewatu-factory) on problems/solutions/ideas/
+    // teams/startups. Deletes are soft (author sets deleted:true + clears
+    // content via update) rather than a real delete, so a reply from a
+    // different author never needs its own document touched when its
+    // parent is removed -- see lib/firebase/comments-service.ts.
+    match /factory_comments/{id} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.authorUid == request.auth.uid
+        || (onlyFields(['upvotedBy'])
+            && isSelfUidToggle(resource.data.upvotedBy, request.resource.data.upvotedBy))
+        || (onlyFields(['downvotedBy'])
+            && isSelfUidToggle(resource.data.downvotedBy, request.resource.data.downvotedBy))
+        // reactions is a uid -> emoji map (one reaction per person) rather
+        // than a *ByUids-style array, so isSelfUidToggle doesn't apply --
+        // instead, require that the only map key that changed is the
+        // caller's own uid (added, changed, or removed).
+        || (onlyFields(['reactions'])
+            && request.resource.data.reactions.diff(resource.data.reactions)
+                 .affectedKeys().hasOnly([request.auth.uid]))
+      );
+      allow delete: if false;
+    }
+
+    // Comment reports -- write-only from the client (ops review these via
+    // console/admin tooling, not built here). No read/update/delete from
+    // any client keeps report records tamper-proof and un-enumerable by
+    // the person being reported.
+    match /factory_comment_reports/{id} {
+      allow read:   if false;
+      allow create: if isAuth() && request.resource.data.reportedBy == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
     match /factory_projects/{id} {
       allow read:   if isAuth();
       allow create: if isAuth()
