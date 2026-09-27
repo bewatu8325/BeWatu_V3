@@ -177,10 +177,13 @@ export async function getArenaIndustry(slug: IndustrySlug): Promise<ArenaIndustr
 export function subscribeToArenaIndustries(
   callback: (industries: ArenaIndustry[]) => void
 ) {
+  // Not called anywhere today, but exported -- limit() is a defensive
+  // safety net so it isn't a landmine if it's ever wired up later.
   const q = query(
     collection(db, "arena_industries"),
     where("isActive", "==", true),
-    orderBy("sortOrder", "asc")
+    orderBy("sortOrder", "asc"),
+    limit(50)
   );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => toData<ArenaIndustry>(d)));

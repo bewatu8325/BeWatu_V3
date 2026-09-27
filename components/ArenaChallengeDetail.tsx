@@ -347,11 +347,15 @@ export default function ArenaChallengeDetail({
   // Load submissions
   useEffect(() => {
     if (!challenge._firestoreId) { setLoading(false); return; }
-    import('firebase/firestore').then(async ({ collection, query, orderBy, onSnapshot, where }) => {
+    import('firebase/firestore').then(async ({ collection, query, orderBy, onSnapshot, where, limit }) => {
       const { db } = await import('../lib/firebase');
       const colRef = collection(db, 'arena_challenges', challenge._firestoreId, 'submissions');
+      // Recruiters legitimately see every submission to their own challenge
+      // (not scoped to a single author), so the safety net here is a limit,
+      // not a where() -- without one, a challenge with an unexpectedly large
+      // submission count would load unbounded.
       const q = isRecruiter
-        ? query(colRef, orderBy('submittedAt', 'desc'))
+        ? query(colRef, orderBy('submittedAt', 'desc'), limit(200))
         : query(colRef, where('authorUid', '==', fbUser?.uid ?? ''));
 
       const unsub = onSnapshot(q, snap => {
