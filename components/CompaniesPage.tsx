@@ -96,7 +96,7 @@ const CompanyCard: React.FC<{
           <button
             onClick={onClaim}
             className="flex-1 py-2 rounded-xl text-sm font-semibold text-white transition-colors"
-            style={{ backgroundColor: '#1a4a3a' }}
+            style={{ backgroundColor: 'var(--bw-green)' }}
           >
             Claim
           </button>
@@ -196,7 +196,7 @@ export default function CompaniesPage({ onViewCompany }: CompaniesPageProps) {
                   ? 'text-white'
                   : 'text-stone-600 bg-white border border-stone-200 hover:bg-stone-50'
               }`}
-              style={industry === ind ? { backgroundColor: '#1a4a3a' } : {}}
+              style={industry === ind ? { backgroundColor: 'var(--bw-green)' } : {}}
             >
               {ind}
             </button>

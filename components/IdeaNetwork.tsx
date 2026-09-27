@@ -31,9 +31,9 @@ import {
 } from '../lib/firestoreService';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const G    = '#1a4a3a';
-const GM   = '#1a6b52';
-const GLT  = '#e8f4f0';
+const G    = 'var(--bw-green)';
+const GM   = 'var(--bw-green-mid)';
+const GLT  = 'var(--bw-green-light)';
 const BDR  = '#e7e5e4';
 const TXT  = '#1c1917';
 const MUT  = '#78716c';

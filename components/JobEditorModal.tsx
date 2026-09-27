@@ -100,7 +100,7 @@ const JobEditorModal: React.FC<JobEditorModalProps> = ({ job, companies, recruit
         onClose();
     };
 
-    const inputStyles = "w-full p-2 bg-stone-100 text-stone-800 border border-stone-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1a4a3a] placeholder-slate-400";
+    const inputStyles = "w-full p-2 bg-stone-100 text-stone-800 border border-stone-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--bw-green)] placeholder-slate-400";
     const linkedChallenge = challenges.find(c => c.id === linkedChallengeId);
 
     return (
@@ -152,7 +152,7 @@ const JobEditorModal: React.FC<JobEditorModalProps> = ({ job, companies, recruit
                         <div>
                             <label className="text-stone-700 font-semibold mb-1 block">{t('jobDescription')}</label>
                             <div className="flex items-center space-x-2 mb-2 p-2 bg-stone-100/50 border border-stone-200 rounded-md">
-                                <SparklesIcon className="w-5 h-5 text-[#1a6b52] flex-shrink-0" />
+                                <SparklesIcon className="w-5 h-5 text-[var(--bw-green-mid)] flex-shrink-0" />
                                 <input
                                     type="text"
                                     value={aiKeywords}
@@ -160,7 +160,7 @@ const JobEditorModal: React.FC<JobEditorModalProps> = ({ job, companies, recruit
                                     placeholder={t('aiDescriptionHelper')}
                                     className="w-full bg-transparent text-stone-700 text-sm focus:outline-none placeholder-slate-500"
                                 />
-                                <button type="button" onClick={handleGenerateDescription} disabled={isGenerating || !formData.title} className="bg-[#1a4a3a] text-white font-semibold px-3 py-1 rounded-md text-xs hover:bg-[#1a4a3a] transition-colors disabled:opacity-50 flex-shrink-0">
+                                <button type="button" onClick={handleGenerateDescription} disabled={isGenerating || !formData.title} className="bg-[var(--bw-green)] text-white font-semibold px-3 py-1 rounded-md text-xs hover:bg-[var(--bw-green)] transition-colors disabled:opacity-50 flex-shrink-0">
                                     {isGenerating ? <LoadingIcon className="w-4 h-4 animate-spin" /> : t('generate')}
                                 </button>
                             </div>
@@ -229,7 +229,7 @@ const JobEditorModal: React.FC<JobEditorModalProps> = ({ job, companies, recruit
                     </div>
                     <div className="p-4 border-t border-stone-200 flex justify-end space-x-2">
                         <button type="button" onClick={onClose} aria-label="Close" className="bg-stone-200 text-stone-800 font-semibold px-4 py-2 rounded-lg hover:bg-stone-300 transition-colors">{t('cancel')}</button>
-                        <button type="submit" className="bg-[#1a4a3a] text-white font-semibold px-6 py-2 rounded-lg hover:bg-[#163d30] transition-colors">{t('saveJob')}</button>
+                        <button type="submit" className="bg-[var(--bw-green)] text-white font-semibold px-6 py-2 rounded-lg hover:bg-[#163d30] transition-colors">{t('saveJob')}</button>
                     </div>
                 </form>
             </div>

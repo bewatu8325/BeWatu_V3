@@ -30,7 +30,7 @@ function ErrorFallback() {
         onClick={() => window.location.reload()}
         style={{
           padding: '10px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
-          backgroundColor: '#1a4a3a', color: 'white', fontSize: 14, fontWeight: 600,
+          backgroundColor: 'var(--bw-green)', color: 'white', fontSize: 14, fontWeight: 600,
         }}
       >
         Reload BeWatu

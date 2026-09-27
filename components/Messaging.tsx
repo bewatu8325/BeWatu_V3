@@ -12,7 +12,7 @@ interface MessagingProps {
   initialActiveUserId: number | null;
 }
 
-const GREEN = '#1a4a3a';
+const GREEN = 'var(--bw-green)';
 
 // ─── New Message picker ───────────────────────────────────────────────────────
 function NewMessagePicker({
@@ -270,7 +270,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
               </div>
 
               {sharedGoals.length > 0 && (
-                <div className="p-3 border-y text-center" style={{ backgroundColor: '#e8f4f0', borderColor: '#1a6b52' }}>
+                <div className="p-3 border-y text-center" style={{ backgroundColor: 'var(--bw-green-light)', borderColor: 'var(--bw-green-mid)' }}>
                   <p className="text-sm" style={{ color: GREEN }}>
                     <span className="font-semibold">Conversation Starter:</span> You both share an interest in <span className="font-bold">"{sharedGoals[0]}"</span>.
                   </p>

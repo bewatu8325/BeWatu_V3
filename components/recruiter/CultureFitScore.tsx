@@ -67,7 +67,7 @@ function FitRow({ result, isBlind, idx }: { result: FitResult; isBlind: boolean;
   const displayName = isBlind ? `Candidate #${idx + 1}` : result.userName;
 
   return (
-    <div className={`rounded-xl border transition-all ${expanded ? 'border-[#1a4a3a]/30 bg-white/80' : 'border-stone-200 bg-white/40 hover:border-stone-200'}`}>
+    <div className={`rounded-xl border transition-all ${expanded ? 'border-[var(--bw-green)]/30 bg-white/80' : 'border-stone-200 bg-white/40 hover:border-stone-200'}`}>
       <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpanded(e => !e)}>
         {!isBlind && result.userAvatar ? (
           <img src={result.userAvatar} alt="" className="h-10 w-10 rounded-full object-cover border border-stone-200 shrink-0" />
@@ -171,7 +171,7 @@ function CultureEditor({
           <label className="text-xs font-medium text-stone-600 mb-1 block">Collaboration style</label>
           <select value={profile.collaboration}
             onChange={e => onChange({ ...profile, collaboration: e.target.value })}
-            className="w-full rounded-lg border bg-white  px-2.5 py-2 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
+            className="w-full rounded-lg border bg-white  px-2.5 py-2 text-xs text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
             <option>Prefers solo work</option>
             <option>Thrives in pairs</option>
             <option>Excels in large teams</option>
@@ -181,7 +181,7 @@ function CultureEditor({
           <label className="text-xs font-medium text-stone-600 mb-1 block">Communication</label>
           <select value={profile.communication}
             onChange={e => onChange({ ...profile, communication: e.target.value })}
-            className="w-full rounded-lg border bg-white  px-2.5 py-2 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
+            className="w-full rounded-lg border bg-white  px-2.5 py-2 text-xs text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
             <option>Prefers asynchronous</option>
             <option>Prefers real-time meetings</option>
           </select>
@@ -190,7 +190,7 @@ function CultureEditor({
           <label className="text-xs font-medium text-stone-600 mb-1 block">Work pace</label>
           <select value={profile.workPace}
             onChange={e => onChange({ ...profile, workPace: e.target.value })}
-            className="w-full rounded-lg border bg-white  px-2.5 py-2 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
+            className="w-full rounded-lg border bg-white  px-2.5 py-2 text-xs text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
             <option>Fast-paced and iterative</option>
             <option>Steady and methodical</option>
           </select>
@@ -200,7 +200,7 @@ function CultureEditor({
         <label className="text-xs font-medium text-stone-600 mb-1.5 block">Company values (candidates matched against these)</label>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {profile.values.map(v => (
-            <span key={v} className="flex items-center gap-1 rounded-full bg-[#e8f4f0] border border-[#1a4a3a]/20 px-2.5 py-0.5 text-xs text-[#1a6b52]">
+            <span key={v} className="flex items-center gap-1 rounded-full bg-[var(--bw-green-light)] border border-[var(--bw-green)]/20 px-2.5 py-0.5 text-xs text-[var(--bw-green-mid)]">
               {v}
               <button onClick={() => removeValue(v)} className="opacity-60 hover:opacity-100"><X className="h-2.5 w-2.5" /></button>
             </span>
@@ -210,7 +210,7 @@ function CultureEditor({
           <input value={newValue} onChange={e => setNewValue(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addValue()}
             placeholder="e.g. Ownership, Candor, User-first..."
-            className="flex-1 rounded-lg border bg-white  px-2.5 py-1.5 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
+            className="flex-1 rounded-lg border bg-white  px-2.5 py-1.5 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
           <button onClick={addValue} disabled={!newValue.trim()}
             className="rounded-lg bg-stone-100 px-3 py-1.5 text-xs text-stone-800 hover:bg-stone-200 disabled:opacity-40 transition-colors">Add</button>
         </div>
@@ -310,7 +310,7 @@ export function CultureFitScore({ applicants: initialApplicants, jobFirestoreId 
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
-            <Heart className="h-5 w-5 text-[#1a6b52]" />Culture Fit Score
+            <Heart className="h-5 w-5 text-[var(--bw-green-mid)]" />Culture Fit Score
           </h1>
           <p className="mt-0.5 text-sm text-stone-600">Auto-matched from candidates' workStyle and values — no CV required.</p>
         </div>

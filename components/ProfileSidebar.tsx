@@ -47,7 +47,7 @@ const VibeClipTile: React.FC<{
   return (
     <div
       className="relative w-full overflow-hidden rounded-2xl shadow-md cursor-pointer select-none"
-      style={{ aspectRatio: '9/14', backgroundColor: '#1a4a3a' }}
+      style={{ aspectRatio: '9/14', backgroundColor: 'var(--bw-green)' }}
       onClick={handleTap}
     >
       {hasVideo ? (
@@ -72,8 +72,8 @@ const VibeClipTile: React.FC<{
             // as the no-video state below) so it still reads as "your clip"
             // rather than an empty rectangle, with no extra dark overlay
             // dulling the gradient.
-            <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #4db89a 0%, #1a6b52 45%, #1a4a3a 100%)' }}>
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-full text-2xl font-black text-white shadow-lg ring-4 ring-white/20" style={{ backgroundColor: '#1a4a3a' }}>
+            <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #4db89a 0%, var(--bw-green-mid) 45%, var(--bw-green) 100%)' }}>
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-full text-2xl font-black text-white shadow-lg ring-4 ring-white/20" style={{ backgroundColor: 'var(--bw-green)' }}>
                 {user.avatarUrl ? (
                   <img src={user.avatarUrl} alt={user.name} className="h-20 w-20 rounded-full object-cover" />
                 ) : (
@@ -115,13 +115,13 @@ const VibeClipTile: React.FC<{
           <div
             className="absolute inset-0"
             style={{
-              background: 'linear-gradient(160deg, #4db89a 0%, #1a6b52 45%, #1a4a3a 100%)',
+              background: 'linear-gradient(160deg, #4db89a 0%, var(--bw-green-mid) 45%, var(--bw-green) 100%)',
             }}
           />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-5">
             <div
               className="flex h-24 w-24 items-center justify-center rounded-full text-3xl font-black text-white shadow-lg ring-4 ring-white/20"
-              style={{ backgroundColor: '#1a4a3a' }}
+              style={{ backgroundColor: 'var(--bw-green)' }}
             >
               {user.avatarUrl ? (
                 <img
@@ -135,7 +135,7 @@ const VibeClipTile: React.FC<{
             <button
               onClick={e => { e.stopPropagation(); onRecordVideo(); }}
               className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold shadow-lg hover:bg-stone-50 transition-all animate-pulse"
-              style={{ color: '#1a4a3a', animationDuration: '2.5s' }}
+              style={{ color: 'var(--bw-green)', animationDuration: '2.5s' }}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="m15 10 4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.91L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -208,7 +208,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         ];
         const score   = Math.round((checks.filter(c => c.done).length / checks.length) * 100);
         const missing = checks.filter(c => !c.done).map(c => c.label);
-        const color   = score >= 80 ? '#1a6b52' : score >= 50 ? '#d97706' : '#dc2626';
+        const color   = score >= 80 ? 'var(--bw-green-mid)' : score >= 50 ? '#d97706' : '#dc2626';
         const label   = score >= 80 ? 'Strong' : score >= 50 ? 'Good' : 'Getting started';
         return (
           <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: '#e7e5e4' }}>
@@ -227,7 +227,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
               <span>{score}% complete</span>
               <button onClick={() => onNavigate(View.Connections)}
                 className="flex items-center gap-1 font-semibold transition-colors hover:opacity-80"
-                style={{ color: '#1a4a3a' }}>
+                style={{ color: 'var(--bw-green)' }}>
                 <UsersIcon className="w-3.5 h-3.5" />
                 {connectionCount} circle{connectionCount !== 1 ? 's' : ''}
               </button>
@@ -245,7 +245,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
       <button
         onClick={() => onNavigate(View.AIChat)}
         className="w-full font-semibold px-4 py-2.5 rounded-xl transition text-sm flex items-center justify-center border hover:opacity-90 shadow-sm"
-        style={{ backgroundColor: '#e8f4f0', color: '#1a4a3a', borderColor: '#1a6b52' }}
+        style={{ backgroundColor: 'var(--bw-green-light)', color: 'var(--bw-green)', borderColor: 'var(--bw-green-mid)' }}
       >
         <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -260,7 +260,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-stone-800 text-sm flex items-center gap-1.5">
-                <VerifiedIcon className="w-4 h-4" style={{ color: '#1a4a3a' }} />
+                <VerifiedIcon className="w-4 h-4" style={{ color: 'var(--bw-green)' }} />
                 Verified Skills
               </h3>
               {/* Disclaimer inline — small, not alarming */}
@@ -282,7 +282,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
                     <p className="text-xs text-stone-600">{skill.proficiency}</p>
                   </div>
                   <div className="w-full bg-stone-100 rounded-full h-1.5">
-                    <div className={`h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`} style={{ backgroundColor: '#1a4a3a' }} />
+                    <div className={`h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`} style={{ backgroundColor: 'var(--bw-green)' }} />
                   </div>
                   {skill.evidence && (
                     <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-white border rounded-lg text-stone-700 shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10" style={{ borderColor: '#e7e5e4' }}>
@@ -331,7 +331,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         <button
           onClick={onGenerateSkills}
           className="mt-4 w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg border transition hover:opacity-80"
-          style={{ color: '#1a4a3a', borderColor: '#1a6b52', backgroundColor: '#e8f4f0' }}
+          style={{ color: 'var(--bw-green)', borderColor: 'var(--bw-green-mid)', backgroundColor: 'var(--bw-green-light)' }}
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -355,7 +355,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
             <button
               onClick={() => onNavigate(View.Connections)}
               className="flex items-center gap-1 text-xs font-semibold transition hover:opacity-80"
-              style={{ color: '#1a4a3a' }}
+              style={{ color: 'var(--bw-green)' }}
               title="Find people to connect with"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -371,7 +371,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
                 onClick={() => onViewProfile(person.id)}
                 title={person.name}
                 className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                style={{ '--tw-ring-color': '#1a4a3a' } as any}
+                style={{ '--tw-ring-color': 'var(--bw-green)' } as any}
               >
                 {person.avatarUrl ? (
                   <img
@@ -409,7 +409,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
           <button
             onClick={() => onNavigate(View.Connections)}
             className="text-xs font-semibold px-4 py-1.5 rounded-lg border transition hover:opacity-80"
-            style={{ color: '#1a4a3a', borderColor: '#1a6b52', backgroundColor: '#e8f4f0' }}
+            style={{ color: 'var(--bw-green)', borderColor: 'var(--bw-green-mid)', backgroundColor: 'var(--bw-green-light)' }}
           >
             Find people to connect with
           </button>

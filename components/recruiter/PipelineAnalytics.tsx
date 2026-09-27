@@ -42,7 +42,7 @@ function FunnelBar({ stage, maxCount, isBlind }: { stage: StageStats; maxCount: 
   // status literals this never actually received real data for.
   const stageColors: Record<string, string> = {
     'New Applicants': 'bg-stone-300', Sourced: 'bg-sky-500', Screening: 'bg-blue-500',
-    Interview: 'bg-[#1a4a3a]', Offer: 'bg-green-500', Hired: 'bg-emerald-500',
+    Interview: 'bg-[var(--bw-green)]', Offer: 'bg-green-500', Hired: 'bg-emerald-500',
   };
   const barColor = stageColors[stage.stage] ?? 'bg-stone-300';
 
@@ -88,13 +88,13 @@ function SourceCard({ source }: { source: SourceStats }) {
         </div>
         <div className="h-1.5 rounded-full bg-stone-100 overflow-hidden">
           <div
-            className="h-full rounded-full bg-[#1a4a3a]"
+            className="h-full rounded-full bg-[var(--bw-green)]"
             style={{ width: `${source.conversionRate}%` }}
           />
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-stone-600">Conversion</span>
-          <span className="font-bold text-[#1a6b52]">{source.conversionRate}%</span>
+          <span className="font-bold text-[var(--bw-green-mid)]">{source.conversionRate}%</span>
         </div>
       </div>
     </div>
@@ -152,7 +152,7 @@ export function PipelineAnalytics() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
-          <BarChart3 className="h-5 w-5 text-[#1a6b52]" />Pipeline Analytics
+          <BarChart3 className="h-5 w-5 text-[var(--bw-green-mid)]" />Pipeline Analytics
         </h1>
         <p className="mt-0.5 text-sm text-stone-600">Time-in-stage, drop-off rates, and source effectiveness.</p>
       </div>
@@ -160,7 +160,7 @@ export function PipelineAnalytics() {
       {/* KPI tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatTile label="Total Applications" value={data.totalApplications} />
-        <StatTile label="Active in Pipeline" value={data.activeInPipeline} accent="text-[#1a6b52]" />
+        <StatTile label="Active in Pipeline" value={data.activeInPipeline} accent="text-[var(--bw-green-mid)]" />
         <StatTile label="Hired" value={data.hired} accent="text-emerald-400" />
         <StatTile label="Avg. Time to Hire" value={`${data.avgTimeToHire}d`} sub="from apply to hired" accent="text-amber-400" />
       </div>
@@ -168,7 +168,7 @@ export function PipelineAnalytics() {
       {/* Funnel */}
       <div className="rounded-xl border bg-white  p-5" style={{ borderColor:"#e7e5e4" }}>
         <h2 className="text-sm font-bold text-stone-800 mb-4 flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-[#1a6b52]" />Pipeline Funnel
+          <TrendingUp className="h-4 w-4 text-[var(--bw-green-mid)]" />Pipeline Funnel
         </h2>
         <div className="space-y-2.5">
           {(data.stageStats ?? []).map(stage => (
@@ -181,7 +181,7 @@ export function PipelineAnalytics() {
       {data.sourceStats && data.sourceStats.length > 0 && (
         <div>
           <h2 className="text-sm font-bold text-stone-800 mb-3 flex items-center gap-2">
-            <Users className="h-4 w-4 text-[#1a6b52]" />Source Effectiveness
+            <Users className="h-4 w-4 text-[var(--bw-green-mid)]" />Source Effectiveness
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {data.sourceStats.map(s => (

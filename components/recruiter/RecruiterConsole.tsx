@@ -172,7 +172,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
     <button
       onClick={() => { setActiveView(view); setSelectedCandidate(null); }}
       className={`relative px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-md transition-colors whitespace-nowrap ${
-        activeView === view ? 'bg-stone-100 text-[#1a4a3a]' : 'text-stone-600 hover:bg-stone-100'
+        activeView === view ? 'bg-stone-100 text-[var(--bw-green)]' : 'text-stone-600 hover:bg-stone-100'
       }`}
     >
       {label}
@@ -218,7 +218,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
                     <button
                       onClick={() => setActiveView('company_verification')}
                       className="flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-black text-white"
-                      style={{ background: '#1a4a3a' }}
+                      style={{ background: 'var(--bw-green)' }}
                     >
                       Set up →
                     </button>
@@ -439,7 +439,7 @@ const RecruiterConsole: React.FC<RecruiterConsoleProps> = (props) => {
         />
       )}
 
-      <header className="backdrop-blur-md border-b sticky top-0 z-10" style={{ backgroundColor:"#1a4a3a", borderColor:"#155237" }}>
+      <header className="backdrop-blur-md border-b sticky top-0 z-10" style={{ backgroundColor:"var(--bw-green)", borderColor:"#155237" }}>
         <div className="container mx-auto px-4 sm:px-6 flex justify-between items-center h-16">
           <div className="flex items-center space-x-3">
             <LogoIcon className="h-8 w-auto text-white" />

@@ -21,8 +21,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User } from '../types';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 interface Props {
   currentUser: User;
@@ -163,7 +163,7 @@ const SkillsGraphModal: React.FC<Props> = ({
                   <div className="flex flex-wrap gap-2">
                     {currentSkills.map(name => (
                       <span key={name} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium border"
-                        style={{ backgroundColor: verifiedNames.has(name.toLowerCase()) ? GREEN_LT : '#f5f5f4', color: verifiedNames.has(name.toLowerCase()) ? '#1a6b52' : '#44403c', borderColor: verifiedNames.has(name.toLowerCase()) ? '#1a6b52' : '#d6d3d1' }}>
+                        style={{ backgroundColor: verifiedNames.has(name.toLowerCase()) ? GREEN_LT : '#f5f5f4', color: verifiedNames.has(name.toLowerCase()) ? 'var(--bw-green-mid)' : '#44403c', borderColor: verifiedNames.has(name.toLowerCase()) ? 'var(--bw-green-mid)' : '#d6d3d1' }}>
                         {verifiedNames.has(name.toLowerCase()) && (
                           <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: GREEN }} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />

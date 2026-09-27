@@ -797,8 +797,8 @@ export default function ProveView({
 
           {/* Discover tab notice */}
           {activeTab === 'discover' && (
-            <div className="mb-4 px-3 py-2 rounded-xl bg-[#e8f4f0] border border-[#c7e8d8]">
-              <p className="text-xs text-[#1a4a3a]">
+            <div className="mb-4 px-3 py-2 rounded-xl bg-[var(--bw-green-light)] border border-[#c7e8d8]">
+              <p className="text-xs text-[var(--bw-green)]">
                 Ranked by skills and industry match — not engagement or recency.
               </p>
             </div>

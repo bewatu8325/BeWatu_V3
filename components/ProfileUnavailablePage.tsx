@@ -2,7 +2,7 @@ import React from 'react';
 import { LogoIcon } from '../constants';
 
 const BG    = '#f0ede6';
-const GREEN = '#1a4a3a';
+const GREEN = 'var(--bw-green)';
 
 interface ProfileUnavailablePageProps {
   /** The handle/username the visitor tried to open, e.g. "jdoe" (without the @). */

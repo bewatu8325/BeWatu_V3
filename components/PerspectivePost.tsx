@@ -9,8 +9,8 @@
 import React, { useState } from 'react';
 import { MessageCircle, ChevronDown, ChevronUp, Send, Users } from 'lucide-react';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 export type GenerationTag =
   | 'Gen Z (1997–2012)'

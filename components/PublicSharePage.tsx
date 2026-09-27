@@ -21,9 +21,9 @@ import { LogoIcon } from '../constants';
 
 const BG        = '#f0ede6';
 const BORDER    = '#e8e4dc';
-const GREEN     = '#1a4a3a';
-const GREEN_LT  = '#e8f4f0';
-const GREEN_MID = '#1a6b52';
+const GREEN     = 'var(--bw-green)';
+const GREEN_LT  = 'var(--bw-green-light)';
+const GREEN_MID = 'var(--bw-green-mid)';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

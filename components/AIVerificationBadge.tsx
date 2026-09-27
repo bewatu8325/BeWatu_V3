@@ -46,7 +46,7 @@ interface AIVerificationBadgeProps {
   isMicroIntro?:   boolean;
 }
 
-const GREEN = '#1a4a3a';
+const GREEN = 'var(--bw-green)';
 const AMBER = '#d97706';
 
 // ─── Appeal modal ─────────────────────────────────────────────────────────────

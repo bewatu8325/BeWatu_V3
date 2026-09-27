@@ -14,8 +14,8 @@
 import React, { useState } from 'react';
 import { useFirebase } from '../contexts/FirebaseContext';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 interface DataRequestModalProps {
   userName: string;

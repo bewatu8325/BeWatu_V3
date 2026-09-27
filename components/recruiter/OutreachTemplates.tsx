@@ -25,7 +25,7 @@ export interface OutreachTemplate {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { value: 'invite',     label: 'Interview Invite', color: 'text-[#1a6b52]',   bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20'   },
+  { value: 'invite',     label: 'Interview Invite', color: 'text-[var(--bw-green-mid)]',   bg: 'bg-[var(--bw-green-light)] border-[var(--bw-green)]/20'   },
   { value: 'rejection',  label: 'Rejection',        color: 'text-red-600',    bg: 'bg-red-500/10 border-red-500/20'     },
   { value: 'offer',      label: 'Job Offer',        color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20' },
   { value: 'follow_up',  label: 'Follow-up',        color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },
@@ -141,12 +141,12 @@ function TemplateEditor({
           <div className="col-span-2 sm:col-span-1">
             <label className="text-xs font-medium text-stone-600 mb-1 block">Template Name</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Senior Invite"
-              className="w-full rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
+              className="w-full rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
           </div>
           <div>
             <label className="text-xs font-medium text-stone-600 mb-1 block">Category</label>
             <select value={category} onChange={e => setCategory(e.target.value as OutreachTemplate['category'])}
-              className="w-full rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
+              className="w-full rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
               {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
@@ -155,7 +155,7 @@ function TemplateEditor({
         <div>
           <label className="text-xs font-medium text-stone-600 mb-1 block">Subject Line</label>
           <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Email subject..."
-            className="w-full rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
+            className="w-full rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
         </div>
 
         <div>
@@ -171,12 +171,12 @@ function TemplateEditor({
             </div>
           </div>
           <textarea value={body} onChange={e => setBody(e.target.value)} rows={10}
-            className="w-full resize-none rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 font-mono focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
+            className="w-full resize-none rounded-lg border bg-white  px-3 py-2 text-sm text-stone-800 font-mono focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }} />
           <p className="mt-1 text-xs text-stone-600">Use variables like {'{candidateName}'} — they'll be highlighted when you use the template.</p>
         </div>
 
         <button onClick={handleSave} disabled={saving || !name.trim() || !body.trim()}
-          className="w-full rounded-lg bg-[#1a4a3a] py-2.5 text-sm font-semibold text-white hover:bg-[#1a4a3a] disabled:opacity-50 transition-colors">
+          className="w-full rounded-lg bg-[var(--bw-green)] py-2.5 text-sm font-semibold text-white hover:bg-[var(--bw-green)] disabled:opacity-50 transition-colors">
           {saving ? 'Saving...' : 'Save Template'}
         </button>
       </div>
@@ -232,7 +232,7 @@ function SendModal({
                     value={vars[v] ?? ''}
                     onChange={e => setVars(prev => ({ ...prev, [v]: e.target.value }))}
                     placeholder={v}
-                    className="w-full rounded-lg border bg-white  px-2 py-1.5 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+                    className="w-full rounded-lg border bg-white  px-2 py-1.5 text-xs text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
                   />
                 </div>
               ))}
@@ -251,7 +251,7 @@ function SendModal({
 
         <div className="flex gap-2">
           <button onClick={copyAll}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#1a4a3a] py-2.5 text-sm font-semibold text-white hover:bg-[#1a4a3a] transition-colors">
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--bw-green)] py-2.5 text-sm font-semibold text-white hover:bg-[var(--bw-green)] transition-colors">
             {copied ? <><Check className="h-4 w-4" />Copied!</> : <><Copy className="h-4 w-4" />Copy Message</>}
           </button>
           <a href={`mailto:?subject=${encodeURIComponent(filledSubject)}&body=${encodeURIComponent(filledBody)}`}
@@ -296,7 +296,7 @@ function TemplateCard({
         <div className="flex gap-1">
           <button onClick={onEdit} className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 hover:text-stone-800 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
           <button onClick={onDelete} className="p-1.5 rounded-lg text-stone-600 hover:bg-red-900/20 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
-          <button onClick={onUse} className="flex items-center gap-1 rounded-lg bg-[#1a4a3a] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1a4a3a] transition-colors">
+          <button onClick={onUse} className="flex items-center gap-1 rounded-lg bg-[var(--bw-green)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--bw-green)] transition-colors">
             <Send className="h-3 w-3" />Use
           </button>
         </div>
@@ -365,12 +365,12 @@ export function OutreachTemplates() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
-            <MessageSquare className="h-5 w-5 text-[#1a6b52]" />Outreach Templates
+            <MessageSquare className="h-5 w-5 text-[var(--bw-green-mid)]" />Outreach Templates
           </h1>
           <p className="mt-0.5 text-sm text-stone-600">Fill in variables and send in one click — no drafting from scratch.</p>
         </div>
         <button onClick={() => { setEditing(undefined); setShowEditor(true); }}
-          className="flex items-center gap-1.5 rounded-lg bg-[#1a4a3a] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a4a3a] transition-colors">
+          className="flex items-center gap-1.5 rounded-lg bg-[var(--bw-green)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--bw-green)] transition-colors">
           <Plus className="h-4 w-4" />New Template
         </button>
       </div>
@@ -378,7 +378,7 @@ export function OutreachTemplates() {
       {/* Category filter */}
       <div className="flex gap-1.5 flex-wrap">
         <button onClick={() => setCategoryFilter('all')}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${categoryFilter === 'all' ? 'bg-[#1a4a3a] text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${categoryFilter === 'all' ? 'bg-[var(--bw-green)] text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
           All ({templates.length})
         </button>
         {CATEGORIES.map(c => {

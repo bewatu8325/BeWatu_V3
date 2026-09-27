@@ -36,8 +36,8 @@ export default function CommunityGuidelines({ onBack }: CommunityGuidelinesProps
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 pb-20">
 
         {/* Intro card */}
-        <div className="rounded-2xl p-6 mb-6 border border-[#c7e8d8]" style={{ backgroundColor: '#e8f4f0' }}>
-          <p className="text-sm text-[#1a4a3a] leading-relaxed">
+        <div className="rounded-2xl p-6 mb-6 border border-[#c7e8d8]" style={{ backgroundColor: 'var(--bw-green-light)' }}>
+          <p className="text-sm text-[var(--bw-green)] leading-relaxed">
             BeWatu is built on the idea that professionals grow faster when they help each other. These guidelines exist to keep this a place where people feel safe sharing ideas, giving honest feedback, and building real careers. We expect everyone to uphold them.
           </p>
         </div>
@@ -100,12 +100,12 @@ export default function CommunityGuidelines({ onBack }: CommunityGuidelinesProps
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-stone-900">Enforcement</h2>
             <p>We review reports of guideline violations and take action based on severity and context. Consequences range from content removal to temporary suspension to permanent account termination. Repeated violations or severe offences (such as harassment, hate speech, or fraud) will result in immediate permanent removal.</p>
-            <p>We aim to be consistent and fair, but our decisions are final. If you believe a decision was made in error, you may appeal by contacting <a href={`mailto:${REPORT_EMAIL}`} className="text-[#1a4a3a] underline">{REPORT_EMAIL}</a>.</p>
+            <p>We aim to be consistent and fair, but our decisions are final. If you believe a decision was made in error, you may appeal by contacting <a href={`mailto:${REPORT_EMAIL}`} className="text-[var(--bw-green)] underline">{REPORT_EMAIL}</a>.</p>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-stone-900">Reporting</h2>
-            <p>If you see content or behaviour that violates these guidelines, please report it using the report button on any post, profile, or message. You can also contact our trust and safety team directly at <a href={`mailto:${REPORT_EMAIL}`} className="text-[#1a4a3a] underline">{REPORT_EMAIL}</a>.</p>
+            <p>If you see content or behaviour that violates these guidelines, please report it using the report button on any post, profile, or message. You can also contact our trust and safety team directly at <a href={`mailto:${REPORT_EMAIL}`} className="text-[var(--bw-green)] underline">{REPORT_EMAIL}</a>.</p>
             <p>Reports are confidential. We will not disclose who reported a piece of content.</p>
           </section>
 

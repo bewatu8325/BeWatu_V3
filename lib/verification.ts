@@ -156,8 +156,8 @@ export const VERIFICATION_DISPLAY: Record<CompanyVerificationStatus, Verificatio
   },
   verified: {
     icon: '✓',
-    color: '#1a4a3a',
-    bg: '#e8f4f0',
+    color: 'var(--bw-green)',
+    bg: 'var(--bw-green-light)',
     border: '#b6ddd2',
     badgeLabel: 'Verified',
     tooltipText: 'BeWatu has confirmed this is a legitimate company.',

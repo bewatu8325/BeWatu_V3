@@ -12,7 +12,7 @@
  * Result is cached to users/{uid}/insights/skillTrajectory so it's instant on
  * return and only recomputed on demand.
  *
- * Matches design language: white rounded-2xl card, #1a4a3a green, teal→amber→
+ * Matches design language: white rounded-2xl card, var(--bw-green) green, teal→amber→
  * rust trajectory colours echoing the research's own palette.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -21,7 +21,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 
-const GREEN = '#1a4a3a';
+const GREEN = 'var(--bw-green)';
 
 type Trajectory = 'growing' | 'stable' | 'declining';
 
@@ -227,7 +227,7 @@ const SkillsTrajectory: React.FC<Props> = ({ profileUid, isOwn, skills, industry
               {stale ? 'Your skills changed since this analysis.' : `Analyzed ${new Date(insight.computedAt).toLocaleDateString()}`}
             </p>
             <button onClick={runAnalysis} disabled={analyzing}
-              className="text-xs font-semibold hover:opacity-80 disabled:opacity-50" style={{ color: '#1a6b52' }}>
+              className="text-xs font-semibold hover:opacity-80 disabled:opacity-50" style={{ color: 'var(--bw-green-mid)' }}>
               {analyzing ? 'Analyzing…' : stale ? 'Re-analyze →' : 'Refresh'}
             </button>
           </div>

@@ -11,7 +11,7 @@ import { Share2, Flag, Plus, X, Play, Heart, MessageCircle, ChevronLeft, Chevron
 import { useFirebase } from '../contexts/FirebaseContext';
 import { getReelVibes, toggleReelLike, incrementReelView, type ReelVibe } from '../lib/firestoreService';
 
-const GREEN = '#1a4a3a';
+const GREEN = 'var(--bw-green)';
 
 // ─── Full screen reel player ──────────────────────────────────────────────────
 function ReelPlayerModal({
@@ -288,7 +288,7 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
             >
               <div
                 className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-transparent p-0.5"
-                style={{ background: 'linear-gradient(135deg, #1a4a3a, #4db89a)' }}
+                style={{ background: 'linear-gradient(135deg, var(--bw-green), #4db89a)' }}
               >
                 <div className="w-full h-full rounded-full overflow-hidden border-2 border-white">
                   {ownReel.thumbnailUrl ? (
@@ -327,7 +327,7 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
               >
                 <div
                   className="w-16 h-16 rounded-full overflow-hidden border-2 border-transparent p-0.5"
-                  style={{ background: 'linear-gradient(135deg, #1a4a3a, #4db89a)' }}
+                  style={{ background: 'linear-gradient(135deg, var(--bw-green), #4db89a)' }}
                 >
                   <div className="w-full h-full rounded-full overflow-hidden border-2 border-white">
                     {reel.thumbnailUrl ? (

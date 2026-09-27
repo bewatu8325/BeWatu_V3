@@ -13,7 +13,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 
 const THRESHOLD    = 72;  // px of pull needed to trigger refresh
 const MAX_PULL     = 96;  // px cap so the indicator doesn't pull too far
-const GREEN        = '#1a4a3a';
+const GREEN        = 'var(--bw-green)';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void> | void;

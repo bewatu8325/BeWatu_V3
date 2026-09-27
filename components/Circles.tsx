@@ -13,8 +13,8 @@ import {
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 interface CirclesProps {
   circles:               Circle[];
@@ -70,7 +70,7 @@ function getInitials(name: string) {
 
 function MemberRings({ count }: { count: number }) {
   const show    = Math.min(count, 4);
-  const colours = ['#1a4a3a', '#7c3aed', '#d97706', '#0891b2', '#be185d'];
+  const colours = ['var(--bw-green)', '#7c3aed', '#d97706', '#0891b2', '#be185d'];
   return (
     <div className="flex items-center">
       <div className="flex -space-x-2">

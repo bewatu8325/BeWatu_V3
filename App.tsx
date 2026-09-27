@@ -1603,7 +1603,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
 
   const FullPageLoader = () => (
     <div className="flex items-center justify-center h-screen" style={{ background: '#f5f5f4' }}>
-      <LoadingIcon className="w-12 h-12 animate-spin" style={{ color: '#1a4a3a' }} />
+      <LoadingIcon className="w-12 h-12 animate-spin" style={{ color: 'var(--bw-green)' }} />
     </div>
   );
 
@@ -1612,7 +1612,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
   const renderContent = () => {
     if (loading) return (
       <div className="flex flex-col items-center justify-center h-screen">
-        <LoadingIcon className="w-16 h-16 animate-spin" style={{ color: '#1a4a3a' }} />
+        <LoadingIcon className="w-16 h-16 animate-spin" style={{ color: 'var(--bw-green)' }} />
         <p className="mt-4 text-lg text-stone-600 font-medium">Loading BeWatu...</p>
       </div>
     );
@@ -1622,7 +1622,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         <div className="text-center p-8 border border-red-200 rounded-2xl bg-white shadow-lg">
           <h2 className="text-2xl font-bold mb-2">An Error Occurred</h2>
           <p>{error || 'Could not load application data.'}</p>
-          <button onClick={() => loadAppData(currentUser!)} className="mt-4 px-4 py-2 rounded-xl text-white font-semibold" style={{ backgroundColor: '#1a4a3a' }}>Retry</button>
+          <button onClick={() => loadAppData(currentUser!)} className="mt-4 px-4 py-2 rounded-xl text-white font-semibold" style={{ backgroundColor: 'var(--bw-green)' }}>Retry</button>
         </div>
       </div>
     );
@@ -1783,7 +1783,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               .forEach(u => { if ((u as any)._firestoreUid) connectedUids.add((u as any)._firestoreUid); });
           });
 
-        const GREEN = '#1a4a3a';
+        const GREEN = 'var(--bw-green)';
         content = (
           <div className="space-y-0">
             {/* ── Showcase tab strip ──────────────────────────────────────── */}
@@ -1897,7 +1897,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             ? <CircleDetail circle={circle} allPosts={data.posts} allArticles={data.articles} allUsers={data.users} currentUser={currentUser} addPost={addPost} findAuthor={id => data.users.find(u => u.id === id)} onAppreciatePost={handleAppreciatePost} onInviteMember={handleInviteMemberToCircle} onAddMember={handleAddMemberToCircle} onRemoveMember={handleRemoveMemberFromCircle} onApproveJoinRequest={handleApproveJoinRequest} onDeclineJoinRequest={handleDeclineJoinRequest} onLeaveCircle={handleLeaveCircle} onViewProfile={handleViewProfile} onBack={() => setActiveCircleId(null)} onApplyToCircle={handleApplyToCircle} lastVisited={lastCircleVisited[activeCircleId] ?? undefined} />
             : <div>Circle not found</div>;
         } else {
-          const GREEN = '#1a4a3a';
+          const GREEN = 'var(--bw-green)';
           content = (
             <div className="space-y-0">
               {/* ── Community tab strip ──────────────────────────────── */}
@@ -1974,7 +1974,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         // goToFactory is triggered via useEffect below when view changes to Factory
         content = (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
-            <LoadingIcon className="w-8 h-8 animate-spin" style={{ color: '#1a4a3a' }} />
+            <LoadingIcon className="w-8 h-8 animate-spin" style={{ color: 'var(--bw-green)' }} />
             <p className="text-sm text-stone-600">Opening Factory...</p>
           </div>
         );
@@ -2235,7 +2235,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           <div className="bg-white rounded-2xl border border-stone-200 shadow-2xl w-full max-w-md p-6 sm:p-8 space-y-5">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto text-2xl"
-                style={{ backgroundColor: '#e8f4f0' }}>
+                style={{ backgroundColor: 'var(--bw-green-light)' }}>
                 🎂
               </div>
               <h2 className="text-lg font-bold text-stone-900">Confirm your age</h2>
@@ -2247,7 +2247,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             <div className="space-y-2.5">
               <button onClick={handleAgeAgree}
                 className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: '#1a4a3a' }}>
+                style={{ backgroundColor: 'var(--bw-green)' }}>
                 I confirm I am 16 or older
               </button>
               <button onClick={handleAgeDecline}
@@ -2272,7 +2272,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           <div className="bg-white rounded-2xl border border-stone-200 shadow-2xl w-full max-w-md p-6 sm:p-8 space-y-5">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto text-2xl"
-                style={{ backgroundColor: '#e8f4f0' }}>
+                style={{ backgroundColor: 'var(--bw-green-light)' }}>
                 🤝
               </div>
               <h2 className="text-lg font-bold text-stone-900">Community Guidelines</h2>
@@ -2292,7 +2292,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             <div className="space-y-2.5">
               <button onClick={handleCommunityAgree}
                 className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: '#1a4a3a' }}>
+                style={{ backgroundColor: 'var(--bw-green)' }}>
                 I agree to the Community Guidelines
               </button>
               <button onClick={() => setShowCommunityPage(true)}
@@ -2385,7 +2385,7 @@ const App: React.FC = () => {
         <div className="min-h-screen" style={{ backgroundColor: '#f5f5f4' }}>
           <nav className="bg-white border-b h-14" style={{ borderColor: '#e7e5e4' }}>
             <div className="max-w-4xl mx-auto px-4 h-14 flex items-center">
-              <span className="font-bold" style={{ color: '#1a4a3a' }}>BeWatu</span>
+              <span className="font-bold" style={{ color: 'var(--bw-green)' }}>BeWatu</span>
             </div>
           </nav>
         </div>

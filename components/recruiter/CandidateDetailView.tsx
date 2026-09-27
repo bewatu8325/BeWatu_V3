@@ -25,12 +25,12 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
   return (
     <div className="bg-white p-6 rounded-xl border border-stone-200">
       <div className="flex items-center justify-between mb-4">
-        <button onClick={onBack} className="text-sm font-semibold hover:opacity-70 transition-opacity" style={{ color: '#1a6b52' }}>&larr; Back to Results</button>
+        <button onClick={onBack} className="text-sm font-semibold hover:opacity-70 transition-opacity" style={{ color: 'var(--bw-green-mid)' }}>&larr; Back to Results</button>
         {!isBlindMode && onViewPublicProfile && (
           <button
             onClick={() => onViewPublicProfile(user.id)}
             className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-bold text-white hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: '#1a4a3a' }}
+            style={{ backgroundColor: 'var(--bw-green)' }}
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             View Public Profile
@@ -45,7 +45,7 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
              <img src={isBlindMode ? `https://i.pravatar.cc/150?u=${user.id}` : user.avatarUrl} alt="Candidate" className={`w-32 h-32 rounded-full object-cover border-4 border-stone-200 mx-auto ${isBlindMode ? 'filter grayscale' : ''}`} />
              <div className="flex items-center justify-center space-x-2 mt-4">
                 <h2 className="text-2xl font-bold text-stone-900">{isBlindMode ? `Candidate #${user.id}` : user.name}</h2>
-                {!isBlindMode && user.isVerified && <VerifiedIcon className="w-6 h-6 text-[#1a6b52]" title="Verified Work Email" />}
+                {!isBlindMode && user.isVerified && <VerifiedIcon className="w-6 h-6 text-[var(--bw-green-mid)]" title="Verified Work Email" />}
              </div>
              <p className="text-stone-600">{user.headline}</p>
           </div>
@@ -59,13 +59,13 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
             <div className="space-y-2">
               {user.thirdPartyIntegrations.map(integration => (
                 <a href={integration.url} target="_blank" rel="noopener noreferrer" key={integration.platform} className="flex items-center p-2 bg-stone-50 rounded-md hover:bg-stone-100 transition-colors">
-                  <span className="text-[#1a6b52] font-bold">{integration.platform}</span>
+                  <span className="text-[var(--bw-green-mid)] font-bold">{integration.platform}</span>
                 </a>
               ))}
             </div>
           </div>
           <div className="space-y-2">
-              <button className="w-full bg-[#1a4a3a] text-white font-semibold py-2 rounded-lg hover:opacity-90 transition-opacity">Start AI Screening Chat</button>
+              <button className="w-full bg-[var(--bw-green)] text-white font-semibold py-2 rounded-lg hover:opacity-90 transition-opacity">Start AI Screening Chat</button>
               <button className="w-full bg-stone-100 text-stone-800 font-semibold py-2 rounded-lg hover:bg-stone-200 transition-colors">Schedule Interview (Calendly)</button>
           </div>
         </div>
@@ -73,7 +73,7 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
         {/* Right Column: AI Analysis & Portfolio */}
         <div className="lg:col-span-8 space-y-6">
             <div>
-                <h3 className="text-lg font-bold text-[#1a6b52] mb-2">AI Predictive Scores</h3>
+                <h3 className="text-lg font-bold text-[var(--bw-green-mid)] mb-2">AI Predictive Scores</h3>
                 <div className="grid grid-cols-3 gap-4">
                     <StatCard title="Role Fit" score={aiAnalysis.predictiveScores.roleFit} />
                     <StatCard title="Culture Fit" score={aiAnalysis.predictiveScores.cultureFit} />
@@ -101,21 +101,21 @@ const CandidateDetailView: React.FC<CandidateDetailViewProps> = ({ candidateResu
             </div>
              
              <div>
-                <h3 className="text-lg font-bold text-[#1a6b52] mb-2">Live Portfolio</h3>
+                <h3 className="text-lg font-bold text-[var(--bw-green-mid)] mb-2">Live Portfolio</h3>
                 <div className="space-y-4">
                     {user.portfolio.map(project => (
                         <div key={project.id} className="bg-stone-50 p-4 rounded-lg border border-stone-200">
                             <h4 className="font-bold text-stone-900">{project.title}</h4>
                             <p className="text-sm text-stone-600 mt-1">{project.description}</p>
                             <p className="text-xs text-stone-600 mt-2"><strong className="font-semibold">Outcome:</strong> {project.outcome}</p>
-                            <p className="text-xs text-[#1a6b52] mt-1"><strong className="font-semibold">AI Summary:</strong> {project.aiGeneratedSummary}</p>
+                            <p className="text-xs text-[var(--bw-green-mid)] mt-1"><strong className="font-semibold">AI Summary:</strong> {project.aiGeneratedSummary}</p>
                         </div>
                     ))}
                 </div>
             </div>
             
             <div>
-                <h3 className="text-lg font-bold text-[#1a6b52] mb-2">Peer-Verified Achievements</h3>
+                <h3 className="text-lg font-bold text-[var(--bw-green-mid)] mb-2">Peer-Verified Achievements</h3>
                 <div className="space-y-3">
                     {user.verifiedAchievements.map(ach => (
                         <div key={ach.id} className="bg-stone-50 p-3 rounded-lg border border-stone-200">

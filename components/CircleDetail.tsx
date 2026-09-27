@@ -20,13 +20,13 @@ import {
 
 const ArticleCard: React.FC<{ article: Article, author?: User, onViewProfile: (userId: number) => void }> = ({ article, author, onViewProfile }) => (
     <div className="bg-white p-6 rounded-2xl border shadow-sm" style={{ borderColor:"#e7e5e4" }}>
-        <h2 className="text-xl font-bold mb-2" style={{ color:"#1a4a3a" }}>{article.title}</h2>
+        <h2 className="text-xl font-bold mb-2" style={{ color:"var(--bw-green)" }}>{article.title}</h2>
         <div className="flex items-center space-x-2 mb-4 text-xs text-stone-600">
             {author ? (
               <button onClick={() => onViewProfile(author.id)} className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
                 <img src={author.avatarUrl} alt={author.name} className="w-6 h-6 rounded-full"/>
                 <span>{author.name}</span>
-                {author.isVerified && <VerifiedIcon className="w-4 h-4" style={{ color:"#1a4a3a" }} title="Verified Work Email" />}
+                {author.isVerified && <VerifiedIcon className="w-4 h-4" style={{ color:"var(--bw-green)" }} title="Verified Work Email" />}
               </button>
             ) : (<span>Unknown Author</span>)}
             <span>&bull;</span>
@@ -103,14 +103,14 @@ const InviteMember: React.FC<{
                 {(u as any).avatarUrl
                   ? <img src={(u as any).avatarUrl} alt={u.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                   : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                      style={{ backgroundColor: '#1a4a3a' }}>{u.name[0]}</div>
+                      style={{ backgroundColor: 'var(--bw-green)' }}>{u.name[0]}</div>
                 }
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-stone-800 truncate">{u.name}</p>
                   <p className="text-xs text-stone-600 truncate">{(u as any).headline}</p>
                 </div>
                 <span className="text-xs font-medium ml-auto px-2 py-0.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: '#e8f4f0', color: '#1a4a3a' }}>Invite</span>
+                  style={{ backgroundColor: 'var(--bw-green-light)', color: 'var(--bw-green)' }}>Invite</span>
               </button>
             ))}
             {pendingMatching.length > 0 && (
@@ -147,7 +147,7 @@ const InviteMember: React.FC<{
           </div>
         )}
       </div>
-      {feedback && <p className="text-xs mt-2 font-medium" style={{ color: '#1a4a3a' }}>{feedback}</p>}
+      {feedback && <p className="text-xs mt-2 font-medium" style={{ color: 'var(--bw-green)' }}>{feedback}</p>}
     </div>
   );
 };
@@ -180,7 +180,7 @@ const JoinRequests: React.FC<{
               {(user as any).avatarUrl
                 ? <img src={(user as any).avatarUrl} alt={user.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                 : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                    style={{ backgroundColor: '#1a4a3a' }}>{user.name[0]}</div>
+                    style={{ backgroundColor: 'var(--bw-green)' }}>{user.name[0]}</div>
               }
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-stone-800 truncate">{user.name}</p>
@@ -189,7 +189,7 @@ const JoinRequests: React.FC<{
               <div className="flex gap-1.5 flex-shrink-0">
                 <button onClick={() => onApprove(user.id)}
                   className="text-xs font-bold px-2.5 py-1 rounded-lg text-white"
-                  style={{ backgroundColor: '#1a4a3a' }}>Accept</button>
+                  style={{ backgroundColor: 'var(--bw-green)' }}>Accept</button>
                 <button onClick={() => onDecline(user.id)}
                   className="text-xs font-medium px-2.5 py-1 rounded-lg border hover:bg-stone-50"
                   style={{ borderColor: '#e7e5e4', color: '#6b7280' }}>Decline</button>
@@ -514,8 +514,8 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
   const isGated = !isMember && !isPendingApproval &&
     ((circle as any).visibility === 'apply' || (circle as any).visibility === 'invite');
 
-  const GREEN = '#1a4a3a';
-  const GREEN_LT = '#e8f4f0';
+  const GREEN = 'var(--bw-green)';
+  const GREEN_LT = 'var(--bw-green-light)';
 
   // ── Gated view ────────────────────────────────────────────────────────────
   if (isGated || isPendingApproval) {
@@ -613,8 +613,8 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
       )}
       <div className="bg-white p-6 rounded-2xl border shadow-sm" style={{ borderColor:"#e7e5e4" }}>
         <div className="flex items-start space-x-4 mb-4">
-            <div className="p-3 rounded-xl border" style={{ backgroundColor:"#e8f4f0", borderColor:"#1a6b52" }}>
-                <CirclesIcon className="w-8 h-8" style={{ color:"#1a4a3a" }}/>
+            <div className="p-3 rounded-xl border" style={{ backgroundColor:"var(--bw-green-light)", borderColor:"var(--bw-green-mid)" }}>
+                <CirclesIcon className="w-8 h-8" style={{ color:"var(--bw-green)" }}/>
             </div>
             <div>
                 <h1 className="text-3xl font-bold text-stone-900">{circle.name}</h1>
@@ -654,13 +654,13 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
         <div className="col-span-12 md:col-span-8 space-y-6">
             <div className="border-b" style={{ borderColor:"#e7e5e4" }}>
                 <nav className="flex space-x-4">
-                    <button onClick={() => setActiveTab('discussion')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'discussion' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='discussion'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Discussion</button>
-                    <button onClick={() => setActiveTab('challenges')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'challenges' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='challenges'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Challenges{challenges.length > 0 ? ` (${challenges.length})` : ''}</button>
-                    <button onClick={() => setActiveTab('learn')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'learn' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='learn'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>
+                    <button onClick={() => setActiveTab('discussion')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'discussion' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='discussion'?{color:'var(--bw-green)',borderColor:'var(--bw-green)'}:{}}>Discussion</button>
+                    <button onClick={() => setActiveTab('challenges')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'challenges' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='challenges'?{color:'var(--bw-green)',borderColor:'var(--bw-green)'}:{}}>Challenges{challenges.length > 0 ? ` (${challenges.length})` : ''}</button>
+                    <button onClick={() => setActiveTab('learn')} className={`flex items-center gap-1.5 px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'learn' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='learn'?{color:'var(--bw-green)',borderColor:'var(--bw-green)'}:{}}>
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
                       Learn
                     </button>
-                    <button onClick={() => setActiveTab('articles')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'articles' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='articles'?{color:'#1a4a3a',borderColor:'#1a4a3a'}:{}}>Articles ({circleArticles.length})</button>
+                    <button onClick={() => setActiveTab('articles')} className={`px-3 py-2 font-semibold text-sm transition-colors ${activeTab === 'articles' ? 'border-b-2' : 'text-stone-600 hover:text-stone-700'}`} style={activeTab==='articles'?{color:'var(--bw-green)',borderColor:'var(--bw-green)'}:{}}>Articles ({circleArticles.length})</button>
                 </nav>
             </div>
             
@@ -728,7 +728,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                 {isCurrentUserAdmin && !showChallengeForm && (
                   <button onClick={() => setShowChallengeForm(true)}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-white text-sm hover:opacity-90"
-                    style={{ background: '#1a4a3a' }}>
+                    style={{ background: 'var(--bw-green)' }}>
                     + Post a challenge
                   </button>
                 )}
@@ -815,7 +815,7 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                                 <div>
                                     <div className="flex items-center space-x-1.5">
                                       <p className="font-semibold text-stone-800 text-sm">{member.name}</p>
-                                      {member.isVerified && <VerifiedIcon className="w-3 h-3" style={{ color:"#1a4a3a" }} title="Verified Work Email" />}
+                                      {member.isVerified && <VerifiedIcon className="w-3 h-3" style={{ color:"var(--bw-green)" }} title="Verified Work Email" />}
                                     </div>
                                     <p className="text-xs text-stone-600">{member.headline}</p>
                                 </div>

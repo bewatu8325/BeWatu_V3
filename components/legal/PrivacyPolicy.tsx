@@ -102,7 +102,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
               <li><strong className="font-medium text-stone-700">Objection:</strong> Object to certain processing of your data</li>
               <li><strong className="font-medium text-stone-700">Restriction:</strong> Request that we restrict processing of your data</li>
             </ul>
-            <p>To exercise any of these rights, contact us at <a href={`mailto:${PRIVACY_EMAIL}`} className="text-[#1a4a3a] underline">{PRIVACY_EMAIL}</a>. We will respond within 30 days.</p>
+            <p>To exercise any of these rights, contact us at <a href={`mailto:${PRIVACY_EMAIL}`} className="text-[var(--bw-green)] underline">{PRIVACY_EMAIL}</a>. We will respond within 30 days.</p>
           </section>
 
           <section className="space-y-3">
@@ -127,7 +127,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-stone-900">11. Contact Us</h2>
-            <p>If you have questions about this Privacy Policy or our data practices, please contact our privacy team at <a href={`mailto:${PRIVACY_EMAIL}`} className="text-[#1a4a3a] underline">{PRIVACY_EMAIL}</a>.</p>
+            <p>If you have questions about this Privacy Policy or our data practices, please contact our privacy team at <a href={`mailto:${PRIVACY_EMAIL}`} className="text-[var(--bw-green)] underline">{PRIVACY_EMAIL}</a>.</p>
             <p className="text-stone-600 text-xs">{COMPANY} · United States</p>
           </section>
 

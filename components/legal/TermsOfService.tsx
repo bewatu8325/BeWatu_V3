@@ -122,7 +122,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-stone-900">14. Contact</h2>
-            <p>If you have questions about these Terms, please contact us at <a href={`mailto:${LEGAL_EMAIL}`} className="text-[#1a4a3a] underline">{LEGAL_EMAIL}</a>.</p>
+            <p>If you have questions about these Terms, please contact us at <a href={`mailto:${LEGAL_EMAIL}`} className="text-[var(--bw-green)] underline">{LEGAL_EMAIL}</a>.</p>
             <p className="text-stone-600 text-xs">{COMPANY} · United States</p>
           </section>
 

@@ -44,7 +44,7 @@ export function ArenaSponsorHero({ industry }: { industry: ArenaIndustry }) {
   const sponsor = (industry as any).sponsor;
   if (!sponsor?.isActive) return null;
 
-  const bannerColor = sponsor.bannerColor ?? '#1a4a3a';
+  const bannerColor = sponsor.bannerColor ?? 'var(--bw-green)';
 
   return (
     <div className="rounded-2xl overflow-hidden mb-6 shadow-sm">
@@ -112,7 +112,7 @@ export function SponsorChallengeBadge({
   const sponsor = (industry as any).sponsor;
   if (!sponsor?.isActive) return null;
 
-  const bannerColor = sponsor.bannerColor ?? '#1a4a3a';
+  const bannerColor = sponsor.bannerColor ?? 'var(--bw-green)';
   const initials = sponsor.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
 
   if (compact) {
@@ -153,7 +153,7 @@ export function SponsorSpotlight({ industry }: { industry: ArenaIndustry }) {
   if (!sponsor?.isActive || !sponsor.about) return null;
 
   const [expanded, setExpanded] = useState(false);
-  const bannerColor = sponsor.bannerColor ?? '#1a4a3a';
+  const bannerColor = sponsor.bannerColor ?? 'var(--bw-green)';
 
   return (
     <div className="mt-8 rounded-2xl border overflow-hidden" style={{ borderColor: '#e7e5e4' }}>

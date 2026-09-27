@@ -53,8 +53,8 @@ const IconBriefcase = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="
 const IconCheck  = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>);
 const IconArrowLeft = () => (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>);
 
-const GREEN = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 const Toggle: React.FC<{ on: boolean; onChange: (v: boolean) => void; disabled?: boolean }> = ({ on, onChange, disabled }) => (
   <button type="button" onClick={() => !disabled && onChange(!on)}
@@ -182,7 +182,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
     two_factor_removed:  { label: '2-step verification off',   color: '#dc2626', icon: '🛡️' },
   };
 
-  const inputCls = "w-full p-2.5 bg-stone-50 text-stone-800 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30 placeholder:text-stone-600 text-sm";
+  const inputCls = "w-full p-2.5 bg-stone-50 text-stone-800 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--bw-green)]/30 placeholder:text-stone-600 text-sm";
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-10">

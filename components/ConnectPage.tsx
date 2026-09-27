@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { LogoIcon } from '../constants';
 import Footer from './Footer';
 
-const GREEN = '#1a4a3a';
+const GREEN = 'var(--bw-green)';
 const BG    = '#f0ede6';
 
 const ConnectPage: React.FC<{
@@ -74,7 +74,7 @@ const ConnectPage: React.FC<{
             <div className="bg-white rounded-2xl border p-12 text-center shadow-sm" style={borderStyle}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
                 style={{ backgroundColor: '#d1fae5' }}>
-                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="#1a6b52" strokeWidth={2}>
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--bw-green-mid)" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>

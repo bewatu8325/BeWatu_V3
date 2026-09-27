@@ -18,8 +18,8 @@ interface ForgotPasswordPageProps {
 type Step = 'form' | 'sent';
 type Mode = 'password' | 'username';
 
-const GREEN = '#1a4a3a';
-const GREEN_MID = '#1a6b52';
+const GREEN = 'var(--bw-green)';
+const GREEN_MID = 'var(--bw-green-mid)';
 
 function MailIcon() {
   return (
@@ -240,7 +240,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
             <div className="text-center">
               <div
                 className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                style={{ background: '#e8f4f0', color: GREEN }}
+                style={{ background: 'var(--bw-green-light)', color: GREEN }}
               >
                 <CheckCircleIcon />
               </div>

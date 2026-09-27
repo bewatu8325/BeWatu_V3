@@ -235,7 +235,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 
               {avatarUploading && (
                 <div className="absolute inset-0 rounded-full flex flex-col items-center justify-center bg-black/60">
-                  <svg className="h-7 w-7 animate-spin text-[#1a6b52]" viewBox="0 0 24 24" fill="none">
+                  <svg className="h-7 w-7 animate-spin text-[var(--bw-green-mid)]" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
@@ -248,7 +248,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               user.microIntroductionUrl ? (
                 <button
                   onClick={() => onPlayVideo(user.microIntroductionUrl!)}
-                  className="absolute bottom-0 right-0 bg-[#1a4a3a] p-1.5 rounded-full border-2 border-stone-200 hover:bg-[#1a6b52] transition-colors"
+                  className="absolute bottom-0 right-0 bg-[var(--bw-green)] p-1.5 rounded-full border-2 border-stone-200 hover:bg-[var(--bw-green-mid)] transition-colors"
                   title={t('playMicroIntro')}
                 >
                   <PlayIcon className="w-4 h-4 text-stone-900" />
@@ -277,7 +277,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 
           <div className="flex items-center justify-center space-x-2">
             <h2 className="font-bold text-xl text-stone-900 break-words">{user.name}</h2>
-            {user.isVerified && <VerifiedIcon className="w-5 h-5 text-[#1a6b52]" title="Verified Work Email" />}
+            {user.isVerified && <VerifiedIcon className="w-5 h-5 text-[var(--bw-green-mid)]" title="Verified Work Email" />}
           </div>
           <p className="text-sm text-stone-600 mt-1 break-words">{user.headline}</p>
           <p className="text-stone-700 text-sm mt-4 break-words">{user.bio}</p>
@@ -288,7 +288,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               <button
                 onClick={() => setShowShareModal(true)}
                 className="group inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
-                style={{ backgroundColor: '#1a4a3a' }}
+                style={{ backgroundColor: 'var(--bw-green)' }}
                 title="Share your public profile"
               >
                 <ShareIcon className="w-4 h-4 transition-transform group-hover:scale-110" />
@@ -341,7 +341,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           <div className="grid grid-cols-3 gap-2">
             <ReputationPanel uid={profileUid} isOwn={isCurrentUser} compact />
             <StatItem icon={<CoinsIcon className="w-5 h-5" />} label="Credits" value={user.credits} valueClassName="text-yellow-800" />
-            <StatItem icon={<UsersIcon className="w-5 h-5" />} label="Connections" value={connectionCount} valueClassName="text-[#1a6b52]" />
+            <StatItem icon={<UsersIcon className="w-5 h-5" />} label="Connections" value={connectionCount} valueClassName="text-[var(--bw-green-mid)]" />
           </div>
         </div>
       </div>
@@ -358,14 +358,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-stone-800 text-sm flex items-center gap-1.5">
               {user.verifiedSkills?.length
-                ? <><VerifiedIcon className="w-4 h-4 text-[#1a6b52]" /> {t('verifiedSkills')}</>
+                ? <><VerifiedIcon className="w-4 h-4 text-[var(--bw-green-mid)]" /> {t('verifiedSkills')}</>
                 : t('topSkills')}
             </h3>
             {isCurrentUser && (
               <button
                 onClick={onGenerateSkills}
                 className="text-xs font-semibold hover:opacity-70 transition-opacity flex items-center gap-1"
-                style={{ color: '#1a6b52' }}
+                style={{ color: 'var(--bw-green-mid)' }}
                 title="Verify skills with AI"
               >
                 <SparklesIcon className="w-3.5 h-3.5" />
@@ -384,7 +384,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                     <p className="text-xs text-stone-600">{skill.proficiency}</p>
                   </div>
                   <div className="w-full bg-stone-100 rounded-full h-1.5">
-                    <div className={`bg-[#1a4a3a] h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`} />
+                    <div className={`bg-[var(--bw-green)] h-1.5 rounded-full ${proficiencyWidth[skill.proficiency]}`} />
                   </div>
                   <div className="absolute left-0 bottom-6 w-full p-2 text-xs bg-stone-50 border border-stone-200 rounded-md text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                     <span className="font-bold">{t('evidence')}</span> {skill.evidence}
@@ -403,16 +403,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 return (
                   <span
                     key={name}
-                    className="inline-flex items-center gap-1 text-sm bg-[#e8f4f0]/60 text-[#1a6b52] rounded-full px-3 py-1 font-medium border border-[#1a4a3a]/20"
+                    className="inline-flex items-center gap-1 text-sm bg-[var(--bw-green-light)]/60 text-[var(--bw-green-mid)] rounded-full px-3 py-1 font-medium border border-[var(--bw-green)]/20"
                   >
                     {name}
                     {typeof skill !== 'string' && (skill.endorsements ?? 0) > 0 && (
-                      <span className="text-xs font-semibold text-[#1a6b52]">{skill.endorsements}</span>
+                      <span className="text-xs font-semibold text-[var(--bw-green-mid)]">{skill.endorsements}</span>
                     )}
                     {isCurrentUser && onRemoveSkill && (
                       <button
                         onClick={() => onRemoveSkill(name)}
-                        className="ml-0.5 text-[#1a6b52]/50 hover:text-red-600 transition-colors"
+                        className="ml-0.5 text-[var(--bw-green-mid)]/50 hover:text-red-600 transition-colors"
                         aria-label={`Remove ${name}`}
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -441,7 +441,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                   }
                 }}
                 placeholder="Add a skill…"
-                className="flex-1 min-w-0 text-sm border rounded-xl px-3 py-2 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30"
+                className="flex-1 min-w-0 text-sm border rounded-xl px-3 py-2 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[var(--bw-green)]/30"
                 style={{ borderColor: '#e7e5e4' }}
               />
               <button
@@ -450,7 +450,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 }}
                 disabled={!skillInput.trim()}
                 className="px-3 py-2 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-40"
-                style={{ backgroundColor: '#1a4a3a' }}
+                style={{ backgroundColor: 'var(--bw-green)' }}
               >
                 Add
               </button>
@@ -466,7 +466,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           <div className="bg-white rounded-2xl border shadow-sm p-5" style={{ borderColor: '#e7e5e4' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ backgroundColor: '#1a4a3a' }}>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ backgroundColor: 'var(--bw-green)' }}>
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
                   </svg>
@@ -480,7 +480,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 onClick={() => resumeInputRef.current?.click()}
                 disabled={resumeUploading}
                 className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-                style={{ backgroundColor: '#1a4a3a' }}>
+                style={{ backgroundColor: 'var(--bw-green)' }}>
                 {resumeUploading ? (
                   <><svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Uploading…</>
                 ) : (user as any).resumeUrl ? 'Update' : 'Upload'}
@@ -490,7 +490,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
             {(user as any).resumeUrl && !resumeUploading && (
               <a href={(user as any).resumeUrl} target="_blank" rel="noopener noreferrer"
                 className="mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-stone-50 transition-colors"
-                style={{ borderColor: '#e7e5e4', color: '#1a6b52' }}>
+                style={{ borderColor: '#e7e5e4', color: 'var(--bw-green-mid)' }}>
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 View uploaded resume
               </a>
@@ -566,7 +566,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                     <img src={co.logoUrl} alt={co.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0 border border-stone-200" />
                   ) : (
                     <div className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center text-sm font-bold text-white"
-                      style={{ backgroundColor: '#1a4a3a' }}>
+                      style={{ backgroundColor: 'var(--bw-green)' }}>
                       {(co.name ?? 'C')[0].toUpperCase()}
                     </div>
                   )}
@@ -600,7 +600,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                   window.open(url, '_blank', 'noopener');
                 }}
                 className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-stone-100"
-                style={{ borderColor: '#e7e5e4', color: '#1a4a3a' }}
+                style={{ borderColor: '#e7e5e4', color: 'var(--bw-green)' }}
               >
                 Open
               </button>
@@ -639,7 +639,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
             style={{ borderColor: '#e7e5e4' }}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white flex-shrink-0" style={{ backgroundColor: '#1a4a3a' }}>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white flex-shrink-0" style={{ backgroundColor: 'var(--bw-green)' }}>
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               </div>
               <div className="text-left">

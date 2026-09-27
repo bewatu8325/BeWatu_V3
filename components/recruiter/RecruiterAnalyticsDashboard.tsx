@@ -13,8 +13,8 @@ import {
 } from 'recharts';
 import { TrendingUp, Users, Briefcase, Clock, RefreshCw, AlertCircle } from 'lucide-react';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 interface AnalyticsData {
   funnel: { stage: string; count: number }[];
@@ -32,7 +32,7 @@ interface AnalyticsData {
   generatedAt: string;
 }
 
-const FUNNEL_COLORS = ['#1a4a3a', '#2d6e56', '#4a9272', '#6db89a', '#a8d8c0'];
+const FUNNEL_COLORS = ['var(--bw-green)', '#2d6e56', '#4a9272', '#6db89a', '#a8d8c0'];
 
 export default function RecruiterAnalyticsDashboard() {
   const { fbUser } = useFirebase();

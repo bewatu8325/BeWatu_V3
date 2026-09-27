@@ -27,7 +27,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, company, onViewCompany, onAnalyz
     <div className="bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300" style={{ borderColor:"#e7e5e4" }}>
       <div className="flex justify-between items-start">
         <div>
-          <h3 className="font-bold text-lg" style={{ color:"#1a4a3a" }}>{job.title}</h3>
+          <h3 className="font-bold text-lg" style={{ color:"var(--bw-green)" }}>{job.title}</h3>
           <button onClick={() => onViewCompany(company.id)} className="text-md text-stone-700 hover:underline text-left">
             {company.name}
           </button>
@@ -57,7 +57,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, company, onViewCompany, onAnalyz
             <button 
                 onClick={() => onAnalyzeMatch(job, company)}
                 title="Analyze Job Match"
-                className="font-semibold p-2 rounded-full border hover:bg-stone-50 transition-colors text-sm" style={{ borderColor:"#1a4a3a", color:"#1a4a3a" }}
+                className="font-semibold p-2 rounded-full border hover:bg-stone-50 transition-colors text-sm" style={{ borderColor:"var(--bw-green)", color:"var(--bw-green)" }}
             >
                 <SparklesIcon className="w-5 h-5"/>
             </button>
@@ -65,7 +65,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, company, onViewCompany, onAnalyz
               onClick={() => !hasApplied && onApplyForJob(job)}
               disabled={hasApplied}
               className={`font-semibold px-4 py-1.5 rounded-full transition-colors text-sm whitespace-nowrap ${hasApplied ? 'bg-green-600 text-white cursor-not-allowed' : 'text-white hover:opacity-90'}`}
-              style={!hasApplied ? { backgroundColor: '#1a4a3a' } : {}}
+              style={!hasApplied ? { backgroundColor: 'var(--bw-green)' } : {}}
             >
               {hasApplied ? 'Applied ✓' : 'Apply Now'}
             </button>

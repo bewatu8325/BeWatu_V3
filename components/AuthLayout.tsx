@@ -23,7 +23,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
           {/* Logo */}
           <div className="flex justify-center mb-8">
             <button onClick={onNavigateToLanding} className="transition-opacity hover:opacity-80" title="Back to home">
-              <LogoIcon className="h-10 w-auto" style={{ color: '#1a4a3a' }} />
+              <LogoIcon className="h-10 w-auto" style={{ color: 'var(--bw-green)' }} />
             </button>
           </div>
 

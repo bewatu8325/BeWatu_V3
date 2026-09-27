@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { ThumbUpIcon, MessageSquareIcon, SparklesIcon, ShieldCheckIcon, VerifiedIcon } from '../constants';
 
-const G = '#1a4a3a';
-const GLT = '#e8f4f0';
+const G = 'var(--bw-green)';
+const GLT = 'var(--bw-green-light)';
 
 interface UserCardProps {
   user: User;

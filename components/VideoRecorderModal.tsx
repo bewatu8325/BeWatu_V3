@@ -12,7 +12,7 @@ interface VideoRecorderModalProps {
 }
 
 const MAX_DURATION = 30;
-const GREEN = '#1a4a3a';
+const GREEN = 'var(--bw-green)';
 
 // ─── Upload to Firebase Storage ───────────────────────────────────────────────
 async function uploadVideoToStorage(
@@ -465,7 +465,7 @@ const UploadTab: React.FC<{ fbUid: string; onSave: (url: string, thumbnailUrl: s
           onDrop={onDrop}
           onClick={() => inputRef.current?.click()}
           className={`flex cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-10 transition-colors ${
-            dragging ? 'border-[#1a4a3a] bg-[#e8f4f0]' : 'border-stone-300 hover:border-stone-400 bg-stone-50'
+            dragging ? 'border-[var(--bw-green)] bg-[var(--bw-green-light)]' : 'border-stone-300 hover:border-stone-400 bg-stone-50'
           }`}
         >
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm border" style={{ borderColor: '#e7e5e4' }}>
