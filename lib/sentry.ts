@@ -19,7 +19,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import * as Sentry from '@sentry/react';
+import { init, ErrorBoundary, captureException } from '@sentry/react';
 
 export function initSentry(): void {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
@@ -27,7 +27,7 @@ export function initSentry(): void {
     console.info('[sentry] VITE_SENTRY_DSN not set — error tracking disabled.');
     return;
   }
-  Sentry.init({
+  init({
     dsn,
     environment: import.meta.env.MODE,
     // Conservative default — this is a first pass at observability, not a
@@ -37,5 +37,4 @@ export function initSentry(): void {
   });
 }
 
-export const ErrorBoundary = Sentry.ErrorBoundary;
-export const captureException = Sentry.captureException;
+export { ErrorBoundary, captureException };

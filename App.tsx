@@ -26,7 +26,6 @@ import {
   startRecruiterTrialIfNeeded,
 } from './lib/firebaseAuth';
 import { auth } from './lib/firebase';
-import { searchUserUids, searchJobs as searchJobsAlgolia, JobSearchHit } from './lib/algoliaSearch';
 
 // ── Firestore services (single import block) ──────────────────────────────────
 import {
@@ -269,6 +268,9 @@ const MainApp: React.FC = () => {
     setIsPeopleSearching(true);
     const handle = setTimeout(async () => {
       try {
+        // Dynamic import keeps the algoliasearch client out of the main
+        // bundle -- only fetched once someone actually types a search.
+        const { searchUserUids } = await import('./lib/algoliaSearch');
         const uids = await searchUserUids(peopleSearch);
         const users = await fetchUsersByUids(uids);
         if (!cancelled) setPeopleSearchResults(users);
