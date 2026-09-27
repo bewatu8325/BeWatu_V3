@@ -575,8 +575,19 @@ export default function ProveView({
   const [filterSkill, setFilterSkill] = useState<string | null>(null);
   const [filterIndustry, setFilterIndustry] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'network' | 'mine' | 'discover'>('network');
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
+  const [undoToast, setUndoToast] = useState<{ reel: Reel } | null>(null);
+  const deleteTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const currentUid = fbUser?.uid ?? String(currentUser?.id ?? '');
+
+  // Clear any still-pending delete timers on unmount so a real delete can't
+  // fire against a torn-down view's stale closures.
+  useEffect(() => {
+    return () => { deleteTimers.current.forEach(t => clearTimeout(t)); };
+  }, []);
+
+  const visibleMyReels = myReels.filter(r => !pendingDeleteIds.has(r.id));
 
   useEffect(() => {
     // Recent-across-everyone feed, for the network/discover tabs. Capped at
@@ -621,18 +632,42 @@ export default function ProveView({
     });
   };
 
-  const handleDeleteReel = async (reel: Reel) => {
-    if (reel.authorUid !== currentUid) return;
-    if (!window.confirm('Delete this reel? This can\'t be undone.')) return;
-    // Delete the Firestore doc first -- the onSnapshot listener above removes
-    // it from the UI immediately. Storage cleanup runs after and best-effort:
-    // if it fails (e.g. Storage rules lag behind), the reel is still gone
-    // from the app rather than stuck because a file couldn't be removed.
+  // Real delete doesn't happen until the undo window passes -- deleting the
+  // Storage video/thumbnail can't be cleanly reversed, so "undo" has to mean
+  // "never actually called it," not "delete then try to restore."
+  const commitDeleteReel = async (reel: Reel) => {
     await deleteDoc(doc(db, 'reels', reel.id));
     await deleteObject(ref(storage, reel.videoUrl)).catch(() => {});
     if (reel.thumbnailUrl) {
       await deleteObject(ref(storage, reel.thumbnailUrl)).catch(() => {});
     }
+    deleteTimers.current.delete(reel.id);
+    setPendingDeleteIds(prev => {
+      const next = new Set(prev);
+      next.delete(reel.id);
+      return next;
+    });
+    setUndoToast(current => (current?.reel.id === reel.id ? null : current));
+  };
+
+  const handleDeleteReel = (reel: Reel) => {
+    if (reel.authorUid !== currentUid) return;
+    setPendingDeleteIds(prev => new Set(prev).add(reel.id));
+    setUndoToast({ reel });
+    const timer = setTimeout(() => commitDeleteReel(reel), 5000);
+    deleteTimers.current.set(reel.id, timer);
+  };
+
+  const handleUndoDelete = (reelId: string) => {
+    const timer = deleteTimers.current.get(reelId);
+    if (timer) clearTimeout(timer);
+    deleteTimers.current.delete(reelId);
+    setPendingDeleteIds(prev => {
+      const next = new Set(prev);
+      next.delete(reelId);
+      return next;
+    });
+    setUndoToast(current => (current?.reel.id === reelId ? null : current));
   };
 
   // Match reels against user's skills from their profile
@@ -654,7 +689,7 @@ export default function ProveView({
     let results = reels;
 
     if (activeTab === 'mine') {
-      return myReels;
+      return visibleMyReels;
     }
 
     if (activeTab === 'network') {
@@ -706,7 +741,7 @@ export default function ProveView({
   })();
 
   // Jobs that match reel skills in user's reels
-  const mySkills = myReels
+  const mySkills = visibleMyReels
     .flatMap(r => r.skills ?? [])
     .map(s => s.toLowerCase());
 
@@ -857,10 +892,10 @@ export default function ProveView({
           <div className="sticky top-24 space-y-4">
 
             {/* My reel stats */}
-            {myReels.length > 0 && (
+            {visibleMyReels.length > 0 && (
               <div className="bg-white border border-stone-200 rounded-2xl p-4">
                 <p className="text-xs font-semibold text-stone-600 uppercase tracking-widest mb-3">Your reels</p>
-                {myReels.slice(0, 5).map(r => (
+                {visibleMyReels.slice(0, 5).map(r => (
                   <div key={r.id} className="flex items-center gap-2 mb-2 last:mb-0">
                     <div className="w-8 h-8 rounded-lg bg-stone-900 flex items-center justify-center flex-shrink-0">
                       <Play size={10} className="text-white" fill="currentColor" />
@@ -924,6 +959,20 @@ export default function ProveView({
           onClose={() => setShowUpload(false)}
           onUploaded={() => setShowUpload(false)}
         />
+      )}
+
+      {/* Delete undo toast -- the reel is only actually deleted once this
+          times out; clicking Undo means the delete call never happens. */}
+      {undoToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-stone-900 text-white text-sm rounded-xl px-4 py-3 shadow-lg">
+          <span>Reel deleted</span>
+          <button
+            onClick={() => handleUndoDelete(undoToast.reel.id)}
+            className="font-semibold text-emerald-400 hover:text-emerald-300"
+          >
+            Undo
+          </button>
+        </div>
       )}
     </div>
   );
