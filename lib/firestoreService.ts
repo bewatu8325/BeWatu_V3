@@ -3594,9 +3594,12 @@ export function subscribeToArenaParticipants(
   arenaId: string,
   onUpdate: (participants: ArenaParticipant[]) => void
 ): () => void {
-  return onSnapshot(collection(db, 'arenas', arenaId, 'participants'), (snap) => {
-    onUpdate(snap.docs.map(d => d.data() as ArenaParticipant));
-  });
+  // limit() is a safety net, not expected behavior change -- one arena's
+  // participant count is naturally small today, but nothing bounded it.
+  return onSnapshot(
+    query(collection(db, 'arenas', arenaId, 'participants'), limit(200)),
+    (snap) => onUpdate(snap.docs.map(d => d.data() as ArenaParticipant))
+  );
 }
 
 /** Subscribe to submissions — live during open + review phases */
@@ -3605,7 +3608,7 @@ export function subscribeToArenaSubmissions(
   onUpdate: (submissions: ArenaSubmission[]) => void
 ): () => void {
   return onSnapshot(
-    query(collection(db, 'arenas', arenaId, 'submissions'), orderBy('submittedAt', 'asc')),
+    query(collection(db, 'arenas', arenaId, 'submissions'), orderBy('submittedAt', 'asc'), limit(200)),
     (snap) => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() } as ArenaSubmission)))
   );
 }
