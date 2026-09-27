@@ -1933,8 +1933,12 @@ service cloud.firestore {
         resource.data.investorUid == request.auth.uid
         || resource.data.founderUids.hasAny([request.auth.uid])
       );
+      // A session is created pending -- founders must accept before it's
+      // real (BookDemoModal.tsx / DemoHistory.tsx's approval gate), so
+      // create can't be used to skip straight to confirmed.
       allow create: if isAuth() && isFactoryInvestor()
-        && request.resource.data.investorUid == request.auth.uid;
+        && request.resource.data.investorUid == request.auth.uid
+        && request.resource.data.status == 'pending';
       allow update: if isAuth() && (
         (
           resource.data.investorUid == request.auth.uid
@@ -1943,6 +1947,15 @@ service cloud.firestore {
         || (
           resource.data.founderUids.hasAny([request.auth.uid])
           && onlyFields(['founderNote', 'updatedAt'])
+        )
+        || (
+          // Accept (-> confirmed, sets the video room) or decline
+          // (-> rejected) a pending request. Founder-only, one-way, and
+          // can't touch who's involved or when it was created.
+          resource.data.founderUids.hasAny([request.auth.uid])
+          && resource.data.status == 'pending'
+          && request.resource.data.status in ['confirmed', 'rejected']
+          && onlyFields(['status', 'roomUrl', 'updatedAt'])
         )
       );
       allow delete: if false;
