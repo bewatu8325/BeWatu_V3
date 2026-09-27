@@ -8,6 +8,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { User, ConnectionRequest, FollowRequest } from '../types';
+import { EmptyState } from './EmptyState';
 
 interface ConnectionsViewProps {
   currentUser: User;
@@ -736,19 +737,22 @@ function ConnectionMap({
 
   if (connections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-stone-600">
-        <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <circle cx="12" cy="12" r="3" strokeWidth={1.5} />
-          <circle cx="4" cy="6" r="2" strokeWidth={1.5} />
-          <circle cx="20" cy="6" r="2" strokeWidth={1.5} />
-          <circle cx="4" cy="18" r="2" strokeWidth={1.5} />
-          <circle cx="20" cy="18" r="2" strokeWidth={1.5} />
-          <line x1="12" y1="9" x2="4" y2="6" strokeWidth={1.5} strokeLinecap="round" />
-          <line x1="12" y1="9" x2="20" y2="6" strokeWidth={1.5} strokeLinecap="round" />
-        </svg>
-        <p className="text-lg font-medium text-stone-600">Your connection map is empty</p>
-        <p className="text-sm mt-1">Accept connection requests to start building your network</p>
-      </div>
+      <EmptyState
+        bordered={false}
+        icon={
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <circle cx="12" cy="12" r="3" strokeWidth={1.5} />
+            <circle cx="4" cy="6" r="2" strokeWidth={1.5} />
+            <circle cx="20" cy="6" r="2" strokeWidth={1.5} />
+            <circle cx="4" cy="18" r="2" strokeWidth={1.5} />
+            <circle cx="20" cy="18" r="2" strokeWidth={1.5} />
+            <line x1="12" y1="9" x2="4" y2="6" strokeWidth={1.5} strokeLinecap="round" />
+            <line x1="12" y1="9" x2="20" y2="6" strokeWidth={1.5} strokeLinecap="round" />
+          </svg>
+        }
+        title="Your connection map is empty"
+        description="Accept connection requests to start building your network"
+      />
     );
   }
 
