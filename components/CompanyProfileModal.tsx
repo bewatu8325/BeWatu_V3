@@ -41,9 +41,9 @@ import {
   type ChallengeType,
 } from '../lib/firestoreService';
 
-const GREEN     = '#1a4a3a';
-const GREEN_MID = '#1a6b52';
-const GREEN_LT  = '#e8f4f0';
+const GREEN     = 'var(--bw-green)';
+const GREEN_MID = 'var(--bw-green-mid)';
+const GREEN_LT  = 'var(--bw-green-light)';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(val: any): string {
@@ -1726,7 +1726,7 @@ function CoSentimentWidget({ data, userId }: { data: CoSentimentData; userId?: s
         </div>
         <span className="text-sm font-bold text-stone-700">CoSentiment Score</span>
         <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full"
-          style={{ background: '#e8f4f0', color: '#1a4a3a' }}>
+          style={{ background: 'var(--bw-green-light)', color: 'var(--bw-green)' }}>
           Live data
         </span>
       </div>

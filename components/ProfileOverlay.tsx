@@ -27,8 +27,8 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 function initials(name: string) {
   return (name ?? '').split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
@@ -91,7 +91,7 @@ function PrivateProfileView({ user, onBack, onConnect, alreadyConnected }: {
       <BackBtn onBack={onBack} />
       <div className="bg-white rounded-2xl border overflow-hidden shadow-sm" style={{ borderColor: '#e7e5e4' }}>
         {/* Green header strip */}
-        <div className="h-20 w-full" style={{ background: `linear-gradient(135deg, ${GREEN} 0%, #1a6b52 100%)` }} />
+        <div className="h-20 w-full" style={{ background: `linear-gradient(135deg, ${GREEN} 0%, var(--bw-green-mid) 100%)` }} />
         <div className="px-6 pb-7">
           {/* Avatar */}
           <div className="-mt-10 mb-4">
@@ -166,7 +166,7 @@ function PublicProfileView({ user, isConnected, isFollowing, onBack, onConnect, 
       <BackBtn onBack={onBack} />
       <div className="bg-white rounded-2xl border overflow-hidden shadow-sm" style={{ borderColor: '#e7e5e4' }}>
         {/* Gradient header */}
-        <div className="h-24 w-full" style={{ background: `linear-gradient(135deg, ${GREEN} 0%, #1a6b52 50%, #0d9488 100%)` }} />
+        <div className="h-24 w-full" style={{ background: `linear-gradient(135deg, ${GREEN} 0%, var(--bw-green-mid) 50%, #0d9488 100%)` }} />
         <div className="px-6 pb-7">
           {/* Avatar */}
           <div className="flex items-end justify-between -mt-10 mb-3">

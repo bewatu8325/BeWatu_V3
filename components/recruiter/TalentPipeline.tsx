@@ -79,7 +79,7 @@ const ExpandedPipelineView: React.FC<ExpandedPipelineViewProps> = ({
     <div className="bg-stone-50/70 p-4 rounded-b-lg border border-stone-200 border-t-0 -mt-1 animate-fade-in-up space-y-3">
       {candidate.bio && <p className="text-sm text-stone-700 line-clamp-3">{candidate.bio}</p>}
       <div className="text-xs space-y-1">
-        <p><strong className="text-stone-600 font-semibold">{t('topSkills')}:</strong> <span className="text-[#1a6b52]">{topSkills || 'N/A'}</span></p>
+        <p><strong className="text-stone-600 font-semibold">{t('topSkills')}:</strong> <span className="text-[var(--bw-green-mid)]">{topSkills || 'N/A'}</span></p>
         <p><strong className="text-stone-600 font-semibold">{t('availability')}:</strong> {candidate.availability ?? 'N/A'}</p>
         <p><strong className="text-stone-600 font-semibold">{t('values')}:</strong> {(candidate.values ?? []).join(', ') || 'N/A'}</p>
         {candidate.notes && (
@@ -164,7 +164,7 @@ const ExpandedPipelineView: React.FC<ExpandedPipelineViewProps> = ({
           <button
             onClick={handleAddNote}
             disabled={isSavingNote || !noteText.trim()}
-            className="text-xs px-2 py-1 rounded bg-[#1a4a3a] text-white disabled:opacity-40"
+            className="text-xs px-2 py-1 rounded bg-[var(--bw-green)] text-white disabled:opacity-40"
           >
             {isSavingNote ? '…' : 'Add'}
           </button>

@@ -19,8 +19,8 @@ import {
   type CompanyVerificationStatus,
 } from '../lib/verification';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 // ─── Icon resolver ────────────────────────────────────────────────────────────
 

@@ -13,7 +13,7 @@
  * Public read (it's a proof surface), owner write. Persistent.
  * Firestore: learningLogs/{id}
  *
- * Matches design language: white rounded-2xl card, #1a4a3a green, stone palette.
+ * Matches design language: white rounded-2xl card, var(--bw-green) green, stone palette.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -24,8 +24,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
-const GREEN = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 interface LogEntry {
   id: string;
@@ -145,7 +145,7 @@ const LearningLog: React.FC<Props> = ({ profileUid, isOwn }) => {
           <span className="text-base">{streak > 0 ? '🔥' : '🌱'}</span>
           <div className="flex-1 min-w-0">
             {streak > 0 ? (
-              <p className="text-sm font-semibold" style={{ color: '#1a6b52' }}>
+              <p className="text-sm font-semibold" style={{ color: 'var(--bw-green-mid)' }}>
                 {streak}-week streak{posted ? '' : ' · log this week to keep it going'}
               </p>
             ) : (
@@ -153,7 +153,7 @@ const LearningLog: React.FC<Props> = ({ profileUid, isOwn }) => {
             )}
           </div>
           {!posted && (
-            <button onClick={() => setComposerOpen(true)} className="text-xs font-bold flex-shrink-0 hover:opacity-80" style={{ color: '#1a6b52' }}>
+            <button onClick={() => setComposerOpen(true)} className="text-xs font-bold flex-shrink-0 hover:opacity-80" style={{ color: 'var(--bw-green-mid)' }}>
               Log now →
             </button>
           )}
@@ -179,7 +179,7 @@ const LearningLog: React.FC<Props> = ({ profileUid, isOwn }) => {
                   </button>
                 )}
               </div>
-              <LogField label="Built" color="#1a6b52" text={entry.built} />
+              <LogField label="Built" color="var(--bw-green-mid)" text={entry.built} />
               {entry.broke && <LogField label="Broke" color="#c2410c" text={entry.broke} />}
               {entry.next && <LogField label="Next time" color="#6d28d9" text={entry.next} />}
             </div>
@@ -253,7 +253,7 @@ function LogComposer({ authorUid, onClose, onSaved }: {
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="text-xs font-semibold block mb-1.5" style={{ color: '#1a6b52' }}>What I built <span className="text-stone-600 font-normal">· required</span></label>
+            <label className="text-xs font-semibold block mb-1.5" style={{ color: 'var(--bw-green-mid)' }}>What I built <span className="text-stone-600 font-normal">· required</span></label>
             <textarea value={built} onChange={e => setBuilt(e.target.value)} rows={2} autoFocus
               placeholder="The thing you shipped or made progress on this week"
               className="w-full resize-none rounded-xl border bg-stone-50 px-3 py-2 text-sm focus:outline-none focus:ring-2" style={{ borderColor: '#e7e5e4' }} />

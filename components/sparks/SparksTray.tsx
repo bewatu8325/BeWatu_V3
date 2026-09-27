@@ -20,7 +20,7 @@ const FORMAT_CONFIG = {
   win:          { icon: Flame,     label: 'Win',         hint: 'Share a recent accomplishment with a stat',  gradient: 'from-amber-500/20 to-amber-500/5',   accent: 'text-amber-400',  border: 'border-amber-500/30' },
   insight:      { icon: Lightbulb, label: 'Insight',     hint: 'One sentence that changed how you think',    gradient: 'from-teal-500/20 to-teal-500/5',     accent: 'text-teal-400',   border: 'border-teal-500/30' },
   goal:         { icon: Flag,      label: 'Goal',        hint: 'What you are working toward this week',      gradient: 'from-purple-500/20 to-purple-500/5', accent: 'text-purple-400', border: 'border-purple-500/30' },
-  'looking-for':{ icon: Link,      label: 'Looking for', hint: 'Collaborators, feedback, or opportunities',  gradient: 'from-cyan-500/20 to-cyan-500/5',     accent: 'text-[#1a4a3a]',  border: 'border-[#1a4a3a]/500/30' },
+  'looking-for':{ icon: Link,      label: 'Looking for', hint: 'Collaborators, feedback, or opportunities',  gradient: 'from-cyan-500/20 to-cyan-500/5',     accent: 'text-[var(--bw-green)]',  border: 'border-[var(--bw-green)]/500/30' },
   status:       { icon: MapPin,    label: 'Status',      hint: 'Available / Busy / Open to work',            gradient: 'from-rose-500/20 to-rose-500/5',     accent: 'text-rose-400',   border: 'border-rose-500/30' },
 };
 
@@ -139,7 +139,7 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
           <div className="flex gap-1 p-3 pb-0">
             {group.sparks.map((_, i) => (
               <div key={i} className="h-0.5 flex-1 rounded-full bg-stone-700 overflow-hidden">
-                <div className={`h-full rounded-full bg-[#1a6b52] transition-all duration-300 ${i < sparkIdx ? 'w-full' : i === sparkIdx ? 'w-full animate-pulse' : 'w-0'}`} />
+                <div className={`h-full rounded-full bg-[var(--bw-green-mid)] transition-all duration-300 ${i < sparkIdx ? 'w-full' : i === sparkIdx ? 'w-full animate-pulse' : 'w-0'}`} />
               </div>
             ))}
           </div>
@@ -147,7 +147,7 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
             {group.authorAvatar ? (
               <img src={group.authorAvatar} alt="" className="h-10 w-10 rounded-full object-cover" />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1a4a3a] text-xs font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--bw-green)] text-xs font-bold text-white">
                 {initials(group.authorName)}
               </div>
             )}
@@ -168,7 +168,7 @@ function SparkViewer({ groups, initialGroupIndex, onClose, onReacted, uid }: Spa
             {[
               { type: 'relate'  as ReactionType, icon: Heart, label: 'Relate',  active: relateActive,  count: reactions.relate?.length,  color: 'text-rose-400 bg-rose-400/15'  },
               { type: 'inspire' as ReactionType, icon: Zap,   label: 'Inspire', active: inspireActive, count: reactions.inspire?.length, color: 'text-amber-400 bg-amber-400/15' },
-              { type: 'collab'  as ReactionType, icon: Users, label: 'Collab',  active: collabActive,  count: reactions.collab?.length,  color: 'text-[#1a4a3a] bg-#1a4a3a/15'  },
+              { type: 'collab'  as ReactionType, icon: Users, label: 'Collab',  active: collabActive,  count: reactions.collab?.length,  color: 'text-[var(--bw-green)] bg-var(--bw-green)/15'  },
             ].map(({ type, icon: Icon, label, active, count, color }) => (
               <button key={type} onClick={() => handleReaction(type)}
                 className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium transition-all ${active ? color : 'text-stone-300 hover:bg-stone-800'}`}>
@@ -234,7 +234,7 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
               {FORMATS.map(({ value, label, icon: Icon }) => (
                 <button key={value} onClick={() => setFormat(value)}
                   className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all border ${format === value ? 'border-stone-800 text-white' : 'border-stone-200 text-stone-600 hover:bg-stone-50'}`}
-                  style={format === value ? { backgroundColor: '#1a4a3a' } : {}}>
+                  style={format === value ? { backgroundColor: 'var(--bw-green)' } : {}}>
                   <Icon className="h-3.5 w-3.5" />{label}
                 </button>
               ))}
@@ -267,7 +267,7 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
           </div>
           <button onClick={handleCreate} disabled={creating || !content.trim()}
             className="w-full rounded-xl px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            style={{ backgroundColor: '#1a4a3a' }}>
+            style={{ backgroundColor: 'var(--bw-green)' }}>
             {creating ? 'Sharing...' : 'Share Spark'}
           </button>
         </div>
@@ -328,13 +328,13 @@ export function SparksTray() {
                 {currentUser.avatarUrl ? (
                   <img src={currentUser.avatarUrl} alt="" className="h-12 w-12 rounded-full object-cover border-2 border-white" />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-medium text-white border-2 border-white" style={{ backgroundColor: '#1a4a3a' }}>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-medium text-white border-2 border-white" style={{ backgroundColor: 'var(--bw-green)' }}>
                     {initials(currentUser.name)}
                   </div>
                 )}
               </div>
               <FlameBadge active={myHasSpark} />
-              <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#1a4a3a] text-white shadow-sm" style={{ zIndex: 20 }}>
+              <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--bw-green)] text-white shadow-sm" style={{ zIndex: 20 }}>
                 <Plus className="h-3 w-3" />
               </div>
             </div>
@@ -355,7 +355,7 @@ export function SparksTray() {
                     {group.authorAvatar ? (
                       <img src={group.authorAvatar} alt="" className="h-12 w-12 rounded-full object-cover border-2 border-white" />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full text-xs font-medium text-white border-2 border-white" style={{ backgroundColor: '#1a4a3a' }}>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full text-xs font-medium text-white border-2 border-white" style={{ backgroundColor: 'var(--bw-green)' }}>
                         {initials(group.authorName)}
                       </div>
                     )}

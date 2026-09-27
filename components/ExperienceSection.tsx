@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Experience } from '../types';
 
-const GREEN     = '#1a4a3a';
-const GREEN_MID = '#1a6b52';
-const GREEN_LT  = '#e8f4f0';
+const GREEN     = 'var(--bw-green)';
+const GREEN_MID = 'var(--bw-green-mid)';
+const GREEN_LT  = 'var(--bw-green-light)';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const IconBriefcase = () => (
@@ -81,7 +81,7 @@ const ExperienceForm: React.FC<{
     }
   };
 
-  const inputCls = "w-full rounded-lg border bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/30";
+  const inputCls = "w-full rounded-lg border bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-[var(--bw-green)]/30";
   const borderStyle = { borderColor: '#e7e5e4' };
 
   return (

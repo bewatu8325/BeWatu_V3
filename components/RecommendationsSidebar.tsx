@@ -12,8 +12,8 @@ interface RecommendationsSidebarProps {
   onFollow?: (userId: number) => void;
 }
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
   jobs, users, companies, onViewProfile, onViewCompany, onFollow,

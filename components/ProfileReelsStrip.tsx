@@ -12,7 +12,7 @@ import { useFirebase } from '../contexts/FirebaseContext';
 import { getReelVibesByUser, toggleReelLike, incrementReelView, type ReelVibe } from '../lib/firestoreService';
 import { View } from '../types';
 
-const GREEN = '#1a4a3a';
+const GREEN = 'var(--bw-green)';
 
 // ─── Full screen player ───────────────────────────────────────────────────────
 function ReelPlayerModal({
@@ -201,7 +201,7 @@ export default function ProfileReelsStrip({ fbUid, isCurrentUser, onNavigate }: 
             onClick={() => onNavigate(View.Prove)}
             className="w-full flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed border-stone-200 hover:border-stone-300 transition-colors"
           >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#e8f4f0' }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--bw-green-light)' }}>
               <Plus className="w-5 h-5" style={{ color: GREEN }} />
             </div>
             <p className="text-sm font-semibold text-stone-600">Share your first Reel Vibe</p>

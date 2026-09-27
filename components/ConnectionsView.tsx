@@ -44,7 +44,7 @@ function Avatar({ user, size = 40 }: { user: User; size?: number }) {
   return (
     <div
       className="rounded-full flex items-center justify-center shrink-0 text-white font-bold"
-      style={{ width: s, height: s, backgroundColor: '#1a4a3a', fontSize: size * 0.35 }}
+      style={{ width: s, height: s, backgroundColor: 'var(--bw-green)', fontSize: size * 0.35 }}
     >
       {initials}
     </div>
@@ -188,7 +188,7 @@ function PendingTab({
                         onClick={() => act(() => onAccept(req.id), req.id)}
                         disabled={busy[req.id]}
                         className="flex-1 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                        style={{ backgroundColor: '#1a4a3a' }}
+                        style={{ backgroundColor: 'var(--bw-green)' }}
                       >
                         {busy[req.id] ? '…' : 'Accept'}
                       </button>
@@ -256,7 +256,7 @@ function PendingTab({
                           className="h-full rounded-full transition-all"
                           style={{
                             width: `${Math.min(100, (days / REQUEST_EXPIRY_DAYS) * 100)}%`,
-                            backgroundColor: days <= 7 ? '#f59e0b' : '#1a4a3a',
+                            backgroundColor: days <= 7 ? '#f59e0b' : 'var(--bw-green)',
                           }}
                         />
                       </div>
@@ -273,7 +273,7 @@ function PendingTab({
                         onClick={() => act(() => onRefresh(req.id), req.id)}
                         disabled={busy[req.id]}
                         className="flex-1 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                        style={{ backgroundColor: '#1a4a3a' }}
+                        style={{ backgroundColor: 'var(--bw-green)' }}
                       >
                         {busy[req.id] ? '…' : '↻ Refresh'}
                       </button>
@@ -330,7 +330,7 @@ function PendingTab({
                       onClick={() => act(() => onAcceptFollow!(req.id), req.id)}
                       disabled={busy[req.id] || !onAcceptFollow}
                       className="flex-1 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                      style={{ backgroundColor: '#1a4a3a' }}
+                      style={{ backgroundColor: 'var(--bw-green)' }}
                     >
                       {busy[req.id] ? '…' : 'Allow'}
                     </button>
@@ -1124,7 +1124,7 @@ function RecommendedTab({
                   <span
                     key={r}
                     className="rounded-full px-2.5 py-0.5 text-[11px] font-medium"
-                    style={{ color: '#1a4a3a', backgroundColor: '#e8f4f0' }}
+                    style={{ color: 'var(--bw-green)', backgroundColor: 'var(--bw-green-light)' }}
                   >
                     {r}
                   </span>
@@ -1148,7 +1148,7 @@ function RecommendedTab({
                   ? 'bg-stone-100 text-stone-600 cursor-default'
                   : 'text-white hover:opacity-90'
               }`}
-              style={sent.has(user.id) ? {} : { backgroundColor: '#1a4a3a' }}
+              style={sent.has(user.id) ? {} : { backgroundColor: 'var(--bw-green)' }}
             >
               {sent.has(user.id) ? '✓ Request sent' : 'Connect'}
             </button>
@@ -1257,7 +1257,7 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
                 }`}
                 style={
                   tab === t.id && !(t.id === 'pending' && incoming.length > 0)
-                    ? { backgroundColor: '#1a4a3a' }
+                    ? { backgroundColor: 'var(--bw-green)' }
                     : {}
                 }
               >

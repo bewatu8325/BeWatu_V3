@@ -40,10 +40,10 @@ import {
 } from '../../lib/verification';
 import { VerifiedBadge, UnverifiedWarningBanner } from '../VerifiedBadge';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 const CARD  = 'rounded-2xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm';
-const INPUT = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-600 outline-none focus:border-[#1a4a3a] focus:ring-2 focus:ring-[#1a4a3a]/10 transition-all';
+const INPUT = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-600 outline-none focus:border-[var(--bw-green)] focus:ring-2 focus:ring-[var(--bw-green)]/10 transition-all';
 const BTN_G = 'rounded-xl px-4 py-2.5 text-sm font-black text-white hover:opacity-90 disabled:opacity-40 transition-opacity';
 const BTN_O = 'rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors';
 
@@ -386,8 +386,8 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                 { icon: Link2, title: 'Join with invite code', sub: 'Your admin sent a 6-character code', s: 'redeem_code' as ScreenState },
               ].map(({ icon: Icon, title, sub, s }) => (
                 <button key={s} onClick={() => setScreen(s)}
-                  className="flex flex-col items-start gap-3 rounded-2xl border-2 border-dashed border-stone-200 p-5 text-left hover:border-[#1a4a3a] hover:bg-[#e8f4f0] transition-all group">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-100 group-hover:bg-[#1a4a3a] transition-colors">
+                  className="flex flex-col items-start gap-3 rounded-2xl border-2 border-dashed border-stone-200 p-5 text-left hover:border-[var(--bw-green)] hover:bg-[var(--bw-green-light)] transition-all group">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-100 group-hover:bg-[var(--bw-green)] transition-colors">
                     <Icon className="h-5 w-5 text-stone-600 group-hover:text-white transition-colors" />
                   </div>
                   <div>
@@ -701,7 +701,7 @@ const CompanyVerification: React.FC<Props> = ({ currentUserName, onCompanyVerifi
                     <span className="font-mono text-sm font-black tracking-widest text-stone-700">{invite.code}</span>
                     {invite.forEmail && <span className="flex items-center gap-1 text-xs text-stone-600"><Mail className="h-3 w-3" />{invite.forEmail}</span>}
                     <span className="ml-auto text-xs text-stone-600">Expires {new Date(invite.expiresAt).toLocaleDateString()}</span>
-                    <button onClick={() => handleCopy(invite.code)} className="text-stone-600 hover:text-[#1a4a3a] p-1"><Copy className="h-4 w-4" /></button>
+                    <button onClick={() => handleCopy(invite.code)} className="text-stone-600 hover:text-[var(--bw-green)] p-1"><Copy className="h-4 w-4" /></button>
                   </div>
                 ))}
               </div>

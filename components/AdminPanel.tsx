@@ -56,9 +56,9 @@ import {
 } from '../lib/verification';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const G   = '#1a4a3a';   // brand green
-const GLT = '#e8f4f0';   // light green bg
-const GMD = '#1a6b52';   // mid green
+const G   = 'var(--bw-green)';   // brand green
+const GLT = 'var(--bw-green-light)';   // light green bg
+const GMD = 'var(--bw-green-mid)';   // mid green
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AdminView =
@@ -91,7 +91,7 @@ interface Props {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const INPUT = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-600 outline-none focus:border-[#1a4a3a] focus:ring-2 focus:ring-[#1a4a3a]/10 transition-all';
+const INPUT = 'w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-600 outline-none focus:border-[var(--bw-green)] focus:ring-2 focus:ring-[var(--bw-green)]/10 transition-all';
 const CARD  = 'rounded-2xl border border-stone-200 bg-white shadow-sm';
 const BTN_G = `rounded-xl px-4 py-2.5 text-sm font-black text-white hover:opacity-90 transition-opacity disabled:opacity-40`;
 const BTN_O = `rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors`;
@@ -124,7 +124,7 @@ function StatusPill({ status }: { status?: CompanyVerificationStatus }) {
 
 function AuditBadge({ action }: { action: string }) {
   const map: Record<string, { label: string; color: string; bg: string }> = {
-    company_created:   { label: 'Created',    color: '#1a4a3a', bg: '#e8f4f0' },
+    company_created:   { label: 'Created',    color: 'var(--bw-green)', bg: 'var(--bw-green-light)' },
     company_updated:   { label: 'Updated',    color: '#1d4ed8', bg: '#eff6ff' },
     company_verified:  { label: 'Verified',   color: '#059669', bg: '#ecfdf5' },
     company_rejected:  { label: 'Rejected',   color: '#dc2626', bg: '#fef2f2' },
@@ -132,7 +132,7 @@ function AuditBadge({ action }: { action: string }) {
     company_reinstated:{ label: 'Reinstated', color: '#7c3aed', bg: '#f5f3ff' },
     company_deleted:   { label: 'Deleted',    color: '#9f1239', bg: '#fff1f2' },
     admin_assigned:    { label: 'Admin set',  color: '#0e7490', bg: '#ecfeff' },
-    recruiter_granted: { label: 'Access ✓',   color: '#1a4a3a', bg: '#e8f4f0' },
+    recruiter_granted: { label: 'Access ✓',   color: 'var(--bw-green)', bg: 'var(--bw-green-light)' },
     recruiter_revoked: { label: 'Access ✗',   color: '#dc2626', bg: '#fef2f2' },
   };
   const cfg = map[action] ?? { label: action, color: '#57534e', bg: '#f5f5f4' };
@@ -664,7 +664,7 @@ function CompanyDetail({
                     <button key={u._firestoreUid}
                       onClick={() => { setAddRecruiterUid(u._firestoreUid); setAddRecruiterName(u.name); }}
                       className={`rounded-full px-3 py-1 text-xs font-bold border transition-colors ${
-                        addRecruiterUid === u._firestoreUid ? 'border-[#1a4a3a] bg-[#e8f4f0] text-[#1a4a3a]' : 'border-stone-200 text-stone-600 hover:border-stone-400'
+                        addRecruiterUid === u._firestoreUid ? 'border-[var(--bw-green)] bg-[var(--bw-green-light)] text-[var(--bw-green)]' : 'border-stone-200 text-stone-600 hover:border-stone-400'
                       }`}>{u.name}</button>
                   ))}
                 </div>

@@ -201,7 +201,7 @@ async function writeFraudReport(
 const ProgressDots: React.FC<{ step: number }> = ({ step }) => (
   <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
     {[0, 1, 2].map(i => (
-      <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', transition: 'background 0.2s', background: i < step ? '#1a4a3a' : i === step ? '#a7c4b5' : '#e7e5e4' }} />
+      <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', transition: 'background 0.2s', background: i < step ? 'var(--bw-green)' : i === step ? '#a7c4b5' : '#e7e5e4' }} />
     ))}
   </div>
 );
@@ -213,7 +213,7 @@ const DetailsArea: React.FC<{ value: string; onChange: (v: string) => void; plac
     </label>
     <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={required ? 4 : 3}
       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e7e5e4', background: '#fafaf9', color: '#1c1917', fontSize: 13, lineHeight: 1.5, resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
-      onFocus={e => (e.target.style.borderColor = '#1a4a3a')}
+      onFocus={e => (e.target.style.borderColor = 'var(--bw-green)')}
       onBlur={e  => (e.target.style.borderColor = '#e7e5e4')}
     />
     {required && <p style={{ color: value.trim().length < 10 ? '#92400e' : '#57534e', fontSize: 11, marginTop: 4 }}>{value.trim().length}/10 minimum characters</p>}
@@ -222,7 +222,7 @@ const DetailsArea: React.FC<{ value: string; onChange: (v: string) => void; plac
 
 const PrimaryBtn: React.FC<{ onClick: () => void; disabled?: boolean; children: React.ReactNode }> = ({ onClick, disabled, children }) => (
   <button onClick={onClick} disabled={disabled}
-    style={{ background: disabled ? '#e7e5e4' : '#1a4a3a', color: disabled ? '#a8a29e' : '#fff', border: 'none', borderRadius: 10, padding: '10px 22px', fontSize: 14, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 8 }}>
+    style={{ background: disabled ? '#e7e5e4' : 'var(--bw-green)', color: disabled ? '#a8a29e' : '#fff', border: 'none', borderRadius: 10, padding: '10px 22px', fontSize: 14, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 8 }}>
     {children}
   </button>
 );
@@ -299,7 +299,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
           <button key={opt.type}
             onClick={() => { setReportType(opt.type); setStep('detail'); }}
             style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 16px', background: '#fafaf9', border: '1.5px solid #e7e5e4', borderRadius: 12, cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.12s', fontFamily: 'inherit' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#1a4a3a'; e.currentTarget.style.background = '#f0f9f5'; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--bw-green)'; e.currentTarget.style.background = '#f0f9f5'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = '#e7e5e4'; e.currentTarget.style.background = '#fafaf9'; }}
           >
             <span style={{ fontSize: 22, lineHeight: 1, marginTop: 1 }}>{opt.icon}</span>
@@ -334,10 +334,10 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
               {FRAUD_TYPES.map(opt => (
                 <button key={opt.value}
                   onClick={() => setFraudType(opt.value)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit', border: `1.5px solid ${fraudType === opt.value ? '#1a4a3a' : '#e7e5e4'}`, background: fraudType === opt.value ? '#f0f9f5' : '#fafaf9', transition: 'all 0.12s' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit', border: `1.5px solid ${fraudType === opt.value ? 'var(--bw-green)' : '#e7e5e4'}`, background: fraudType === opt.value ? '#f0f9f5' : '#fafaf9', transition: 'all 0.12s' }}>
                   <span style={{ fontSize: 18, flexShrink: 0 }}>{opt.icon}</span>
-                  <p style={{ color: fraudType === opt.value ? '#1a4a3a' : '#44403c', fontSize: 13, fontWeight: fraudType === opt.value ? 700 : 500, margin: 0, lineHeight: 1.4, flex: 1 }}>{opt.label}</p>
-                  {fraudType === opt.value && <span style={{ color: '#1a4a3a', fontSize: 15, flexShrink: 0 }}>✓</span>}
+                  <p style={{ color: fraudType === opt.value ? 'var(--bw-green)' : '#44403c', fontSize: 13, fontWeight: fraudType === opt.value ? 700 : 500, margin: 0, lineHeight: 1.4, flex: 1 }}>{opt.label}</p>
+                  {fraudType === opt.value && <span style={{ color: 'var(--bw-green)', fontSize: 15, flexShrink: 0 }}>✓</span>}
                 </button>
               ))}
             </div>
@@ -349,7 +349,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
               {(reportType === 'content' ? CONTENT_REASONS : USER_REASONS).map(r => (
                 <button key={r.value} onClick={() => setReason(r.value)}
-                  style={{ padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', border: `1.5px solid ${reason === r.value ? '#1a4a3a' : '#e7e5e4'}`, background: reason === r.value ? '#f0f9f5' : '#fafaf9', color: reason === r.value ? '#1a4a3a' : '#44403c', fontSize: 13, fontWeight: reason === r.value ? 700 : 500, transition: 'all 0.12s', lineHeight: 1.4, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  style={{ padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', border: `1.5px solid ${reason === r.value ? 'var(--bw-green)' : '#e7e5e4'}`, background: reason === r.value ? '#f0f9f5' : '#fafaf9', color: reason === r.value ? 'var(--bw-green)' : '#44403c', fontSize: 13, fontWeight: reason === r.value ? 700 : 500, transition: 'all 0.12s', lineHeight: 1.4, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                   {reason === r.value && <span style={{ marginTop: 1, flexShrink: 0 }}>✓</span>}
                   {r.label}
                 </button>
@@ -376,11 +376,11 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
     return (
       <div>
         <div style={{ background: '#f0f9f5', border: '1px solid #a7f3d0', borderRadius: 12, padding: 18, marginBottom: 18 }}>
-          <p style={{ color: '#1a4a3a', fontWeight: 700, fontSize: 14, margin: '0 0 12px' }}>Review your report</p>
+          <p style={{ color: 'var(--bw-green)', fontWeight: 700, fontSize: 14, margin: '0 0 12px' }}>Review your report</p>
           {rows.map(([k, v]) => (
             <div key={k} style={{ display: 'flex', gap: 12, padding: '5px 0', borderBottom: '1px solid #d1fae5' }}>
               <span style={{ color: '#6ee7b7', fontSize: 12, fontWeight: 700, minWidth: 80, flexShrink: 0 }}>{k}</span>
-              <span style={{ color: '#1a4a3a', fontSize: 13 }}>{v}</span>
+              <span style={{ color: 'var(--bw-green)', fontSize: 13 }}>{v}</span>
             </div>
           ))}
         </div>
@@ -400,7 +400,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
 
   const renderDoneStep = () => (
     <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
-      <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'linear-gradient(135deg,#1a4a3a,#10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', fontSize: 26, color: '#fff' }}>✓</div>
+      <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'linear-gradient(135deg,var(--bw-green),#10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', fontSize: 26, color: '#fff' }}>✓</div>
       <h3 style={{ color: '#1c1917', fontWeight: 800, fontSize: 18, margin: '0 0 8px' }}>Report received</h3>
       <p style={{ color: '#57534e', fontSize: 14, lineHeight: 1.6, margin: '0 0 18px' }}>
         Thank you for helping keep BeWatu safe. Our Trust &amp; Safety team will review your report{reportType === 'fraud' ? ' as a priority' : ' within 24 hours'}.
@@ -418,7 +418,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
           : ['Our Trust & Safety team will review the report', 'If it violates our guidelines, appropriate action will be taken', 'Your identity is protected — the reported party will not know who filed this']
         ).map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 5 }}>
-            <span style={{ color: '#1a4a3a', flexShrink: 0, marginTop: 1 }}>→</span>
+            <span style={{ color: 'var(--bw-green)', flexShrink: 0, marginTop: 1 }}>→</span>
             <p style={{ color: '#57534e', fontSize: 13, margin: 0, lineHeight: 1.5 }}>{item}</p>
           </div>
         ))}

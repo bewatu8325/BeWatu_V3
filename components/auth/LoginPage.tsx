@@ -83,7 +83,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
       {/* ── Left panel — dark green brand ──────────────────────────────── */}
       <div
         className="hidden lg:flex lg:w-5/12 flex-col justify-between p-12"
-        style={{ backgroundColor: '#1a4a3a' }}
+        style={{ backgroundColor: 'var(--bw-green)' }}
       >
         {/* Logo */}
         <button onClick={onNavigateToLanding} className="hover:opacity-80 transition-opacity">
@@ -111,7 +111,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
       <div className="flex-1 flex flex-col items-center justify-center bg-stone-50 px-6 py-12">
         {/* Mobile logo */}
         <button onClick={onNavigateToLanding} aria-label="Go to BeWatu home" className="mb-8 lg:hidden hover:opacity-80 transition-opacity">
-          <LogoIcon className="h-10 w-auto" style={{ color: '#1a4a3a' }} />
+          <LogoIcon className="h-10 w-auto" style={{ color: 'var(--bw-green)' }} />
         </button>
 
         <div className="w-full max-w-sm">
@@ -160,7 +160,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                   type="button"
                   onClick={onNavigateToForgotPassword}
                   className="text-sm font-semibold hover:underline"
-                  style={{ color: '#1a6b52' }}
+                  style={{ color: 'var(--bw-green-mid)' }}
                 >
                   Forgot password?
                 </button>
@@ -203,7 +203,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
               type="submit"
               disabled={isLoading}
               className="w-full rounded-xl py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99] disabled:opacity-60"
-              style={{ backgroundColor: '#1a4a3a' }}
+              style={{ backgroundColor: 'var(--bw-green)' }}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -249,18 +249,18 @@ const LoginPage: React.FC<LoginPageProps> = ({
             {userType === 'user' ? (
               <>
                 Don't have an account?{' '}
-                <button onClick={onNavigateToRegister} className="font-semibold hover:underline" style={{ color: '#1a6b52' }}>
+                <button onClick={onNavigateToRegister} className="font-semibold hover:underline" style={{ color: 'var(--bw-green-mid)' }}>
                   Sign up
                 </button>
                 <span className="mx-2 text-gray-300">·</span>
-                <button onClick={() => setUserType('recruiter')} className="font-semibold hover:underline" style={{ color: '#1a6b52' }}>
+                <button onClick={() => setUserType('recruiter')} className="font-semibold hover:underline" style={{ color: 'var(--bw-green-mid)' }}>
                   Recruiter login
                 </button>
               </>
             ) : (
               <>
                 Not a recruiter?{' '}
-                <button onClick={() => setUserType('user')} className="font-semibold hover:underline" style={{ color: '#1a6b52' }}>
+                <button onClick={() => setUserType('user')} className="font-semibold hover:underline" style={{ color: 'var(--bw-green-mid)' }}>
                   User login
                 </button>
               </>

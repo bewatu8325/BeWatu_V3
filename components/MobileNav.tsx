@@ -6,7 +6,7 @@ import {
 import { View } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
 
-const GREEN = '#1a4a3a';
+const GREEN = 'var(--bw-green)';
 
 // Primary nav — always visible in bottom bar (5 items max for comfortable tapping)
 const PRIMARY_NAV = [
@@ -85,7 +85,7 @@ export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0 
                     onClick={() => navigate(view)}
                     className="flex items-center gap-4 w-full py-3.5 px-4 rounded-2xl transition-all active:scale-[0.98]"
                     style={{ 
-                      background: active ? '#e8f4f0' : 'transparent',
+                      background: active ? 'var(--bw-green-light)' : 'transparent',
                       color: active ? GREEN : '#44403c',
                     }}
                   >

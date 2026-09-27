@@ -20,8 +20,8 @@ import { addComment, subscribeToComments, notifyPostAuthor, PostComment } from '
 import { trackCommentMade, trackReactionGiven } from '../lib/analytics/track';
 import type { Post, User, AppreciationType } from '../types';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 // ── Reaction config ───────────────────────────────────────────────────────────
 

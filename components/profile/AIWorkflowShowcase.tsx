@@ -7,7 +7,7 @@
  * AI workflows: the task, the tools, the step-by-step recipe (prompt / check /
  * human edit), and the outcome. Proves AI orchestration, not just AI usage.
  *
- * Matches platform design language: white rounded-2xl cards, #1a4a3a green,
+ * Matches platform design language: white rounded-2xl cards, var(--bw-green) green,
  * stone palette, icon-in-rounded-square headers. Self-contained — manages its
  * own Firestore data, mirrors the SkillDNA / ExperienceSection pattern.
  *
@@ -23,8 +23,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
-const GREEN = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 type StepType = 'prompt' | 'check' | 'edit';
 
@@ -45,7 +45,7 @@ interface AIWorkflow {
 }
 
 const STEP_META: Record<StepType, { label: string; color: string; bg: string; icon: string }> = {
-  prompt: { label: 'Prompt',     color: '#1a6b52', bg: GREEN_LT,   icon: '›_' },
+  prompt: { label: 'Prompt',     color: 'var(--bw-green-mid)', bg: GREEN_LT,   icon: '›_' },
   check:  { label: 'Check',      color: '#b45309', bg: '#fef3c7',  icon: '✓'  },
   edit:   { label: 'Human edit', color: '#6d28d9', bg: '#ede9fe',  icon: '✎'  },
 };
@@ -144,7 +144,7 @@ const AIWorkflowShowcase: React.FC<Props> = ({ profileUid, isOwn }) => {
                       <p className="text-xs text-stone-600 mt-0.5 line-clamp-1">{wf.task}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-[10px] font-medium rounded-full px-2 py-0.5" style={{ backgroundColor: GREEN_LT, color: '#1a6b52' }}>
+                      <span className="text-[10px] font-medium rounded-full px-2 py-0.5" style={{ backgroundColor: GREEN_LT, color: 'var(--bw-green-mid)' }}>
                         {wf.steps.length} steps
                       </span>
                       <svg className={`w-4 h-4 text-stone-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
@@ -182,7 +182,7 @@ const AIWorkflowShowcase: React.FC<Props> = ({ profileUid, isOwn }) => {
                     {/* Outcome */}
                     {wf.outcome && (
                       <div className="mt-3 rounded-lg p-3" style={{ backgroundColor: GREEN_LT }}>
-                        <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#1a6b52' }}>Outcome</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--bw-green-mid)' }}>Outcome</span>
                         <p className="text-sm text-stone-700 mt-0.5">{wf.outcome}</p>
                       </div>
                     )}
@@ -317,7 +317,7 @@ function WorkflowEditor({ existing, authorUid, onClose, onSaved }: {
                 </div>
               ))}
             </div>
-            <button onClick={addStep} className="mt-2 text-xs font-semibold flex items-center gap-1" style={{ color: '#1a6b52' }}>
+            <button onClick={addStep} className="mt-2 text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--bw-green-mid)' }}>
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
               Add step
             </button>

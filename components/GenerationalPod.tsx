@@ -8,8 +8,8 @@
 import React, { useState } from 'react';
 import { Users, Zap, Lock, CheckCircle, ArrowRight } from 'lucide-react';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 export type CareerStage = 'emerging' | 'growing' | 'established' | 'veteran';
 
@@ -17,7 +17,7 @@ const STAGE_LABELS: Record<CareerStage, { label: string; years: string; colour: 
   emerging:    { label: 'Emerging',    years: '0–3 yrs',   colour: '#7c3aed', bg: '#ede9fe' },
   growing:     { label: 'Growing',     years: '4–10 yrs',  colour: '#0891b2', bg: '#cffafe' },
   established: { label: 'Established', years: '11–20 yrs', colour: '#d97706', bg: '#fef3c7' },
-  veteran:     { label: 'Veteran',     years: '20+ yrs',   colour: '#1a4a3a', bg: '#d1fae5' },
+  veteran:     { label: 'Veteran',     years: '20+ yrs',   colour: 'var(--bw-green)', bg: '#d1fae5' },
 };
 
 export interface GenerationalPodMember {

@@ -10,8 +10,8 @@ import { View } from '../types';
 import { Factory, Loader2 } from 'lucide-react';
 import { goToFactory } from '../utils/factoryHandoff';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 // ── Notification item type ────────────────────────────────────────────────────
 interface NotifItem {
@@ -392,7 +392,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
       <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center gap-2 sm:gap-4 px-3 sm:px-4">
         {/* Logo */}
         <button onClick={() => onNavigate(View.Feed)} aria-label="Go to feed" className="flex items-center shrink-0">
-          <LogoIcon className="h-8 sm:h-10 w-auto" style={{ color: "#1a4a3a" }} />
+          <LogoIcon className="h-8 sm:h-10 w-auto" style={{ color: "var(--bw-green)" }} />
         </button>
 
         {/* Search */}
@@ -418,7 +418,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
                 key={view}
                 onClick={() => onNavigate(view)}
                 className={`relative flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${active ? "font-semibold" : "text-stone-600 hover:text-stone-800"}`}
-                style={active ? { color: "#1a4a3a" } : {}}
+                style={active ? { color: "var(--bw-green)" } : {}}
               >
                 <span className="relative">
                   <Icon className="h-5 w-5" />
@@ -470,7 +470,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
             {currentUser?.avatarUrl ? (
               <img src={currentUser.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: "#1a4a3a" }}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: "var(--bw-green)" }}>
                 {initials}
               </div>
             )}
@@ -490,7 +490,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
               </button>
               {onSwitchToRecruiter && (
                 <button onClick={() => { onSwitchToRecruiter(); setMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-green-50 transition-colors" style={{ color: "#1a4a3a" }}>
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-green-50 transition-colors" style={{ color: "var(--bw-green)" }}>
                   <Briefcase className="h-4 w-4" />Switch to Recruiter
                 </button>
               )}
@@ -514,7 +514,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
   onClick={() => { handleGoToFactory(); setMenuOpen(false); }}
   disabled={factoryLoading}
   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-green-50 transition-colors"
-  style={{ color: "#1a4a3a" }}
+  style={{ color: "var(--bw-green)" }}
 >
   {factoryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Factory className="h-4 w-4" />}
   {factoryLoading ? "Launching…" : "Go to Factory →"}

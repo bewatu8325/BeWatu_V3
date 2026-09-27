@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 import { auth } from '../lib/firebase';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 // ── Career stage config (mirrors GenerationalPod.tsx) ────────────────────────
 
@@ -33,7 +33,7 @@ const STAGE_CONFIG: Record<CareerStage, { label: string; colour: string; bg: str
   emerging:    { label: 'Emerging',    colour: '#7c3aed', bg: '#ede9fe', years: '0–3 yrs' },
   growing:     { label: 'Growing',     colour: '#0891b2', bg: '#cffafe', years: '4–10 yrs' },
   established: { label: 'Established', colour: '#d97706', bg: '#fef3c7', years: '11–20 yrs' },
-  veteran:     { label: 'Veteran',     colour: '#1a4a3a', bg: '#d1fae5', years: '20+ yrs' },
+  veteran:     { label: 'Veteran',     colour: 'var(--bw-green)', bg: '#d1fae5', years: '20+ yrs' },
 };
 
 // ── AI helper ─────────────────────────────────────────────────────────

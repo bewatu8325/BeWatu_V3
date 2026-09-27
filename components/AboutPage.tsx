@@ -2,8 +2,8 @@ import React from 'react';
 import { LogoIcon } from '../constants';
 import Footer from './Footer';
 
-const GREEN    = '#1a4a3a';
-const GREENMID = '#1a6b52';
+const GREEN    = 'var(--bw-green)';
+const GREENMID = 'var(--bw-green-mid)';
 const BG       = '#f0ede6';
 
 const AboutPage: React.FC<{
@@ -105,7 +105,7 @@ const AboutPage: React.FC<{
       </section>
 
       {/* Values */}
-      <section className="border-t py-16" style={{ borderColor: '#e8e4dc', backgroundColor: '#e8f4f0' }}>
+      <section className="border-t py-16" style={{ borderColor: '#e8e4dc', backgroundColor: 'var(--bw-green-light)' }}>
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-3xl font-extrabold text-stone-900 mb-10">What we believe</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">

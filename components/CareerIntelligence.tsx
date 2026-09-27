@@ -71,7 +71,7 @@ function getProfileStrength(user: User): {
     'Just started';
 
   const color =
-    score >= 80 ? '#1a6b52' :
+    score >= 80 ? 'var(--bw-green-mid)' :
     score >= 60 ? '#d97706' :
     '#dc2626';
 
@@ -131,7 +131,7 @@ function InsightCard({
       {action && onAction && (
         <button onClick={onAction}
           className="flex items-center gap-1 text-xs font-semibold transition-colors"
-          style={{ color: '#1a4a3a' }}>
+          style={{ color: 'var(--bw-green)' }}>
           {action} <ChevronRight size={12} />
         </button>
       )}
@@ -313,7 +313,7 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
 
       {/* Network health */}
       <InsightCard
-        icon={<Users size={16} style={{ color: '#1a4a3a' }} />}
+        icon={<Users size={16} style={{ color: 'var(--bw-green)' }} />}
         iconBg="#d1fae5"
         title="Network health"
         action="Find connections"
@@ -336,7 +336,7 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
       </InsightCard>
 
       {/* Generational bridge prompt */}
-      <div className="rounded-2xl border-2 p-5" style={{ borderColor: '#1a4a3a', backgroundColor: '#f0fdf4' }}>
+      <div className="rounded-2xl border-2 p-5" style={{ borderColor: 'var(--bw-green)', backgroundColor: '#f0fdf4' }}>
         <div className="flex items-center gap-2 mb-2">
           <Star size={14} className="text-emerald-700" />
           <p className="text-xs font-semibold text-emerald-800 uppercase tracking-widest">
@@ -353,7 +353,7 @@ Give a single actionable career nudge. No lists. No headers. Just 2 sentences.`;
         <button
           onClick={() => onNavigate?.(View.Feed)}
           className="text-xs font-semibold flex items-center gap-1 transition-colors"
-          style={{ color: '#1a4a3a' }}
+          style={{ color: 'var(--bw-green)' }}
         >
           Write a Wisdom Thread <ChevronRight size={12} />
         </button>

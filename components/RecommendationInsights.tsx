@@ -14,8 +14,8 @@ import React, { useEffect, useState } from 'react';
 import { loadProfile, type RecommendationProfile } from '../lib/recommendation/profile';
 import { recommendationsOptedOut, setRecommendationsOptOut } from '../hooks/useRecommendations';
 
-const GREEN = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 
 interface Props {
   uid: string;

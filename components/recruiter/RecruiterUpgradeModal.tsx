@@ -12,8 +12,8 @@ import { X, Building2, Mail, CheckCircle, ArrowRight, Shield, Briefcase, Users, 
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
-const GREEN = "#1a4a3a";
-const GREEN_LT = "#e8f4f0";
+const GREEN = "var(--bw-green)";
+const GREEN_LT = "var(--bw-green-light)";
 
 type Step = "benefits" | "details" | "verify" | "hiring" | "rules" | "pending";
 
@@ -111,7 +111,7 @@ export const RecruiterUpgradeModal: React.FC<RecruiterUpgradeModalProps> = ({ cu
 
   const stepOrder: Step[] = ["benefits","details","verify","hiring","rules","pending"];
   const currentIndex = stepOrder.indexOf(step);
-  const inp = "w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-[#1a4a3a]/20";
+  const inp = "w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-[var(--bw-green)]/20";
 
   const chipStyle = (active: boolean) => active
     ? { backgroundColor: GREEN_LT, color: GREEN, borderColor: GREEN }

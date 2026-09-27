@@ -9,8 +9,8 @@
 import React, { useState } from 'react';
 import { BookOpen, Heart, Bookmark, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 const AMBER    = '#d97706';
 const AMBER_LT = '#fef3c7';
 

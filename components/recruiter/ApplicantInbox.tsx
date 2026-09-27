@@ -53,7 +53,7 @@ interface JobWithCount {
 // applied candidate. Now keyed on the same canonical `stage` vocabulary
 // TalentPipeline.tsx uses, via lib/applicationStage.ts.
 const STAGE_CONFIG: Record<ApplicationStage, { label: string; color: string; bg: string; icon: typeof AlertCircle }> = {
-  'New Applicants': { label: 'New',        color: 'text-[#1a6b52]', bg: 'bg-[#e8f4f0] border-[#1a4a3a]/20',    icon: AlertCircle },
+  'New Applicants': { label: 'New',        color: 'text-[var(--bw-green-mid)]', bg: 'bg-[var(--bw-green-light)] border-[var(--bw-green)]/20',    icon: AlertCircle },
   Sourced:          { label: 'Sourced',    color: 'text-sky-600',   bg: 'bg-sky-500/10 border-sky-500/20',     icon: Search      },
   Screening:        { label: 'Screening',  color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock       },
   Interview:        { label: 'Interview',  color: 'text-indigo-500',bg: 'bg-indigo-500/10 border-indigo-500/20', icon: Calendar  },
@@ -112,7 +112,7 @@ function ApplicantCard({
   const appliedDate = applicant.appliedAt?.toDate?.()?.toLocaleDateString() ?? 'Recently';
 
   return (
-    <div className={`rounded-xl border transition-all ${expanded ? 'border-[#1a4a3a]/30 bg-white/80' : 'border-stone-200 bg-white/40 hover:border-stone-200'}`}>
+    <div className={`rounded-xl border transition-all ${expanded ? 'border-[var(--bw-green)]/30 bg-white/80' : 'border-stone-200 bg-white/40 hover:border-stone-200'}`}>
       {/* Main row */}
       <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpanded(e => !e)}>
         {/* Avatar */}
@@ -218,7 +218,7 @@ function ApplicantCard({
                 onChange={e => setNoteText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddNote()}
                 placeholder="Add a private note..."
-                className="flex-1 rounded-lg border  bg-stone-50 px-3 py-1.5 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+                className="flex-1 rounded-lg border  bg-stone-50 px-3 py-1.5 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
               />
               <button
                 onClick={handleAddNote}
@@ -245,7 +245,7 @@ function JobRow({ job, isSelected, onClick }: { job: JobWithCount; isSelected: b
       onClick={onClick}
       className={`w-full flex items-center gap-3 rounded-xl border p-4 text-left transition-all ${
         isSelected
-          ? 'border-[#1a4a3a]/40 bg-[#1a4a3a]/5'
+          ? 'border-[var(--bw-green)]/40 bg-[var(--bw-green)]/5'
           : 'border-stone-200 bg-white/40 hover:border-stone-200'
       }`}
     >
@@ -261,7 +261,7 @@ function JobRow({ job, isSelected, onClick }: { job: JobWithCount; isSelected: b
           <Users className="h-3.5 w-3.5 text-stone-600" />{job.applicantCount}
         </span>
         {job.newCount > 0 && (
-          <span className="rounded-full bg-[#1a4a3a] px-1.5 py-0.5 text-[10px] font-bold text-white">
+          <span className="rounded-full bg-[var(--bw-green)] px-1.5 py-0.5 text-[10px] font-bold text-white">
             {job.newCount} new
           </span>
         )}
@@ -269,7 +269,7 @@ function JobRow({ job, isSelected, onClick }: { job: JobWithCount; isSelected: b
           <span className="text-[10px] text-red-600">Expired</span>
         )}
       </div>
-      <ChevronRight className={`h-4 w-4 text-stone-600 shrink-0 transition-transform ${isSelected ? 'rotate-90 text-[#1a6b52]' : ''}`} />
+      <ChevronRight className={`h-4 w-4 text-stone-600 shrink-0 transition-transform ${isSelected ? 'rotate-90 text-[var(--bw-green-mid)]' : ''}`} />
     </button>
   );
 }
@@ -355,7 +355,7 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
-            <Inbox className="h-5 w-5 text-[#1a6b52]" />Applicant Inbox
+            <Inbox className="h-5 w-5 text-[var(--bw-green-mid)]" />Applicant Inbox
           </h1>
           <p className="mt-0.5 text-sm text-stone-600">
             {jobs.length} active {jobs.length === 1 ? 'role' : 'roles'} · {jobs.reduce((s, j) => s + j.applicantCount, 0)} total applicants
@@ -427,7 +427,7 @@ export function ApplicantInbox({ onViewProfile }: ApplicantInboxProps) {
                       onClick={() => setStageFilter(s)}
                       className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                         stageFilter === s
-                          ? s === 'all' ? 'bg-[#1a4a3a] text-white' : `${cfg!.bg} ${cfg!.color} border`
+                          ? s === 'all' ? 'bg-[var(--bw-green)] text-white' : `${cfg!.bg} ${cfg!.color} border`
                           : 'bg-stone-100/50 text-stone-600 hover:text-stone-800'
                       }`}
                     >

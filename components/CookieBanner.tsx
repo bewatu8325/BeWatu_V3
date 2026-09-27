@@ -60,7 +60,7 @@ function Toggle({ checked, onChange, disabled }: ToggleProps) {
       onClick={() => !disabled && onChange(!checked)}
       className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none ${
         disabled ? 'cursor-not-allowed opacity-60' :
-        checked   ? 'bg-[#1a4a3a]' : 'bg-stone-200'
+        checked   ? 'bg-[var(--bw-green)]' : 'bg-stone-200'
       }`}
       aria-checked={checked}
       role="switch"
@@ -121,7 +121,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
                     We use essential cookies to keep BeWatu running. You choose whether we collect analytics or marketing data.{' '}
                     <button
                       onClick={onShowPrivacy}
-                      className="text-[#1a4a3a] underline underline-offset-2 hover:no-underline">
+                      className="text-[var(--bw-green)] underline underline-offset-2 hover:no-underline">
                       Privacy Policy
                     </button>
                   </p>
@@ -132,7 +132,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
                 <button
                   onClick={() => save(true, true)}
                   className="w-full py-2 px-4 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-                  style={{ backgroundColor: '#1a4a3a' }}>
+                  style={{ backgroundColor: 'var(--bw-green)' }}>
                   Accept all
                 </button>
                 <div className="grid grid-cols-2 gap-2">
@@ -170,7 +170,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
                   </p>
                 </div>
                 <div className="flex-shrink-0 pt-0.5">
-                  <span className="text-[11px] font-semibold text-[#1a4a3a] bg-[#e8f4f0] px-2 py-0.5 rounded-full whitespace-nowrap">
+                  <span className="text-[11px] font-semibold text-[var(--bw-green)] bg-[var(--bw-green-light)] px-2 py-0.5 rounded-full whitespace-nowrap">
                     Always on
                   </span>
                 </div>
@@ -220,7 +220,7 @@ export default function CookieBanner({ onShowPrivacy, onConsentChange }: CookieB
               <button
                 onClick={() => save(analytics, marketing)}
                 className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: '#1a4a3a' }}>
+                style={{ backgroundColor: 'var(--bw-green)' }}>
                 Save my choices
               </button>
 

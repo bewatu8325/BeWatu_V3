@@ -317,7 +317,7 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
             </div>
         )}
 
-        <button type="submit" className="w-full font-semibold py-3 rounded-xl text-white hover:opacity-90 active:scale-[0.99] transition disabled:opacity-60 flex items-center justify-center min-h-[44px]" style={{ backgroundColor: "#1a4a3a" }} disabled={isProcessing}>
+        <button type="submit" className="w-full font-semibold py-3 rounded-xl text-white hover:opacity-90 active:scale-[0.99] transition disabled:opacity-60 flex items-center justify-center min-h-[44px]" style={{ backgroundColor: "var(--bw-green)" }} disabled={isProcessing}>
           {isProcessing ? <LoadingIcon className="w-5 h-5 animate-spin"/> : t('createAccount')}
         </button>
       </form>
@@ -349,7 +349,7 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
       <div className="mt-6 text-center">
         <p className="text-sm text-stone-600">
           {t('alreadyHaveAccount')}{' '}
-          <button onClick={onNavigateToLogin} className="font-semibold hover:underline" style={{ color: "#1a6b52" }}>
+          <button onClick={onNavigateToLogin} className="font-semibold hover:underline" style={{ color: "var(--bw-green-mid)" }}>
             {t('signIn')}
           </button>
         </p>

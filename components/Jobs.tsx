@@ -64,7 +64,7 @@ function CompanyAutocomplete({
               {/* Logo or initial */}
               <div
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 overflow-hidden"
-                style={{ backgroundColor: '#1a4a3a' }}
+                style={{ backgroundColor: 'var(--bw-green)' }}
               >
                 {company.logoUrl
                   ? <img src={company.logoUrl} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -220,7 +220,7 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
         </div>
         <div className="flex justify-end space-x-2">
           <button onClick={loadFilters} className="bg-stone-100 text-stone-700 font-semibold px-4 py-2 rounded-xl hover:bg-stone-200 border border-stone-200 transition-colors">Load Saved</button>
-          <button onClick={saveFilters} className="text-white font-semibold px-4 py-2 rounded-xl hover:opacity-90 transition" style={{ backgroundColor: '#1a4a3a' }}>Save Filters</button>
+          <button onClick={saveFilters} className="text-white font-semibold px-4 py-2 rounded-xl hover:opacity-90 transition" style={{ backgroundColor: 'var(--bw-green)' }}>Save Filters</button>
           <button onClick={clearFilters} className="bg-stone-200 text-stone-600 font-semibold px-4 py-2 rounded-xl hover:bg-stone-300 transition-colors">Clear Filters</button>
         </div>
       </div>

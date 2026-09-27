@@ -6,8 +6,8 @@ interface ShareProfileModalProps {
   onClose: () => void;
 }
 
-const GREEN     = '#1a4a3a';
-const GREEN_MID = '#1a6b52';
+const GREEN     = 'var(--bw-green)';
+const GREEN_MID = 'var(--bw-green-mid)';
 const BORDER    = '#e7e5e4';
 
 const ShareProfileModal: React.FC<ShareProfileModalProps> = ({ username, name, onClose }) => {

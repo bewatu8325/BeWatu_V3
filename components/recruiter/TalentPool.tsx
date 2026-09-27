@@ -33,7 +33,7 @@ export interface TalentPoolEntry {
 // ─── Tag badge ────────────────────────────────────────────────────────────────
 
 const TAG_COLORS = [
-  'bg-[#e8f4f0] border-[#1a4a3a]/20 text-[#1a6b52]',
+  'bg-[var(--bw-green-light)] border-[var(--bw-green)]/20 text-[var(--bw-green-mid)]',
   'bg-purple-500/10 border-purple-500/20 text-purple-400',
   'bg-amber-500/10 border-amber-500/20 text-amber-400',
   'bg-green-500/10 border-green-500/20 text-green-400',
@@ -104,7 +104,7 @@ function PoolCard({
   const savedDate = entry.savedAt?.toDate?.()?.toLocaleDateString() ?? 'Recently';
 
   return (
-    <div className={`rounded-xl border bg-white transition-all ${expanded ? 'border-[#1a4a3a]/30' : 'border-stone-200 hover:border-stone-200'}`}>
+    <div className={`rounded-xl border bg-white transition-all ${expanded ? 'border-[var(--bw-green)]/30' : 'border-stone-200 hover:border-stone-200'}`}>
       {/* Header */}
       <div
         className="flex items-center gap-3 p-4 cursor-pointer"
@@ -174,7 +174,7 @@ function PoolCard({
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-stone-600">Private Notes</span>
               {!editingNotes && (
-                <button onClick={() => setEditingNotes(true)} className="text-xs text-[#1a6b52] hover:text-[#1a6b52]">Edit</button>
+                <button onClick={() => setEditingNotes(true)} className="text-xs text-[var(--bw-green-mid)] hover:text-[var(--bw-green-mid)]">Edit</button>
               )}
             </div>
             {editingNotes ? (
@@ -183,13 +183,13 @@ function PoolCard({
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full resize-none rounded-lg border bg-white  px-3 py-2 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+                  className="w-full resize-none rounded-lg border bg-white  px-3 py-2 text-xs text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
                 />
                 <div className="flex gap-1.5">
                   <button
                     onClick={async () => { await save({ notes }); setEditingNotes(false); }}
                     disabled={saving}
-                    className="rounded-lg bg-[#1a4a3a] px-3 py-1 text-xs font-medium text-white hover:bg-[#1a4a3a] disabled:opacity-50"
+                    className="rounded-lg bg-[var(--bw-green)] px-3 py-1 text-xs font-medium text-white hover:bg-[var(--bw-green)] disabled:opacity-50"
                   >
                     {saving ? 'Saving...' : 'Save'}
                   </button>
@@ -221,7 +221,7 @@ function PoolCard({
                 onChange={e => setNewTag(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addTag()}
                 placeholder="Add tag (e.g. 'React', 'Future hire')..."
-                className="flex-1 rounded-lg border bg-white  px-2.5 py-1.5 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+                className="flex-1 rounded-lg border bg-white  px-2.5 py-1.5 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
               />
               <button onClick={addTag} disabled={!newTag.trim()}
                 className="rounded-lg bg-stone-100 px-2.5 py-1.5 text-xs text-stone-800 hover:bg-stone-200 disabled:opacity-40 transition-colors">
@@ -305,7 +305,7 @@ export function TalentPool({ onViewProfile }: TalentPoolProps) {
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
-          <Bookmark className="h-5 w-5 text-[#1a6b52]" />Talent Pool
+          <Bookmark className="h-5 w-5 text-[var(--bw-green-mid)]" />Talent Pool
         </h1>
         <p className="mt-0.5 text-sm text-stone-600">
           Candidates who weren't right for this role — but worth keeping for future ones.
@@ -320,12 +320,12 @@ export function TalentPool({ onViewProfile }: TalentPoolProps) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name, headline, skill..."
-            className="w-full rounded-lg border bg-white  pl-8 pr-3 py-2 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+            className="w-full rounded-lg border bg-white  pl-8 pr-3 py-2 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
           />
         </div>
         {allTags.length > 0 && (
           <select value={tagFilter} onChange={e => setTagFilter(e.target.value)}
-            className="rounded-lg border bg-white  px-3 py-2 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
+            className="rounded-lg border bg-white  px-3 py-2 text-xs text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}>
             <option value="">All tags</option>
             {allTags.map(t => <option key={t} value={t}>{t}</option>)}
           </select>

@@ -13,8 +13,8 @@ interface LandingPageProps {
 }
 
 const BG       = '#f0ede6';
-const GREEN    = '#1a4a3a';
-const GREENMID = '#1a6b52';
+const GREEN    = 'var(--bw-green)';
+const GREENMID = 'var(--bw-green-mid)';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -222,7 +222,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
           <GenerationCard
             label="30+ years of experience"
-            labelColor="#1a4a3a"
+            labelColor="var(--bw-green)"
             labelBg="#d1fae5"
             quote="I've made every mistake in the book. The most valuable thing I can do now is help the next generation not repeat them."
             name="Senior Professional"

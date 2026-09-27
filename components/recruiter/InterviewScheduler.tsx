@@ -89,7 +89,7 @@ function SlotPicker({
             min={minDate}
             value={date}
             onChange={e => setDate(e.target.value)}
-            className="w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+            className="w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
           />
         </div>
         <div>
@@ -98,7 +98,7 @@ function SlotPicker({
             type="time"
             value={time}
             onChange={e => setTime(e.target.value)}
-            className="w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+            className="w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
           />
         </div>
         <div>
@@ -106,7 +106,7 @@ function SlotPicker({
           <select
             value={duration}
             onChange={e => setDuration(Number(e.target.value))}
-            className="w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-stone-800 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+            className="w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-stone-800 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
           >
             <option value={15}>15 min</option>
             <option value={30}>30 min</option>
@@ -119,7 +119,7 @@ function SlotPicker({
       <button
         onClick={addSlot}
         disabled={!date || !time || slots.length >= 3}
-        className="w-full rounded-lg border border-dashed border-stone-200 py-2 text-xs font-medium text-stone-600 hover:border-[#1a4a3a] hover:text-[#1a6b52] disabled:opacity-40 transition-colors"
+        className="w-full rounded-lg border border-dashed border-stone-200 py-2 text-xs font-medium text-stone-600 hover:border-[var(--bw-green)] hover:text-[var(--bw-green-mid)] disabled:opacity-40 transition-colors"
       >
         + Add slot ({slots.length}/3)
       </button>
@@ -129,7 +129,7 @@ function SlotPicker({
             const f = formatSlot(s.datetime);
             return (
               <div key={s.id} className="flex items-center gap-2 rounded-lg bg-white border border-stone-200 px-3 py-2">
-                <span className="text-xs font-bold text-[#1a6b52] w-4">#{i + 1}</span>
+                <span className="text-xs font-bold text-[var(--bw-green-mid)] w-4">#{i + 1}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-stone-800">{f.date}</p>
                   <p className="text-xs text-stone-600">{f.time} · {s.duration} min</p>
@@ -222,7 +222,7 @@ function ProposeModal({
             value={meetingLink}
             onChange={e => setMeetingLink(e.target.value)}
             placeholder="https://meet.google.com/..."
-            className="w-full rounded-lg border bg-white px-3 py-2 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+            className="w-full rounded-lg border bg-white px-3 py-2 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
           />
         </div>
 
@@ -233,7 +233,7 @@ function ProposeModal({
             onChange={e => setNotes(e.target.value)}
             rows={2}
             placeholder="e.g. We'll be discussing your approach to system design..."
-            className="w-full resize-none rounded-lg border bg-white  px-3 py-2 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[#1a4a3a] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
+            className="w-full resize-none rounded-lg border bg-white  px-3 py-2 text-xs text-stone-800 placeholder:text-stone-600 focus:border-[var(--bw-green)] focus:outline-none" style={{ borderColor:"#e7e5e4" }}
           />
         </div>
 
@@ -242,7 +242,7 @@ function ProposeModal({
         <button
           onClick={handleSend}
           disabled={sending || slots.length === 0}
-          className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#1a4a3a] py-2.5 text-sm font-semibold text-white hover:bg-[#1a4a3a] disabled:opacity-50 transition-colors"
+          className="w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--bw-green)] py-2.5 text-sm font-semibold text-white hover:bg-[var(--bw-green)] disabled:opacity-50 transition-colors"
         >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Send to Candidate
@@ -308,8 +308,8 @@ function InterviewCard({
           {interview.meetingLink && (
             <div className="mt-2 flex items-center gap-2">
               <a href={interview.meetingLink} target="_blank" rel="noreferrer"
-                className="text-xs text-[#1a6b52] hover:underline truncate flex-1">{interview.meetingLink}</a>
-              <button onClick={copyLink} className="shrink-0 text-stone-600 hover:text-[#1a6b52] transition-colors">
+                className="text-xs text-[var(--bw-green-mid)] hover:underline truncate flex-1">{interview.meetingLink}</a>
+              <button onClick={copyLink} className="shrink-0 text-stone-600 hover:text-[var(--bw-green-mid)] transition-colors">
                 {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             </div>
@@ -399,13 +399,13 @@ export function InterviewScheduler({ quickPropose, onClose }: InterviewScheduler
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-stone-900">
-            <Calendar className="h-5 w-5 text-[#1a6b52]" />Interview Scheduler
+            <Calendar className="h-5 w-5 text-[var(--bw-green-mid)]" />Interview Scheduler
           </h1>
           <p className="mt-0.5 text-sm text-stone-600">Propose times, candidates confirm — no email chains.</p>
         </div>
         <button
           onClick={() => setShowPropose(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-[#1a4a3a] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a4a3a] transition-colors"
+          className="flex items-center gap-1.5 rounded-lg bg-[var(--bw-green)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--bw-green)] transition-colors"
         >
           <Calendar className="h-4 w-4" />Schedule Interview
         </button>
@@ -418,7 +418,7 @@ export function InterviewScheduler({ quickPropose, onClose }: InterviewScheduler
             key={s}
             onClick={() => setFilter(s)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              filter === s ? 'bg-[#1a4a3a] text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+              filter === s ? 'bg-[var(--bw-green)] text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
             }`}
           >
             {s === 'all' ? `All (${interviews.length})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${counts[s] ?? 0})`}

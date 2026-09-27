@@ -20,9 +20,9 @@ import {
   sparkMicroLesson,
 } from '../lib/firestoreService';
 
-const GREEN      = '#1a4a3a';
-const GREEN_MID  = '#1a6b52';
-const GREEN_LT   = '#e8f4f0';
+const GREEN      = 'var(--bw-green)';
+const GREEN_MID  = 'var(--bw-green-mid)';
+const GREEN_LT   = 'var(--bw-green-light)';
 const AMBER      = '#f59e0b';
 const AMBER_LT   = '#fef3c7';
 
@@ -48,7 +48,7 @@ const Ic = {
 
 // ── Format config ─────────────────────────────────────────────────────────────
 const FORMAT_META: Record<LessonFormat, { label: string; color: string; bg: string; border: string; Icon: React.FC }> = {
-  text:      { label: 'Text Tip',   color: '#1a4a3a', bg: GREEN_LT,   border: '#b6ddd2', Icon: Ic.Text },
+  text:      { label: 'Text Tip',   color: 'var(--bw-green)', bg: GREEN_LT,   border: '#b6ddd2', Icon: Ic.Text },
   video:     { label: 'Video Clip', color: '#7c3aed', bg: '#f3f0ff',  border: '#c4b5fd', Icon: Ic.Video },
   link:      { label: 'Resource',   color: '#0369a1', bg: '#e0f2fe',  border: '#7dd3fc', Icon: Ic.Link },
   checklist: { label: 'Checklist',  color: '#b45309', bg: AMBER_LT,   border: '#fde68a', Icon: Ic.List },

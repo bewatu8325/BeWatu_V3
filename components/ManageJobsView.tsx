@@ -19,8 +19,8 @@ import {
   Lock, DollarSign, Users,
 } from 'lucide-react';
 
-const GREEN    = '#1a4a3a';
-const GREEN_LT = '#e8f4f0';
+const GREEN    = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
 const FREE_LIMIT = 3;
 
 // Was a local duplicate missing 'suspended' — the real union (lib/verification.ts)

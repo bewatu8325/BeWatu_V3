@@ -242,7 +242,7 @@ export default function ArenaIndustryView({
     );
   }
 
-  const color = arenaData?.color ?? "#1a4a3a";
+  const color = arenaData?.color ?? "var(--bw-green)";
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
