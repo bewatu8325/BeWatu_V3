@@ -3,6 +3,7 @@ import { Job, Company } from '../types';
 import JobCard from './JobCard';
 import { fetchCompanies } from '../lib/firestoreService';
 import { searchJobs, JobSearchHit } from '../lib/algoliaSearch';
+import { EmptyState } from './EmptyState';
 
 interface JobsProps {
   jobs: Job[];
@@ -234,9 +235,7 @@ const Jobs: React.FC<JobsProps> = ({ jobs, companies, onViewCompany, onAnalyzeMa
             ? <JobCard key={job.id} job={job} company={job.company} onViewCompany={onViewCompany} onAnalyzeMatch={onAnalyzeMatch} onApplyForJob={onApplyForJob} appliedJobIds={appliedJobIds} onReportJob={onReportJob} />
             : null)
         ) : (
-          <div className="text-center py-10 bg-stone-50 rounded-2xl border" style={{ borderColor: '#e7e5e4' }}>
-            <p className="text-stone-600">No jobs found matching your criteria.</p>
-          </div>
+          <EmptyState tone="stone" compact title="No jobs found matching your criteria." />
         )}
       </div>
     </div>

@@ -10,6 +10,7 @@ import { Search, Building2, Globe, CheckCircle, Tag, Loader2 } from 'lucide-reac
 import { useFirebase } from '../contexts/FirebaseContext';
 import { fetchCompanies, claimCompany } from '../lib/firestoreService';
 import { Company } from '../types';
+import { EmptyState } from './EmptyState';
 
 interface CompaniesPageProps {
   onViewCompany: (companyId: number | string) => void;
@@ -234,11 +235,12 @@ export default function CompaniesPage({ onViewCompany }: CompaniesPageProps) {
           <Loader2 className="h-8 w-8 animate-spin text-stone-300" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 text-stone-600">
-          <Building2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No companies found</p>
-          {search && <p className="text-sm mt-1">Try a different search term</p>}
-        </div>
+        <EmptyState
+          bordered={false}
+          icon={<Building2 />}
+          title="No companies found"
+          description={search ? "Try a different search term" : undefined}
+        />
       ) : (
         <>
           <p className="text-sm text-stone-600 mb-4">{filtered.length} companies</p>

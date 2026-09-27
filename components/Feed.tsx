@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Post, User, AppreciationType } from '../types';
 import PostCard from './PostCard';
+import { EmptyState } from './EmptyState';
 
 interface FeedProps {
   posts: Post[];
@@ -70,14 +71,16 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
   return (
     <div className="space-y-6">
       {sortedPosts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border bg-white py-16 px-6 text-center shadow-sm" style={{ borderColor: '#e7e5e4' }}>
-          <svg className="w-12 h-12 mb-4 text-stone-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10l6 6v10a2 2 0 0 1-2 2z"/>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20v-8H7v8M7 4v4h8"/>
-          </svg>
-          <p className="font-semibold text-stone-700">Your feed is empty</p>
-          <p className="text-sm text-stone-600 mt-1">Connect with people to see their posts here, or share something yourself.</p>
-        </div>
+        <EmptyState
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10l6 6v10a2 2 0 0 1-2 2z"/>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20v-8H7v8M7 4v4h8"/>
+            </svg>
+          }
+          title="Your feed is empty"
+          description="Connect with people to see their posts here, or share something yourself."
+        />
       ) : (
         sortedPosts.map(post => {
           const author = findAuthor(post.authorId);
