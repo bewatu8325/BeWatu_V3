@@ -76,6 +76,55 @@ async function main() {
     }));
   });
 
+  await check("investor_applications: own application with status 'pending' can be created", async () => {
+    await assertSucceeds(addDoc(collection(investor, "investor_applications"), {
+      uid: "investor-uid", firm: "Acme Capital", status: "pending", submittedAt: serverTimestamp(),
+    }));
+  });
+
+  await check("investor_applications: a pre-approved application can't be self-filed", async () => {
+    await assertFails(addDoc(collection(investor, "investor_applications"), {
+      uid: "investor-uid", firm: "Acme Capital", status: "approved", submittedAt: serverTimestamp(),
+    }));
+  });
+
+  await check("investor_applications: can't file an application for someone else's uid", async () => {
+    await assertFails(addDoc(collection(investor, "investor_applications"), {
+      uid: "someone-else", firm: "Acme Capital", status: "pending", submittedAt: serverTimestamp(),
+    }));
+  });
+
+  const { Timestamp } = require("firebase/firestore");
+  const { setDoc, doc, getDoc } = require("firebase/firestore");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const adb = ctx.firestore();
+    await setDoc(doc(adb, "investor_application_cooldowns", "cooling-uid"), {
+      until: Timestamp.fromMillis(Date.now() + 7 * 24 * 3600 * 1000), applicationId: "a1",
+    });
+    await setDoc(doc(adb, "investor_application_cooldowns", "expired-uid"), {
+      until: Timestamp.fromMillis(Date.now() - 24 * 3600 * 1000), applicationId: "a2",
+    });
+  });
+  const cooling = testEnv.authenticatedContext("cooling-uid").firestore();
+  const expired = testEnv.authenticatedContext("expired-uid").firestore();
+  const app = (uid) => ({ uid, firm: "Acme", status: "pending", submittedAt: serverTimestamp() });
+
+  await check("cooldown: applicant inside their 14-day cooldown can't re-apply", async () => {
+    await assertFails(addDoc(collection(cooling, "investor_applications"), app("cooling-uid")));
+  });
+  await check("cooldown: applicant whose cooldown has ended can re-apply", async () => {
+    await assertSucceeds(addDoc(collection(expired, "investor_applications"), app("expired-uid")));
+  });
+  await check("cooldown: applicant can read their own cooldown doc", async () => {
+    await assertSucceeds(getDoc(doc(cooling, "investor_application_cooldowns", "cooling-uid")));
+  });
+  await check("cooldown: applicant can't clear their own cooldown", async () => {
+    await assertFails(setDoc(doc(cooling, "investor_application_cooldowns", "cooling-uid"), { until: Timestamp.fromMillis(0) }));
+  });
+  await check("cooldown: applicant can't read someone else's cooldown", async () => {
+    await assertFails(getDoc(doc(investor, "investor_application_cooldowns", "cooling-uid")));
+  });
+
   console.log(`\n${pass} passed, ${fail} failed (of ${pass + fail})`);
   await testEnv.cleanup();
   process.exit(fail > 0 ? 1 : 0);
