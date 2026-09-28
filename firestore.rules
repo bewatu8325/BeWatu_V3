@@ -1882,11 +1882,26 @@ service cloud.firestore {
       // status must start as 'pending': ops decisions (mirrored by the
       // syncInvestorApplicationDecision function) are the only thing that
       // should ever move it, so an applicant can't file a pre-decided one.
+      // A rejected applicant can't re-apply until their cooldown ends. The
+      // cooldown doc is written server-side (syncInvestorApplicationDecision)
+      // because rules can't count or query prior applications.
       allow create: if isAuth()
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && !(
+          exists(/databases/$(database)/documents/investor_application_cooldowns/$(request.auth.uid))
+          && get(/databases/$(database)/documents/investor_application_cooldowns/$(request.auth.uid)).data.until > request.time
+        );
       allow update: if isOpsStaff() || isPlatformAdmin();
       allow delete: if false;
+    }
+
+    // Written only by the syncInvestorApplicationDecision function (admin
+    // SDK bypasses rules). Applicants can read their own so the console can
+    // show when they may re-apply.
+    match /investor_application_cooldowns/{uid} {
+      allow read: if isAuth() && (request.auth.uid == uid || isOpsStaff() || isPlatformAdmin());
+      allow write: if false;
     }
 
     match /funding_offers/{offerId} {

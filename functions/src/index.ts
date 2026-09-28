@@ -2,10 +2,12 @@ import {formatDistanceToNow} from "date-fns";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import {
   getFirestore,
   FieldValue,
+  Timestamp,
   Transaction,
   QueryDocumentSnapshot,
   DocumentData,
@@ -822,6 +824,43 @@ export const syncUserProfileToPosts = onDocumentUpdated('users/{userId}', async 
 // Factory — investor onboarding (Decision 4: reviewed, not self-serve)
 // ===================================================================
 
+const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
+const INVESTOR_REVIEW_SLA_BUSINESS_DAYS = 5;
+const INVESTOR_REAPPLY_COOLDOWN_DAYS = 14;
+
+function escapeHtml(v: unknown): string {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+}
+
+// Sends via Resend (same provider/sender as api/contact.ts). Never throws --
+// an email failure must not fail the status sync or leave a trigger retrying
+// a decision that was already applied. Returns whether the send succeeded.
+async function sendInvestorEmail(to: string, subject: string, bodyHtml: string): Promise<boolean> {
+  const key = RESEND_API_KEY.value();
+  if (!key) {
+    console.error('RESEND_API_KEY is not set; skipping investor email');
+    return false;
+  }
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        from: 'BeWatu <noreply@bewatu.com>',
+        to: [to],
+        subject,
+        html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#292524;font-size:14px;line-height:1.6">${bodyHtml}<p style="color:#a8a29e;font-size:11px;margin-top:24px">BeWatu Factory</p></div>`,
+      }),
+    });
+    if (!res.ok) console.error('Resend error:', res.status, await res.text());
+    return res.ok;
+  } catch (e) {
+    console.error('Resend request failed:', e);
+    return false;
+  }
+}
+
+
 // firestore.rules sets factory_investors.create to `false` — a client can
 // never create their own investor profile. This is the only path that can:
 // ops/admin approves an investor_applications doc, and this trigger
@@ -842,6 +881,27 @@ export const provisionInvestorOnApproval = onDocumentUpdated('investor_applicati
     if (!uid) {
       console.error(`investor_applications/${context.params.applicationId} approved with no uid field`);
       return null;
+    }
+
+    // Product decision (approved): approval sets users/{uid}.role = 'investor'.
+    // The Factory console, "Make an offer" and the home dashboard all gate on
+    // that role, not on the factory_investors doc. A user has exactly one
+    // role, so the previous one is kept in roleBeforeInvestor for reversal.
+    // Runs before the already-provisioned early return below so a
+    // partially-provisioned account (profile created, role never set) heals
+    // on re-save.
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await userRef.get();
+    const currentRole = userSnap.data()?.role;
+    if (currentRole !== 'investor') {
+      await userRef.set(
+        {
+          role: 'investor',
+          roleBeforeInvestor: currentRole ?? null,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
     }
 
     const investorRef = db.collection('factory_investors').doc(uid);
@@ -874,7 +934,7 @@ export const provisionInvestorOnApproval = onDocumentUpdated('investor_applicati
 // (the applicant console reads investor_applications.status). This mirrors
 // every ops decision onto the applicant's investor_applications doc, which
 // in turn fires provisionInvestorOnApproval on approval.
-export const syncInvestorApplicationDecision = onDocumentUpdated('verificationRequests/{requestId}', async (event) => {
+export const syncInvestorApplicationDecision = onDocumentUpdated({ document: 'verificationRequests/{requestId}', secrets: [RESEND_API_KEY] }, async (event) => {
     const before = event.data!.before.data();
     const after = event.data!.after.data();
 
@@ -910,8 +970,51 @@ export const syncInvestorApplicationDecision = onDocumentUpdated('verificationRe
       reviewedBy: after.reviewedBy ?? null,
       reviewedAt: FieldValue.serverTimestamp(),
     });
+
+    // A rejected applicant can re-apply after INVESTOR_REAPPLY_COOLDOWN_DAYS.
+    // firestore.rules can't count prior applications, so it checks this
+    // server-written doc instead (investor_applications create rule).
+    if (after.status === 'rejected') {
+      await db.collection('investor_application_cooldowns').doc(uid).set({
+        until: Timestamp.fromMillis(Date.now() + INVESTOR_REAPPLY_COOLDOWN_DAYS * 24 * 60 * 60 * 1000),
+        applicationId: appRef.id,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    const appData = (await appRef.get()).data();
+    const to: string | undefined = appData?.email ?? after.email;
+    if (to && after.status !== 'in_review') {
+      const name = escapeHtml(appData?.name ?? after.name ?? 'there');
+      if (after.status === 'approved') {
+        await sendInvestorEmail(to, 'Your BeWatu investor application is approved',
+          `<p>Hi ${name},</p><p>Your investor application has been approved. Your investor account is now active — sign in to the Investor Console at <a href="https://factory.bewatu.com/investor-console">factory.bewatu.com</a> to start exploring deal flow.</p>`);
+      } else if (after.status === 'needs_info') {
+        await sendInvestorEmail(to, 'We need a bit more information for your BeWatu investor application',
+          `<p>Hi ${name},</p><p>We're reviewing your investor application and need a little more information${after.reviewNote ? ':' : '.'}</p>${after.reviewNote ? `<blockquote style="border-left:3px solid #d6d3d1;margin:12px 0;padding:4px 12px;color:#44403c;white-space:pre-wrap">${escapeHtml(after.reviewNote)}</blockquote>` : ''}<p>Please submit an updated application at <a href="https://factory.bewatu.com/investor-console">factory.bewatu.com/investor-console</a>.</p>`);
+      } else if (after.status === 'rejected') {
+        // Internal reviewNote is deliberately not included.
+        await sendInvestorEmail(to, 'An update on your BeWatu investor application',
+          `<p>Hi ${name},</p><p>Thank you for applying. We weren't able to approve your investor application this time. You're welcome to apply again after ${INVESTOR_REAPPLY_COOLDOWN_DAYS} days.</p>`);
+      }
+    }
     return null;
 });
+
+// Confirmation email when an application is filed. Idempotent: the sent
+// timestamp is written back so a retried trigger doesn't send twice.
+export const sendInvestorApplicationConfirmation = onDocumentCreated(
+  { document: 'investor_applications/{applicationId}', secrets: [RESEND_API_KEY] },
+  async (event) => {
+    const snap = event.data;
+    const app = snap?.data();
+    if (!snap || !app || app.confirmationEmailSentAt || !app.email) return null;
+    const sent = await sendInvestorEmail(app.email, 'We received your BeWatu investor application',
+      `<p>Hi ${escapeHtml(app.name || 'there')},</p><p>Thanks for applying for investor access. Our team reviews applications within ${INVESTOR_REVIEW_SLA_BUSINESS_DAYS} business days, and you'll get an email when there's a decision. You can also check your status any time at <a href="https://factory.bewatu.com/investor-console">factory.bewatu.com/investor-console</a>.</p>`);
+    if (sent) await snap.ref.update({ confirmationEmailSentAt: FieldValue.serverTimestamp() });
+    return null;
+  }
+);
 
 // ===================================================================
 // AI Analysis Caching
