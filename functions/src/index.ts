@@ -966,7 +966,10 @@ export const syncInvestorApplicationDecision = onDocumentUpdated({ document: 've
 
     await appRef.update({
       status: after.status,
-      reviewNote: after.reviewNote ?? null,
+      // Only the reviewer's applicant-facing message is copied here. This doc
+      // is readable by the applicant, so the internal reviewNote (which stays
+      // ops-only, in the audit log) must never be written to it.
+      applicantMessage: after.applicantMessage ?? null,
       reviewedBy: after.reviewedBy ?? null,
       reviewedAt: FieldValue.serverTimestamp(),
     });
@@ -990,12 +993,15 @@ export const syncInvestorApplicationDecision = onDocumentUpdated({ document: 've
         await sendInvestorEmail(to, 'Your BeWatu investor application is approved',
           `<p>Hi ${name},</p><p>Your investor application has been approved. Your investor account is now active — sign in to the Investor Console at <a href="https://factory.bewatu.com/investor-console">factory.bewatu.com</a> to start exploring deal flow.</p>`);
       } else if (after.status === 'needs_info') {
+        const msg = after.applicantMessage ? `<blockquote style="border-left:3px solid #d6d3d1;margin:12px 0;padding:4px 12px;color:#44403c;white-space:pre-wrap">${escapeHtml(after.applicantMessage)}</blockquote>` : '';
         await sendInvestorEmail(to, 'We need a bit more information for your BeWatu investor application',
-          `<p>Hi ${name},</p><p>We're reviewing your investor application and need a little more information${after.reviewNote ? ':' : '.'}</p>${after.reviewNote ? `<blockquote style="border-left:3px solid #d6d3d1;margin:12px 0;padding:4px 12px;color:#44403c;white-space:pre-wrap">${escapeHtml(after.reviewNote)}</blockquote>` : ''}<p>Please submit an updated application at <a href="https://factory.bewatu.com/investor-console">factory.bewatu.com/investor-console</a>.</p>`);
+          `<p>Hi ${name},</p><p>We're reviewing your investor application and need a little more information${msg ? ':' : '.'}</p>${msg}<p>Please submit an updated application at <a href="https://factory.bewatu.com/investor-console">factory.bewatu.com/investor-console</a>.</p>`);
       } else if (after.status === 'rejected') {
-        // Internal reviewNote is deliberately not included.
+        // Generic wording, plus the reviewer's optional applicant-facing
+        // message. The internal reviewNote is never used here.
+        const msg = after.applicantMessage ? `<blockquote style="border-left:3px solid #d6d3d1;margin:12px 0;padding:4px 12px;color:#44403c;white-space:pre-wrap">${escapeHtml(after.applicantMessage)}</blockquote>` : '';
         await sendInvestorEmail(to, 'An update on your BeWatu investor application',
-          `<p>Hi ${name},</p><p>Thank you for applying. We weren't able to approve your investor application this time. You're welcome to apply again after ${INVESTOR_REAPPLY_COOLDOWN_DAYS} days.</p>`);
+          `<p>Hi ${name},</p><p>Thank you for applying. We weren't able to approve your investor application this time.</p>${msg}<p>You're welcome to apply again after ${INVESTOR_REAPPLY_COOLDOWN_DAYS} days.</p>`);
       }
     }
     return null;
