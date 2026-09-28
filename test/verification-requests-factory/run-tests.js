@@ -76,6 +76,24 @@ async function main() {
     }));
   });
 
+  await check("investor_applications: own application with status 'pending' can be created", async () => {
+    await assertSucceeds(addDoc(collection(investor, "investor_applications"), {
+      uid: "investor-uid", firm: "Acme Capital", status: "pending", submittedAt: serverTimestamp(),
+    }));
+  });
+
+  await check("investor_applications: a pre-approved application can't be self-filed", async () => {
+    await assertFails(addDoc(collection(investor, "investor_applications"), {
+      uid: "investor-uid", firm: "Acme Capital", status: "approved", submittedAt: serverTimestamp(),
+    }));
+  });
+
+  await check("investor_applications: can't file an application for someone else's uid", async () => {
+    await assertFails(addDoc(collection(investor, "investor_applications"), {
+      uid: "someone-else", firm: "Acme Capital", status: "pending", submittedAt: serverTimestamp(),
+    }));
+  });
+
   console.log(`\n${pass} passed, ${fail} failed (of ${pass + fail})`);
   await testEnv.cleanup();
   process.exit(fail > 0 ? 1 : 0);

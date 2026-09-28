@@ -1879,8 +1879,12 @@ service cloud.firestore {
         || isOpsStaff()
         || isPlatformAdmin()
       );
+      // status must start as 'pending': ops decisions (mirrored by the
+      // syncInvestorApplicationDecision function) are the only thing that
+      // should ever move it, so an applicant can't file a pre-decided one.
       allow create: if isAuth()
-        && request.resource.data.uid == request.auth.uid;
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending';
       allow update: if isOpsStaff() || isPlatformAdmin();
       allow delete: if false;
     }

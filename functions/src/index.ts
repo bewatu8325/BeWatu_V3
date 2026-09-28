@@ -867,6 +867,52 @@ export const provisionInvestorOnApproval = onDocumentUpdated('investor_applicati
     return null;
 });
 
+// The ops Verification Queue decides on verificationRequests docs, but
+// provisionInvestorOnApproval above listens to investor_applications --
+// nothing connected the two, so an ops "Approve" never provisioned the
+// investor and the applicant's own application stayed "pending" forever
+// (the applicant console reads investor_applications.status). This mirrors
+// every ops decision onto the applicant's investor_applications doc, which
+// in turn fires provisionInvestorOnApproval on approval.
+export const syncInvestorApplicationDecision = onDocumentUpdated('verificationRequests/{requestId}', async (event) => {
+    const before = event.data!.before.data();
+    const after = event.data!.after.data();
+
+    if (after.type !== 'investor_application') return null;
+    if (before.status === after.status) return null;
+    if (!['approved', 'rejected', 'needs_info', 'in_review'].includes(after.status)) return null;
+
+    const uid: string | undefined = after.uid ?? after.requestedBy;
+    if (!uid) {
+      console.error(`verificationRequests/${event.params.requestId} is an investor_application with no uid`);
+      return null;
+    }
+
+    // Newer requests carry the application id; older ones only have the uid.
+    let appRef: FirebaseFirestore.DocumentReference | null = null;
+    if (after.applicationId) {
+      appRef = db.collection('investor_applications').doc(after.applicationId);
+    } else {
+      const snap = await db.collection('investor_applications').where('uid', '==', uid).get();
+      const open = snap.docs
+        .filter(d => !['approved', 'rejected'].includes(d.data().status))
+        .sort((a, b) => (b.data().submittedAt?.toMillis?.() ?? 0) - (a.data().submittedAt?.toMillis?.() ?? 0));
+      appRef = open[0]?.ref ?? null;
+    }
+    if (!appRef) {
+      console.error(`No open investor_applications doc found for uid ${uid} (request ${event.params.requestId})`);
+      return null;
+    }
+
+    await appRef.update({
+      status: after.status,
+      reviewNote: after.reviewNote ?? null,
+      reviewedBy: after.reviewedBy ?? null,
+      reviewedAt: FieldValue.serverTimestamp(),
+    });
+    return null;
+});
+
 // ===================================================================
 // AI Analysis Caching
 // ===================================================================
