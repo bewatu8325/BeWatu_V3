@@ -206,13 +206,17 @@ export const completeRegistration = onCall(async (request) => {
 // deleted within 12 months," and nothing in the codebase performed that
 // deletion. This is that step.
 //
-// Ships with HARD_DELETE_DRY_RUN defaulting to true (safe by default) —
-// it only *logs* which accounts are due and what would happen to them,
-// touching nothing. Flipping it to actually delete is a deliberate,
-// separate decision (set HARD_DELETE_DRY_RUN=false in this function's
-// environment) once the dry-run logs have been reviewed for a few days
-// and look correct — a bug in a bulk-delete function is not something to
-// find out about after the fact.
+// Defaults to dry-run (true) when HARD_DELETE_DRY_RUN is unset — it only
+// *logs* which accounts are due and what would happen to them, touching
+// nothing. Enabled for real in production (bewatu-2d04e) via a local,
+// uncommitted functions/.env.bewatu-2d04e (repo-wide policy: no .env.*
+// files in git, even non-secret ones — see root .gitignore) after
+// confirming prod had 0 accounts in status=pending_deletion at the time
+// (zero backlog risk) and adding the composite index this query needs
+// (users: status, scheduledHardDeleteAt) — without it the function threw
+// FAILED_PRECONDITION on every scheduled run and never got as far as this
+// dry-run check at all. Re-set that env file (or redeploy with it present)
+// if this function is ever redeployed from a different checkout.
 export const scheduledHardDelete = onSchedule("every 24 hours", async () => {
     const dryRun = (process.env.HARD_DELETE_DRY_RUN ?? "true") !== "false";
     const now = new Date();
