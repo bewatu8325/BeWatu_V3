@@ -19,8 +19,13 @@ const Footer: React.FC<FooterProps> = ({
 }) => {
   return (
     <footer className="border-t mt-12" style={{ borderColor: '#e7e5e4', backgroundColor: '#ffffff' }}>
-      <div className="container mx-auto px-4 sm:px-6 py-5">
-        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm">
+      {/* pb-24 clears MobileNav.tsx's fixed bottom-0 bar (md:hidden, ~70px
+          tall) -- without it, this footer's later links and the copyright
+          line wrap onto lines that render underneath the fixed nav and are
+          never reachable by scrolling. Matches the pb-24 sm:pb-10 already
+          used on <main> elsewhere in App.tsx for the same fixed nav. */}
+      <div className="container mx-auto px-4 sm:px-6 pt-5 pb-24 sm:pb-5">
+        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-3 text-sm">
 
           {onNavigateToTerms ? (
             <button onClick={onNavigateToTerms}
