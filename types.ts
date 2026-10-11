@@ -142,7 +142,7 @@ export interface Company {
   website: string;
   domain?: string;
 ticker?: string;
-source?: 'cosentiment' | 'user';
+source?: 'cosentiment' | 'user' | 'africa-seed';
 claimed?: boolean;
   adminUid?: string;
   verifiedRecruiters?: string[];
