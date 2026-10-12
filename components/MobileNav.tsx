@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import {
   Home, Users2, User, Briefcase, MessageSquare,
-  Trophy, Building2, MoreHorizontal, X, GitMerge, Hexagon,
+  MoreHorizontal, X,
 } from 'lucide-react';
 import { View } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
+import { ShowcaseIcon, PodsIcon, CompaniesIcon, BridgeIcon } from './IconComponents';
 
 const GREEN = 'var(--bw-green)';
 
@@ -19,10 +20,10 @@ const PRIMARY_NAV = [
 // Secondary nav — shown in "More" drawer
 // Grouped logically for easy scanning
 const MORE_NAV = [
-  { view: View.Prove,            label: 'Showcase',  icon: Trophy,    description: 'Prove skills & Arenas' },
-  { view: View.Circles,          label: 'Pods',      icon: Hexagon,   description: 'Team collaboration' },
-  { view: View.Companies,        label: 'Companies', icon: Building2, description: 'Explore employers' },
-  { view: View.Bridge,           label: 'Bridge',    icon: GitMerge,  description: 'Cross-platform' },
+  { view: View.Prove,            label: 'Showcase',  icon: ShowcaseIcon,  description: 'Prove skills & Arenas' },
+  { view: View.Circles,          label: 'Pods',      icon: PodsIcon,      description: 'Team collaboration' },
+  { view: View.Companies,        label: 'Companies', icon: CompaniesIcon, description: 'Explore employers' },
+  { view: View.Bridge,           label: 'Bridge',    icon: BridgeIcon,    description: 'Cross-platform' },
 ];
 
 interface MobileNavProps {
@@ -95,9 +96,8 @@ export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0 
                         backgroundColor: active ? GREEN : '#f5f5f4',
                       }}
                     >
-                      <Icon 
-                        className="w-5 h-5" 
-                        strokeWidth={active ? 2.5 : 2}
+                      <Icon
+                        className="w-5 h-5"
                         style={{ color: active ? 'white' : '#78716c' }}
                       />
                     </div>
