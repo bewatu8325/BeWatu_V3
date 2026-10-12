@@ -18,6 +18,7 @@ import {
   CheckCircle, Send, Plus, Lock, Eye, EyeOff, Loader2,
   FileText, UserPlus, Zap, Star, ChevronDown, ChevronUp, Info,
 } from 'lucide-react';
+import { trackChallengeViewed, trackChallengeInitiated, trackChallengeCompleted } from '../lib/analytics/track';
 import { useFirebase } from '../contexts/FirebaseContext';
 import type { ArenaRubricScores, ArenaSubmissionReview } from '../types';
 
@@ -376,6 +377,12 @@ export default function ArenaChallengeDetail({
     });
   }, [fbUser?.uid, challenge._firestoreId]);
 
+  // Activation-funnel signal: challenge detail page opened
+  useEffect(() => {
+    if (!fbUser?.uid || !challenge._firestoreId) return;
+    trackChallengeViewed(fbUser.uid, challenge._firestoreId, undefined, challenge.difficulty);
+  }, [fbUser?.uid, challenge._firestoreId]);
+
   async function handleRegister() {
     if (!agreedTerms || !fbUser?.uid) return;
     setRegistering(true);
@@ -394,6 +401,7 @@ export default function ArenaChallengeDetail({
       }).catch(() => {});
       setRegistered(true);
       setShowTerms(false);
+      trackChallengeInitiated(fbUser.uid, challenge._firestoreId, undefined, challenge.difficulty);
     } catch (e) {
       console.error('Registration failed:', e);
     } finally {
@@ -440,6 +448,7 @@ export default function ArenaChallengeDetail({
         submissionCount: increment(1),
       }).catch(() => {});
       setSubmitted(true);
+      trackChallengeCompleted(fbUser.uid, challenge._firestoreId, undefined, challenge.difficulty);
     } catch (e: any) {
       setSubmitError(e.message ?? 'Submission failed. Please try again.');
     } finally {
