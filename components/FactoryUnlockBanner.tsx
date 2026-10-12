@@ -1,14 +1,59 @@
 /**
  * components/FactoryUnlockBanner.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Shows a banner when a user has earned Factory access via graduation signals.
- * Shown on the home feed once the threshold is met.
+ * Shows a banner when a user has earned Factory access through real
+ * platform activity. Shown on the home feed once a minimum of progress
+ * is visible.
+ *
+ * Previously read lib/graduation.ts's four signal fields on users/{uid}
+ * (ideaTractionScore, collaborationScore, teamFormationScore,
+ * arenaPerformanceScore) — nothing anywhere ever wrote to those fields, so
+ * every user's progress was permanently 0% and this banner never actually
+ * appeared in production. It now reads the real, live
+ * factory_reputation/{uid}.xp field (bewatu-factory's own XP system,
+ * awarded server-side via /api/award-xp) instead of maintaining a second,
+ * parallel scoring system.
+ *
+ * The level/rank table below mirrors bewatu-factory's lib/types.ts
+ * LEVEL_RANKS (the one its real reputation UI uses) — factory_reputation
+ * docs do store their own level/rank fields, but nothing recalculates them
+ * after the document's initial creation, so they go stale as xp grows.
+ * Computing level/rank from the real xp number here avoids showing a
+ * user's reputation as permanently "Newcomer".
+ *
+ * FACTORY_UNLOCK_LEVEL below is a product choice (Level 5 / "Expert"),
+ * not something inherent to the data — worth revisiting if the intended
+ * free-unlock bar should sit somewhere else.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useEffect, useState } from 'react';
-import { Factory, X, ChevronRight, Flame } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { Factory, X, Flame, ChevronRight } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { getGraduationProgress, getGraduationSignals, GraduationProgress } from '../lib/graduation';
+import { db } from '../lib/firebase';
+
+const LEVEL_RANKS: { level: number; rank: string; minXP: number }[] = [
+  { level: 1,  rank: 'Newcomer',       minXP: 0 },
+  { level: 2,  rank: 'Contributor',    minXP: 100 },
+  { level: 3,  rank: 'Problem Solver', minXP: 300 },
+  { level: 4,  rank: 'Innovator',      minXP: 600 },
+  { level: 5,  rank: 'Expert',         minXP: 1000 },
+  { level: 6,  rank: 'Master',         minXP: 1500 },
+  { level: 7,  rank: 'Visionary',      minXP: 2200 },
+  { level: 8,  rank: 'Legend',         minXP: 3000 },
+  { level: 9,  rank: 'Pioneer',        minXP: 4000 },
+  { level: 10, rank: 'Titan',          minXP: 5500 },
+];
+
+const FACTORY_UNLOCK_LEVEL = LEVEL_RANKS[4]; // Level 5 / "Expert" / 1000 XP
+
+function levelFor(xp: number) {
+  let current = LEVEL_RANKS[0];
+  for (const l of LEVEL_RANKS) {
+    if (xp >= l.minXP) current = l;
+  }
+  return current;
+}
 
 interface FactoryUnlockBannerProps {
   onUnlock: () => void;
@@ -16,30 +61,29 @@ interface FactoryUnlockBannerProps {
 
 export default function FactoryUnlockBanner({ onUnlock }: FactoryUnlockBannerProps) {
   const { currentUser, fbUser } = useFirebase();
-  const [progress,    setProgress]    = useState<GraduationProgress | null>(null);
-  const [dismissed,   setDismissed]   = useState(false);
-  const [loading,     setLoading]     = useState(true);
+  const [xp,         setXp]         = useState<number | null>(null);
+  const [dismissed,  setDismissed]  = useState(false);
+  const [loading,    setLoading]    = useState(true);
 
   useEffect(() => {
     if (!fbUser) return;
-
-    getGraduationSignals(fbUser.uid)
-      .then((signals) => {
-        setProgress(getGraduationProgress(signals));
-      })
-      .catch(console.error)
+    getDoc(doc(db, 'factory_reputation', fbUser.uid))
+      .then(snap => setXp(snap.exists() ? (snap.data().xp ?? 0) : 0))
+      .catch(err => { console.error(err); setXp(0); })
       .finally(() => setLoading(false));
   }, [fbUser]);
 
   // Don't show if already on factory/investor tier
   const tier = (currentUser as any)?.subscriptionTier ?? 'free';
   if (tier === 'factory' || tier === 'investor') return null;
-  if (dismissed || loading || !progress) return null;
+  if (dismissed || loading || xp === null) return null;
 
-  const qualified = progress.percentage >= 100;
+  const percentage = Math.min(100, Math.round((xp / FACTORY_UNLOCK_LEVEL.minXP) * 100));
+  const qualified  = percentage >= 100;
+  const level      = levelFor(xp);
 
-  // Only show if user has some progress (> 20%) or is fully qualified
-  if (progress.percentage < 20) return null;
+  // Only show if the user has some real progress, or is fully qualified
+  if (percentage < 20) return null;
 
   return (
     <div className={`relative rounded-xl border p-4 mb-4 ${
@@ -82,28 +126,18 @@ export default function FactoryUnlockBanner({ onUnlock }: FactoryUnlockBannerPro
           ) : (
             <>
               <p className="font-semibold text-stone-900 text-sm">
-                You're {progress.percentage}% of the way to Factory
+                You're {percentage}% of the way to Factory
               </p>
               <p className="text-stone-600 text-xs mt-0.5">
-                Keep contributing to unlock your startup workspace.
+                {level.rank} · {xp} / {FACTORY_UNLOCK_LEVEL.minXP} XP toward Factory access
               </p>
 
               {/* Progress bar */}
               <div className="mt-2 h-1.5 bg-stone-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                  style={{ width: `${progress.percentage}%` }}
+                  style={{ width: `${percentage}%` }}
                 />
-              </div>
-
-              {/* Signal breakdown */}
-              <div className="mt-3 grid grid-cols-2 gap-1.5">
-                {progress.signals.map((signal) => (
-                  <div key={signal.label} className="text-xs text-stone-600">
-                    <span className="font-medium text-stone-700">{signal.label}:</span>{' '}
-                    {signal.score}/100
-                  </div>
-                ))}
               </div>
             </>
           )}

@@ -376,17 +376,17 @@ export async function respondToConnectionRequest(
     updatedAt: serverTimestamp(),
   });
 
-  // Update connection counts separately — non-fatal if they fail
-  if (response === 'accepted' && senderUid && receiverUid) {
-    try {
-      const batch = writeBatch(db);
-      if (senderUid)   batch.update(doc(db, 'users', senderUid),   { connectionCount: increment(1) });
-      if (receiverUid) batch.update(doc(db, 'users', receiverUid), { connectionCount: increment(1) });
-      await batch.commit();
-    } catch (err) {
-      console.warn('Connection count update failed (non-fatal):', err);
-    }
-  }
+  // connectionCount used to be bumped here with a client-side writeBatch
+  // touching both senderUid and receiverUid in one commit. firestore.rules'
+  // users/{uid} update rule is self-only (request.auth.uid == uid) — the
+  // caller here is the receiver accepting the request, so the batch's write
+  // to senderUid's doc was always rejected, and because writeBatch.commit()
+  // is all-or-nothing, that rejection silently failed the WHOLE batch,
+  // including the receiver's own increment. The try/catch's "non-fatal"
+  // comment was masking a bug that made connectionCount never actually
+  // increment for anyone. Real fix: the onConnectionAccepted Cloud Function
+  // (functions/src/index.ts) does this now via the Admin SDK, which isn't
+  // subject to client security rules and can touch both users in one write.
 }
 
 export async function fetchConnectionRequests(uid: string): Promise<ConnectionRequest[]> {

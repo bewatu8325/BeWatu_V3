@@ -83,10 +83,6 @@ export interface User {
   factoryUnlocked?: boolean;
   factoryUnlockedAt?: string;
   factoryUnlockReason?: string;
-  ideaTractionScore?: number;
-  collaborationScore?: number;
-  teamFormationScore?: number;
-  arenaPerformanceScore?: number;
   proSubscriptionDays?: number;
 }
 

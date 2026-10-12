@@ -927,6 +927,42 @@ export const provisionInvestorOnApproval = onDocumentUpdated('investor_applicati
     return null;
 });
 
+// P1 fix: respondToConnectionRequest() (lib/firestoreService.ts) used to
+// bump connectionCount on both users in one client-side writeBatch. But
+// firestore.rules' users/{uid} update rule is self-only
+// (request.auth.uid == uid) -- the caller is whichever user is accepting
+// (the receiver), so the write to the OTHER user's doc was always rejected,
+// and writeBatch.commit() is all-or-nothing, so that rejection silently
+// failed the whole batch, including the receiver's own increment.
+// connectionCount has likely never actually incremented for anyone. Real
+// fix: do it here via the Admin SDK, which isn't subject to client rules
+// and can touch both users in one write.
+export const onConnectionAccepted = onDocumentUpdated('connections/{connectionId}', async (event) => {
+  const before = event.data!.before.data();
+  const after  = event.data!.after.data();
+
+  // Only act on the pending -> accepted transition, not every later edit
+  // to an already-accepted connection doc.
+  if (before.status === 'accepted' || after.status !== 'accepted') {
+    return null;
+  }
+
+  const senderUid   = after.senderUid;
+  const receiverUid = after.receiverUid;
+  if (!senderUid || !receiverUid) {
+    console.error(`connections/${event.params.connectionId} accepted with missing senderUid/receiverUid`);
+    return null;
+  }
+
+  const batch = db.batch();
+  batch.update(db.collection('users').doc(senderUid),   { connectionCount: FieldValue.increment(1) });
+  batch.update(db.collection('users').doc(receiverUid), { connectionCount: FieldValue.increment(1) });
+  await batch.commit();
+
+  console.log(`connectionCount incremented for ${senderUid} and ${receiverUid} (connections/${event.params.connectionId})`);
+  return null;
+});
+
 // The ops Verification Queue decides on verificationRequests docs, but
 // provisionInvestorOnApproval above listens to investor_applications --
 // nothing connected the two, so an ops "Approve" never provisioned the
