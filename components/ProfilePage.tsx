@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { User, ConnectionRequest, Circle, View, Experience, AVAILABILITY_OPTIONS, OPEN_TO_OPTIONS, BUILDER_TYPE_OPTIONS } from '../types';
+import { User, ConnectionRequest, Circle, View, Experience, AVAILABILITY_OPTIONS, OPEN_TO_OPTIONS, BUILDER_TYPE_OPTIONS, ThirdPartyIntegration } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, BotIcon, UsersIcon, ShareIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import ExperienceSection from './ExperienceSection';
@@ -54,6 +54,8 @@ const ARENA_STATUS: Record<ArenaSubmissionRecord['status'], { label: string; bg:
   rejected:    { label: 'Not selected', bg: '#f5f5f4',               color: '#78716c' },
 };
 
+const LINK_PLATFORMS: ThirdPartyIntegration['platform'][] = ['GitHub', 'Figma', 'Dribbble', 'Kaggle', 'Notion'];
+
 const StatItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number; valueClassName: string }> = ({ icon, label, value, valueClassName }) => (
     <div className="bg-stone-50/50 p-3 rounded-lg border border-stone-200 text-center">
         <div className="flex justify-center items-center mb-1 text-stone-600">{icon}</div>
@@ -83,6 +85,26 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   const handleLocationBlur = () => {
     const trimmed = locationInput.trim();
     if (trimmed !== (user.location ?? '')) onSaveProfile?.({ location: trimmed });
+  };
+
+  // ── Links (third-party integrations — real, pre-existing field with no
+  // editor anywhere until now; always saved empty at signup and shown
+  // read-only in the recruiter's CandidateDetailView, so it sat permanently
+  // blank for every real user) ─────────────────────────────────────────────
+  const [newLinkPlatform, setNewLinkPlatform] = useState<ThirdPartyIntegration['platform']>('GitHub');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const links = user.thirdPartyIntegrations ?? [];
+  const availableLinkPlatforms = LINK_PLATFORMS.filter(p => !links.some(l => l.platform === p));
+  const handleAddLink = () => {
+    const trimmed = newLinkUrl.trim();
+    if (!trimmed) return;
+    const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const next = [...links, { platform: newLinkPlatform, url, verified: false }];
+    onSaveProfile?.({ thirdPartyIntegrations: next });
+    setNewLinkUrl('');
+  };
+  const handleRemoveLink = (platform: ThirdPartyIntegration['platform']) => {
+    onSaveProfile?.({ thirdPartyIntegrations: links.filter(l => l.platform !== platform) });
   };
 
   // ── Share public profile ─────────────────────────────────────────────────
@@ -679,6 +701,75 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 <p className="text-sm text-stone-600">Hasn't shared what they're open to yet.</p>
               )}
             </>
+          )}
+        </div>
+
+        {/* Links — real work, not a bio. thirdPartyIntegrations is a real,
+            pre-existing User field already read by CandidateDetailView but
+            with no editor anywhere, so it saved empty at signup and stayed
+            blank for every real user. */}
+        <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
+          <h3 className="font-semibold text-stone-800 text-sm mb-3">Links</h3>
+
+          {links.length === 0 ? (
+            <p className="text-sm text-stone-600 mb-3">
+              {isCurrentUser ? "No links yet — add your GitHub, portfolio, or other work to show real work." : "Hasn't added any links yet."}
+            </p>
+          ) : (
+            <div className="space-y-1.5 mb-3">
+              {links.map(link => (
+                <div key={link.platform} className="flex items-center gap-2">
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 min-w-0 flex items-center gap-2 text-sm rounded-lg px-2.5 py-1.5 hover:bg-stone-100 transition-colors"
+                  >
+                    <span className="font-semibold text-stone-800 flex-shrink-0">{link.platform}</span>
+                    <span className="text-stone-600 truncate">{link.url.replace(/^https?:\/\//i, '')}</span>
+                  </a>
+                  {isCurrentUser && (
+                    <button
+                      onClick={() => handleRemoveLink(link.platform)}
+                      aria-label={`Remove ${link.platform} link`}
+                      className="flex-shrink-0 text-stone-600 hover:text-red-600 text-xs font-semibold px-2"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isCurrentUser && availableLinkPlatforms.length > 0 && (
+            <div className="flex items-center gap-2">
+              <select
+                value={newLinkPlatform}
+                onChange={e => setNewLinkPlatform(e.target.value as ThirdPartyIntegration['platform'])}
+                className="text-sm border rounded-lg px-2 py-1.5 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[var(--bw-green)]/30 flex-shrink-0"
+                style={{ borderColor: '#e7e5e4' }}
+              >
+                {availableLinkPlatforms.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <input
+                type="text"
+                value={newLinkUrl}
+                onChange={e => setNewLinkUrl(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddLink(); }}
+                placeholder="your-profile-url.com"
+                className="flex-1 min-w-0 text-sm border rounded-lg px-3 py-1.5 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[var(--bw-green)]/30"
+                style={{ borderColor: '#e7e5e4' }}
+              />
+              <button
+                onClick={handleAddLink}
+                disabled={!newLinkUrl.trim()}
+                className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+                style={{ backgroundColor: 'var(--bw-green)', color: 'white' }}
+              >
+                Add
+              </button>
+            </div>
           )}
         </div>
 
