@@ -87,13 +87,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 
   // ── Item 4: auto-ensure username + isPublic for public profile URL ───────
   // When an existing user visits their own profile, if they don't yet have a
-  // username slug or isPublic is not set, derive and save both silently.
-  // This is a one-time migration — runs at most once per user.
+  // username slug or isPublic has never been set, derive and save both
+  // silently. This is a one-time migration — runs at most once per user.
+  //
+  // P1 fix: needsPublic used to check `u.isPublic !== true`, which is also
+  // true when isPublic was deliberately set to false (Security & Privacy ->
+  // Profile Visibility -> Private). That made this "one-time" migration
+  // fire again on every subsequent visit to your own profile and silently
+  // flip isPublic back to true -- undoing the user's own private choice and
+  // leaving firestore.rules' unauthenticated-read gate (isPublic == true)
+  // open again. Checking specifically for undefined makes this a real
+  // one-time migration that never overrides an explicit choice.
   useEffect(() => {
     if (!isCurrentUser || !fbUser?.uid || !onSaveProfile) return;
     const u = user as any;
     const needsUsername = !u.username;
-    const needsPublic   = u.isPublic !== true;
+    const needsPublic   = u.isPublic === undefined;
     if (!needsUsername && !needsPublic) return;
 
     const derived = u.username ?? (user.name

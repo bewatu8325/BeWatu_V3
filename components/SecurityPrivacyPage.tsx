@@ -143,7 +143,22 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
   async function handleSavePrivacy() {
     if (!fbUser) return;
     setSavingPrivacy(true);
-    try { await updateUserInFirestore(fbUser.uid, { privacySettings: privacy } as any); setPrivacySaved(true); setTimeout(() => setPrivacySaved(false), 3000); }
+    try {
+      // P1 fix: profileVisibility ('public'/'connections'/'private') and
+      // isPublic (the boolean firestore.rules actually checks to allow
+      // unauthenticated reads, e.g. the /be/:username share link) were two
+      // separate fields that never agreed with each other. Choosing
+      // "Private" here saved privacySettings.profileVisibility = 'private'
+      // but left isPublic untouched (permanently true from ProfilePage's
+      // one-time migration), so a "private" profile was still fully
+      // readable by anyone logged out. isPublic now follows the choice
+      // made here directly.
+      await updateUserInFirestore(fbUser.uid, {
+        privacySettings: privacy,
+        isPublic: privacy.profileVisibility !== 'private',
+      } as any);
+      setPrivacySaved(true); setTimeout(() => setPrivacySaved(false), 3000);
+    }
     finally { setSavingPrivacy(false); }
   }
 
