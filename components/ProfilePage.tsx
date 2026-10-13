@@ -437,9 +437,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           {!isCurrentUser && onReportUser && (
             <button
               onClick={() => onReportUser(user._firestoreUid ?? String(user.id), user.name)}
-              style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, border: '1px solid #e7e5e4', background: '#f5f5f4', color: '#57534e', fontSize: 12, fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#e7e5e4'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#f5f5f4'; }}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors hover:bg-stone-100"
+              style={{ borderColor: '#e7e5e4', color: '#57534e' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               Report this user
@@ -505,8 +504,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
             </div>
           ) : (
             <div className="flex flex-wrap gap-1.5 mb-3">
-              {(user.skills ?? []).length === 0 && !isCurrentUser && (
-                <p className="text-sm text-stone-600">No skills listed yet.</p>
+              {(user.skills ?? []).length === 0 && (
+                <p className="text-sm text-stone-600">
+                  {isCurrentUser ? "No skills yet — add what you're good at so people can find you for it." : 'No skills listed yet.'}
+                </p>
               )}
               {(user.skills ?? []).map((skill: any) => {
                 const name = typeof skill === 'string' ? skill : skill?.name ?? '';
@@ -642,9 +643,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
             now, so it sat permanently blank for every real user. openTo is
             new, same save pattern as skills below. */}
         <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
-          <h3 className="font-semibold text-stone-800 text-sm mb-3">
-            {isCurrentUser ? 'Availability & Intent' : 'Open to'}
-          </h3>
+          <h3 className="font-semibold text-stone-800 text-sm mb-3">Availability & Intent</h3>
 
           {isCurrentUser ? (
             <>
