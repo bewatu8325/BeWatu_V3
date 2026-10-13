@@ -36,6 +36,10 @@ export interface WorkStyle {
 
 export interface User {
   id: number;
+  // Account creation date — written at signup (lib/firebaseAuth.ts'
+  // buildNewUserDoc) but never hydrated back by docToUser until now, so
+  // nothing could show a real "member since" date.
+  createdAt?: any;
   name: string;
   headline: string;
   bio: string;

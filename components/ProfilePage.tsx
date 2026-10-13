@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { User, ConnectionRequest, Circle, View, Experience, AVAILABILITY_OPTIONS, OPEN_TO_OPTIONS, BUILDER_TYPE_OPTIONS } from '../types';
-import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon, ShareIcon } from '../constants';
+import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, BotIcon, UsersIcon, ShareIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import ExperienceSection from './ExperienceSection';
 import ReputationPanel from './profile/ReputationPanel';
@@ -13,7 +13,7 @@ import ProfileReelsStrip from './ProfileReelsStrip';
 import ShareProfileModal from './ShareProfileModal';
 import { uploadAvatar } from '../lib/storageService';
 import { updateUserInFirestore } from '../lib/firebaseAuth';
-import { getFollowingCompanies } from '../lib/firestoreService';
+import { getFollowingCompanies, getMyArenaSubmissions, ArenaSubmissionRecord } from '../lib/firestoreService';
 import SkillResume from './profile/SkillResume';
 
 interface ProfilePageProps {
@@ -45,6 +45,13 @@ const proficiencyWidth = {
   'Intermediate': 'w-2/4',
   'Proficient': 'w-3/4',
   'Expert': 'w-4/4',
+};
+
+const ARENA_STATUS: Record<ArenaSubmissionRecord['status'], { label: string; bg: string; color: string }> = {
+  submitted:   { label: 'Submitted',    bg: '#f5f5f4',               color: '#57534e' },
+  shortlisted: { label: 'Shortlisted',  bg: '#fef3c7',               color: '#92400e' },
+  winner:      { label: 'Won',          bg: 'var(--bw-green-light)', color: 'var(--bw-green-mid)' },
+  rejected:    { label: 'Not selected', bg: '#f5f5f4',               color: '#78716c' },
 };
 
 const StatItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number; valueClassName: string }> = ({ icon, label, value, valueClassName }) => (
@@ -89,6 +96,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
     getFollowingCompanies(fbUser.uid)
       .then(setFollowedCompanies)
       .catch(() => setFollowedCompanies([]));
+  }, [isCurrentUser, fbUser?.uid]);
+
+  // ── Arena submissions (owner only) ───────────────────────────────────────
+  // arena_challenges/{id}/submissions/{id}'s own read rule only allows the
+  // submission's author or that challenge's recruiter to read it — a
+  // visitor on someone else's profile can't read their submissions at all,
+  // so this section only loads (and only renders) for isCurrentUser.
+  const [arenaSubmissions, setArenaSubmissions] = useState<ArenaSubmissionRecord[]>([]);
+  const [arenaLoading, setArenaLoading] = useState(true);
+  useEffect(() => {
+    if (!isCurrentUser || !fbUser?.uid) { setArenaLoading(false); return; }
+    getMyArenaSubmissions(fbUser.uid)
+      .then(setArenaSubmissions)
+      .catch(() => setArenaSubmissions([]))
+      .finally(() => setArenaLoading(false));
   }, [isCurrentUser, fbUser?.uid]);
 
   // ── Item 4: auto-ensure username + isPublic for public profile URL ───────
@@ -193,6 +215,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   };
 
   const profileUid = (user as any)._firestoreUid ?? String(user.id);
+
+  const memberSinceDate: Date | null = (() => {
+    const raw = (user as any).createdAt;
+    if (!raw) return null;
+    if (typeof raw.toDate === 'function') return raw.toDate();
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  })();
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 overflow-x-hidden">
@@ -520,6 +550,69 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         {/* Trust Reputation Panel — full domain breakdown */}
         <ReputationPanel uid={profileUid} isOwn={isCurrentUser} />
 
+        {/* Execution Record — replaces the old minimal "Circles Tile" (just
+            colored initials) with named, clickable pods plus — owner only,
+            see the effect above for why — a real list of Arena submissions
+            with outcome. Pods stay visible to visitors since circle/pod
+            membership isn't access-restricted the way submissions are. */}
+        <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
+          <h3 className="font-semibold text-stone-800 text-sm mb-1">Execution Record</h3>
+          <p className="text-xs text-stone-600 mb-4">
+            {memberSinceDate && `Member since ${memberSinceDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })} · `}
+            {userCircles.length} pod{userCircles.length !== 1 ? 's' : ''}
+            {isCurrentUser && !arenaLoading && `, ${arenaSubmissions.length} Arena submission${arenaSubmissions.length !== 1 ? 's' : ''}`}
+          </p>
+
+          <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">Pods</p>
+          {userCircles.length === 0 ? (
+            <p className="text-sm text-stone-600 mb-4">
+              {isCurrentUser ? 'No pods yet — join one from Community to start building with others.' : 'No pods yet.'}
+            </p>
+          ) : (
+            <div className="space-y-1 mb-4">
+              {userCircles.map(circle => (
+                <button
+                  key={circle.id}
+                  onClick={() => onSelectCircle(circle.id)}
+                  className="w-full flex items-center gap-2.5 text-left rounded-lg px-2 py-1.5 hover:bg-stone-100 transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs text-white flex-shrink-0"
+                    style={{ backgroundColor: getCircleColor(circle.name) }}>
+                    {circle.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm text-stone-800 truncate">{circle.name}</span>
+                  {circle.adminId === user.id && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-stone-600 ml-auto flex-shrink-0">Admin</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {isCurrentUser && (
+            <>
+              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">Arena Submissions</p>
+              {arenaLoading ? (
+                <p className="text-sm text-stone-600">Loading…</p>
+              ) : arenaSubmissions.length === 0 ? (
+                <p className="text-sm text-stone-600">No Arena submissions yet — find a challenge that matches your skills.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {arenaSubmissions.map(sub => (
+                    <div key={sub.id} className="flex items-center gap-2 text-sm">
+                      <span className="flex-1 min-w-0 truncate text-stone-800">{sub.challengeTitle}</span>
+                      <span className="text-xs font-semibold rounded-full px-2 py-0.5 flex-shrink-0"
+                        style={{ backgroundColor: ARENA_STATUS[sub.status].bg, color: ARENA_STATUS[sub.status].color }}>
+                        {ARENA_STATUS[sub.status].label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
         {/* Availability & Intent — availability is a real, pre-existing User
             field (scored in CareerIntelligence's profile-strength calc,
             shown to recruiters in TalentPipeline, used in ConnectionsView's
@@ -732,29 +825,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               >
                 Open
               </button>
-            </div>
-          </div>
-        )}
-
-        {/* Circles Tile */}
-        {userCircles.length > 0 && (
-          <div className="bg-white/50 rounded-xl border border-stone-200 p-6">
-            <h3 className="font-semibold text-stone-800 text-md mb-4 flex items-center justify-center">
-              <CirclesIcon className="w-5 h-5 mr-2 text-purple-400"/>
-              {t('myCircles')}
-            </h3>
-            <div className="flex flex-wrap gap-3 justify-center">
-              {userCircles.map(circle => (
-                <button 
-                  key={circle.id} 
-                  onClick={() => onSelectCircle(circle.id)}
-                  title={circle.name}
-                  className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-purple-500"
-                  style={{ backgroundColor: getCircleColor(circle.name) }}
-                >
-                  {circle.name.charAt(0).toUpperCase()}
-                </button>
-              ))}
             </div>
           </div>
         )}

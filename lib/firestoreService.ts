@@ -6,6 +6,7 @@
  */
 import {
   collection,
+  collectionGroup,
   doc,
   addDoc,
   setDoc,
@@ -4211,4 +4212,56 @@ export async function recordTermsAgreement(
     agreedToTermsIp:      ipAddress ?? null,
     updatedAt:            serverTimestamp(),
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXECUTION RECORD — real proof-of-work for a user's own profile.
+// Profile-page UX audit, Part 3 (Execution Record, Critical/High priority).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ArenaSubmissionRecord {
+  id:            string;
+  challengeId:   string;
+  challengeTitle: string;
+  companyName:   string;
+  status:        'submitted' | 'shortlisted' | 'winner' | 'rejected';
+  submittedAt:   Date;
+}
+
+// Submissions live in arena_challenges/{challengeId}/submissions/{subId} with
+// no denormalized challenge title, so a collectionGroup query across every
+// challenge's submissions is the only way to find "every Arena this user has
+// submitted to" without first knowing which challenges to look in. Each
+// result's challenge is then fetched once (not N+1 per visit — this runs
+// only on the profile owner's own page load).
+export async function getMyArenaSubmissions(uid: string): Promise<ArenaSubmissionRecord[]> {
+  const snap = await getDocs(
+    query(collectionGroup(db, 'submissions'), where('authorUid', '==', uid))
+  );
+  const records = await Promise.all(snap.docs.map(async d => {
+    const data = d.data();
+    const challengeRef = d.ref.parent.parent;
+    if (!challengeRef) return null;
+    // arena_challenges' own read rule only allows a non-recruiter to read a
+    // challenge doc while verificationStatus === 'live'. A challenge the
+    // user submitted to may since have been taken down or unpublished, in
+    // which case this throws permission-denied rather than returning
+    // nothing -- degrade to a generic label instead of losing the whole
+    // list over one unreadable challenge.
+    let challenge: Record<string, any> | undefined;
+    try {
+      challenge = (await getDoc(challengeRef)).data();
+    } catch { /* unreadable — fall back below */ }
+    return {
+      id:             d.id,
+      challengeId:    challengeRef.id,
+      challengeTitle: challenge?.title ?? 'Arena challenge',
+      companyName:    challenge?.companyName ?? '',
+      status:         data.status ?? 'submitted',
+      submittedAt:    data.submittedAt?.toDate?.() ?? new Date(),
+    } as ArenaSubmissionRecord;
+  }));
+  return records
+    .filter((r): r is ArenaSubmissionRecord => r !== null)
+    .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
 }

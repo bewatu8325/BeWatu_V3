@@ -92,6 +92,7 @@ async function docToUser(data: Record<string, any>): Promise<User> {
   const contact = await getPrivateContact(data.uid);
   return {
     id: data.numericId ?? 1,
+    createdAt: data.createdAt ?? null,
     name: data.displayName ?? '',
     headline: data.headline ?? '',
     bio: data.bio ?? '',
