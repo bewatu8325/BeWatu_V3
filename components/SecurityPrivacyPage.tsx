@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, PrivacySettings, DEFAULT_PRIVACY } from '../types';
+import { User, Circle, PrivacySettings, DEFAULT_PRIVACY } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { updateUserInFirestore } from '../lib/firebaseAuth';
 import { Download, Trash2 } from 'lucide-react';
+import { PodNotificationPrefs } from './PodFeatures';
 
 // ── Safely import optional auth functions ─────────────────────────────────────
 async function safeGetSecurityEvents(uid: string, limit: number): Promise<any[]> {
@@ -52,6 +53,7 @@ const IconUsers  = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="non
 const IconBriefcase = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>);
 const IconCheck  = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>);
 const IconArrowLeft = () => (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>);
+const IconBell   = () => (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>);
 
 const GREEN = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -90,9 +92,10 @@ interface SecurityPrivacyPageProps {
   onChangePassword: () => void;
   onDeleteAccount?: () => void;
   onExportData?: () => Promise<void>;
+  circles?: Circle[];
 }
 
-const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack, onChangePassword, onDeleteAccount, onExportData }) => {
+const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack, onChangePassword, onDeleteAccount, onExportData, circles }) => {
   const { fbUser } = useFirebase();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -113,6 +116,10 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
   const [verifySent, setVerifySent] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [exportDone, setExportDone] = useState(false);
+
+  // Pods this user belongs to — same membership check ProfilePage uses for
+  // its own pods list (Execution Record).
+  const userCircles = (circles ?? []).filter(c => c.members.includes(user.id));
 
   useEffect(() => {
     setEmailVerified(safeIsEmailVerified());
@@ -282,6 +289,32 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
           </div>
           <Toggle on={privacy.visibleToRecruiters} onChange={v => setP('visibleToRecruiters', v)} disabled={privacy.profileVisibility === 'private'} />
         </div>
+      </div>
+
+      {/* Notifications — one place to manage the real, per-pod notification
+          preference (all / weekly digest / mentions only / off) for every
+          pod you belong to, instead of visiting each pod individually. */}
+      <div className="bg-white rounded-2xl border p-5 sm:p-6 space-y-4" style={{ borderColor: '#e7e5e4' }}>
+        <div className="flex items-center gap-2"><IconBell /><h2 className="font-bold text-stone-900">Notifications</h2></div>
+        <p className="text-sm text-stone-600">Choose how each of your pods notifies you about new comments.</p>
+        {userCircles.length === 0 ? (
+          <p className="text-sm text-stone-600">Join a pod to manage its notification settings here.</p>
+        ) : (
+          <div className="space-y-2">
+            {userCircles.map(circle => (
+              <div key={circle.id} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50 border border-stone-100 px-3 py-2.5">
+                <span className="text-sm font-medium text-stone-800 truncate">{circle.name}</span>
+                {fbUser && (
+                  <PodNotificationPrefs
+                    podId={(circle as any)._firestoreId ?? String(circle.id)}
+                    podName={circle.name}
+                    userUid={fbUser.uid}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Account Protection */}

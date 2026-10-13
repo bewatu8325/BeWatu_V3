@@ -242,6 +242,22 @@ export async function addComment(
   };
 }
 
+// Matches PodFeatures.tsx's PodNotifPref — duplicated here rather than
+// imported to keep lib/ independent of components/. 'all' and 'mentions'
+// both cover a comment on your own post (it is a direct reply to you);
+// 'digest' and 'off' mean skip the real-time ping. Missing doc (pod never
+// touched this control) defaults to 'digest', matching the dropdown's own
+// stated default ("Default is Weekly digest").
+type PodNotifPrefValue = 'all' | 'digest' | 'mentions' | 'off';
+async function getPodNotifPref(uid: string, podId: string): Promise<PodNotifPrefValue> {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'podPrefs', podId));
+    return (snap.data()?.notifPref as PodNotifPrefValue) ?? 'digest';
+  } catch {
+    return 'digest';
+  }
+}
+
 /** Send a notification to a post author when someone comments.
  *  Called from PodPostCard after addComment succeeds. */
 export async function notifyPostAuthor(
@@ -253,6 +269,10 @@ export async function notifyPostAuthor(
 ): Promise<void> {
   // Don't notify yourself
   if (postAuthorUid === commenterUid) return;
+  if (circleFirestoreId) {
+    const pref = await getPodNotifPref(postAuthorUid, circleFirestoreId);
+    if (pref === 'digest' || pref === 'off') return;
+  }
   try {
     await addDoc(collection(db, 'users', postAuthorUid, 'notifications'), {
       type:              'post_comment',

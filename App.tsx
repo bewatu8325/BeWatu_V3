@@ -2002,6 +2002,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                     onChangePassword={() => handleChangePassword('' as any, '' as any)}
                     onDeleteAccount={() => setShowDeletionModal(true)}
                     onExportData={handleExportData}
+                    circles={data.circles}
                   />
                 </Suspense>
               </main>
