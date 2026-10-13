@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { User, ConnectionRequest, Circle, View, Experience } from '../types';
+import { User, ConnectionRequest, Circle, View, Experience, AVAILABILITY_OPTIONS, OPEN_TO_OPTIONS } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon, ShareIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import ExperienceSection from './ExperienceSection';
@@ -26,7 +26,6 @@ interface ProfilePageProps {
   onPlayVideo: (url: string) => void;
   onNavigate: (view: View) => void;
   onSelectCircle: (circleId: number) => void;
-  onChangePassword: () => void;
   onOpenSecurity: () => void;
   onReportUser?: (firestoreId: string, name: string) => void;
   /** Saves profile fields AND syncs App.tsx data.users/currentUser immediately.
@@ -65,7 +64,7 @@ const getCircleColor = (circleName: string) => {
     return color;
 };
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onChangePassword, onOpenSecurity, onReportUser, onSaveProfile, onUploadVideo, onAddSkill, onRemoveSkill, onViewCompany }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onOpenSecurity, onReportUser, onSaveProfile, onUploadVideo, onAddSkill, onRemoveSkill, onViewCompany }) => {
   const { t } = useTranslation();
   const { fbUser } = useFirebase();
 
@@ -120,9 +119,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
     if (needsPublic)   patch.isPublic = true;
     onSaveProfile(patch).catch(() => {});
   }, [isCurrentUser, fbUser?.uid, (user as any).username, (user as any).isPublic]);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUploadProgress, setAvatarUploadProgress] = useState(0);
   const [avatarError, setAvatarError] = useState('');
@@ -187,22 +183,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
       // Fallback: direct write (no local state sync — use onSaveProfile when possible)
       await updateUserInFirestore(fbUser.uid, { experiences } as any);
     }
-  };
-
-  const handlePasswordChangeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setPasswordError(t('passwordsDoNotMatch'));
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters long.");
-      return;
-    }
-    setPasswordError('');
-    if (onChangePassword) onChangePassword();
-    setNewPassword('');
-    setConfirmPassword('');
   };
 
   const profileUid = (user as any)._firestoreUid ?? String(user.id);
@@ -469,6 +449,75 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 
         {/* Trust Reputation Panel — full domain breakdown */}
         <ReputationPanel uid={profileUid} isOwn={isCurrentUser} />
+
+        {/* Availability & Intent — availability is a real, pre-existing User
+            field (scored in CareerIntelligence's profile-strength calc,
+            shown to recruiters in TalentPipeline, used in ConnectionsView's
+            complementary-matching score) that had no editor anywhere until
+            now, so it sat permanently blank for every real user. openTo is
+            new, same save pattern as skills below. */}
+        <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
+          <h3 className="font-semibold text-stone-800 text-sm mb-3">
+            {isCurrentUser ? 'Availability & Intent' : 'Open to'}
+          </h3>
+
+          {isCurrentUser ? (
+            <>
+              <label className="text-xs font-medium text-stone-600 mb-1 block">Availability</label>
+              <select
+                value={user.availability}
+                onChange={e => onSaveProfile?.({ availability: e.target.value })}
+                className="w-full text-sm border rounded-xl px-3 py-2 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[var(--bw-green)]/30 mb-4"
+                style={{ borderColor: '#e7e5e4' }}
+              >
+                {AVAILABILITY_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+
+              <label className="text-xs font-medium text-stone-600 mb-2 block">Open to</label>
+              <div className="flex flex-wrap gap-1.5">
+                {OPEN_TO_OPTIONS.map(opt => {
+                  const active = (user.openTo ?? []).includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => {
+                        const current = user.openTo ?? [];
+                        const next = active ? current.filter(o => o !== opt) : [...current, opt];
+                        onSaveProfile?.({ openTo: next });
+                      }}
+                      className="text-sm rounded-full px-3 py-1 font-medium border transition-colors"
+                      style={active
+                        ? { backgroundColor: 'var(--bw-green-light)', color: 'var(--bw-green-mid)', borderColor: 'var(--bw-green)' }
+                        : { backgroundColor: 'transparent', color: '#57534e', borderColor: '#e7e5e4' }}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              {user.availability && user.availability !== 'Not looking' && (
+                <p className="text-sm text-stone-700 mb-2">{user.availability}</p>
+              )}
+              {(user.openTo ?? []).length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {(user.openTo ?? []).map(opt => (
+                    <span key={opt} className="text-sm rounded-full px-3 py-1 font-medium"
+                      style={{ backgroundColor: 'var(--bw-green-light)', color: 'var(--bw-green-mid)' }}>
+                      {opt}
+                    </span>
+                  ))}
+                </div>
+              ) : (!user.availability || user.availability === 'Not looking') && (
+                <p className="text-sm text-stone-600">Hasn't shared what they're open to yet.</p>
+              )}
+            </>
+          )}
+        </div>
 
         {/* Resume Upload */}
         {isCurrentUser && (
