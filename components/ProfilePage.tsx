@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { User, ConnectionRequest, Circle, View, Experience, AVAILABILITY_OPTIONS, OPEN_TO_OPTIONS } from '../types';
+import { User, ConnectionRequest, Circle, View, Experience, AVAILABILITY_OPTIONS, OPEN_TO_OPTIONS, BUILDER_TYPE_OPTIONS } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, CirclesIcon, BotIcon, UsersIcon, ShareIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import ExperienceSection from './ExperienceSection';
@@ -70,6 +70,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
 
   // ── Inline skill adding ──────────────────────────────────────────────────
   const [skillInput, setSkillInput]   = useState('');
+
+  // ── Location (inline-editable, save on blur) ─────────────────────────────
+  const [locationInput, setLocationInput] = useState(user.location ?? '');
+  const handleLocationBlur = () => {
+    const trimmed = locationInput.trim();
+    if (trimmed !== (user.location ?? '')) onSaveProfile?.({ location: trimmed });
+  };
 
   // ── Share public profile ─────────────────────────────────────────────────
   const [showShareModal, setShowShareModal] = useState(false);
@@ -268,7 +275,70 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
             <h2 className="font-bold text-xl text-stone-900 break-words">{user.name}</h2>
             {user.isVerified && <VerifiedIcon className="w-5 h-5 text-[var(--bw-green-mid)]" title="Verified Work Email" />}
           </div>
+
+          {/* User type indicator — isRecruiter (existing field) already
+              covers Company/Organization accounts; builderType (new) only
+              needs to split Professional vs Pre-Founder for everyone else. */}
+          <div className="mt-1.5 flex items-center justify-center">
+            {(user as any).isRecruiter ? (
+              <span className="inline-flex items-center text-xs font-semibold rounded-full px-2.5 py-0.5"
+                style={{ backgroundColor: 'var(--bw-green-light)', color: 'var(--bw-green-mid)' }}>
+                Company
+              </span>
+            ) : isCurrentUser ? (
+              <div className="inline-flex rounded-full border p-0.5" style={{ borderColor: '#e7e5e4' }}>
+                {BUILDER_TYPE_OPTIONS.map(opt => {
+                  const active = (user.builderType ?? 'Professional') === opt;
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => onSaveProfile?.({ builderType: opt })}
+                      className="text-xs font-semibold rounded-full px-2.5 py-0.5 transition-colors"
+                      style={active
+                        ? { backgroundColor: 'var(--bw-green)', color: 'white' }
+                        : { backgroundColor: 'transparent', color: '#57534e' }}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <span className="inline-flex items-center text-xs font-semibold rounded-full px-2.5 py-0.5"
+                style={{ backgroundColor: '#f5f5f4', color: '#57534e' }}>
+                {user.builderType ?? 'Professional'}
+              </span>
+            )}
+          </div>
+
           <p className="text-sm text-stone-600 mt-1 break-words">{user.headline}</p>
+
+          {/* Location — new field, absent from User entirely until now */}
+          {isCurrentUser ? (
+            <div className="mt-2 flex items-center justify-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-stone-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+              <input
+                type="text"
+                value={locationInput}
+                onChange={e => setLocationInput(e.target.value)}
+                onBlur={handleLocationBlur}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Add your city and country"
+                className="text-sm text-center bg-transparent border-b border-dashed text-stone-700 focus:outline-none focus:border-[var(--bw-green)] placeholder:text-stone-600"
+                style={{ borderColor: '#d6d3cd' }}
+              />
+            </div>
+          ) : user.location ? (
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-sm text-stone-600">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+              {user.location}
+            </p>
+          ) : null}
+
           <p className="text-stone-700 text-sm mt-4 break-words">{user.bio}</p>
 
           {/* Share public profile — owner only */}

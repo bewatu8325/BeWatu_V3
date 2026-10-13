@@ -128,6 +128,7 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     values: data.values ?? [],
     availability: data.availability ?? 'Exploring opportunities',
     openTo: data.openTo ?? [],
+    builderType: data.builderType ?? 'Professional',
     skills: data.skills ?? [],
     verifiedSkills: data.verifiedSkills ?? null,
     microIntroductionUrl: data.microIntroductionUrl ?? null,
@@ -174,7 +175,7 @@ function buildNewUserDoc(
     verifiedAchievements: [], thirdPartyIntegrations: [],
     username: baseUsername,  // URL slug — /be/:username
     workStyle: { collaboration: 'Thrives in pairs', communication: 'Prefers asynchronous', workPace: 'Fast-paced and iterative' },
-    values: [], availability: 'Exploring opportunities', openTo: [], skills: [],
+    values: [], availability: 'Exploring opportunities', openTo: [], builderType: 'Professional', skills: [],
     verifiedSkills: null, microIntroductionUrl: null, connectionCount: 0,
     isPublic: true, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   };
