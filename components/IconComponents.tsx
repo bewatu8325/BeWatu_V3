@@ -155,8 +155,9 @@ export const ReputationIcon: React.FC<IconProps> = ({ className = 'h-6 w-6', sty
 
 export const CirclesIcon: React.FC<IconProps> = ({ className = 'h-6 w-6', style }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
-    <circle cx="9" cy="12" r="6" />
-    <circle cx="15" cy="12" r="6" />
+    <circle cx="12" cy="8" r="5" />
+    <circle cx="8" cy="15" r="5" />
+    <circle cx="16" cy="15" r="5" />
   </svg>
 );
 
