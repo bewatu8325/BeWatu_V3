@@ -178,7 +178,7 @@ export const ProblemsIcon: React.FC<IconProps> = ({ className = 'h-6 w-6', style
 
 export const SparksIcon: React.FC<IconProps> = ({ className = 'h-6 w-6', style }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12.5 4.5C9 6.5 7 10 7 14a5 5 0 1 0 10 0c0-4-2.5-6.5-4.5-9.5z" />
   </svg>
 );
 
