@@ -329,9 +329,13 @@ interface HeaderProps {
   pendingConnectionCount?: number;
   onSearch?: (query: string) => void;
   onCircleInviteAccepted?: (circleFirestoreId: string) => void;
+  /** Opens the real Settings surface (SecurityPrivacyPage). Falls back to
+   *  View.Profile if not supplied, matching the previous (broken) behavior
+   *  rather than crashing on an older call site. */
+  onOpenSettings?: () => void;
 }
 
-export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch, onCircleInviteAccepted }: HeaderProps) {
+export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch, onCircleInviteAccepted, onOpenSettings }: HeaderProps) {
   const { currentUser, fbUser } = useFirebase() as any;
   const [menuOpen,  setMenuOpen]  = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -500,13 +504,13 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
                   <Shield className="h-4 w-4 text-stone-600" />Platform Admin
                 </button>
               )}
-              {/* There's no dedicated Settings view yet — this intentionally
-                  goes to Profile as the closest stand-in. View.Settings never
-                  existed on the enum (a string-enum member access on a
-                  missing key is `undefined` at runtime, not a crash, so the
-                  `?? View.Profile` fallback silently did the right thing —
-                  this just makes that explicit instead of relying on it). */}
-              <button onClick={() => { onNavigate(View.Profile); setMenuOpen(false); }}
+              {/* P1 fix: this used to call onNavigate(View.Profile) — identical
+                  to "View profile" above, since View.Settings never existed
+                  on the enum. The real settings surface (SecurityPrivacyPage)
+                  was only ever reachable by scrolling to the bottom of your
+                  own Profile page. Now opens it directly via the same
+                  overlay "Security & Privacy" already used there. */}
+              <button onClick={() => { (onOpenSettings ?? (() => onNavigate(View.Profile)))(); setMenuOpen(false); }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
                 <Settings className="h-4 w-4" />Settings
               </button>

@@ -2001,7 +2001,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {showSecurityPage && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} onCircleInviteAccepted={handleCircleInviteAccepted} />
+              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   <SecurityPrivacyPage
@@ -2033,7 +2033,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {publicProfileUserId && data && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} onCircleInviteAccepted={handleCircleInviteAccepted} />
+              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   <ProfileOverlay
@@ -2081,6 +2081,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               setPeopleSearch(q);
               handleSetView(View.People);
             }}
+            onOpenSettings={() => setShowSecurityPage(true)}
           />
           <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
             <PullToRefresh onRefresh={async () => { if (currentUser) await loadAppData(currentUser); }}>
