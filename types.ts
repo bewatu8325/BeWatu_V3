@@ -57,6 +57,11 @@ export interface User {
   // availability badge) missing from this union — a genuine type gap, not
   // a behavior change.
   availability: 'Immediate' | '2 weeks notice' | 'Exploring opportunities' | 'Not looking';
+  // What the user is open to being approached for — shown on their own
+  // profile and to visitors, same pattern as skills. Options map to real,
+  // existing platform surfaces (Arena, Pods, Factory, Bridge, Jobs) rather
+  // than inventing new intent categories; see OPEN_TO_OPTIONS below.
+  openTo?: string[];
   skills: { name: string; endorsements: number }[];
   verifiedSkills: VerifiedSkill[] | null;
   microIntroductionUrl: string | null;
@@ -85,6 +90,22 @@ export interface User {
   factoryUnlockReason?: string;
   proSubscriptionDays?: number;
 }
+
+export const AVAILABILITY_OPTIONS: User['availability'][] = [
+  'Immediate', '2 weeks notice', 'Exploring opportunities', 'Not looking',
+];
+
+// Each option names a real, existing BeWatu surface the user can actually
+// be approached through — not a generic intent category invented for this
+// field alone.
+export const OPEN_TO_OPTIONS = [
+  'Arena challenges',
+  'Pod formation',
+  'Co-founder conversations',
+  'Mentoring',
+  'Being mentored',
+  'Full-time opportunities',
+] as const;
 
 export interface PrivacySettings {
   allowConnectionRequests: boolean;
