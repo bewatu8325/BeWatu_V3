@@ -40,6 +40,10 @@ export interface User {
   headline: string;
   bio: string;
   avatarUrl: string;
+  // City and country — absent from the real User type entirely until now,
+  // not just missing UI. Free text (no picker) to stay low-friction, same
+  // treatment as headline/bio.
+  location?: string;
   industry: string;
   professionalGoals: string[];
   reputation: number;
@@ -62,6 +66,11 @@ export interface User {
   // existing platform surfaces (Arena, Pods, Factory, Bridge, Jobs) rather
   // than inventing new intent categories; see OPEN_TO_OPTIONS below.
   openTo?: string[];
+  // User-type indicator for BeWatu's three audiences. isRecruiter (existing
+  // field) already distinguishes Company/Organization accounts, so this only
+  // covers the split within non-recruiter accounts; ProfilePage combines
+  // isRecruiter and builderType into the single label shown on a profile.
+  builderType?: 'Professional' | 'Pre-Founder';
   skills: { name: string; endorsements: number }[];
   verifiedSkills: VerifiedSkill[] | null;
   microIntroductionUrl: string | null;
@@ -106,6 +115,11 @@ export const OPEN_TO_OPTIONS = [
   'Being mentored',
   'Full-time opportunities',
 ] as const;
+
+// Non-recruiter half of the user-type indicator — see builderType on User.
+export const BUILDER_TYPE_OPTIONS: NonNullable<User['builderType']>[] = [
+  'Professional', 'Pre-Founder',
+];
 
 export interface PrivacySettings {
   allowConnectionRequests: boolean;
