@@ -102,10 +102,11 @@ export const FactoryIcon: React.FC<IconProps> = ({ className = 'h-6 w-6', style 
 
 export const PodsIcon: React.FC<IconProps> = ({ className = 'h-6 w-6', style }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c-4 0-7 3-7 7v4c0 4 3 7 7 7s7-3 7-7v-4c0-4-3-7-7-7z" />
-    <circle cx="9.25" cy="11" r="0.9" />
-    <circle cx="14.75" cy="11" r="0.9" />
-    <circle cx="12" cy="15" r="0.9" />
+    <circle cx="12" cy="6.5" r="1.4" />
+    <circle cx="7.5" cy="11" r="1.8" />
+    <circle cx="16.5" cy="11" r="1.8" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 18.5a3.5 3.5 0 0 1 7 0" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13 18.5a3.5 3.5 0 0 1 7 0" />
   </svg>
 );
 
