@@ -82,6 +82,11 @@ export const PodNotificationPrefs: React.FC<PodNotificationPrefsProps> = ({
   podId, podName, userUid, onChange,
 }) => {
   const storageKey = `pod_notif_${userUid}_${podId}`;
+  // localStorage paints the last-known value instantly; the effect below
+  // then reconciles against Firestore (the real source of truth — see
+  // lib/firestoreService.ts's getPodNotifPref, which is what actually
+  // gates real-time pod notifications now) in case it was changed on
+  // another device.
   const [pref, setPref] = useState<PodNotifPref>(() => {
     try { return (localStorage.getItem(storageKey) as PodNotifPref) ?? 'digest'; }
     catch { return 'digest'; }
@@ -89,20 +94,31 @@ export const PodNotificationPrefs: React.FC<PodNotificationPrefsProps> = ({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
+        const snap = await getDoc(doc(db, 'users', userUid, 'podPrefs', podId));
+        const stored = snap.data()?.notifPref as PodNotifPref | undefined;
+        if (!cancelled && stored) {
+          setPref(stored);
+          try { localStorage.setItem(storageKey, stored); } catch {}
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [userUid, podId]);
+
   const handleSelect = async (val: PodNotifPref) => {
     setSaving(true);
     setPref(val);
     try {
-      localStorage.setItem(storageKey, val);
-      // Persist to Firestore pod membership doc
-      const { doc, updateDoc } = await import('firebase/firestore');
+      try { localStorage.setItem(storageKey, val); } catch {}
+      const { doc, setDoc } = await import('firebase/firestore');
       const { db } = await import('../lib/firebase');
-      const memberDocRef = doc(db, 'circles', podId, 'members', userUid);
-      await updateDoc(memberDocRef, { notifPref: val }).catch(() => {
-        // Member doc may not exist as subcollection — write to user prefs instead
-        const userPrefRef = doc(db, 'users', userUid, 'podPrefs', podId);
-        return updateDoc(userPrefRef, { notifPref: val }).catch(() => {});
-      });
+      await setDoc(doc(db, 'users', userUid, 'podPrefs', podId), { notifPref: val }, { merge: true });
       onChange?.(val);
     } finally {
       setSaving(false);

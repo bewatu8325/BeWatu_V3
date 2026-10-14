@@ -644,9 +644,17 @@ service cloud.firestore {
         allow delete: if isAuth() && request.auth.uid == uid;
       }
 
-      // Per-pod notification preferences
+      // Per-pod notification preferences — read opened to any authenticated
+      // user (not just the owner) so notifyPostAuthor (firestoreService.ts)
+      // can check a pod post's author's own pref for that pod before
+      // sending them a real-time comment notification. Not sensitive data
+      // the way email/phone/location are — just an on/off-style setting —
+      // so this mirrors the same openly-readable convention already used
+      // for circles/{id} and arena_challenges/{id} themselves. Write stays
+      // owner-only.
       match /podPrefs/{podId} {
-        allow read, write: if isAuth() && request.auth.uid == uid;
+        allow read:  if isAuth();
+        allow write: if isAuth() && request.auth.uid == uid;
       }
 
       // P0 2 fix: email, phone, location and stripeCustomerId used to live on
