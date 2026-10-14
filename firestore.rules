@@ -1707,10 +1707,13 @@ service cloud.firestore {
       allow read:   if isAuth();
       allow create: if isAuth()
         && request.resource.data.createdBy == request.auth.uid;
-      // TODO(confirm): requires a flat memberUids: string[] written alongside
-      // the existing members:[{user,role,joinedAt}] array — rules cannot map
-      // over an array of maps, so a flat uid array is needed to check membership
-      // (same pattern already used by funding_offers.founderUids below).
+      // CONFIRMED (bewatu-factory): graduateSolutionToTeam and
+      // graduateTeamToProject in lib/firebase/pipeline-service.ts, and the
+      // direct createTeam path in lib/firebase/firestore-service.ts, all
+      // write the flat memberUids: string[] alongside the existing
+      // members:[{user,role,joinedAt}] array — rules cannot map over an
+      // array of maps, so this is what membership checks actually use
+      // (same pattern funding_offers.founderUids already uses).
       allow update: if isAuth() && (
         resource.data.createdBy == request.auth.uid
         || (resource.data.memberUids is list && resource.data.memberUids.hasAny([request.auth.uid]))
@@ -1782,8 +1785,11 @@ service cloud.firestore {
       allow read:   if isAuth();
       allow create: if isAuth()
         && request.resource.data.createdBy == request.auth.uid;
-      // TODO(confirm): requires a flat founderUids: string[] written alongside
-      // the existing founders:[{id,name,avatar,role}] array (same convention
+      // CONFIRMED (bewatu-factory): graduateProjectToStartup in
+      // lib/firebase/pipeline-service.ts, and the direct createStartup path
+      // in lib/firebase/firestore-service.ts, both write the flat
+      // founderUids: string[] alongside the existing
+      // founders:[{id,name,avatar,role}] array (same convention
       // funding_offers.founderUids already uses).
       // P1 fix: viewCount was a blanket onlyFields() escape hatch. No
       // write site for it was found in either BeWatu_V3 or bewatu-factory
