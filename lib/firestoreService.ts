@@ -4285,3 +4285,45 @@ export async function getMyArenaSubmissions(uid: string): Promise<ArenaSubmissio
     .filter((r): r is ArenaSubmissionRecord => r !== null)
     .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FACTORY PROJECTS — real cross-app proof of work from bewatu-factory
+// (shared Firebase project). factory_projects.memberUids is a flat uid
+// array written by every real creation path in bewatu-factory (both
+// graduateTeamToProject and the direct createTeam/createProject flow —
+// confirmed against that repo's lib/firebase/pipeline-service.ts and
+// firestore-service.ts), and firestore.rules here already allows any
+// authenticated user to read factory_projects, so this is safe to show on
+// any profile, not just the owner's — same visibility as Pods.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface FactoryProjectRecord {
+  id:          string;
+  name:        string;
+  description: string;
+  status:      'planning' | 'development' | 'testing' | 'launched';
+  progress:    number;
+}
+
+export const FACTORY_PROJECT_STATUS_LABEL: Record<FactoryProjectRecord['status'], string> = {
+  planning:    'Planning',
+  development: 'In development',
+  testing:     'Testing',
+  launched:    'Launched',
+};
+
+export async function getFactoryProjects(uid: string): Promise<FactoryProjectRecord[]> {
+  const snap = await getDocs(
+    query(collection(db, 'factory_projects'), where('memberUids', 'array-contains', uid))
+  );
+  return snap.docs.map(d => {
+    const data = d.data();
+    return {
+      id:          d.id,
+      name:        data.name ?? 'Untitled project',
+      description: data.description ?? '',
+      status:      data.status ?? 'planning',
+      progress:    typeof data.progress === 'number' ? data.progress : 0,
+    };
+  });
+}

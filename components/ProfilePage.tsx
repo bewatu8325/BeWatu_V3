@@ -13,7 +13,7 @@ import ProfileReelsStrip from './ProfileReelsStrip';
 import ShareProfileModal from './ShareProfileModal';
 import { uploadAvatar } from '../lib/storageService';
 import { updateUserInFirestore } from '../lib/firebaseAuth';
-import { getFollowingCompanies, getMyArenaSubmissions, ArenaSubmissionRecord } from '../lib/firestoreService';
+import { getFollowingCompanies, getMyArenaSubmissions, ArenaSubmissionRecord, getFactoryProjects, FactoryProjectRecord, FACTORY_PROJECT_STATUS_LABEL } from '../lib/firestoreService';
 import SkillResume from './profile/SkillResume';
 
 interface ProfilePageProps {
@@ -134,6 +134,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
       .catch(() => setArenaSubmissions([]))
       .finally(() => setArenaLoading(false));
   }, [isCurrentUser, fbUser?.uid]);
+
+  // ── Factory projects (visible to anyone viewing this profile) ───────────
+  // factory_projects is openly readable by any authenticated user, same as
+  // Pods, so unlike Arena submissions this loads for the profile being
+  // viewed, not just the viewer's own.
+  const factoryProfileUid = (user as any)._firestoreUid ?? String(user.id);
+  const [factoryProjects, setFactoryProjects] = useState<FactoryProjectRecord[]>([]);
+  const [factoryLoading, setFactoryLoading] = useState(true);
+  useEffect(() => {
+    setFactoryLoading(true);
+    getFactoryProjects(factoryProfileUid)
+      .then(setFactoryProjects)
+      .catch(() => setFactoryProjects([]))
+      .finally(() => setFactoryLoading(false));
+  }, [factoryProfileUid]);
 
   // ── Item 4: auto-ensure username + isPublic for public profile URL ───────
   // When an existing user visits their own profile, if they don't yet have a
@@ -574,15 +589,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
         <ReputationPanel uid={profileUid} isOwn={isCurrentUser} />
 
         {/* Execution Record — replaces the old minimal "Circles Tile" (just
-            colored initials) with named, clickable pods plus — owner only,
-            see the effect above for why — a real list of Arena submissions
-            with outcome. Pods stay visible to visitors since circle/pod
-            membership isn't access-restricted the way submissions are. */}
+            colored initials) with named, clickable pods, real Factory
+            projects pulled cross-app from bewatu-factory (shared Firebase
+            project), plus — owner only, see the effect above for why — a
+            real list of Arena submissions with outcome. Pods and Factory
+            projects stay visible to visitors since neither is
+            access-restricted the way submissions are. */}
         <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
           <h3 className="font-semibold text-stone-800 text-sm mb-1">Execution Record</h3>
           <p className="text-xs text-stone-600 mb-4">
             {memberSinceDate && `Member since ${memberSinceDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })} · `}
             {userCircles.length} pod{userCircles.length !== 1 ? 's' : ''}
+            {!factoryLoading && `, ${factoryProjects.length} Factory project${factoryProjects.length !== 1 ? 's' : ''}`}
             {isCurrentUser && !arenaLoading && `, ${arenaSubmissions.length} Arena submission${arenaSubmissions.length !== 1 ? 's' : ''}`}
           </p>
 
@@ -608,6 +626,27 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-stone-600 ml-auto flex-shrink-0">Admin</span>
                   )}
                 </button>
+              ))}
+            </div>
+          )}
+
+          <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">Factory Projects</p>
+          {factoryLoading ? (
+            <p className="text-sm text-stone-600 mb-4">Loading…</p>
+          ) : factoryProjects.length === 0 ? (
+            <p className="text-sm text-stone-600 mb-4">
+              {isCurrentUser ? 'No Factory projects yet — graduate a team to a project in Factory to show it here.' : 'No Factory projects yet.'}
+            </p>
+          ) : (
+            <div className="space-y-1.5 mb-4">
+              {factoryProjects.map(project => (
+                <div key={project.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+                  <span className="flex-1 min-w-0 truncate text-sm text-stone-800">{project.name}</span>
+                  <span className="text-xs font-semibold rounded-full px-2 py-0.5 flex-shrink-0"
+                    style={{ backgroundColor: project.status === 'launched' ? 'var(--bw-green-light)' : '#f5f5f4', color: project.status === 'launched' ? 'var(--bw-green-mid)' : '#57534e' }}>
+                    {FACTORY_PROJECT_STATUS_LABEL[project.status]}
+                  </span>
+                </div>
               ))}
             </div>
           )}
