@@ -2105,7 +2105,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
           {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onSaveUserSkills={handleSaveUserSkills} onRemoveUserSkill={handleRemoveUserSkill} onClose={() => setIsSkillsGraphModalOpen(false)} />}
-          {isImportLinkedInOpen && <ImportLinkedInModal user={currentUser} onExtract={handleExtractLinkedInProfile} onSaveProfile={handleSaveCurrentUserProfile} onImportSkills={handleSaveUserSkills} onClose={() => setIsImportLinkedInOpen(false)} />}
+          {isImportLinkedInOpen && <ImportLinkedInModal user={currentUser} onExtract={handleExtractLinkedInProfile} onSaveProfile={handleSaveCurrentUserProfile} onClose={() => setIsImportLinkedInOpen(false)} />}
           {/* Real bug fix: fbUid was never passed — VideoRecorderModal builds its
              Storage upload path as `vibe-clips/${fbUid}/...`, so every micro-intro
              recording/upload was writing to a `vibe-clips/undefined/...` path. */}

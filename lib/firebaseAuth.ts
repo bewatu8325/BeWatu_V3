@@ -135,6 +135,13 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     microIntroductionUrl: data.microIntroductionUrl ?? null,
     microIntroductionThumbnail: data.microIntroductionThumbnail ?? null,
     careerArc: data.careerArc ?? [],
+    // Real, pre-existing User field, written correctly by ExperienceSection
+    // (onSaveProfile({ experiences })) but never read back here — same class
+    // of bug already fixed for location/createdAt earlier in this audit.
+    // Confirmed live: the Firestore write was correct, this was the only
+    // thing missing, so every manually-added experience has been vanishing
+    // on reload/relogin for every real user until now, not just imports.
+    experiences: data.experiences ?? [],
     recruiterProfile: data.recruiterProfile ?? null,
     // Hardening (launch-readiness review): the Firestore-backed replacement
     // for the old localStorage recruiterTrialEndDate. Must be surfaced here

@@ -27,7 +27,6 @@ interface Props {
   user: User;
   onExtract:      (rawText: string) => Promise<LinkedInExtraction>;
   onSaveProfile:  (updates: Record<string, any>) => Promise<void>;
-  onImportSkills: (names: string[]) => Promise<void>;
   onClose:        () => void;
 }
 
@@ -43,7 +42,7 @@ function isDuplicateExperience(exp: { role: string; company: string; startDate: 
   );
 }
 
-const ImportLinkedInModal: React.FC<Props> = ({ user, onExtract, onSaveProfile, onImportSkills, onClose }) => {
+const ImportLinkedInModal: React.FC<Props> = ({ user, onExtract, onSaveProfile, onClose }) => {
   const [step, setStep] = useState<'input' | 'review'>('input');
   const [tab, setTab] = useState<InputTab>('paste');
   const [pastedText, setPastedText] = useState('');
@@ -154,13 +153,21 @@ const ImportLinkedInModal: React.FC<Props> = ({ user, onExtract, onSaveProfile, 
         profileUpdates.experiences = [...existingExperiences, ...newExperiences];
       }
 
-      if (Object.keys(profileUpdates).length > 0) {
-        await onSaveProfile(profileUpdates);
-      }
-
+      // Folded into the same onSaveProfile call rather than a separate
+      // onImportSkills call — App.tsx's save handlers each merge onto their
+      // own closed-over snapshot of currentUser, so two sequential calls
+      // race and the second silently clobbers the first in local state
+      // (Firestore itself stayed correct, since each call only touches its
+      // own fields there — this was a local-state-only bug, confirmed by
+      // reading the written document directly). One call, one merge.
       const skillsToAdd = extraction.skills.filter(s => acceptedSkills.has(s));
       if (skillsToAdd.length > 0) {
-        await onImportSkills(skillsToAdd);
+        const existingSkills: any[] = user.skills ?? [];
+        profileUpdates.skills = [...existingSkills, ...skillsToAdd.map(name => ({ name, endorsements: 0 }))];
+      }
+
+      if (Object.keys(profileUpdates).length > 0) {
+        await onSaveProfile(profileUpdates);
       }
 
       onClose();
