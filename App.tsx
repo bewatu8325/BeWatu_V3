@@ -96,6 +96,7 @@ const Messaging = lazy(() => import('./components/Messaging'));
 const CompanyProfileModal = lazy(() => import('./components/CompanyProfileModal'));
 const CoPilotModal = lazy(() => import('./components/CoPilotModal'));
 const SkillsGraphModal = lazy(() => import('./components/SkillsGraphModal'));
+const ImportLinkedInModal = lazy(() => import('./components/ImportLinkedInModal'));
 const ConnectionsView = lazy(() => import('./components/ConnectionsView'));
 const VideoRecorderModal = lazy(() => import('./components/VideoRecorderModal'));
 const VideoPlayerModal = lazy(() => import('./components/VideoPlayerModal'));
@@ -193,6 +194,7 @@ const MainApp: React.FC = () => {
   const [isCoPilotLoading, setIsCoPilotLoading] = useState(false);
 
   const [isSkillsGraphModalOpen, setIsSkillsGraphModalOpen] = useState(false);
+  const [isImportLinkedInOpen, setIsImportLinkedInOpen] = useState(false);
   const [isVideoRecorderModalOpen, setIsVideoRecorderModalOpen] = useState(false);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
 
@@ -1194,6 +1196,16 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
     setIsSkillsGraphModalOpen(false);
   };
 
+  // Thin glue for ImportLinkedInModal — the actual ZIP/PDF-to-text and
+  // AI-call logic lives in lib/linkedinImport.ts (extractLinkedInProfile),
+  // same split as every other Firebase-auth-needing call in this file.
+  const handleExtractLinkedInProfile = async (rawText: string) => {
+    if (!fbUser) throw new Error('Not signed in');
+    const { extractLinkedInProfile } = await import('./lib/linkedinImport');
+    const idToken = await fbUser.getIdToken();
+    return extractLinkedInProfile(rawText, idToken);
+  };
+
   // Saves a batch of new skills to user.skills (not userAddedSkills — which was never rendered).
   // Immediate local state update ensures ProfilePage/Sidebar re-render without a page refresh.
   const handleSaveUserSkills = async (newSkillNames: string[]) => {
@@ -1756,7 +1768,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
       case View.Profile: {
         const userToShow = profileUserId ? data.users.find(u => u.id === profileUserId) : currentUser;
         content = userToShow
-          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} onSaveProfile={handleSaveCurrentUserProfile} onAddSkill={(name) => handleSaveUserSkills([name])} onRemoveSkill={handleRemoveUserSkill} onViewCompany={handleViewCompany} />
+          ? <ProfilePage user={userToShow} isCurrentUser={userToShow.id === currentUser.id} connectionRequests={data.connectionRequests} circles={data.circles} onGenerateSkills={() => setIsSkillsGraphModalOpen(true)} onImportLinkedIn={() => setIsImportLinkedInOpen(true)} onRecordVideo={() => setIsVideoRecorderModalOpen(true)} onUploadVideo={handleUploadVideo} onPlayVideo={url => setPlayingVideoUrl(url)} onNavigate={handleSetView} onSelectCircle={handleSelectCircle} onOpenSecurity={() => setShowSecurityPage(true)} onReportUser={(fid, name) => openReport({ user: { firestoreId: fid, name } }, 'user')} onSaveProfile={handleSaveCurrentUserProfile} onAddSkill={(name) => handleSaveUserSkills([name])} onRemoveSkill={handleRemoveUserSkill} onViewCompany={handleViewCompany} />
           : <div>User not found.</div>;
         break;
       }
@@ -2093,6 +2105,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
           {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onSaveUserSkills={handleSaveUserSkills} onRemoveUserSkill={handleRemoveUserSkill} onClose={() => setIsSkillsGraphModalOpen(false)} />}
+          {isImportLinkedInOpen && <ImportLinkedInModal user={currentUser} onExtract={handleExtractLinkedInProfile} onSaveProfile={handleSaveCurrentUserProfile} onImportSkills={handleSaveUserSkills} onClose={() => setIsImportLinkedInOpen(false)} />}
           {/* Real bug fix: fbUid was never passed — VideoRecorderModal builds its
              Storage upload path as `vibe-clips/${fbUid}/...`, so every micro-intro
              recording/upload was writing to a `vibe-clips/undefined/...` path. */}

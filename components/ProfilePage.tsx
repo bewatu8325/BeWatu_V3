@@ -22,6 +22,8 @@ interface ProfilePageProps {
   connectionRequests: ConnectionRequest[];
   circles: Circle[];
   onGenerateSkills: () => void;
+  /** Open the Import from LinkedIn modal */
+  onImportLinkedIn?: () => void;
   onRecordVideo: () => void;
   onPlayVideo: (url: string) => void;
   onNavigate: (view: View) => void;
@@ -73,7 +75,7 @@ const getCircleColor = (circleName: string) => {
     return color;
 };
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onOpenSecurity, onReportUser, onSaveProfile, onUploadVideo, onAddSkill, onRemoveSkill, onViewCompany }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onImportLinkedIn, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onOpenSecurity, onReportUser, onSaveProfile, onUploadVideo, onAddSkill, onRemoveSkill, onViewCompany }) => {
   const { t } = useTranslation();
   const { fbUser } = useFirebase();
 
@@ -447,6 +449,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 )}
               </div>
             </div>
+          )}
+
+          {isCurrentUser && onImportLinkedIn && (
+            <button
+              onClick={onImportLinkedIn}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors hover:bg-stone-100"
+              style={{ borderColor: '#e7e5e4', color: '#57534e' }}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+              </svg>
+              Import from LinkedIn
+            </button>
           )}
 
           {!isCurrentUser && onReportUser && (
