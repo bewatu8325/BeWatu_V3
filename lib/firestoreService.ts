@@ -965,6 +965,13 @@ export async function fetchUsers(): Promise<User[]> {
       skills: data.skills ?? [],
       verifiedSkills: data.verifiedSkills ?? null,
       microIntroductionUrl: data.microIntroductionUrl ?? null,
+      // Real field, written correctly, never read back here — same gap just
+      // confirmed and fixed in lib/firebaseAuth.ts docToUser (used for the
+      // owner's own profile view). This is the parallel function used when
+      // data.users.find(...) resolves someone else's profile, so a visitor
+      // was seeing an empty Experience section for every user, not just the
+      // owner viewing their own.
+      experiences: data.experiences ?? [],
       _firestoreUid: d.id,
     } as User & { _firestoreUid: string };
   });
@@ -1016,6 +1023,7 @@ export async function fetchUsersByUids(uids: string[]): Promise<User[]> {
         skills: data.skills ?? [],
         verifiedSkills: data.verifiedSkills ?? null,
         microIntroductionUrl: data.microIntroductionUrl ?? null,
+        experiences: data.experiences ?? [],
         _firestoreUid: d.id,
       } as User & { _firestoreUid: string };
       return [d.id, user] as const;

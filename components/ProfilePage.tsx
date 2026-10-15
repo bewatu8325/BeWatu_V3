@@ -196,6 +196,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeError, setResumeError] = useState('');
   const [localExperiences, setLocalExperiences] = useState<any[]>((user as any).experiences ?? []);
+  // Resync when the parent's user.experiences changes from outside
+  // ExperienceSection's own save flow (e.g. the LinkedIn import, which
+  // writes experiences via onSaveProfile directly) — without this, the
+  // seeded-once-at-mount local copy above goes stale and the section keeps
+  // showing the old list even though the real data was saved correctly.
+  // Confirmed live: the Firestore write was correct, only this display
+  // lagged, until this effect was added.
+  useEffect(() => {
+    setLocalExperiences((user as any).experiences ?? []);
+  }, [(user as any).experiences]);
 
   const connectionCount = useMemo(() => {
     return connectionRequests.filter(
