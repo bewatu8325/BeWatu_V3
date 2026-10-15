@@ -309,14 +309,47 @@ export async function changePassword(currentPassword: string, newPassword: strin
   await updatePassword(user, newPassword);
 }
 
+// Bug fix: getRedirectResult()'s handler used to call upsertGoogleUser and
+// swallow any failure with `.catch(() => {})`, with the sessionStorage
+// intent key removed beforehand regardless of outcome. If that single
+// upsert attempt failed for any reason (a transient Firestore error, the
+// write racing with Firestore not yet having picked up the just-completed
+// auth state, etc.), nothing ever retried the actual document creation —
+// onAuthStateChanged's own "race condition" handling only retried the
+// *read* (getUserFromFirestore), which was always going to keep failing
+// against a doc that was never created. The user ended up redirected back
+// from Google, silently treated as logged out, with no account created and
+// no error shown. Confirmed as the real-world symptom a Safari user hit.
+//
+// Fixed by sharing one idempotent helper between both call sites (upsert is
+// itself idempotent — getDoc-then-create-if-missing) and only clearing the
+// intent key on success, so a failed first attempt leaves it in place for
+// onAuthStateChanged's fallback to retry with the correct recruiter intent
+// rather than just re-reading a document that was never written.
+async function tryUpsertFromGoogleRedirect(fbUser: FirebaseUser): Promise<User | undefined> {
+  const intendedRecruiter = sessionStorage.getItem(GOOGLE_SIGNIN_RECRUITER_INTENT_KEY) === 'true';
+  try {
+    const { user } = await upsertGoogleUser(fbUser, intendedRecruiter);
+    sessionStorage.removeItem(GOOGLE_SIGNIN_RECRUITER_INTENT_KEY);
+    return user;
+  } catch (err) {
+    console.error('[onAuthChange] upsertGoogleUser failed — will retry from the onAuthStateChanged fallback:', err);
+    return undefined;
+  }
+}
+
 /**
  * Subscribe to auth state.
  *
  * Handles the Safari redirect result on page load via getRedirectResult().
  *
- * Race condition fix: retries getUserFromFirestore once after 600ms when
- * the user doc is missing — this covers new Google sign-ups where
- * onAuthStateChanged fires before upsertGoogleUser has written the doc.
+ * Race condition fix: retries once after 600ms when the user doc is
+ * missing — covers new Google sign-ups where onAuthStateChanged fires
+ * before the doc has been written. The retry now actively attempts
+ * creation via tryUpsertFromGoogleRedirect (idempotent — a no-op if the
+ * doc already exists) rather than only re-reading, so a failed first
+ * attempt from the getRedirectResult handler below still gets a real
+ * second chance instead of permanently failing silently.
  */
 export function onAuthChange(
   callback: (user: User | null, fbUser: FirebaseUser | null) => void
@@ -326,11 +359,7 @@ export function onAuthChange(
   // see GOOGLE_SIGNIN_RECRUITER_INTENT_KEY's comment for why that's needed.
   getRedirectResult(auth)
     .then(async result => {
-      if (result?.user) {
-        const intendedRecruiter = sessionStorage.getItem(GOOGLE_SIGNIN_RECRUITER_INTENT_KEY) === 'true';
-        sessionStorage.removeItem(GOOGLE_SIGNIN_RECRUITER_INTENT_KEY);
-        await upsertGoogleUser(result.user, intendedRecruiter).catch(() => {});
-      }
+      if (result?.user) await tryUpsertFromGoogleRedirect(result.user);
     })
     .catch(() => {});
 
@@ -349,10 +378,18 @@ export function onAuthChange(
 
     try {
       callback(await getUserFromFirestore(fbUser), fbUser);
-    } catch (err) {
-      console.error('[onAuthChange] user doc not found after retry:', err);
-      callback(null, null);
+      return;
+    } catch {
+      // Still missing — if this is a pending Google redirect sign-in whose
+      // first upsert attempt failed above, this actively retries creating
+      // the doc instead of just reading it again.
     }
+
+    const user = await tryUpsertFromGoogleRedirect(fbUser);
+    if (user) { callback(user, fbUser); return; }
+
+    console.error('[onAuthChange] user doc not found after retry');
+    callback(null, null);
   });
 }
 

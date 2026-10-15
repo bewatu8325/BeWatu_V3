@@ -621,7 +621,13 @@ const MainApp: React.FC = () => {
     try {
       setLoading(true);
       const result = await loginWithGoogle(isRecruiterLogin);
-      if (!result) throw new Error('Google sign-in failed.');
+      // null is the expected return on Safari -- loginWithGoogle just
+      // kicked off a full-page redirect to Google instead of a popup, and
+      // the real result arrives later via onAuthChange on the page that
+      // loads after the redirect back. Treating it as a failure here was a
+      // real bug: it could show "Google sign-in failed" to the user in the
+      // moment right before the page actually navigates away.
+      if (!result) return;
       const { user, isNewUser } = result;
       setActiveProfile(isRecruiterLogin ? 'recruiter' : 'user');
       setAuthState('authenticated');
