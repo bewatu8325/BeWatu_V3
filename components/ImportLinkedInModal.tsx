@@ -7,40 +7,30 @@
  *   • Paste text   — copy/paste straight from a LinkedIn profile
  *   • Upload PDF   — LinkedIn's instant "Save to PDF" export
  *   • Upload ZIP   — LinkedIn's full "Get a copy of your data" export
- *   All three are turned into plain text client-side (lib/linkedinImport.ts)
+ *   All three are turned into plain text client-side (lib/profileImport.ts)
  *   then handed to onExtract, which calls the AI extraction endpoint.
  *
- * STEP 2 — "review"  Nothing is saved yet. Every proposed field/experience/
- *   skill is a checkbox the user can accept or skip, so an AI extraction
- *   mistake never silently overwrites something the user wrote themselves.
+ * STEP 2 — "review"  Handed off to the shared ProfileImportReview, the same
+ *   screen Import from Resume uses once it has an extraction result.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import React, { useState } from 'react';
-import { User, Experience } from '../types';
-import { extractPdfText, extractZipText, LinkedInExtraction } from '../lib/linkedinImport';
+import { User } from '../types';
+import { extractPdfText, extractZipText, ProfileExtraction } from '../lib/profileImport';
+import ProfileImportReview from './profile/ProfileImportReview';
 
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
 
 interface Props {
   user: User;
-  onExtract:      (rawText: string) => Promise<LinkedInExtraction>;
+  onExtract:      (rawText: string) => Promise<ProfileExtraction>;
   onSaveProfile:  (updates: Record<string, any>) => Promise<void>;
   onClose:        () => void;
 }
 
 type InputTab = 'paste' | 'pdf' | 'zip';
-
-const normalize = (s: string) => s.trim().toLowerCase();
-
-function isDuplicateExperience(exp: { role: string; company: string; startDate: string }, existing: Experience[]): boolean {
-  return existing.some(e =>
-    normalize(e.company) === normalize(exp.company) &&
-    normalize(e.role) === normalize(exp.role) &&
-    normalize(e.startDate) === normalize(exp.startDate)
-  );
-}
 
 const ImportLinkedInModal: React.FC<Props> = ({ user, onExtract, onSaveProfile, onClose }) => {
   const [step, setStep] = useState<'input' | 'review'>('input');
@@ -48,20 +38,8 @@ const ImportLinkedInModal: React.FC<Props> = ({ user, onExtract, onSaveProfile, 
   const [pastedText, setPastedText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
-  const [applying, setApplying] = useState(false);
   const [error, setError] = useState('');
-
-  const [extraction, setExtraction] = useState<LinkedInExtraction | null>(null);
-  const [acceptHeadline, setAcceptHeadline] = useState(false);
-  const [acceptBio, setAcceptBio] = useState(false);
-  const [acceptLocation, setAcceptLocation] = useState(false);
-  const [acceptedExperiences, setAcceptedExperiences] = useState<Set<number>>(new Set());
-  const [acceptedSkills, setAcceptedSkills] = useState<Set<string>>(new Set());
-
-  const existingExperiences = user.experiences ?? [];
-  const existingSkillNames = new Set(
-    (user.skills ?? []).map((s: any) => normalize(typeof s === 'string' ? s : s.name))
-  );
+  const [extraction, setExtraction] = useState<ProfileExtraction | null>(null);
 
   function selectTab(next: InputTab) {
     setTab(next);
@@ -86,19 +64,6 @@ const ImportLinkedInModal: React.FC<Props> = ({ user, onExtract, onSaveProfile, 
       }
 
       const result = await onExtract(rawText);
-
-      setAcceptHeadline(!!result.headline && result.headline !== user.headline);
-      setAcceptBio(!!result.bio && result.bio !== user.bio);
-      setAcceptLocation(!!result.location && result.location !== (user as any).location);
-      setAcceptedExperiences(new Set(
-        result.experiences
-          .map((exp, i) => (isDuplicateExperience(exp, existingExperiences) ? -1 : i))
-          .filter(i => i >= 0)
-      ));
-      setAcceptedSkills(new Set(
-        result.skills.filter(s => !existingSkillNames.has(normalize(s)))
-      ));
-
       setExtraction(result);
       setStep('review');
     } catch (e: any) {
@@ -107,81 +72,6 @@ const ImportLinkedInModal: React.FC<Props> = ({ user, onExtract, onSaveProfile, 
       setExtracting(false);
     }
   }
-
-  function toggleExperience(i: number) {
-    setAcceptedExperiences(s => {
-      const next = new Set(s);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-  }
-
-  function toggleSkill(name: string) {
-    setAcceptedSkills(s => {
-      const next = new Set(s);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
-    });
-  }
-
-  const acceptedCount =
-    (acceptHeadline ? 1 : 0) + (acceptBio ? 1 : 0) + (acceptLocation ? 1 : 0) +
-    acceptedExperiences.size + acceptedSkills.size;
-
-  async function handleApply() {
-    if (!extraction) return;
-    setError('');
-    setApplying(true);
-    try {
-      const profileUpdates: Record<string, any> = {};
-      if (acceptHeadline && extraction.headline) profileUpdates.headline = extraction.headline;
-      if (acceptBio && extraction.bio) profileUpdates.bio = extraction.bio;
-      if (acceptLocation && extraction.location) profileUpdates.location = extraction.location;
-
-      const newExperiences: Experience[] = extraction.experiences
-        .map((exp, i) => ({ exp, i }))
-        .filter(({ i }) => acceptedExperiences.has(i))
-        .map(({ exp, i }) => ({
-          id:        `${Date.now()}-${i}`,
-          role:      exp.role,
-          company:   exp.company,
-          startDate: exp.startDate,
-          endDate:   exp.endDate,
-          outcomes:  exp.outcomes.length ? exp.outcomes : [''],
-        }));
-      if (newExperiences.length > 0) {
-        profileUpdates.experiences = [...existingExperiences, ...newExperiences];
-      }
-
-      // Folded into the same onSaveProfile call rather than a separate
-      // onImportSkills call — App.tsx's save handlers each merge onto their
-      // own closed-over snapshot of currentUser, so two sequential calls
-      // race and the second silently clobbers the first in local state
-      // (Firestore itself stayed correct, since each call only touches its
-      // own fields there — this was a local-state-only bug, confirmed by
-      // reading the written document directly). One call, one merge.
-      const skillsToAdd = extraction.skills.filter(s => acceptedSkills.has(s));
-      if (skillsToAdd.length > 0) {
-        const existingSkills: any[] = user.skills ?? [];
-        profileUpdates.skills = [...existingSkills, ...skillsToAdd.map(name => ({ name, endorsements: 0 }))];
-      }
-
-      if (Object.keys(profileUpdates).length > 0) {
-        await onSaveProfile(profileUpdates);
-      }
-
-      onClose();
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to save.');
-    } finally {
-      setApplying(false);
-    }
-  }
-
-  const hasNothingToImport = extraction
-    ? !extraction.headline && !extraction.bio && !extraction.location
-      && extraction.experiences.length === 0 && extraction.skills.length === 0
-    : false;
 
   return (
     <div
@@ -235,179 +125,82 @@ const ImportLinkedInModal: React.FC<Props> = ({ user, onExtract, onSaveProfile, 
           )}
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        {step === 'input' && (
+          <>
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="space-y-4">
+                {tab === 'paste' && (
+                  <div>
+                    <textarea
+                      value={pastedText}
+                      onChange={e => setPastedText(e.target.value)}
+                      placeholder="Copy your About and Experience sections from your LinkedIn profile and paste them here…"
+                      rows={10}
+                      className="w-full text-sm border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2"
+                      style={{ borderColor: '#e7e5e4' }}
+                    />
+                  </div>
+                )}
 
-          {step === 'input' && (
-            <div className="space-y-4">
-              {tab === 'paste' && (
-                <div>
-                  <textarea
-                    value={pastedText}
-                    onChange={e => setPastedText(e.target.value)}
-                    placeholder="Copy your About and Experience sections from your LinkedIn profile and paste them here…"
-                    rows={10}
-                    className="w-full text-sm border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2"
-                    style={{ borderColor: '#e7e5e4' }}
-                  />
-                </div>
-              )}
+                {tab === 'pdf' && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-stone-600 leading-relaxed">
+                      On your own LinkedIn profile, click the <strong>More</strong> button near your photo, then <strong>Save to PDF</strong>. It downloads instantly — no waiting.
+                    </p>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={e => setFile(e.target.files?.[0] ?? null)}
+                      className="w-full text-sm"
+                    />
+                    {file && <p className="text-xs text-stone-600">Selected: {file.name}</p>}
+                  </div>
+                )}
 
-              {tab === 'pdf' && (
-                <div className="space-y-3">
-                  <p className="text-xs text-stone-600 leading-relaxed">
-                    On your own LinkedIn profile, click the <strong>More</strong> button near your photo, then <strong>Save to PDF</strong>. It downloads instantly — no waiting.
-                  </p>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={e => setFile(e.target.files?.[0] ?? null)}
-                    className="w-full text-sm"
-                  />
-                  {file && <p className="text-xs text-stone-600">Selected: {file.name}</p>}
-                </div>
-              )}
+                {tab === 'zip' && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-stone-600 leading-relaxed">
+                      Go to LinkedIn <strong>Settings &amp; Privacy → Data privacy → Get a copy of your data</strong>, request the <strong>basic</strong> export, and upload the ZIP LinkedIn emails you. This usually takes LinkedIn 24–72 hours to prepare.
+                    </p>
+                    <input
+                      type="file"
+                      accept="application/zip,.zip"
+                      onChange={e => setFile(e.target.files?.[0] ?? null)}
+                      className="w-full text-sm"
+                    />
+                    {file && <p className="text-xs text-stone-600">Selected: {file.name}</p>}
+                  </div>
+                )}
 
-              {tab === 'zip' && (
-                <div className="space-y-3">
-                  <p className="text-xs text-stone-600 leading-relaxed">
-                    Go to LinkedIn <strong>Settings &amp; Privacy → Data privacy → Get a copy of your data</strong>, request the <strong>basic</strong> export, and upload the ZIP LinkedIn emails you. This usually takes LinkedIn 24–72 hours to prepare.
-                  </p>
-                  <input
-                    type="file"
-                    accept="application/zip,.zip"
-                    onChange={e => setFile(e.target.files?.[0] ?? null)}
-                    className="w-full text-sm"
-                  />
-                  {file && <p className="text-xs text-stone-600">Selected: {file.name}</p>}
-                </div>
-              )}
-
-              {error && <p className="text-sm text-red-600">{error}</p>}
+                {error && <p className="text-sm text-red-600">{error}</p>}
+              </div>
             </div>
-          )}
 
-          {step === 'review' && extraction && (
-            <div className="space-y-5">
-              {hasNothingToImport ? (
-                <p className="text-sm text-stone-600">Could not find any profile details to import. Try pasting more text, or a different export.</p>
-              ) : (
-                <>
-                  {(extraction.headline || extraction.bio || extraction.location) && (
-                    <div className="space-y-3">
-                      <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">Profile details</p>
-                      {extraction.headline && (
-                        <label className="flex items-start gap-2.5 rounded-xl border p-3 cursor-pointer" style={{ borderColor: '#e7e5e4' }}>
-                          <input type="checkbox" checked={acceptHeadline} onChange={e => setAcceptHeadline(e.target.checked)} className="mt-0.5" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-stone-600">Headline</p>
-                            <p className="text-sm text-stone-800">{extraction.headline}</p>
-                          </div>
-                        </label>
-                      )}
-                      {extraction.bio && (
-                        <label className="flex items-start gap-2.5 rounded-xl border p-3 cursor-pointer" style={{ borderColor: '#e7e5e4' }}>
-                          <input type="checkbox" checked={acceptBio} onChange={e => setAcceptBio(e.target.checked)} className="mt-0.5" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-stone-600">Bio</p>
-                            <p className="text-sm text-stone-800">{extraction.bio}</p>
-                          </div>
-                        </label>
-                      )}
-                      {extraction.location && (
-                        <label className="flex items-start gap-2.5 rounded-xl border p-3 cursor-pointer" style={{ borderColor: '#e7e5e4' }}>
-                          <input type="checkbox" checked={acceptLocation} onChange={e => setAcceptLocation(e.target.checked)} className="mt-0.5" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-stone-600">Location</p>
-                            <p className="text-sm text-stone-800">{extraction.location}</p>
-                          </div>
-                        </label>
-                      )}
-                    </div>
-                  )}
-
-                  {extraction.experiences.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
-                        Experience ({extraction.experiences.length})
-                      </p>
-                      {extraction.experiences.map((exp, i) => {
-                        const duplicate = isDuplicateExperience(exp, existingExperiences);
-                        return (
-                          <label key={i} className="flex items-start gap-2.5 rounded-xl border p-3 cursor-pointer" style={{ borderColor: '#e7e5e4' }}>
-                            <input type="checkbox" checked={acceptedExperiences.has(i)} onChange={() => toggleExperience(i)} className="mt-0.5" />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium text-stone-800">{exp.role} · {exp.company}</p>
-                                {duplicate && (
-                                  <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
-                                    Possible duplicate
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-stone-600">{exp.startDate} – {exp.endDate || 'Present'}</p>
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {extraction.skills.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
-                        Skills ({extraction.skills.length})
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {extraction.skills.map(name => {
-                          const already = existingSkillNames.has(normalize(name));
-                          const active = acceptedSkills.has(name);
-                          return (
-                            <button key={name} onClick={() => !already && toggleSkill(name)} disabled={already}
-                              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium border transition-colors disabled:opacity-50"
-                              style={active
-                                ? { backgroundColor: GREEN_LT, color: 'var(--bw-green-mid)', borderColor: GREEN }
-                                : { backgroundColor: 'transparent', color: '#57534e', borderColor: '#e7e5e4' }}>
-                              {name}{already ? ' (already added)' : ''}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {error && <p className="text-sm text-red-600">{error}</p>}
+            <div className="px-6 py-4 border-t flex items-center justify-between gap-3" style={{ borderColor: '#e7e5e4' }}>
+              <button onClick={onClose}
+                className="px-4 py-2 rounded-xl text-sm font-semibold border hover:bg-stone-50 transition-colors"
+                style={{ borderColor: '#e7e5e4', color: '#374151' }}>
+                Cancel
+              </button>
+              <button onClick={handleExtract} disabled={extracting}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-40"
+                style={{ backgroundColor: GREEN }}>
+                {extracting && <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>}
+                {extracting ? 'Reading…' : 'Extract'}
+              </button>
             </div>
-          )}
-        </div>
+          </>
+        )}
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t flex items-center justify-between gap-3" style={{ borderColor: '#e7e5e4' }}>
-          <button
-            onClick={step === 'review' ? () => { setStep('input'); setExtraction(null); } : onClose}
-            className="px-4 py-2 rounded-xl text-sm font-semibold border hover:bg-stone-50 transition-colors"
-            style={{ borderColor: '#e7e5e4', color: '#374151' }}>
-            {step === 'review' ? 'Back' : 'Cancel'}
-          </button>
-
-          {step === 'input' ? (
-            <button onClick={handleExtract} disabled={extracting}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-40"
-              style={{ backgroundColor: GREEN }}>
-              {extracting && <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>}
-              {extracting ? 'Reading…' : 'Extract'}
-            </button>
-          ) : (
-            <button onClick={handleApply} disabled={applying || acceptedCount === 0}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-40"
-              style={{ backgroundColor: GREEN }}>
-              {applying && <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>}
-              {applying ? 'Saving…' : `Apply ${acceptedCount > 0 ? acceptedCount : ''}`.trim()}
-            </button>
-          )}
-        </div>
+        {step === 'review' && extraction && (
+          <ProfileImportReview
+            user={user}
+            extraction={extraction}
+            onSaveProfile={onSaveProfile}
+            onBack={() => { setStep('input'); setExtraction(null); }}
+            onDone={onClose}
+          />
+        )}
       </div>
     </div>
   );
