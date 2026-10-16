@@ -24,6 +24,8 @@ interface ProfilePageProps {
   onGenerateSkills: () => void;
   /** Open the Import from LinkedIn modal */
   onImportLinkedIn?: () => void;
+  /** Open the Import from Resume modal — only meaningful once a resume is uploaded */
+  onImportResume?: () => void;
   onRecordVideo: () => void;
   onPlayVideo: (url: string) => void;
   onNavigate: (view: View) => void;
@@ -75,7 +77,7 @@ const getCircleColor = (circleName: string) => {
     return color;
 };
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onImportLinkedIn, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onOpenSecurity, onReportUser, onSaveProfile, onUploadVideo, onAddSkill, onRemoveSkill, onViewCompany }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connectionRequests, circles, onGenerateSkills, onImportLinkedIn, onImportResume, onRecordVideo, onPlayVideo, onNavigate, onSelectCircle, onOpenSecurity, onReportUser, onSaveProfile, onUploadVideo, onAddSkill, onRemoveSkill, onViewCompany }) => {
   const { t } = useTranslation();
   const { fbUser } = useFirebase();
 
@@ -869,6 +871,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 View uploaded resume
               </a>
+            )}
+            {(user as any).resumeUrl && !resumeUploading && onImportResume && (
+              <button onClick={onImportResume}
+                className="mt-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-stone-50 transition-colors w-full"
+                style={{ borderColor: '#e7e5e4', color: '#57534e' }}>
+                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                </svg>
+                Extract profile info from this resume
+              </button>
             )}
             {resumeError && <p className="mt-2 text-xs text-red-600">{resumeError}</p>}
           </div>
