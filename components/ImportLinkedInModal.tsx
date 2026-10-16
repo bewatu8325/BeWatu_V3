@@ -199,6 +199,7 @@ const ImportLinkedInModal: React.FC<Props> = ({ user, onExtract, onSaveProfile, 
             onSaveProfile={onSaveProfile}
             onBack={() => { setStep('input'); setExtraction(null); }}
             onDone={onClose}
+            sourceLabel="LinkedIn data"
           />
         )}
       </div>

@@ -25,8 +25,10 @@ interface Props {
   /** Shown as the footer's left button. Omit to show nothing (e.g. when there is no separate input step to go back to). */
   onBack?: () => void;
   backLabel?: string;
-  /** Called after a successful Apply. */
+  /** Called when the user closes the success screen after a completed Apply. */
   onDone: () => void;
+  /** Used to phrase the "we could not find X" copy on the success screen — e.g. "LinkedIn data" or "resume". */
+  sourceLabel?: string;
 }
 
 const normalize = (s: string) => s.trim().toLowerCase();
@@ -39,7 +41,7 @@ function isDuplicateExperience(exp: { role: string; company: string; startDate: 
   );
 }
 
-const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile, onBack, backLabel, onDone }) => {
+const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile, onBack, backLabel, onDone, sourceLabel = 'import' }) => {
   const existingExperiences = user.experiences ?? [];
   const existingSkillNames = new Set(
     (user.skills ?? []).map((s: any) => normalize(typeof s === 'string' ? s : s.name))
@@ -58,6 +60,10 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
   ));
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState('');
+  // null = still on the review screen; set once Apply succeeds, to show a
+  // real summary of what was added and what was not found, instead of just
+  // closing the modal silently.
+  const [applied, setApplied] = useState<string[] | null>(null);
 
   function toggleExperience(i: number) {
     setAcceptedExperiences(s => {
@@ -121,7 +127,13 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
         await onSaveProfile(profileUpdates);
       }
 
-      onDone();
+      const summary: string[] = [];
+      if (acceptHeadline && extraction.headline) summary.push('Headline');
+      if (acceptBio && extraction.bio) summary.push('Bio');
+      if (acceptLocation && extraction.location) summary.push('Location');
+      if (newExperiences.length > 0) summary.push(`${newExperiences.length} experience${newExperiences.length !== 1 ? 's' : ''}`);
+      if (skillsToAdd.length > 0) summary.push(`${skillsToAdd.length} skill${skillsToAdd.length !== 1 ? 's' : ''}`);
+      setApplied(summary);
     } catch (e: any) {
       setError(e.message ?? 'Failed to save.');
     } finally {
@@ -132,6 +144,70 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
   const hasNothingToImport =
     !extraction.headline && !extraction.bio && !extraction.location
     && extraction.experiences.length === 0 && extraction.skills.length === 0;
+
+  // What the extraction never found at all, regardless of what the user
+  // chose to accept — a real prompt to fill these in by hand rather than
+  // just letting the modal close and leaving the gap invisible.
+  const notFound: string[] = [];
+  if (!extraction.headline) notFound.push('Headline');
+  if (!extraction.bio) notFound.push('Bio');
+  if (!extraction.location) notFound.push('Location');
+  if (extraction.experiences.length === 0) notFound.push('Work experience');
+  if (extraction.skills.length === 0) notFound.push('Skills');
+
+  const username = (user as any).username as string | undefined;
+
+  if (applied) {
+    return (
+      <>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: GREEN_LT }}>
+              <svg className="w-4 h-4" style={{ color: GREEN }} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-stone-800">Added to your profile</p>
+              {applied.length > 0 ? (
+                <ul className="mt-1 text-sm text-stone-600 list-disc list-inside">
+                  {applied.map(label => <li key={label}>{label}</li>)}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-stone-600">Nothing new — everything in this import already matched your profile.</p>
+              )}
+            </div>
+          </div>
+
+          {notFound.length > 0 && (
+            <div className="rounded-xl border p-3" style={{ borderColor: '#e7e5e4' }}>
+              <p className="text-sm font-medium text-stone-800">We could not find these in your {sourceLabel}</p>
+              <p className="text-xs text-stone-600 mt-0.5 mb-2">Add them manually to complete your profile.</p>
+              <ul className="text-sm text-stone-600 list-disc list-inside">
+                {notFound.map(label => <li key={label}>{label}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {username && (
+            <a href={`https://www.bewatu.com/be/${username}`} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: GREEN }}>
+              View your public profile
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </a>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t flex items-center justify-end" style={{ borderColor: '#e7e5e4' }}>
+          <button onClick={onDone}
+            className="px-5 py-2 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: GREEN }}>
+            Done
+          </button>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

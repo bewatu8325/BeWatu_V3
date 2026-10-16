@@ -21,8 +21,12 @@
  */
 
 const MAX_ZIP_BYTES   = 20 * 1024 * 1024; // 20 MB — matches the plan's UX cap
-const MAX_PDF_BYTES   = 5  * 1024 * 1024; // 5 MB
-const MAX_DOCX_BYTES  = 5  * 1024 * 1024; // 5 MB
+// 10 MB — matches lib/storageService.ts's uploadResume cap. These used to be
+// a stricter 5 MB, which meant a resume that uploaded successfully (under
+// the real 10 MB storage limit) could then fail at Extract with a confusing
+// "file too large" error. Keeping both caps in sync avoids that trap.
+const MAX_PDF_BYTES   = 10 * 1024 * 1024;
+const MAX_DOCX_BYTES  = 10 * 1024 * 1024;
 const MAX_ENTRY_BYTES = 5  * 1024 * 1024; // per-file decompressed cap inside the zip (zip-bomb hygiene)
 
 // LinkedIn's "Get a copy of your data" export ships these at the zip root.
@@ -60,7 +64,7 @@ export async function extractZipText(file: File): Promise<string> {
 
 /** Extract plain text from a PDF — a LinkedIn "Save to PDF" export or a PDF resume. */
 export async function extractPdfText(file: File | Blob): Promise<string> {
-  if (file.size > MAX_PDF_BYTES) throw new Error('PDF file is too large (max 5 MB).');
+  if (file.size > MAX_PDF_BYTES) throw new Error('PDF file is too large (max 10 MB).');
 
   const pdfjsLib = await import('pdfjs-dist');
   const workerUrl = (await import('pdfjs-dist/build/pdf.worker.mjs?url')).default;
@@ -77,13 +81,13 @@ export async function extractPdfText(file: File | Blob): Promise<string> {
   }
 
   const text = pageTexts.join('\n').trim();
-  if (!text) throw new Error('Could not read any text from this PDF.');
+  if (!text) throw new Error('Could not find any readable text in this PDF — it may be a scanned image rather than a text-based document. Try exporting it again from the original source file.');
   return text;
 }
 
 /** Extract plain text from a .docx resume. Legacy .doc (binary format) is not supported. */
 export async function extractDocxText(file: File | Blob): Promise<string> {
-  if (file.size > MAX_DOCX_BYTES) throw new Error('Document is too large (max 5 MB).');
+  if (file.size > MAX_DOCX_BYTES) throw new Error('Document is too large (max 10 MB).');
 
   const mammoth = await import('mammoth');
   const buffer = await file.arrayBuffer();
