@@ -129,6 +129,7 @@ const ImportResumeModal: React.FC<Props> = ({ user, resumeUrl, onExtract, onSave
             extraction={extraction}
             onSaveProfile={onSaveProfile}
             onDone={onClose}
+            sourceLabel="resume"
           />
         )}
       </div>
