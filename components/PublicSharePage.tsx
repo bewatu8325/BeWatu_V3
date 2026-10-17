@@ -96,6 +96,7 @@ function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
   const verifiedSkills: any[] = profile.verifiedSkills ?? [];
   const availability = profile.availability ?? '';
   const experiences: any[] = profile.experiences ?? [];
+  const education: any[] = profile.education ?? [];
   const links: any[] = profile.thirdPartyIntegrations ?? [];
   const resumeUrl: string = profile.resumeUrl ?? '';
 
@@ -173,6 +174,31 @@ function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
                 </div>
                 {experiences.length > 4 && (
                   <p className="text-xs text-stone-600 mt-2.5">+{experiences.length - 4} more on full profile</p>
+                )}
+              </div>
+            )}
+
+            {/* Education — same teaser treatment as Experience above. */}
+            {education.length > 0 && (
+              <div className="mb-5">
+                <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2.5">Education</p>
+                <div className="space-y-2.5">
+                  {education.slice(0, 3).map((edu: any, i: number) => (
+                    <div key={edu.id ?? i}>
+                      <p className="text-sm font-medium text-stone-800">
+                        {edu.institution}{edu.degree ? ` · ${edu.degree}` : ''}
+                      </p>
+                      {(edu.field || edu.startDate || edu.endDate) && (
+                        <p className="text-xs text-stone-600">
+                          {edu.field}{edu.field && (edu.startDate || edu.endDate) ? ' · ' : ''}
+                          {edu.startDate}{edu.startDate && edu.endDate ? ' – ' : ''}{edu.endDate}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {education.length > 3 && (
+                  <p className="text-xs text-stone-600 mt-2.5">+{education.length - 3} more on full profile</p>
                 )}
               </div>
             )}

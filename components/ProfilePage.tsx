@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { User, ConnectionRequest, Circle, View, Experience, AVAILABILITY_OPTIONS, OPEN_TO_OPTIONS, BUILDER_TYPE_OPTIONS, ThirdPartyIntegration } from '../types';
+import { User, ConnectionRequest, Circle, View, Experience, Education, AVAILABILITY_OPTIONS, OPEN_TO_OPTIONS, BUILDER_TYPE_OPTIONS, ThirdPartyIntegration } from '../types';
 import { PlayIcon, CameraIcon, VerifiedIcon, SparklesIcon, ShieldCheckIcon, CoinsIcon, BotIcon, UsersIcon, ShareIcon } from '../constants';
 import SkillDNA from './profile/SkillDNA';
 import ExperienceSection from './ExperienceSection';
+import EducationSection from './EducationSection';
 import ReputationPanel from './profile/ReputationPanel';
 import AIWorkflowShowcase from './profile/AIWorkflowShowcase';
 import SkillsTrajectory from './profile/SkillsTrajectory';
@@ -209,6 +210,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
     setLocalExperiences((user as any).experiences ?? []);
   }, [(user as any).experiences]);
 
+  const [localEducation, setLocalEducation] = useState<Education[]>((user as any).education ?? []);
+  useEffect(() => {
+    setLocalEducation((user as any).education ?? []);
+  }, [(user as any).education]);
+
   const connectionCount = useMemo(() => {
     return connectionRequests.filter(
         cr => (cr.fromUserId === user.id || cr.toUserId === user.id) && cr.status === 'accepted'
@@ -262,6 +268,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
     } else if (fbUser) {
       // Fallback: direct write (no local state sync — use onSaveProfile when possible)
       await updateUserInFirestore(fbUser.uid, { experiences } as any);
+    }
+  };
+
+  const handleSaveEducation = async (education: Education[]) => {
+    setLocalEducation(education);
+    if (onSaveProfile) {
+      await onSaveProfile({ education });
+    } else if (fbUser) {
+      await updateUserInFirestore(fbUser.uid, { education } as any);
     }
   };
 
@@ -891,6 +906,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           experiences={localExperiences}
           isOwn={isCurrentUser}
           onSave={handleSaveExperiences}
+        />
+
+        {/* Education */}
+        <EducationSection
+          education={localEducation}
+          isOwn={isCurrentUser}
+          onSave={handleSaveEducation}
         />
 
         {/* ── Skill-based resume — owner only, reuses all existing profile data ── */}

@@ -82,6 +82,7 @@ export interface User {
   careerArc?: import('./components/CareerArc').CareerInflection[];
   resumeUrl?: string | null;
   experiences?: Experience[];
+  education?: Education[];
   privacySettings?: PrivacySettings;
   followersCount?: number;
   followingCount?: number;
@@ -148,6 +149,16 @@ export interface Experience {
   outcomes: string[];
   metrics?: string;
   skills?: string[];
+}
+
+export interface Education {
+  id: string;
+  institution: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate: string;
+  description?: string;
 }
 
 export type AppreciationType = 'helpful' | 'thoughtProvoking' | 'collaborationReady';

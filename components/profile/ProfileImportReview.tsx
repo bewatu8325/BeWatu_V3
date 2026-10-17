@@ -12,7 +12,7 @@
  */
 
 import React, { useState } from 'react';
-import { User, Experience } from '../../types';
+import { User, Experience, Education } from '../../types';
 import { ProfileExtraction } from '../../lib/profileImport';
 
 const GREEN    = 'var(--bw-green)';
@@ -41,8 +41,17 @@ function isDuplicateExperience(exp: { role: string; company: string; startDate: 
   );
 }
 
+function isDuplicateEducation(edu: { institution: string; degree: string; startDate: string }, existing: Education[]): boolean {
+  return existing.some(e =>
+    normalize(e.institution) === normalize(edu.institution) &&
+    normalize(e.degree) === normalize(edu.degree) &&
+    normalize(e.startDate) === normalize(edu.startDate)
+  );
+}
+
 const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile, onBack, backLabel, onDone, sourceLabel = 'import' }) => {
   const existingExperiences = user.experiences ?? [];
+  const existingEducation = (user as any).education ?? [];
   const existingSkillNames = new Set(
     (user.skills ?? []).map((s: any) => normalize(typeof s === 'string' ? s : s.name))
   );
@@ -53,6 +62,11 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
   const [acceptedExperiences, setAcceptedExperiences] = useState<Set<number>>(new Set(
     extraction.experiences
       .map((exp, i) => (isDuplicateExperience(exp, existingExperiences) ? -1 : i))
+      .filter(i => i >= 0)
+  ));
+  const [acceptedEducation, setAcceptedEducation] = useState<Set<number>>(new Set(
+    extraction.education
+      .map((edu, i) => (isDuplicateEducation(edu, existingEducation) ? -1 : i))
       .filter(i => i >= 0)
   ));
   const [acceptedSkills, setAcceptedSkills] = useState<Set<string>>(new Set(
@@ -73,6 +87,14 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
     });
   }
 
+  function toggleEducation(i: number) {
+    setAcceptedEducation(s => {
+      const next = new Set(s);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  }
+
   function toggleSkill(name: string) {
     setAcceptedSkills(s => {
       const next = new Set(s);
@@ -83,7 +105,7 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
 
   const acceptedCount =
     (acceptHeadline ? 1 : 0) + (acceptBio ? 1 : 0) + (acceptLocation ? 1 : 0) +
-    acceptedExperiences.size + acceptedSkills.size;
+    acceptedExperiences.size + acceptedEducation.size + acceptedSkills.size;
 
   async function handleApply() {
     setError('');
@@ -109,6 +131,21 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
         profileUpdates.experiences = [...existingExperiences, ...newExperiences];
       }
 
+      const newEducation: Education[] = extraction.education
+        .map((edu, i) => ({ edu, i }))
+        .filter(({ i }) => acceptedEducation.has(i))
+        .map(({ edu, i }) => ({
+          id:          `${Date.now()}-edu-${i}`,
+          institution: edu.institution,
+          degree:      edu.degree,
+          field:       edu.field,
+          startDate:   edu.startDate,
+          endDate:     edu.endDate,
+        }));
+      if (newEducation.length > 0) {
+        profileUpdates.education = [...existingEducation, ...newEducation];
+      }
+
       // Folded into the same onSaveProfile call rather than a separate
       // skills-only call — App.tsx's save handlers each merge onto their
       // own closed-over snapshot of currentUser, so two sequential calls
@@ -132,6 +169,7 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
       if (acceptBio && extraction.bio) summary.push('Bio');
       if (acceptLocation && extraction.location) summary.push('Location');
       if (newExperiences.length > 0) summary.push(`${newExperiences.length} experience${newExperiences.length !== 1 ? 's' : ''}`);
+      if (newEducation.length > 0) summary.push(`${newEducation.length} education entr${newEducation.length !== 1 ? 'ies' : 'y'}`);
       if (skillsToAdd.length > 0) summary.push(`${skillsToAdd.length} skill${skillsToAdd.length !== 1 ? 's' : ''}`);
       setApplied(summary);
     } catch (e: any) {
@@ -143,7 +181,8 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
 
   const hasNothingToImport =
     !extraction.headline && !extraction.bio && !extraction.location
-    && extraction.experiences.length === 0 && extraction.skills.length === 0;
+    && extraction.experiences.length === 0 && extraction.education.length === 0
+    && extraction.skills.length === 0;
 
   // What the extraction never found at all, regardless of what the user
   // chose to accept — a real prompt to fill these in by hand rather than
@@ -153,6 +192,7 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
   if (!extraction.bio) notFound.push('Bio');
   if (!extraction.location) notFound.push('Location');
   if (extraction.experiences.length === 0) notFound.push('Work experience');
+  if (extraction.education.length === 0) notFound.push('Education');
   if (extraction.skills.length === 0) notFound.push('Skills');
 
   const username = (user as any).username as string | undefined;
@@ -270,6 +310,40 @@ const ProfileImportReview: React.FC<Props> = ({ user, extraction, onSaveProfile,
                             )}
                           </div>
                           <p className="text-xs text-stone-600">{exp.startDate} – {exp.endDate || 'Present'}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {extraction.education.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
+                    Education ({extraction.education.length})
+                  </p>
+                  {extraction.education.map((edu, i) => {
+                    const duplicate = isDuplicateEducation(edu, existingEducation);
+                    return (
+                      <label key={i} className="flex items-start gap-2.5 rounded-xl border p-3 cursor-pointer" style={{ borderColor: '#e7e5e4' }}>
+                        <input type="checkbox" checked={acceptedEducation.has(i)} onChange={() => toggleEducation(i)} className="mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-stone-800">
+                              {edu.institution}{edu.degree ? ` · ${edu.degree}` : ''}
+                            </p>
+                            {duplicate && (
+                              <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+                                Possible duplicate
+                              </span>
+                            )}
+                          </div>
+                          {(edu.field || edu.startDate || edu.endDate) && (
+                            <p className="text-xs text-stone-600">
+                              {edu.field}{edu.field && (edu.startDate || edu.endDate) ? ' · ' : ''}
+                              {edu.startDate}{edu.startDate && edu.endDate ? ' – ' : ''}{edu.endDate}
+                            </p>
+                          )}
                         </div>
                       </label>
                     );
