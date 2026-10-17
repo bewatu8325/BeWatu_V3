@@ -972,6 +972,7 @@ export async function fetchUsers(): Promise<User[]> {
       // was seeing an empty Experience section for every user, not just the
       // owner viewing their own.
       experiences: data.experiences ?? [],
+      education: data.education ?? [],
       _firestoreUid: d.id,
     } as User & { _firestoreUid: string };
   });
@@ -1024,6 +1025,7 @@ export async function fetchUsersByUids(uids: string[]): Promise<User[]> {
         verifiedSkills: data.verifiedSkills ?? null,
         microIntroductionUrl: data.microIntroductionUrl ?? null,
         experiences: data.experiences ?? [],
+        education: data.education ?? [],
         _firestoreUid: d.id,
       } as User & { _firestoreUid: string };
       return [d.id, user] as const;

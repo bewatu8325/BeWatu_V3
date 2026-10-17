@@ -106,11 +106,20 @@ export interface ExperienceDraft {
   outcomes:  string[];
 }
 
+export interface EducationDraft {
+  institution: string;
+  degree:      string;
+  field:       string;
+  startDate:   string;
+  endDate:     string;
+}
+
 export interface ProfileExtraction {
   headline?:    string;
   bio?:         string;
   location?:    string;
   experiences:  ExperienceDraft[];
+  education:    EducationDraft[];
   skills:       string[];
 }
 
@@ -123,9 +132,10 @@ function buildExtractionPrompt(rawText: string, sourceLabel: string): { system: 
   "bio": "a short professional summary/about section, omit the key if not clearly present",
   "location": "city and country, omit the key if not clearly present",
   "experiences": [{ "role": "", "company": "", "startDate": "e.g. Jan 2020", "endDate": "e.g. Present", "outcomes": ["one or two short bullet points of what they did/achieved in this role"] }],
+  "education": [{ "institution": "", "degree": "e.g. B.S.", "field": "e.g. Computer Science", "startDate": "e.g. 2018", "endDate": "e.g. 2022" }],
   "skills": ["skill name", "..."]
 }
-Only include information clearly present in the source text — never invent roles, dates, or skills. Return ONLY the JSON object, no markdown fences.
+Only include information clearly present in the source text — never invent roles, dates, degrees, or skills. Return ONLY the JSON object, no markdown fences.
 
 ${sourceLabel}:
 ${rawText}`,
@@ -146,6 +156,17 @@ function sanitizeExtraction(raw: any): ProfileExtraction {
           outcomes:  Array.isArray(e.outcomes) ? e.outcomes.filter((o: any) => typeof o === 'string' && o.trim()) : [],
         }))
     : [];
+  const education: EducationDraft[] = Array.isArray(raw?.education)
+    ? raw.education
+        .filter((e: any) => e && typeof e === 'object' && asString(e.institution))
+        .map((e: any) => ({
+          institution: asString(e.institution)!,
+          degree:      asString(e.degree) ?? '',
+          field:       asString(e.field) ?? '',
+          startDate:   asString(e.startDate) ?? '',
+          endDate:     asString(e.endDate) ?? '',
+        }))
+    : [];
   const skills: string[] = Array.isArray(raw?.skills)
     ? raw.skills.filter((s: any) => typeof s === 'string' && s.trim()).map((s: string) => s.trim())
     : [];
@@ -155,6 +176,7 @@ function sanitizeExtraction(raw: any): ProfileExtraction {
     bio:      asString(raw?.bio),
     location: asString(raw?.location),
     experiences,
+    education,
     skills,
   };
 }

@@ -142,6 +142,10 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     // thing missing, so every manually-added experience has been vanishing
     // on reload/relogin for every real user until now, not just imports.
     experiences: data.experiences ?? [],
+    // New field — hydrated here from day one, unlike experiences above,
+    // since that gap (write path existed, read path didn't) is exactly
+    // what this line exists to avoid repeating.
+    education: data.education ?? [],
     recruiterProfile: data.recruiterProfile ?? null,
     // Hardening (launch-readiness review): the Firestore-backed replacement
     // for the old localStorage recruiterTrialEndDate. Must be surfaced here
