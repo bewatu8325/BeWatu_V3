@@ -1053,6 +1053,31 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           </div>
         )}
 
+        {/* ── Email signature icon (owner only) ── */}
+        {isCurrentUser && (
+          <div className="bg-white/50 rounded-xl border border-stone-200 p-5">
+            <div className="flex items-center gap-4">
+              <img
+                src="/android-chrome-512x512.png"
+                alt="BeWatu icon"
+                className="w-12 h-12 flex-shrink-0 rounded-lg border border-stone-200 bg-white"
+              />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-stone-800 text-sm">Email signature icon</h3>
+                <p className="text-xs text-stone-600">A transparent PNG you can drop into your mail signature</p>
+              </div>
+              <a
+                href="/android-chrome-512x512.png"
+                download="bewatu-icon.png"
+                className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-stone-100"
+                style={{ borderColor: '#e7e5e4', color: 'var(--bw-green)' }}
+              >
+                Download
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Security & Privacy link */}
         {isCurrentUser && (
           <button
