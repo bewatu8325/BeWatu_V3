@@ -13,7 +13,7 @@ import { useFirebase } from '../contexts/FirebaseContext';
 import ProfileReelsStrip from './ProfileReelsStrip';
 import ShareProfileModal from './ShareProfileModal';
 import { uploadAvatar } from '../lib/storageService';
-import { updateUserInFirestore } from '../lib/firebaseAuth';
+import { updateUserInFirestore, generateUniqueUsername } from '../lib/firebaseAuth';
 import { getFollowingCompanies, getMyArenaSubmissions, ArenaSubmissionRecord, getFactoryProjects, FactoryProjectRecord, FACTORY_PROJECT_STATUS_LABEL } from '../lib/firestoreService';
 import SkillResume from './profile/SkillResume';
 
@@ -175,20 +175,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
     const needsPublic   = u.isPublic === undefined;
     if (!needsUsername && !needsPublic) return;
 
-    const derived = u.username ?? (user.name
-      ? (() => {
-          const parts = user.name.trim().split(/\s+/).filter(Boolean);
-          return parts.length >= 2
-            ? (parts[0][0] + parts[parts.length - 1]).toLowerCase().replace(/[^a-z0-9]/g, '')
-            : parts[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? 'user';
-        })()
-      : '');
-    if (!derived) return;
-
-    const patch: Record<string, any> = {};
-    if (needsUsername) patch.username = derived;
-    if (needsPublic)   patch.isPublic = true;
-    onSaveProfile(patch).catch(() => {});
+    (async () => {
+      if (needsUsername && !user.name) return;
+      const patch: Record<string, any> = {};
+      // generateUniqueUsername checks Firestore for an existing user with the
+      // same derived slug and appends a numeric suffix if needed — two users
+      // named "Eve Mwangi" used to both get /be/emwangi, silently shadowing
+      // whichever one's public link got shared second.
+      if (needsUsername) patch.username = await generateUniqueUsername(user.name);
+      if (needsPublic)   patch.isPublic = true;
+      onSaveProfile(patch).catch(() => {});
+    })();
   }, [isCurrentUser, fbUser?.uid, (user as any).username, (user as any).isPublic]);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUploadProgress, setAvatarUploadProgress] = useState(0);
