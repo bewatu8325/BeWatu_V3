@@ -198,6 +198,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeError, setResumeError] = useState('');
+  const [resumeUploadSuccess, setResumeUploadSuccess] = useState(false);
   const [localExperiences, setLocalExperiences] = useState<any[]>((user as any).experiences ?? []);
   // Resync when the parent's user.experiences changes from outside
   // ExperienceSection's own save flow (e.g. the LinkedIn import, which
@@ -234,7 +235,20 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
     try {
       const url = await uploadAvatar(fbUser.uid, file, (pct) => setAvatarUploadProgress(pct));
       setLocalAvatarUrl(url);
-      await updateUserInFirestore(fbUser.uid, { photoURL: url, avatarUrl: url });
+      // Bug fix: this used to call updateUserInFirestore directly, which
+      // writes Firestore correctly but never syncs App.tsx's local
+      // currentUser — the exact same class of staleness already found and
+      // fixed elsewhere on this page (experiences, the profile-import
+      // race). localAvatarUrl above already masks it for the photo shown
+      // on THIS page, but user.avatarUrl everywhere else (e.g. the header)
+      // stayed stale until a reload. onSaveProfile is the one path on this
+      // page that actually syncs local state, same as every other save
+      // here — use it instead, with the same direct-write fallback.
+      if (onSaveProfile) {
+        await onSaveProfile({ photoURL: url, avatarUrl: url });
+      } else {
+        await updateUserInFirestore(fbUser.uid, { photoURL: url, avatarUrl: url });
+      }
     } catch (err: any) {
       setAvatarError(err.message ?? 'Upload failed');
     } finally {
@@ -251,11 +265,27 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
       setResumeError('Please upload a PDF or Word document.'); return;
     }
     if (file.size > 10 * 1024 * 1024) { setResumeError('File too large (max 10 MB).'); return; }
-    setResumeUploading(true); setResumeError('');
+    setResumeUploading(true); setResumeError(''); setResumeUploadSuccess(false);
     try {
       const { uploadResume } = await import('../lib/storageService');
       const url = await uploadResume(fbUser.uid, file);
-      await updateUserInFirestore(fbUser.uid, { resumeUrl: url } as any);
+      // Real bug: this used to call updateUserInFirestore directly. The
+      // file genuinely uploaded and the Firestore doc genuinely got
+      // resumeUrl written, but App.tsx's local currentUser was never
+      // synced, so "View uploaded resume" and "Extract profile info from
+      // this resume" — both gated on user.resumeUrl — stayed invisible
+      // until a manual page reload. Reported directly: upload "did
+      // nothing," no success message, no link, profile never updated from
+      // the resume, because the one button that starts that step was
+      // never visible. onSaveProfile is the path every other save on this
+      // page uses specifically to avoid this.
+      if (onSaveProfile) {
+        await onSaveProfile({ resumeUrl: url });
+      } else {
+        await updateUserInFirestore(fbUser.uid, { resumeUrl: url } as any);
+      }
+      setResumeUploadSuccess(true);
+      setTimeout(() => setResumeUploadSuccess(false), 5000);
     } catch (err: any) {
       setResumeError(err.message ?? 'Upload failed.');
     } finally { setResumeUploading(false); }
@@ -879,6 +909,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               </button>
               <input ref={resumeInputRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleResumeChange} />
             </div>
+            {resumeUploadSuccess && (
+              <p className="mt-2 text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--bw-green-mid)' }}>
+                <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Resume uploaded — extract your profile info below, or view it anytime.
+              </p>
+            )}
             {(user as any).resumeUrl && !resumeUploading && (
               <a href={(user as any).resumeUrl} target="_blank" rel="noopener noreferrer"
                 className="mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-stone-50 transition-colors"
