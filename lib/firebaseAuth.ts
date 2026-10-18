@@ -166,11 +166,38 @@ function deriveUsername(name: string): string {
   return parts[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? 'user';
 }
 
+async function usernameTaken(candidate: string): Promise<boolean> {
+  const { getDocs, collection, query, where, limit } = await import('firebase/firestore');
+  const { db: fdb } = await import('./firebase');
+  const snap = await getDocs(
+    query(collection(fdb, 'users'), where('username', '==', candidate), limit(1))
+  );
+  return !snap.empty;
+}
+
+// Two users with the same name (e.g. two "Eve Mwangi"s) would otherwise both
+// derive the same /be/:username slug — whichever doc Firestore happened to
+// return first for that slug would be the only one reachable at that URL,
+// silently shadowing the other person's public profile link. Appends a
+// numeric suffix (emwangi, emwangi2, emwangi3, ...) until a free slug is
+// found. Exported so both signup paths and the one-time migration in
+// ProfilePage.tsx share this instead of each deriving a username on their own.
+export async function generateUniqueUsername(name: string): Promise<string> {
+  const base = deriveUsername(name);
+  let candidate = base;
+  let suffix = 2;
+  while (await usernameTaken(candidate)) {
+    candidate = `${base}${suffix}`;
+    suffix++;
+  }
+  return candidate;
+}
+
 // ── Build default Firestore doc ───────────────────────────────────────────────
 // email and location no longer go on the main doc — see getPrivateContact
 // above. Callers write them to users/{uid}/private/contact separately
 // (setPrivateContact, right after this doc is created).
-function buildNewUserDoc(
+async function buildNewUserDoc(
   uid: string,
   name: string,
   email: string,
@@ -178,14 +205,14 @@ function buildNewUserDoc(
   photoURL?: string
 ) {
   const isVerified = !freeEmailDomains.some((d) => email.endsWith(d));
-  const baseUsername = deriveUsername(name);
+  const username = await generateUniqueUsername(name);
   return {
     uid, numericId: Date.now(), displayName: name,
     photoURL: photoURL ?? '', headline: '', bio: '', industry: '',
     website: '', professionalGoals: [], reputation: 0,
     credits: 100, isRecruiter, isVerified, portfolio: [],
     verifiedAchievements: [], thirdPartyIntegrations: [],
-    username: baseUsername,  // URL slug — /be/:username
+    username,  // URL slug — /be/:username, unique (see generateUniqueUsername)
     workStyle: { collaboration: 'Thrives in pairs', communication: 'Prefers asynchronous', workPace: 'Fast-paced and iterative' },
     values: [], availability: 'Exploring opportunities', openTo: [], builderType: 'Professional', skills: [],
     verifiedSkills: null, microIntroductionUrl: null, connectionCount: 0,
@@ -205,7 +232,7 @@ async function upsertGoogleUser(fbUser: FirebaseUser, isRecruiter: boolean): Pro
   const snap = await getDoc(ref);
   if (!snap.exists()) {
     const email = fbUser.email ?? '';
-    const newDoc = buildNewUserDoc(
+    const newDoc = await buildNewUserDoc(
       fbUser.uid, fbUser.displayName ?? 'New User',
       email, isRecruiter, fbUser.photoURL ?? undefined
     );
@@ -225,7 +252,7 @@ export async function registerWithEmail(
 ): Promise<User> {
   const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password);
   await sendEmailVerification(fbUser);
-  const newDoc = buildNewUserDoc(fbUser.uid, name, email, isRecruiter);
+  const newDoc = await buildNewUserDoc(fbUser.uid, name, email, isRecruiter);
   await setDoc(doc(db, 'users', fbUser.uid), newDoc);
   await setPrivateContact(fbUser.uid, { email, location: '' });
   return docToUser(newDoc);
