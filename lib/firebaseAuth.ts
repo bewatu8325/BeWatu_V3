@@ -147,6 +147,7 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     // what this line exists to avoid repeating.
     education: data.education ?? [],
     recruiterProfile: data.recruiterProfile ?? null,
+    recruiterStatus: data.recruiterStatus,
     // Hardening (launch-readiness review): the Firestore-backed replacement
     // for the old localStorage recruiterTrialEndDate. Must be surfaced here
     // or every read of currentUser.recruiterTrialEndDate app-wide sees
