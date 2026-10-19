@@ -945,6 +945,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Real bug found building the recruiter fee waiver / discount code admin
+    // tools: writeAdminAuditLog()/getAdminAuditLog() (lib/firestoreService.ts)
+    // already write and read adminAuditLog/{entryId} from AdminPanel.tsx's
+    // company-create and grant/revoke-recruiter-access actions, but no rule
+    // for this collection existed anywhere in this file — the terminal
+    // `match /{document=**} { allow read, write: if false; }` guard denied
+    // every one of those calls. The company/recruiter mutation itself still
+    // succeeded (covered by its own rule above), but the follow-up audit-log
+    // write threw, which the calling code doesn't isolate from the mutation
+    // it's logging — so every admin action here has been surfacing a false
+    // "Error: ..." toast despite actually succeeding. Mirrors the ops-portal
+    // audit_log/{entryId} rule immediately above in this file: read-gated to
+    // the same admin tier that writes it, create requires the caller's own
+    // uid as actorUid (same integrity reasoning as that rule's own comment),
+    // append-only.
+    match /adminAuditLog/{entryId} {
+      allow read:   if isPlatformAdmin() || isOpsStaff();
+      allow create: if (isPlatformAdmin() || isOpsStaff())
+        && request.resource.data.actorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     match /jobs/{jobId} {
       allow read:   if isAuth();
       // Real bug fix, found investigating the P1 recruiter-check gap

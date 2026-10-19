@@ -152,6 +152,9 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     // or every read of currentUser.recruiterTrialEndDate app-wide sees
     // undefined even after the field is written server-side.
     recruiterTrialEndDate: data.recruiterTrialEndDate ?? undefined,
+    recruiterFeeWaived: data.recruiterFeeWaived ?? false,
+    recruiterFeeWaivedAt: data.recruiterFeeWaivedAt,
+    recruiterFeeWaivedReason: data.recruiterFeeWaivedReason,
   } as any;
 }
 

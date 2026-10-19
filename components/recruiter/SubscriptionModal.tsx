@@ -28,6 +28,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
   const [step, setStep] = useState<Step>('review');
   const [stripeRef, setStripeRef] = useState<{ stripe: any; card: any } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [discountCode, setDiscountCode] = useState('');
 
   const handleStripeReady = useCallback((elements: { stripe: any; card: any }) => {
     setStripeRef(elements);
@@ -63,6 +64,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
           email: fbUser.email,
           paymentMethodId: paymentMethod.id,
           tier: 'pro',
+          discountCode: discountCode.trim() || undefined,
         }),
       });
 
@@ -123,6 +125,17 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
             Payment details
           </p>
           <PaymentForm onReady={handleStripeReady} disabled={step === 'processing'} />
+        </div>
+
+        <div className="mb-4 text-left">
+          <input
+            type="text"
+            value={discountCode}
+            onChange={(e) => setDiscountCode(e.target.value)}
+            placeholder="Discount code (optional)"
+            disabled={step === 'processing'}
+            className="w-full px-3 py-2.5 rounded-lg border border-slate-700 bg-slate-900/50 text-sm text-slate-200 placeholder:text-slate-500 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+          />
         </div>
 
         {errorMessage && (

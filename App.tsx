@@ -262,9 +262,13 @@ const MainApp: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser?.isRecruiter) return;
+    // Admin-set override (AdminPanel's Recruiters tab) — used to onboard
+    // recruited companies without billing friction. Always active, no
+    // trial-end check, regardless of recruiterTrialEndDate.
+    if (currentUser.recruiterFeeWaived) { setIsTrialActive(true); return; }
     const end = currentUser.recruiterTrialEndDate;
     setIsTrialActive(end ? new Date().getTime() < new Date(end).getTime() : true);
-  }, [currentUser?.isRecruiter, currentUser?.recruiterTrialEndDate]);
+  }, [currentUser?.isRecruiter, currentUser?.recruiterFeeWaived, currentUser?.recruiterTrialEndDate]);
 
   // ── People directory search (real search, not a client-side filter) ──────
   useEffect(() => {
@@ -472,11 +476,22 @@ const MainApp: React.FC = () => {
 
       // Only fetch company for approved recruiters — never auto-create.
       // Company creation happens explicitly in Gate 4 of recruiter registration.
+      //
+      // Real bug found verifying the recruiter-gating fix above: this used
+      // to only fall back to the synthesized placeholder on a REJECTED
+      // promise (.catch()), but fetchCompanyForRecruiter deliberately
+      // *resolves* null when the recruiter has no company yet (the exact
+      // "Gate 4 not completed" case this comment already describes) — so
+      // `company` ended up as plain null, and `company._firestoreId` two
+      // lines down crashed the entire app on load for every recruiter
+      // without a company, not just some edge case. The `?? {...}` below
+      // catches that resolved-null case the same way .catch() already
+      // caught the rejected one.
       const company = (user as any).isRecruiter === true
-        ? await fetchCompanyForRecruiter(fbUser?.uid ?? '').catch(() => ({
+        ? await fetchCompanyForRecruiter(fbUser?.uid ?? '').catch(() => null) ?? {
             id: 1, _firestoreId: '', name: user.headline || user.name,
             description: '', industry: '', logoUrl: '', website: ''
-          }))
+          }
         : { id: 1, _firestoreId: '', name: '', description: '', industry: '', logoUrl: '', website: '' };
 
       // The job board and company profiles need the full company directory, not
@@ -755,7 +770,16 @@ const MainApp: React.FC = () => {
     setShowCommunityWall(false);
   };
 
-  const handleSwitchProfile = () => setActiveProfile(p => p === 'user' ? 'recruiter' : 'user');
+  const handleSwitchProfile = () => setActiveProfile(p => {
+    if (p === 'recruiter') return 'user';
+    // Defense in depth alongside the onSwitchToRecruiter={isRecruiter ? ... :
+    // undefined} gate on the Header button below — this used to be a bare
+    // toggle, so any signed-in user (not just real recruiters) who could
+    // trigger it ended up with the full Recruiter Console and no paywall,
+    // since isTrialActive's own effect only computes for isRecruiter users
+    // and otherwise stays at its default `true` forever.
+    return currentUser?.isRecruiter ? 'recruiter' : 'user';
+  });
 
   const handleDeleteAccount = async () => {
     if (!fbUser || !currentUser) return;
@@ -2022,7 +2046,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {showSecurityPage && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} />
+              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   <SecurityPrivacyPage
@@ -2055,7 +2079,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {publicProfileUserId && data && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={handleSwitchProfile} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} />
+              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   <ProfileOverlay
@@ -2096,7 +2120,15 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             currentView={currentView}
             onNavigate={handleSetView}
             onLogout={handleLogout}
-            onSwitchToRecruiter={handleSwitchProfile}
+            onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined}
+            // Real bug found verifying the recruiter-gating fix above: this
+            // is the main app shell's Header — what every signed-in user
+            // actually sees on the home feed — and it never wired up
+            // onEnterAdminPanel at all, unlike the other two Header render
+            // sites (the Security & Privacy overlay, and one other
+            // secondary view). A platform admin had no way to reach their
+            // own Admin Panel from normal day-to-day app usage.
+            onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined}
             notificationCount={unreadNotifCount}
             pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length}
             onSearch={(q) => {
