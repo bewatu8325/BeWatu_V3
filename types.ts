@@ -53,6 +53,20 @@ export interface User {
   reputation: number;
   credits: number;
   isRecruiter: boolean;
+  // Set by RecruiterUpgradeModal's 4-gate application flow (components/
+  // recruiter/RecruiterUpgradeModal.tsx) for an existing non-recruiter
+  // account applying for recruiter access. 'pending_ops' until a platform
+  // admin decides it (AdminPanel's Recruiter applications tab), which also
+  // flips isRecruiter on approval via syncRecruiterApplicationDecision
+  // (functions/src/index.ts) -- isRecruiter itself stays frozen from every
+  // client write, so this field is what the UI can actually read back.
+  recruiterStatus?: 'pending_ops' | 'approved' | 'rejected';
+  recruiterProfile?: {
+    workEmail: string; companyName: string; companyDomain: string; role: string;
+    hiringFunctions: string[]; hiringSeniority: string[];
+    hiringType: 'permanent' | 'contract' | 'both';
+    noAgencyDeclared: boolean; submittedAt: string; verificationMethod: string;
+  } | null;
   stripeCustomerId?: string;
   phone?: string;
   isVerified: boolean;

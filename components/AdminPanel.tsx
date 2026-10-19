@@ -50,6 +50,8 @@ import {
   fetchUsers,
   getRecruiterUsers,
   adminSetRecruiterFeeWaiver,
+  getPendingRecruiterApplications,
+  adminDecideRecruiterApplication,
   writeAdminAuditLog,
 } from '../lib/firestoreService';
 import {
@@ -72,6 +74,7 @@ type AdminView =
   | 'audit_global'
   | 'verify_queue'
   | 'recruiters'
+  | 'recruiter_apps'
   | 'discount_codes';
 
 interface CompanyRecord {
@@ -143,6 +146,8 @@ function AuditBadge({ action }: { action: string }) {
     recruiter_fee_waiver_revoked: { label: 'Waiver ended', color: '#dc2626', bg: '#fef2f2' },
     discount_code_created:        { label: 'Code created', color: '#0e7490', bg: '#ecfeff' },
     discount_code_deactivated:    { label: 'Code deactivated', color: '#dc2626', bg: '#fef2f2' },
+    recruiter_application_approved: { label: 'App approved', color: 'var(--bw-green)', bg: 'var(--bw-green-light)' },
+    recruiter_application_rejected: { label: 'App rejected', color: '#dc2626', bg: '#fef2f2' },
   };
   const cfg = map[action] ?? { label: action, color: '#57534e', bg: '#f5f5f4' };
   return (
@@ -1066,6 +1071,8 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
   const [globalAudit, setGlobalAudit]   = useState<any[]>([]);
   const [recruiters, setRecruiters]     = useState<any[]>([]);
   const [recruiterSearch, setRecruiterSearch] = useState('');
+  const [recruiterApps, setRecruiterApps] = useState<any[]>([]);
+  const [recruiterAppsBusyId, setRecruiterAppsBusyId] = useState<string | null>(null);
   const [discountCodes, setDiscountCodes] = useState<any[]>([]);
   const [discountCodesLoading, setDiscountCodesLoading] = useState(false);
   const [newCodeForm, setNewCodeForm] = useState({ code: '', percentOff: '20', duration: 'once' as 'once' | 'repeating' | 'forever', durationInMonths: '', maxRedemptions: '', expiresAt: '' });
@@ -1114,6 +1121,12 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
   useEffect(() => {
     if (view === 'recruiters' && recruiters.length === 0) {
       getRecruiterUsers().then(setRecruiters).catch(() => {});
+    }
+  }, [view]);
+
+  useEffect(() => {
+    if (view === 'recruiter_apps' && recruiterApps.length === 0) {
+      getPendingRecruiterApplications().then(setRecruiterApps).catch(() => {});
     }
   }, [view]);
 
@@ -1201,6 +1214,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
               { key: 'list' as AdminView,         label: 'Companies' },
               { key: 'verify_queue' as AdminView, label: `Queue${pendingVerif.length ? ` (${pendingVerif.length})` : ''}` },
               { key: 'recruiters' as AdminView,   label: 'Recruiters' },
+              { key: 'recruiter_apps' as AdminView, label: `Recruiter apps${recruiterApps.length ? ` (${recruiterApps.length})` : ''}` },
               { key: 'discount_codes' as AdminView, label: 'Discount codes' },
               { key: 'audit_global' as AdminView, label: 'Audit log' },
             ] as const).map(({ key, label }) => (
@@ -1455,6 +1469,88 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
               getRecruiterUsers().then(setRecruiters);
             }}
           />
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            VIEW: RECRUITER APPLICATIONS — RecruiterUpgradeModal submissions
+        ══════════════════════════════════════════════════════════ */}
+        {view === 'recruiter_apps' && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black text-stone-900">Recruiter applications</h2>
+              <button onClick={() => getPendingRecruiterApplications().then(setRecruiterApps)}
+                className="flex items-center gap-1.5 text-sm font-bold text-stone-600 hover:text-stone-700 transition-colors">
+                <RefreshCw className="w-4 h-4" /> Refresh
+              </button>
+            </div>
+
+            {recruiterApps.length === 0 ? (
+              <div className="text-center py-24">
+                <CheckCircle className="w-12 h-12 mx-auto mb-3 text-emerald-300" />
+                <p className="font-bold text-stone-600">No pending recruiter applications</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recruiterApps.map(app => (
+                  <div key={app.id} className={CARD + ' p-5'}>
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-base font-black text-white flex-shrink-0" style={{ background: G }}>
+                        {(app.userName ?? '?')[0]?.toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-black text-stone-900">{app.userName}</p>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                            {app.role} at {app.companyName}
+                          </span>
+                        </div>
+                        <p className="text-sm text-stone-600">
+                          <Mail className="w-3.5 h-3.5 inline mr-1" />{app.workEmail}
+                          {' '}· <Globe className="w-3.5 h-3.5 inline mx-1" />{app.companyDomain}
+                        </p>
+                        <p className="text-xs text-stone-600">
+                          Hiring: {(app.hiringFunctions ?? []).join(', ') || '—'}
+                          {' '}· {(app.hiringSeniority ?? []).join(', ') || '—'}
+                          {' '}· {app.hiringType}
+                        </p>
+                        <p className="text-xs text-stone-600">Submitted {fmtDate(app.submittedAt)}</p>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button
+                          disabled={recruiterAppsBusyId === app.id}
+                          onClick={async () => {
+                            setRecruiterAppsBusyId(app.id);
+                            try {
+                              await adminDecideRecruiterApplication(actorUid, actorName, app.id, app.uid, app.userName, 'rejected');
+                              showToast(`Rejected ${app.userName}'s recruiter application.`);
+                              getPendingRecruiterApplications().then(setRecruiterApps);
+                            } catch (e: any) { showToast('Error: ' + e.message); }
+                            finally { setRecruiterAppsBusyId(null); }
+                          }}
+                          className={BTN_O + ' flex items-center gap-1'}>
+                          <XCircle className="w-3.5 h-3.5" /> Reject
+                        </button>
+                        <button
+                          disabled={recruiterAppsBusyId === app.id}
+                          onClick={async () => {
+                            setRecruiterAppsBusyId(app.id);
+                            try {
+                              await adminDecideRecruiterApplication(actorUid, actorName, app.id, app.uid, app.userName, 'approved');
+                              showToast(`Approved ${app.userName}'s recruiter application.`);
+                              getPendingRecruiterApplications().then(setRecruiterApps);
+                            } catch (e: any) { showToast('Error: ' + e.message); }
+                            finally { setRecruiterAppsBusyId(null); }
+                          }}
+                          className={BTN_G + ' flex items-center gap-1'} style={{ background: G }}>
+                          <ShieldCheck className="w-3.5 h-3.5" /> Approve
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* ══════════════════════════════════════════════════════════

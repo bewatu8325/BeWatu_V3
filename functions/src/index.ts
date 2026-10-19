@@ -1043,6 +1043,53 @@ export const syncInvestorApplicationDecision = onDocumentUpdated({ document: 've
     return null;
 });
 
+// RecruiterUpgradeModal.tsx (the 4-gate recruiter signup flow) has always
+// written recruiter_applications/{appId} with status: 'pending' and set
+// users/{uid}.recruiterStatus = 'pending_ops' on submit, but nothing ever
+// processed that application afterward -- isRecruiter was never set, so an
+// approved applicant stayed locked out of the Recruiter Console forever,
+// and the applicant-facing modal/banner had no way to show the decision.
+// AdminPanel.tsx's Recruiter Applications queue updates this doc's status
+// directly (firestore.rules already permits isPlatformAdmin() to do that);
+// this trigger is the one place privileged enough to also flip
+// users/{uid}.isRecruiter, which firestore.rules permanently freezes from
+// every client write, admin included, specifically because it is the real
+// authorization boundary the Recruiter Console and every recruiter-gated
+// write already check.
+export const syncRecruiterApplicationDecision = onDocumentUpdated(
+  'recruiter_applications/{appId}',
+  async (event) => {
+    const before = event.data!.before.data();
+    const after = event.data!.after.data();
+
+    if (before.status === after.status) return null;
+    if (!['approved', 'rejected'].includes(after.status)) return null;
+
+    const uid: string | undefined = after.uid;
+    if (!uid) {
+      console.error(`recruiter_applications/${event.params.appId} has no uid field`);
+      return null;
+    }
+
+    const userRef = db.collection('users').doc(uid);
+
+    if (after.status === 'approved') {
+      await userRef.set(
+        { isRecruiter: true, recruiterStatus: 'approved', updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      console.log(`Approved recruiter_applications/${event.params.appId} -- set users/${uid}.isRecruiter = true`);
+    } else {
+      await userRef.set(
+        { recruiterStatus: 'rejected', updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      console.log(`Rejected recruiter_applications/${event.params.appId}`);
+    }
+    return null;
+  }
+);
+
 // Confirmation email when an application is filed. Idempotent: the sent
 // timestamp is written back so a retried trigger doesn't send twice.
 export const sendInvestorApplicationConfirmation = onDocumentCreated(

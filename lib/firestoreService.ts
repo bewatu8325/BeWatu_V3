@@ -2952,6 +2952,46 @@ export async function adminSetRecruiterFeeWaiver(
   });
 }
 
+/** Fetch all pending recruiter_applications (RecruiterUpgradeModal submissions), admin use. */
+export async function getPendingRecruiterApplications(): Promise<any[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'recruiter_applications'),
+      where('status', '==', 'pending'),
+      orderBy('submittedAt', 'asc')
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Approve or reject a recruiter_applications doc. The actual isRecruiter
+ *  flip happens server-side in syncRecruiterApplicationDecision
+ *  (functions/src/index.ts) — isRecruiter is frozen from every client
+ *  write, admin included, by firestore.rules. This just records the
+ *  decision, which that trigger watches for. */
+export async function adminDecideRecruiterApplication(
+  actorUid: string,
+  actorName: string,
+  appId: string,
+  applicantUid: string,
+  applicantName: string,
+  decision: 'approved' | 'rejected'
+): Promise<void> {
+  await updateDoc(doc(db, 'recruiter_applications', appId), {
+    status: decision,
+    reviewedBy: actorUid,
+    reviewedAt: serverTimestamp(),
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: decision === 'approved' ? 'recruiter_application_approved' : 'recruiter_application_rejected',
+    targetType: 'recruiter',
+    targetId: applicantUid,
+    targetName: applicantName,
+    details: `${decision === 'approved' ? 'Approved' : 'Rejected'} recruiter application (${appId})`,
+  });
+}
+
 /** Fetch company activity: jobs posted + challenge submissions. */
 export async function getCompanyActivity(companyId: string): Promise<{
   jobs: any[]; challenges: any[]; verificationHistory: any[];

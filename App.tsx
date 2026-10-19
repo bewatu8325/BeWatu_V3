@@ -1767,13 +1767,21 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
       case View.Jobs:
         content = (
           <div className="space-y-4">
-            {!currentUser.isRecruiter && (
+            {/* recruiterStatus === 'pending_ops' check added alongside the
+                admin review queue that now actually processes these
+                (AdminPanel's Recruiter applications tab + syncRecruiterApplicationDecision
+                in functions/src/index.ts). Previously this only checked
+                isRecruiter, which never became true while an application sat
+                unprocessed, so an applicant saw "Post a role" and could keep
+                opening the whole 4-gate modal again while already pending. */}
+            {!currentUser.isRecruiter && currentUser.recruiterStatus !== 'pending_ops' && (
               <Suspense fallback={<div />}>
                 <RecruiterUpgradeBanner
                   currentUser={currentUser}
                   fbUserUid={fbUser!.uid}
                   onSuccess={() => {
-                    // Reload user data to pick up isRecruiter: true
+                    // Reload user data to pick up recruiterStatus: 'pending_ops'
+                    // immediately, and isRecruiter: true once an admin approves.
                     loadAppData(currentUser);
                   }}
                 />
