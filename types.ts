@@ -103,6 +103,12 @@ export interface User {
   factoryUnlockedAt?: string;
   factoryUnlockReason?: string;
   proSubscriptionDays?: number;
+  // Admin-set override so a recruiter never hits the trial-ended paywall —
+  // used to onboard recruited companies without billing friction. Same
+  // tri-field shape as factoryUnlocked above.
+  recruiterFeeWaived?: boolean;
+  recruiterFeeWaivedAt?: string;
+  recruiterFeeWaivedReason?: string;
 }
 
 export const AVAILABILITY_OPTIONS: User['availability'][] = [

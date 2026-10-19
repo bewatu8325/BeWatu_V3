@@ -74,7 +74,7 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    const { name, email, paymentMethodId, tier = 'pro' } = await req.json();
+    const { name, email, paymentMethodId, tier = 'pro', discountCode } = await req.json();
 
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) throw new Error('Server configuration error: missing Stripe key');
@@ -110,10 +110,32 @@ export default async function handler(req: Request): Promise<Response> {
     // 2. Create subscription with 30-day trial for pro, 14-day for factory/investor
     const trialDays = tier === 'pro' ? 30 : 14;
 
+    // Admin-generated discount code (api/admin/discount-codes.ts) — looked
+    // up by its human-entered code against Stripe's own Promotion Code
+    // object, so expiry/redemption-limit/active-state are all enforced by
+    // Stripe itself rather than a second, custom bookkeeping system. An
+    // invalid/expired code is a real 400, not a silently-ignored discount.
+    let discounts: Stripe.SubscriptionCreateParams['discounts'];
+    if (discountCode) {
+      const promos = await stripe.promotionCodes.list({
+        code: String(discountCode).toUpperCase(),
+        active: true,
+        limit: 1,
+      });
+      const promo = promos.data[0];
+      if (!promo) {
+        return new Response(JSON.stringify({ error: 'That discount code is invalid or has expired.' }), {
+          status: 400, headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      discounts = [{ promotion_code: promo.id }];
+    }
+
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: priceId }],
       trial_period_days: trialDays,
+      discounts,
       expand: ['latest_invoice.payment_intent'],
       metadata: { tier, uid },
     });

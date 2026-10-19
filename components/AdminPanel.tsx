@@ -48,6 +48,9 @@ import {
   getAdminAuditLog,
   getPendingVerificationRequests,
   fetchUsers,
+  getRecruiterUsers,
+  adminSetRecruiterFeeWaiver,
+  writeAdminAuditLog,
 } from '../lib/firestoreService';
 import {
   getVerificationDisplay,
@@ -67,7 +70,9 @@ type AdminView =
   | 'detail'
   | 'edit'
   | 'audit_global'
-  | 'verify_queue';
+  | 'verify_queue'
+  | 'recruiters'
+  | 'discount_codes';
 
 interface CompanyRecord {
   id: string;
@@ -134,6 +139,10 @@ function AuditBadge({ action }: { action: string }) {
     admin_assigned:    { label: 'Admin set',  color: '#0e7490', bg: '#ecfeff' },
     recruiter_granted: { label: 'Access ✓',   color: 'var(--bw-green)', bg: 'var(--bw-green-light)' },
     recruiter_revoked: { label: 'Access ✗',   color: '#dc2626', bg: '#fef2f2' },
+    recruiter_fee_waived:         { label: 'Fee waived',   color: 'var(--bw-green)', bg: 'var(--bw-green-light)' },
+    recruiter_fee_waiver_revoked: { label: 'Waiver ended', color: '#dc2626', bg: '#fef2f2' },
+    discount_code_created:        { label: 'Code created', color: '#0e7490', bg: '#ecfeff' },
+    discount_code_deactivated:    { label: 'Code deactivated', color: '#dc2626', bg: '#fef2f2' },
   };
   const cfg = map[action] ?? { label: action, color: '#57534e', bg: '#f5f5f4' };
   return (
@@ -141,6 +150,206 @@ function AuditBadge({ action }: { action: string }) {
       style={{ background: cfg.bg, color: cfg.color }}>
       {cfg.label}
     </span>
+  );
+}
+
+// ─── Recruiters — fee waiver ────────────────────────────────────────────────
+function RecruitersView({
+  recruiters, search, setSearch, onRefresh, onToggleWaiver,
+}: {
+  recruiters: any[];
+  search: string;
+  setSearch: (v: string) => void;
+  onRefresh: () => void;
+  onToggleWaiver: (uid: string, name: string, waived: boolean, reason?: string) => Promise<void>;
+}) {
+  const [reason, setReason] = useState('');
+  const [busyUid, setBusyUid] = useState<string | null>(null);
+  const filtered = recruiters.filter(r =>
+    !search || (r.displayName ?? '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleToggle = async (r: any, waived: boolean) => {
+    setBusyUid(r.id);
+    try {
+      await onToggleWaiver(r.id, r.displayName ?? r.id, waived, reason.trim() || undefined);
+      setReason('');
+    } finally {
+      setBusyUid(null);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-black text-stone-900">Recruiters</h2>
+        <button onClick={onRefresh}
+          className="flex items-center gap-1.5 text-sm font-bold text-stone-600 hover:text-stone-700 transition-colors">
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-300" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name..."
+            className={INPUT + ' pl-9'} />
+        </div>
+        <input value={reason} onChange={e => setReason(e.target.value)}
+          placeholder="Reason (optional, applied to next action)"
+          className={INPUT + ' sm:w-80'} />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-24">
+          <Users className="w-12 h-12 mx-auto mb-3 text-stone-200" />
+          <p className="font-bold text-stone-600">No recruiter accounts found</p>
+        </div>
+      ) : (
+        <div className={CARD + ' overflow-hidden'}>
+          <div className="divide-y divide-stone-50">
+            {filtered.map(r => (
+              <div key={r.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-stone-50 transition-colors">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black text-white flex-shrink-0" style={{ background: G }}>
+                  {(r.displayName ?? '?')[0]?.toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-stone-800 truncate">{r.displayName ?? r.id}</p>
+                  <p className="text-xs text-stone-600">
+                    Signed up {fmtDate(r.createdAt)}
+                    {r.subscriptionStatus && <> · {r.subscriptionStatus}</>}
+                    {r.recruiterTrialEndDate && <> · trial ends {fmtDate(r.recruiterTrialEndDate)}</>}
+                  </p>
+                  {r.recruiterFeeWaived && r.recruiterFeeWaivedReason && (
+                    <p className="text-xs text-stone-600 italic truncate">"{r.recruiterFeeWaivedReason}"</p>
+                  )}
+                </div>
+                {r.recruiterFeeWaived ? (
+                  <span className="rounded-lg px-2 py-0.5 text-xs font-black whitespace-nowrap flex-shrink-0" style={{ background: GLT, color: G }}>Fee waived</span>
+                ) : null}
+                <button
+                  disabled={busyUid === r.id}
+                  onClick={() => handleToggle(r, !r.recruiterFeeWaived)}
+                  className={(r.recruiterFeeWaived ? BTN_O : BTN_G) + ' flex-shrink-0 whitespace-nowrap'}
+                  style={r.recruiterFeeWaived ? undefined : { background: G }}>
+                  {busyUid === r.id ? '...' : r.recruiterFeeWaived ? 'Un-waive fee' : 'Waive fee'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Discount codes (Stripe Promotion Codes) ─────────────────────────────────
+function DiscountCodesView({
+  codes, loading, form, setForm, creating, onRefresh, onCreate, onDeactivate,
+}: {
+  codes: any[];
+  loading: boolean;
+  form: { code: string; percentOff: string; duration: 'once' | 'repeating' | 'forever'; durationInMonths: string; maxRedemptions: string; expiresAt: string };
+  setForm: (v: any) => void;
+  creating: boolean;
+  onRefresh: () => void;
+  onCreate: () => void;
+  onDeactivate: (promotionCodeId: string, code: string) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-black text-stone-900">Discount codes</h2>
+        <button onClick={onRefresh}
+          className="flex items-center gap-1.5 text-sm font-bold text-stone-600 hover:text-stone-700 transition-colors">
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </button>
+      </div>
+
+      <div className={CARD + ' p-5 space-y-4'}>
+        <p className="text-sm font-black text-stone-800">New code</p>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div>
+            <label className="text-[10px] font-black text-stone-600 uppercase tracking-wider">Code (optional)</label>
+            <input value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })}
+              placeholder="Auto-generated" className={INPUT} />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-stone-600 uppercase tracking-wider">% off</label>
+            <input type="number" min={1} max={100} value={form.percentOff}
+              onChange={e => setForm({ ...form, percentOff: e.target.value })} className={INPUT} />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-stone-600 uppercase tracking-wider">Duration</label>
+            <select value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} className={INPUT}>
+              <option value="once">Once</option>
+              <option value="repeating">Repeating</option>
+              <option value="forever">Forever</option>
+            </select>
+          </div>
+          {form.duration === 'repeating' && (
+            <div>
+              <label className="text-[10px] font-black text-stone-600 uppercase tracking-wider">Months</label>
+              <input type="number" min={1} value={form.durationInMonths}
+                onChange={e => setForm({ ...form, durationInMonths: e.target.value })} className={INPUT} />
+            </div>
+          )}
+          <div>
+            <label className="text-[10px] font-black text-stone-600 uppercase tracking-wider">Max redemptions</label>
+            <input type="number" min={1} value={form.maxRedemptions}
+              onChange={e => setForm({ ...form, maxRedemptions: e.target.value })} placeholder="Unlimited" className={INPUT} />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-stone-600 uppercase tracking-wider">Expires</label>
+            <input type="date" value={form.expiresAt}
+              onChange={e => setForm({ ...form, expiresAt: e.target.value })} className={INPUT} />
+          </div>
+        </div>
+        <button onClick={onCreate} disabled={creating || !form.percentOff}
+          className={BTN_G + ' flex items-center gap-1.5'} style={{ background: G }}>
+          <Plus className="w-4 h-4" /> {creating ? 'Creating...' : 'Create code'}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <RefreshCw className="w-6 h-6 animate-spin text-stone-300" />
+        </div>
+      ) : codes.length === 0 ? (
+        <div className="text-center py-16">
+          <Zap className="w-12 h-12 mx-auto mb-3 text-stone-200" />
+          <p className="font-bold text-stone-600">No discount codes yet</p>
+        </div>
+      ) : (
+        <div className={CARD + ' overflow-hidden'}>
+          <div className="divide-y divide-stone-50">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 px-5 py-2.5 bg-stone-50 border-b border-stone-100">
+              {['Code', '% off', 'Redeemed', 'Status', ''].map(h => (
+                <p key={h} className="text-[10px] font-black text-stone-600 uppercase tracking-wider">{h}</p>
+              ))}
+            </div>
+            {codes.map(c => (
+              <div key={c.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center px-5 py-3">
+                <p className="text-sm font-black text-stone-800">{c.code}</p>
+                <p className="text-xs text-stone-600 whitespace-nowrap">{c.percentOff}%</p>
+                <p className="text-xs text-stone-600 whitespace-nowrap">{c.timesRedeemed}{c.maxRedemptions ? ` / ${c.maxRedemptions}` : ''}</p>
+                <span className="rounded-lg px-2 py-0.5 text-xs font-black whitespace-nowrap"
+                  style={{ background: c.active ? GLT : '#f5f5f4', color: c.active ? G : '#78716c' }}>
+                  {c.active ? 'Active' : 'Inactive'}
+                </span>
+                {c.active ? (
+                  <button onClick={() => onDeactivate(c.id, c.code)}
+                    className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors whitespace-nowrap">
+                    Deactivate
+                  </button>
+                ) : <span />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -855,6 +1064,12 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
   const [companies, setCompanies]       = useState<CompanyRecord[]>([]);
   const [pendingVerif, setPendingVerif] = useState<any[]>([]);
   const [globalAudit, setGlobalAudit]   = useState<any[]>([]);
+  const [recruiters, setRecruiters]     = useState<any[]>([]);
+  const [recruiterSearch, setRecruiterSearch] = useState('');
+  const [discountCodes, setDiscountCodes] = useState<any[]>([]);
+  const [discountCodesLoading, setDiscountCodesLoading] = useState(false);
+  const [newCodeForm, setNewCodeForm] = useState({ code: '', percentOff: '20', duration: 'once' as 'once' | 'repeating' | 'forever', durationInMonths: '', maxRedemptions: '', expiresAt: '' });
+  const [newCodeLoading, setNewCodeLoading] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyRecord | null>(null);
   const [loading, setLoading]           = useState(true);
   const [createLoading, setCreateLoading] = useState(false);
@@ -895,6 +1110,35 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
       getAdminAuditLog(200).then(setGlobalAudit).catch(() => {});
     }
   }, [view]);
+
+  useEffect(() => {
+    if (view === 'recruiters' && recruiters.length === 0) {
+      getRecruiterUsers().then(setRecruiters).catch(() => {});
+    }
+  }, [view]);
+
+  const loadDiscountCodes = useCallback(async () => {
+    setDiscountCodesLoading(true);
+    try {
+      const idToken = await fbUser?.getIdToken();
+      const res = await fetch('/api/admin/discount-codes', {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to load discount codes');
+      setDiscountCodes(data.codes ?? []);
+    } catch (e: any) {
+      showToast('Failed to load discount codes: ' + e.message);
+    } finally {
+      setDiscountCodesLoading(false);
+    }
+  }, [fbUser]);
+
+  useEffect(() => {
+    if (view === 'discount_codes' && discountCodes.length === 0) {
+      loadDiscountCodes();
+    }
+  }, [view, loadDiscountCodes]);
 
   const handleMutated = (msg: string) => {
     showToast(msg);
@@ -956,6 +1200,8 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
             {([
               { key: 'list' as AdminView,         label: 'Companies' },
               { key: 'verify_queue' as AdminView, label: `Queue${pendingVerif.length ? ` (${pendingVerif.length})` : ''}` },
+              { key: 'recruiters' as AdminView,   label: 'Recruiters' },
+              { key: 'discount_codes' as AdminView, label: 'Discount codes' },
               { key: 'audit_global' as AdminView, label: 'Audit log' },
             ] as const).map(({ key, label }) => (
               <button key={key} onClick={() => setView(key)}
@@ -1192,6 +1438,96 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
               </div>
             )}
           </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            VIEW: RECRUITERS — fee waiver
+        ══════════════════════════════════════════════════════════ */}
+        {view === 'recruiters' && (
+          <RecruitersView
+            recruiters={recruiters}
+            search={recruiterSearch}
+            setSearch={setRecruiterSearch}
+            onRefresh={() => getRecruiterUsers().then(setRecruiters)}
+            onToggleWaiver={async (uid, name, waived, reason) => {
+              await adminSetRecruiterFeeWaiver(actorUid, actorName, uid, name, waived, reason);
+              showToast(`${waived ? 'Waived' : 'Un-waived'} the recruiter fee for ${name}.`);
+              getRecruiterUsers().then(setRecruiters);
+            }}
+          />
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            VIEW: DISCOUNT CODES
+        ══════════════════════════════════════════════════════════ */}
+        {view === 'discount_codes' && (
+          <DiscountCodesView
+            codes={discountCodes}
+            loading={discountCodesLoading}
+            form={newCodeForm}
+            setForm={setNewCodeForm}
+            creating={newCodeLoading}
+            onRefresh={loadDiscountCodes}
+            onCreate={async () => {
+              setNewCodeLoading(true);
+              try {
+                const idToken = await fbUser?.getIdToken();
+                const res = await fetch('/api/admin/discount-codes', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+                  body: JSON.stringify({
+                    code: newCodeForm.code || undefined,
+                    percentOff: Number(newCodeForm.percentOff),
+                    duration: newCodeForm.duration,
+                    durationInMonths: newCodeForm.durationInMonths ? Number(newCodeForm.durationInMonths) : undefined,
+                    maxRedemptions: newCodeForm.maxRedemptions ? Number(newCodeForm.maxRedemptions) : undefined,
+                    expiresAt: newCodeForm.expiresAt || undefined,
+                  }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error ?? 'Failed to create discount code');
+                await writeAdminAuditLog({
+                  actorUid, actorName,
+                  action: 'discount_code_created',
+                  targetType: 'discount_code',
+                  targetId: data.code.code,
+                  targetName: data.code.code,
+                  details: `Created ${data.code.percentOff}% off code (${newCodeForm.duration})`,
+                });
+                showToast(`Discount code "${data.code.code}" created.`);
+                setNewCodeForm({ code: '', percentOff: '20', duration: 'once', durationInMonths: '', maxRedemptions: '', expiresAt: '' });
+                loadDiscountCodes();
+              } catch (e: any) {
+                showToast('Error: ' + e.message);
+              } finally {
+                setNewCodeLoading(false);
+              }
+            }}
+            onDeactivate={async (promotionCodeId, code) => {
+              try {
+                const idToken = await fbUser?.getIdToken();
+                const res = await fetch('/api/admin/discount-codes', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+                  body: JSON.stringify({ id: promotionCodeId }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error ?? 'Failed to deactivate code');
+                await writeAdminAuditLog({
+                  actorUid, actorName,
+                  action: 'discount_code_deactivated',
+                  targetType: 'discount_code',
+                  targetId: code,
+                  targetName: code,
+                  details: `Deactivated discount code ${code}`,
+                });
+                showToast(`Discount code "${code}" deactivated.`);
+                loadDiscountCodes();
+              } catch (e: any) {
+                showToast('Error: ' + e.message);
+              }
+            }}
+          />
         )}
 
         {/* ══════════════════════════════════════════════════════════

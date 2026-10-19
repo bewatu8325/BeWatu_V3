@@ -41,6 +41,7 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isRecruiter, setIsRecruiter] = useState(false);
+  const [discountCode, setDiscountCode] = useState('');
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const [isPolicyVisible, setIsPolicyVisible] = useState(false);
   
@@ -159,7 +160,7 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
             'Content-Type': 'application/json',
             Authorization: `Bearer ${idToken}`,
           },
-          body: JSON.stringify({ name, email, paymentMethodId: paymentMethod.id, tier: 'pro' }),
+          body: JSON.stringify({ name, email, paymentMethodId: paymentMethod.id, tier: 'pro', discountCode: discountCode.trim() || undefined }),
         });
         const subscriptionData = await response.json();
         if (!response.ok) {
@@ -303,6 +304,11 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
                     {t('recruiterTrialInfo')}
                 </p>
                 <PaymentForm onReady={handleStripeReady} disabled={isProcessing} />
+                <div>
+                    <input type="text" value={discountCode} onChange={(e) => setDiscountCode(e.target.value)}
+                        placeholder="Discount code (optional)" disabled={isProcessing}
+                        className="w-full px-3 py-2 rounded-lg border border-stone-200 bg-white text-sm text-stone-800 placeholder:text-stone-600 outline-none focus:border-green-700 focus:ring-2 focus:ring-green-700/10" />
+                </div>
                  <div>
                     <label className="flex items-center space-x-2 cursor-pointer mt-2">
                         <input type="checkbox" checked={agreedToPolicy} onChange={(e) => setAgreedToPolicy(e.target.checked)} className="h-4 w-4 rounded border-stone-300 text-green-700 focus:ring-green-700" disabled={isProcessing}/>

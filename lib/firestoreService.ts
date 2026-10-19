@@ -2631,7 +2631,7 @@ export async function writeAdminAuditLog(entry: {
   actorUid: string;
   actorName: string;
   action: string;
-  targetType: 'company' | 'recruiter' | 'verification';
+  targetType: 'company' | 'recruiter' | 'verification' | 'discount_code';
   targetId: string;
   targetName: string;
   details?: string;
@@ -2916,6 +2916,39 @@ export async function adminSetRecruiterPermission(
     targetId: recruiterUid,
     targetName: companyName,
     details: `${grant ? 'Granted' : 'Revoked'} recruiter access for ${recruiterName}`,
+  });
+}
+
+/** Fetch every account with isRecruiter: true, for the admin Recruiters tab. */
+export async function getRecruiterUsers(): Promise<any[]> {
+  const snap = await getDocs(query(collection(db, 'users'), where('isRecruiter', '==', true)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Waive (or un-waive) a recruiter's subscription fee — they keep full
+ *  Recruiter Console access with no trial-ended paywall, no Stripe
+ *  subscription required. Used to onboard recruited companies without
+ *  billing friction. */
+export async function adminSetRecruiterFeeWaiver(
+  actorUid: string,
+  actorName: string,
+  targetUid: string,
+  targetName: string,
+  waived: boolean,
+  reason?: string
+): Promise<void> {
+  await updateDoc(doc(db, 'users', targetUid), {
+    recruiterFeeWaived: waived,
+    recruiterFeeWaivedAt: serverTimestamp(),
+    recruiterFeeWaivedReason: reason ?? '',
+  });
+  await writeAdminAuditLog({
+    actorUid, actorName,
+    action: waived ? 'recruiter_fee_waived' : 'recruiter_fee_waiver_revoked',
+    targetType: 'recruiter',
+    targetId: targetUid,
+    targetName,
+    details: `${waived ? 'Waived' : 'Un-waived'} recruiter subscription fee${reason ? `: ${reason}` : ''}`,
   });
 }
 

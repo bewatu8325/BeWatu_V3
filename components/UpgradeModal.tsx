@@ -30,6 +30,7 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
   const [step,         setStep]         = useState<Step>('review');
   const [stripeRef,    setStripeRef]    = useState<{ stripe: any; card: any } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [discountCode, setDiscountCode] = useState('');
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y(dialogRef, onClose);
 
@@ -72,6 +73,7 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
           email:           fbUser.email,
           paymentMethodId: paymentMethod.id,
           tier,
+          discountCode: discountCode.trim() || undefined,
         }),
       });
 
@@ -190,6 +192,18 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
                 Payment details
               </p>
               <PaymentForm onReady={handleStripeReady} disabled={step === 'processing'} />
+            </div>
+
+            {/* Discount code */}
+            <div className="mb-6">
+              <input
+                type="text"
+                value={discountCode}
+                onChange={(e) => setDiscountCode(e.target.value)}
+                placeholder="Discount code (optional)"
+                disabled={step === 'processing'}
+                className="w-full px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-sm text-stone-800 placeholder:text-stone-600 outline-none focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10"
+              />
             </div>
 
             {/* Submit */}
