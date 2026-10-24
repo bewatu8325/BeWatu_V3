@@ -630,12 +630,21 @@ service cloud.firestore {
       // authed user from calling it repeatedly to spam legitimate-shaped
       // notifications — closing that needs rate limiting or a Cloud
       // Function, not something rules alone can do.
+      //
+      // follow_request/follow_accepted added fixing a real bug: these used
+      // to write into notifications/{uid}/items, a collection nothing in
+      // the live app ever subscribes to (components/Header.tsx's
+      // NotificationsPanel, the bell dropdown that actually renders, only
+      // reads this collection) — a follow request was being recorded but
+      // never actually reaching the recipient. Rerouted into this, the
+      // real one, same as every other notification type here.
       match /notifications/{notifId} {
         allow read:   if isAuth() && request.auth.uid == uid;
         allow create: if isAuth()
           && request.resource.data.type in [
                'circle_invite', 'circle_approved', 'circle_denied',
-               'circle_join_request', 'post_comment'
+               'circle_join_request', 'post_comment',
+               'follow_request', 'follow_accepted'
              ]
           && request.resource.data.message is string
           && request.resource.data.isRead == false
@@ -736,6 +745,28 @@ service cloud.firestore {
     }
 
     match /connections/{connectionId} {
+      allow read: if isAuth() && (
+        resource.data.senderUid == request.auth.uid
+        || resource.data.receiverUid == request.auth.uid
+      );
+      allow create: if isAuth()
+        && request.resource.data.senderUid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.senderUid == request.auth.uid
+        || resource.data.receiverUid == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    // Real bug found fixing the dead notification list: this collection
+    // (lib/firestoreService.ts's sendFollowRequest/respondToFollowRequest/
+    // fetchFollowRequests, senderUid/receiverUid shape, real production
+    // callers in App.tsx's handleFollowUser/handleFollowRequest) had no
+    // rule anywhere in this file at all -- every follow request any real
+    // user has ever sent was silently rejected by the terminal catchall
+    // below, confirmed empirically against the real emulator. Same shape
+    // as the connections rule directly above.
+    match /followRequests/{requestId} {
       allow read: if isAuth() && (
         resource.data.senderUid == request.auth.uid
         || resource.data.receiverUid == request.auth.uid

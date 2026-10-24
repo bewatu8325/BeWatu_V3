@@ -192,8 +192,11 @@ function NotificationsPanel({
     if (type === 'circle_invite' || type === 'circle_approved' || type === 'circle_denied' || type === 'circle_post' || type === 'circle_join_request' || type === 'post_comment') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT }}><UsersIcon size={14} style={{ color: GREEN }} /></div>;
     }
-    if (type === 'connection_request') {
+    if (type === 'connection_request' || type === 'follow_request' || type === 'follow_accepted') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-50"><Users size={14} className="text-blue-500" /></div>;
+    }
+    if (type === 'endorsement_fulfilled') {
+      return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-cyan-50"><CheckCircle size={14} className="text-cyan-600" /></div>;
     }
     return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-100"><Bell size={14} className="text-stone-600" /></div>;
   }
