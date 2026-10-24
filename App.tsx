@@ -44,8 +44,6 @@ import {
   respondToFollowRequest as fbRespondToFollowRequest,
   cancelConnectionRequest as fbCancelConnectionRequest,
   refreshConnectionRequest as fbRefreshConnectionRequest,
-  subscribeToNotifications,
-  markNotificationsRead as fbMarkNotificationsRead,
   createJob as fbCreateJob,
   fetchJobs,
   updateJob as fbUpdateJob,
@@ -1006,13 +1004,6 @@ const MainApp: React.FC = () => {
   };
 
   const startMessage = (userId: number) => { setActiveChatUserId(userId); setCurrentView(View.Messaging); };
-
-  const handleMarkNotificationsRead = async () => {
-    if (!data || !fbUser) return;
-    const ids = (data.notifications as any[]).filter(n => !n.read && n._firestoreId).map(n => n._firestoreId);
-    if (ids.length) await fbMarkNotificationsRead(fbUser.uid, ids);
-    setData({ ...data, notifications: data.notifications.map(n => ({ ...n, read: true })) });
-  };
 
   const handleConnectionRequest = async (requestId: number, status: 'accepted' | 'declined') => {
     if (!data || !fbUser) return;

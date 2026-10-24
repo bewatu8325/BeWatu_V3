@@ -120,20 +120,14 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
     endorserNote: trimmedNote ?? null,
   });
 
-  // Real finding made verifying this live: there are two entirely separate
-  // notification systems in this codebase. notifications/{uid}/items (where
-  // the 'ENDORSEMENT' type lives, with full UI support in
-  // NotificationsDropdown.tsx) is never actually subscribed to anywhere --
-  // App.tsx initializes data.notifications to [] and nothing ever populates
-  // it from Firestore, so nothing written there, of any type, has ever
-  // reached a real user. users/{uid}/notifications (the pod/circle system)
-  // IS live-subscribed (App.tsx ~line 320, via subscribeToUnreadNotifCount
-  // and createPodNotification in lib/firestoreService.ts) -- that one
-  // actually drives the bell's unread count. Writing here instead, so the
-  // requester gets a real, visible signal rather than a silently dropped
-  // write. The full notification-list rendering gap (data.notifications
-  // never populated, for any type, app-wide) is a separate, larger issue --
-  // flagged, not fixed, by this change.
+  // notifications/{uid}/items (the old 'ENDORSEMENT' NotificationType's
+  // home) turned out to be fully dead -- nothing in the live app ever
+  // subscribed to it, including the NotificationsDropdown.tsx component
+  // that looked like it rendered that type (it was never imported
+  // anywhere). users/{uid}/notifications is the real system:
+  // components/Header.tsx's NotificationsPanel reads it directly and is
+  // what actually renders the bell dropdown. Writing here, same as every
+  // other real notification in this app.
   await db.collection('users').doc(requesterUid).collection('notifications').add({
     type: 'endorsement_fulfilled',
     message: `${trimmedName} endorsed your ${skillName} skill`,

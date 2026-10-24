@@ -37,12 +37,10 @@ import {
   Job,
   Company,
   Message,
-  Notification,
   ConnectionRequest,
   Circle,
   Article,
   AppreciationType,
-  NotificationType,
   FollowRequest,
 } from '../types';
 import type { 
@@ -93,20 +91,6 @@ function toMessage(d: QueryDocumentSnapshot): Message {
     isRead: data.isRead ?? false,
     _firestoreId: d.id,
   } as Message & { _firestoreId: string };
-}
-
-function toNotification(d: QueryDocumentSnapshot): Notification {
-  const data = d.data();
-  return {
-    id: (parseInt(d.id, 10) || Date.now()),
-    userId: data.recipientNumericId,
-    type: data.type as NotificationType,
-    text: data.message,
-    read: data.read ?? false,
-    timestamp: data.createdAt?.toDate?.()?.toLocaleTimeString() ?? '',
-    relatedId: data.relatedId,
-    _firestoreId: d.id,
-  } as Notification & { _firestoreId: string };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -494,12 +478,22 @@ export async function sendFollowRequest(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  // Notify the receiver. Bug fix: this call was missing two required
-  // arguments (message, senderName) and passed the wrong numeric id
-  // (senderNumericId instead of the recipient's own) — a call-signature
-  // mismatch that tsc catches but JS doesn't throw on, so it silently wrote
-  // a garbled notification doc instead of erroring.
-  await createNotification(receiverUid, receiverNumericId, 'FOLLOW_REQUEST', 'You have a new follow request', '');
+  // Notify the receiver. Real bug found auditing the notification system
+  // this used to write into (notifications/{uid}/items, via
+  // createNotification): that collection is never subscribed to anywhere in
+  // the live app — components/Header.tsx's NotificationsPanel (the bell
+  // dropdown that actually renders) only reads users/{uid}/notifications.
+  // A follow request was being written correctly but was never visible to
+  // the recipient. Writing into the live collection instead, same as every
+  // other real notification in this app (createPodNotification).
+  await addDoc(collection(db, 'users', receiverUid, 'notifications'), {
+    type: 'follow_request',
+    message: 'You have a new follow request',
+    actorUid: senderUid,
+    actorId: senderNumericId,
+    isRead: false,
+    createdAt: serverTimestamp(),
+  });
   return {
     id: Date.now(),
     fromUserId: senderNumericId,
@@ -521,8 +515,14 @@ export async function respondToFollowRequest(
     updatedAt: serverTimestamp(),
   });
   if (response === 'accepted') {
-    // Same missing-arguments bug as sendFollowRequest above.
-    await createNotification(senderUid, senderNumericId, 'FOLLOW_ACCEPTED', 'Your follow request was accepted', '');
+    // Same dead-collection issue as sendFollowRequest above.
+    await addDoc(collection(db, 'users', senderUid, 'notifications'), {
+      type: 'follow_accepted',
+      message: 'Your follow request was accepted',
+      actorUid: receiverUid,
+      isRead: false,
+      createdAt: serverTimestamp(),
+    });
   }
 }
 
@@ -660,52 +660,6 @@ export function subscribeToMessageThreads(
       callback(previews);
     }
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NOTIFICATIONS
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function subscribeToNotifications(
-  uid: string,
-  recipientNumericId: number,
-  callback: (notifications: Notification[]) => void
-): Unsubscribe {
-  return onSnapshot(
-    query(
-      collection(db, 'notifications', uid, 'items'),
-      orderBy('createdAt', 'desc'),
-      limit(30)
-    ),
-    (snap) => callback(snap.docs.map(toNotification))
-  );
-}
-
-export async function markNotificationsRead(uid: string, firestoreIds: string[]): Promise<void> {
-  const batch = writeBatch(db);
-  firestoreIds.forEach((id) =>
-    batch.update(doc(db, 'notifications', uid, 'items', id), { read: true })
-  );
-  await batch.commit();
-}
-
-export async function createNotification(
-  recipientUid: string,
-  recipientNumericId: number,
-  type: NotificationType,
-  message: string,
-  senderName: string,
-  relatedId?: number
-): Promise<void> {
-  await addDoc(collection(db, 'notifications', recipientUid, 'items'), {
-    type,
-    message,
-    senderName,
-    recipientNumericId,
-    relatedId,
-    read: false,
-    createdAt: serverTimestamp(),
-  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
