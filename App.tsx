@@ -108,6 +108,8 @@ const LandingPage = lazy(() => import('./components/LandingPage'));
 const SecurityPrivacyPage = lazy(() => import('./components/SecurityPrivacyPage'));
 // PublicSharePage: the /be/:username unauthenticated sharing page
 const PublicSharePage = lazy(() => import('./components/PublicSharePage'));
+// EndorseRequestPage: the /endorse/:token unauthenticated endorsement page
+const EndorseRequestPage = lazy(() => import('./components/EndorseRequestPage'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const LoginPage = lazy(() => import('./components/auth/LoginPage'));
@@ -2444,24 +2446,35 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
 // Detect /be/:username before mounting the full app — public profiles are
 // accessible without authentication so we render them outside FirebaseProvider.
 const beMatch = window.location.pathname.match(/^\/be\/([a-z0-9_-]+)$/i);
+// Same reasoning for /endorse/:token — the colleague leaving an endorsement
+// has no BeWatu account, by design (see components/EndorseRequestPage.tsx).
+const endorseMatch = window.location.pathname.match(/^\/endorse\/([A-Za-z0-9_-]+)$/);
 
 const App: React.FC = () => {
-  if (beMatch) {
-    const username = beMatch[1].toLowerCase();
+  if (beMatch || endorseMatch) {
+    const fallback = (
+      <div className="min-h-screen" style={{ backgroundColor: '#f5f5f4' }}>
+        <nav className="bg-white border-b h-14" style={{ borderColor: '#e7e5e4' }}>
+          <div className="max-w-4xl mx-auto px-4 h-14 flex items-center">
+            <span className="font-bold" style={{ color: 'var(--bw-green)' }}>BeWatu</span>
+          </div>
+        </nav>
+      </div>
+    );
+    if (beMatch) {
+      const username = beMatch[1].toLowerCase();
+      return (
+        <Suspense fallback={fallback}>
+          <PublicSharePage
+            username={username}
+            onSignUp={() => { window.location.href = '/?signup=1'; }}
+          />
+        </Suspense>
+      );
+    }
     return (
-      <Suspense fallback={
-        <div className="min-h-screen" style={{ backgroundColor: '#f5f5f4' }}>
-          <nav className="bg-white border-b h-14" style={{ borderColor: '#e7e5e4' }}>
-            <div className="max-w-4xl mx-auto px-4 h-14 flex items-center">
-              <span className="font-bold" style={{ color: 'var(--bw-green)' }}>BeWatu</span>
-            </div>
-          </nav>
-        </div>
-      }>
-        <PublicSharePage
-          username={username}
-          onSignUp={() => { window.location.href = '/?signup=1'; }}
-        />
+      <Suspense fallback={fallback}>
+        <EndorseRequestPage token={endorseMatch![1]} />
       </Suspense>
     );
   }

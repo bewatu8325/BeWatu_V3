@@ -90,6 +90,22 @@ export interface User {
   // isRecruiter and builderType into the single label shown on a profile.
   builderType?: 'Professional' | 'Pre-Founder';
   skills: { name: string; endorsements: number }[];
+  // The real, richer per-skill endorsement record — written by endorseSkill()
+  // (lib/firestoreService.ts) and read by SkillDNA.tsx, but never typed on
+  // User until now. unclaimedEndorsers is new: people who endorsed via a
+  // Request endorsement link (components/EndorseRequestPage.tsx) without
+  // ever creating a BeWatu account, kept separate from endorsedBy (real
+  // member uids) so the two are never ambiguous.
+  endorsements?: {
+    skillName: string;
+    endorsedBy: string[];
+    unclaimedEndorsers?: {
+      name: string;
+      note?: string;
+      requestId: string;
+      createdAt: string;
+    }[];
+  }[];
   verifiedSkills: VerifiedSkill[] | null;
   microIntroductionUrl: string | null;
   microIntroductionThumbnail?: string | null;

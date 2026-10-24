@@ -87,6 +87,13 @@ interface SkillNode {
   name: string;
   endorsementCount: number;
   endorsedBy: string[];
+  // People who endorsed via a Request endorsement link (RequestEndorsementModal
+  // -> api/submit-endorsement.ts) without ever creating a BeWatu account.
+  // Deliberately excluded from endorsementCount/trustLevel/score below — an
+  // unverified free-text name shouldn't move a real trust signal, but it
+  // should still be visible so the requester sees something happened and has
+  // a reason to nudge that colleague to actually join.
+  unclaimedEndorsers: { name: string; note?: string; requestId: string; createdAt: string }[];
   trustLevel: number;
   trustInfo: typeof TRUST_LEVELS[number];
   cluster: string;
@@ -113,6 +120,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
     return skills.map(skillName => {
       const endorsement = endorsements.find((e: any) => e.skillName === skillName);
       const endorsedBy: string[] = endorsement?.endorsedBy ?? [];
+      const unclaimedEndorsers: SkillNode['unclaimedEndorsers'] = endorsement?.unclaimedEndorsers ?? [];
       const count = endorsedBy.length;
       const proofLinks = portfolio.filter((p: any) =>
         p.tags?.some((t: string) => t.toLowerCase() === skillName.toLowerCase()) ||
@@ -123,7 +131,7 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
       const trustInfo = TRUST_LEVELS[trustLevel - 1];
       const hasConsensus = count >= 3;
       const score = Math.min(trustLevel * 20 + Math.min(count * 3, 20) + (hasProof ? 10 : 0), 100);
-      return { name: skillName, endorsementCount: count, endorsedBy, trustLevel, trustInfo, cluster: getCluster(skillName), hasProof, proofLinks, hasConsensus, score };
+      return { name: skillName, endorsementCount: count, endorsedBy, unclaimedEndorsers, trustLevel, trustInfo, cluster: getCluster(skillName), hasProof, proofLinks, hasConsensus, score };
     });
   }, [skills, endorsements, portfolio]);
 
@@ -306,6 +314,25 @@ export function SkillDNA({ user, profileUid, isOwn, currentUserUid, onEndorsed }
                 </span>
               )}
             </div>
+
+            {selectedSkill.unclaimedEndorsers.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1.5 text-[11px] font-semibold text-stone-600 uppercase tracking-wider">Also endorsed by</p>
+                <div className="flex flex-col gap-1.5">
+                  {selectedSkill.unclaimedEndorsers.map(e => (
+                    <div key={e.requestId} className="flex items-start gap-2 rounded-lg bg-stone-50 px-3 py-2 text-xs">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-stone-800">{e.name}</span>
+                        {e.note && <p className="text-[11px] text-stone-600 mt-0.5 truncate">"{e.note}"</p>}
+                      </div>
+                      <span className="flex-shrink-0 rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-semibold text-stone-600" title="Not yet a BeWatu member">
+                        Unverified
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {selectedSkill.proofLinks.length > 0 && (
               <div className="mt-3">

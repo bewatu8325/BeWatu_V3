@@ -1211,6 +1211,24 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Same reasoning: api/send-endorsement-request.ts's send-rate-limit
+    // counters -- server-side only via Admin SDK.
+    match /endorsement_request_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
+    // api/send-endorsement-request.ts / api/submit-endorsement.ts --
+    // endorsement-request docs, keyed by an unguessable crypto-random token
+    // (the doc ID itself). No Firestore rule can verify "this caller holds
+    // the right token" the way a server-side check can, so -- same
+    // convention as every other unauthenticated-reachable flow in this file
+    // (OTP verification, investor/recruiter applications) -- both reading
+    // and writing go through Admin SDK Vercel routes only, never the client
+    // SDK, even for the anonymous colleague submitting an endorsement.
+    match /endorsement_requests/{token} {
+      allow read, write: if false;
+    }
+
     // Same reasoning: api/contact.ts's per-IP rate-limit counters for the
     // "Connect with us" contact form — server-side only via Admin SDK.
     match /contact_rate_limits/{docId} {
