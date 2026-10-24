@@ -2,8 +2,8 @@
  * components/RequestEndorsementModal.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Owner-only modal on the Skills Tile (components/ProfilePage.tsx): asks a
- * colleague by email to endorse a specific skill. Calls
- * api/send-endorsement-request.ts, which emails them a link to
+ * colleague by email to endorse one or more skills in a single request.
+ * Calls api/send-endorsement-request.ts, which emails them a link to
  * /endorse/:token (components/EndorseRequestPage.tsx) — no BeWatu account
  * required on their end. First concrete slice of the "every action pulls in
  * someone new" invite-loop pattern.
@@ -17,20 +17,41 @@ const GREEN_MID = 'var(--bw-green-mid)';
 const BORDER    = '#e7e5e4';
 
 interface RequestEndorsementModalProps {
-  skillName: string;
+  // The skill whose icon was clicked to open this modal — pre-checked, but
+  // the colleague can be asked to endorse any subset of the owner's skills
+  // in this same request, one email instead of one per skill.
+  initialSkill: string;
+  allSkills: string[];
   onClose: () => void;
 }
 
-const RequestEndorsementModal: React.FC<RequestEndorsementModalProps> = ({ skillName, onClose }) => {
+function formatSkillList(skills: string[]): string {
+  if (skills.length === 1) return skills[0];
+  if (skills.length === 2) return `${skills[0]} and ${skills[1]}`;
+  return `${skills.slice(0, -1).join(', ')}, and ${skills[skills.length - 1]}`;
+}
+
+const RequestEndorsementModal: React.FC<RequestEndorsementModalProps> = ({ initialSkill, allSkills, onClose }) => {
   const { fbUser } = useFirebase();
   const [email, setEmail] = useState('');
+  const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set([initialSkill]));
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState('');
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const skillNames = Array.from(selectedSkills);
+
+  const toggleSkill = (name: string) => {
+    setSelectedSkills(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
 
   const handleSend = async () => {
-    if (!emailValid || !fbUser) return;
+    if (!emailValid || !fbUser || skillNames.length === 0) return;
     setStatus('sending');
     setError('');
     try {
@@ -38,7 +59,7 @@ const RequestEndorsementModal: React.FC<RequestEndorsementModalProps> = ({ skill
       const res = await fetch('/api/send-endorsement-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ skillName, colleagueEmail: email.trim() }),
+        body: JSON.stringify({ skillNames, colleagueEmail: email.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to send the request.');
@@ -56,7 +77,7 @@ const RequestEndorsementModal: React.FC<RequestEndorsementModalProps> = ({ skill
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={`Request an endorsement for ${skillName}`}
+      aria-label="Request an endorsement"
     >
       <div
         onClick={e => e.stopPropagation()}
@@ -76,7 +97,9 @@ const RequestEndorsementModal: React.FC<RequestEndorsementModalProps> = ({ skill
             </svg>
             <h2 className="text-lg font-bold">Request endorsement</h2>
           </div>
-          <p className="mt-1 text-sm text-white/80">Ask a colleague to vouch for your {skillName} skill — they don't need a BeWatu account.</p>
+          <p className="mt-1 text-sm text-white/80">
+            Ask a colleague to vouch for your skills — they don't need a BeWatu account.
+          </p>
         </div>
 
         <div className="px-6 py-5">
@@ -95,6 +118,28 @@ const RequestEndorsementModal: React.FC<RequestEndorsementModalProps> = ({ skill
             </div>
           ) : (
             <>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-600">
+                Skills to request ({skillNames.length} selected)
+              </label>
+              <div className="max-h-40 overflow-y-auto rounded-xl border mb-4" style={{ borderColor: BORDER }}>
+                {allSkills.length === 0 ? (
+                  <p className="px-3.5 py-2.5 text-sm text-stone-600">Add a skill to your profile first.</p>
+                ) : (
+                  allSkills.map(name => (
+                    <label key={name} className="flex items-center gap-2.5 px-3.5 py-2 text-sm cursor-pointer hover:bg-stone-50 border-b last:border-b-0" style={{ borderColor: BORDER }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedSkills.has(name)}
+                        onChange={() => toggleSkill(name)}
+                        disabled={status === 'sending'}
+                        className="h-4 w-4 rounded border-stone-300 text-green-700 focus:ring-green-700"
+                      />
+                      <span className="text-stone-800">{name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-600">Colleague's email</label>
               <input
                 type="email"
@@ -105,10 +150,15 @@ const RequestEndorsementModal: React.FC<RequestEndorsementModalProps> = ({ skill
                 className="w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-[var(--bw-green)]/20"
                 style={{ borderColor: BORDER }}
               />
+              {skillNames.length > 0 && (
+                <p className="text-xs text-stone-600 mt-2">
+                  They'll be asked to vouch for your {formatSkillList(skillNames)} {skillNames.length === 1 ? 'skill' : 'skills'}.
+                </p>
+              )}
               {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
               <button
                 onClick={handleSend}
-                disabled={!emailValid || status === 'sending'}
+                disabled={!emailValid || skillNames.length === 0 || status === 'sending'}
                 className="w-full mt-4 py-2.5 rounded-xl font-bold text-white text-sm hover:opacity-90 disabled:opacity-40 transition-opacity"
                 style={{ backgroundColor: GREEN }}
               >

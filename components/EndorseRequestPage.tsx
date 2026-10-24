@@ -56,10 +56,16 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
+function formatSkillList(skills: string[]): string {
+  if (skills.length === 1) return skills[0];
+  if (skills.length === 2) return `${skills[0]} and ${skills[1]}`;
+  return `${skills.slice(0, -1).join(', ')}, and ${skills[skills.length - 1]}`;
+}
+
 type State =
   | { status: 'loading' }
-  | { status: 'form'; requesterName: string; skillName: string }
-  | { status: 'submitting'; requesterName: string; skillName: string }
+  | { status: 'form'; requesterName: string; skillNames: string[] }
+  | { status: 'submitting'; requesterName: string; skillNames: string[] }
   | { status: 'success'; requesterName: string }
   | { status: 'error'; message: string };
 
@@ -77,7 +83,7 @@ const EndorseRequestPage: React.FC<Props> = ({ token }) => {
       .then(async res => {
         const data = await res.json();
         if (!res.ok) { setState({ status: 'error', message: data.error ?? 'This link is not valid.' }); return; }
-        setState({ status: 'form', requesterName: data.requesterName, skillName: data.skillName });
+        setState({ status: 'form', requesterName: data.requesterName, skillNames: data.skillNames ?? [] });
       })
       .catch(() => setState({ status: 'error', message: 'Something went wrong loading this request.' }));
   }, [token]);
@@ -85,7 +91,7 @@ const EndorseRequestPage: React.FC<Props> = ({ token }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (state.status !== 'form' || !name.trim()) return;
-    setState({ status: 'submitting', requesterName: state.requesterName, skillName: state.skillName });
+    setState({ status: 'submitting', requesterName: state.requesterName, skillNames: state.skillNames });
     try {
       const res = await fetch('/api/submit-endorsement', {
         method: 'POST',
@@ -159,9 +165,16 @@ const EndorseRequestPage: React.FC<Props> = ({ token }) => {
         <h1 className="text-lg font-extrabold text-stone-900 mb-1.5">
           {state.requesterName} wants your endorsement
         </h1>
-        <p className="text-sm text-stone-600 mb-6">
-          Vouch for their <strong>{state.skillName}</strong> skill. No account needed — this takes a minute.
+        <p className="text-sm text-stone-600 mb-3">
+          Vouch for their {state.skillNames.length === 1 ? 'skill' : 'skills'} below. No account needed — this takes a minute.
         </p>
+        <div className="flex flex-wrap gap-1.5 mb-6">
+          {state.skillNames.map(skill => (
+            <span key={skill} className="inline-flex items-center text-sm rounded-full px-3 py-1 font-medium" style={{ backgroundColor: GREEN_LT, color: GREEN_MID }}>
+              {skill}
+            </span>
+          ))}
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-1.5 block">Your name *</label>
@@ -175,7 +188,7 @@ const EndorseRequestPage: React.FC<Props> = ({ token }) => {
             <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} maxLength={500}
               disabled={state.status === 'submitting'}
               className="w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 resize-none"
-              style={{ borderColor: BORDER }} placeholder={`What makes them great at ${state.skillName}?`} />
+              style={{ borderColor: BORDER }} placeholder={`What makes them great at ${formatSkillList(state.skillNames)}?`} />
           </div>
           <button type="submit" disabled={state.status === 'submitting' || !name.trim()}
             className="w-full py-3 rounded-xl font-bold text-white text-sm hover:opacity-90 disabled:opacity-40 transition-opacity"

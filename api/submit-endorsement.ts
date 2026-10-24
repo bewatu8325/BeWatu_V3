@@ -6,10 +6,12 @@
 // the emailed link has no BeWatu account, by design (see
 // api/send-endorsement-request.ts and the plan this shipped from: lowest
 // friction for the actual endorsement, the "join BeWatu" prompt comes after,
-// as the real conversion moment).
+// as the real conversion moment). One request can now cover several skills
+// at once (one email, not one per skill) -- the colleague leaves a single
+// name + note that's recorded against every skill in the request.
 //
 // GET  /api/submit-endorsement?token=...
-//   Returns public-safe request details: { requesterName, skillName, status }
+//   Returns public-safe request details: { requesterName, skillNames, status }
 //
 // POST /api/submit-endorsement
 //   Body: { token: string, name: string, note?: string }
@@ -36,6 +38,20 @@ function isExpired(createdAtMs: number): boolean {
   return Date.now() - createdAtMs > REQUEST_EXPIRY_MS;
 }
 
+// Requests sent before multi-skill support stored a single `skillName`
+// string; this keeps any still-pending (unexpired) ones from that window
+// readable instead of 404ing.
+function skillNamesOf(data: Record<string, any>): string[] {
+  if (Array.isArray(data.skillNames)) return data.skillNames;
+  return data.skillName ? [data.skillName] : [];
+}
+
+function formatSkillList(skills: string[]): string {
+  if (skills.length === 1) return skills[0];
+  if (skills.length === 2) return `${skills[0]} and ${skills[1]}`;
+  return `${skills.slice(0, -1).join(', ')}, and ${skills[skills.length - 1]}`;
+}
+
 async function handleGet(req: VercelRequest, res: VercelResponse) {
   const token = req.query.token as string;
   if (!token) return res.status(400).json({ error: 'token is required' });
@@ -55,7 +71,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse) {
 
   return res.status(200).json({
     requesterName: data.requesterName,
-    skillName: data.skillName,
+    skillNames: skillNamesOf(data),
     status: data.status,
   });
 }
@@ -88,7 +104,8 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
   }
 
   const requesterUid: string = data.requesterUid;
-  const skillName: string = data.skillName;
+  const skillNames = skillNamesOf(data);
+  if (skillNames.length === 0) return res.status(410).json({ error: 'This endorsement link is not valid.' });
   const trimmedName = name.trim();
   const trimmedNote = typeof note === 'string' ? note.trim() : undefined;
 
@@ -98,17 +115,24 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
 
   const endorsements: { skillName: string; endorsedBy?: string[]; unclaimedEndorsers?: any[] }[] =
     userSnap.data()?.endorsements ?? [];
-  const idx = endorsements.findIndex(e => e.skillName === skillName);
-  const newEntry = {
+  // note is optional in the UI -- omit the key entirely rather than set it
+  // to undefined, which the Admin SDK's update() rejects when nested in an
+  // array (unlike a top-level field, where undefined is silently dropped).
+  const newEntry: { name: string; note?: string; requestId: string; createdAt: string } = {
     name: trimmedName,
-    note: trimmedNote || undefined,
     requestId: token,
     createdAt: new Date().toISOString(),
   };
-  if (idx >= 0) {
-    endorsements[idx].unclaimedEndorsers = [...(endorsements[idx].unclaimedEndorsers ?? []), newEntry];
-  } else {
-    endorsements.push({ skillName, endorsedBy: [], unclaimedEndorsers: [newEntry] });
+  if (trimmedNote) newEntry.note = trimmedNote;
+  // Same single name+note recorded against every skill in the request --
+  // one colleague submission, not one per skill.
+  for (const skillName of skillNames) {
+    const idx = endorsements.findIndex(e => e.skillName === skillName);
+    if (idx >= 0) {
+      endorsements[idx].unclaimedEndorsers = [...(endorsements[idx].unclaimedEndorsers ?? []), newEntry];
+    } else {
+      endorsements.push({ skillName, endorsedBy: [], unclaimedEndorsers: [newEntry] });
+    }
   }
 
   await userRef.update({ endorsements, updatedAt: FieldValue.serverTimestamp() });
@@ -130,7 +154,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
   // other real notification in this app.
   await db.collection('users').doc(requesterUid).collection('notifications').add({
     type: 'endorsement_fulfilled',
-    message: `${trimmedName} endorsed your ${skillName} skill`,
+    message: `${trimmedName} endorsed your ${formatSkillList(skillNames)} ${skillNames.length === 1 ? 'skill' : 'skills'}`,
     actorName: trimmedName,
     isRead: false,
     createdAt: FieldValue.serverTimestamp(),
