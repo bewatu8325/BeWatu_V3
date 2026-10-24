@@ -291,37 +291,16 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
           <FieldError message={fieldErrors.confirmPassword} />
         </div>
 
-        <div className="pt-2">
-            <label className="flex items-center space-x-3 cursor-pointer">
-                <input type="checkbox" checked={isRecruiter} onChange={(e) => setIsRecruiter(e.target.checked)} className="h-4 w-4 rounded border-stone-300 text-green-700 focus:ring-green-700" disabled={isProcessing} />
-                <span className="text-stone-700 text-sm">{t('wantRecruiterAccess')}</span>
-            </label>
-        </div>
-
-        {isRecruiter && (
-            <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-3 animate-fade-in-up">
-                <p className="text-xs text-center text-stone-600">
-                    {t('recruiterTrialInfo')}
-                </p>
-                <PaymentForm onReady={handleStripeReady} disabled={isProcessing} />
-                <div>
-                    <input type="text" value={discountCode} onChange={(e) => setDiscountCode(e.target.value)}
-                        placeholder="Discount code (optional)" disabled={isProcessing}
-                        className="w-full px-3 py-2 rounded-lg border border-stone-200 bg-white text-sm text-stone-800 placeholder:text-stone-600 outline-none focus:border-green-700 focus:ring-2 focus:ring-green-700/10" />
-                </div>
-                 <div>
-                    <label className="flex items-center space-x-2 cursor-pointer mt-2">
-                        <input type="checkbox" checked={agreedToPolicy} onChange={(e) => setAgreedToPolicy(e.target.checked)} className="h-4 w-4 rounded border-stone-300 text-green-700 focus:ring-green-700" disabled={isProcessing}/>
-                        <span className="text-stone-600 text-xs">
-                            {t('agreeToPolicy')}{' '}
-                            <button type="button" onClick={() => setIsPolicyVisible(true)} className="font-semibold text-cyan-400 hover:underline">
-                                {t('billingPolicy')}
-                            </button>.
-                        </span>
-                    </label>
-                </div>
-            </div>
-        )}
+        {/* Recruiter signup was removed from here as part of the
+            weekly-active engagement gate: a brand-new account can't be
+            weekly-active on day one, so recruiter access is now something
+            you apply for once you've used BeWatu a bit, via
+            RecruiterUpgradeBanner on the Jobs tab, rather than something you
+            can pick at signup. isRecruiter below is always false from this
+            form going forward; existing recruiter accounts are untouched. */}
+        <p className="pt-2 text-center text-stone-600 text-xs">
+            Hiring? You can apply for recruiter access once you've been active here a bit.
+        </p>
 
         <button type="submit" className="w-full font-semibold py-3 rounded-xl text-white hover:opacity-90 active:scale-[0.99] transition disabled:opacity-60 flex items-center justify-center min-h-[44px]" style={{ backgroundColor: "var(--bw-green)" }} disabled={isProcessing}>
           {isProcessing ? <LoadingIcon className="w-5 h-5 animate-spin"/> : t('createAccount')}

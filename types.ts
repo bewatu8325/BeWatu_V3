@@ -139,6 +139,15 @@ export interface User {
   recruiterFeeWaived?: boolean;
   recruiterFeeWaivedAt?: string;
   recruiterFeeWaivedReason?: string;
+  // Stamped at most once per calendar day during real app usage (not on
+  // every page load/token refresh, which would overcount). "Weekly active"
+  // = this falls within the trailing 7 days — see lib/engagementGate.ts.
+  lastActiveAt?: string;
+  // Set only for signups from the engagement-gate's ship date onward.
+  // Absent (undefined) for every pre-existing account, which is what
+  // grandfathers them in automatically — no backfill, no cutoff-date
+  // comparison needed.
+  engagementGateApplies?: boolean;
 }
 
 export const AVAILABILITY_OPTIONS: User['availability'][] = [

@@ -602,12 +602,27 @@ service cloud.firestore {
       // nothing anywhere processes that application — a real,
       // previously-unknown functional gap, flagged separately, not
       // something this rule needs to accommodate today.
+      // engagementGateApplies must be true at create — the one real client
+      // create site (buildNewUserDoc, lib/firebaseAuth.ts) always sets it,
+      // so this just stops a direct Firestore write from creating an
+      // account that was never gated in the first place (the risk the
+      // update-side freeze below doesn't cover on its own).
       allow create: if isAuth() && request.auth.uid == uid
-        && request.resource.data.get('isPlatformAdmin', false) == false;
+        && request.resource.data.get('isPlatformAdmin', false) == false
+        && request.resource.data.get('engagementGateApplies', false) == true;
+      // engagementGateApplies added to the frozen set alongside
+      // isPlatformAdmin/isRecruiter above: it's a client-origin field (set
+      // once at signup in buildNewUserDoc) that lib/engagementGate.ts's
+      // isEngagementGated() treats as authoritative. Leaving it writable by
+      // the owner would let any gated user flip it to false/absent through
+      // the same updateUserInFirestore() path used to stamp lastActiveAt,
+      // and unlock Factory/investor/recruiter-upgrade without ever meeting
+      // the weekly-active bar. lastActiveAt itself stays writable — that's
+      // the real, legitimate self-stamp path this gate depends on.
       allow update: if isAuth() && (
         request.auth.uid == uid || isPlatformAdmin() || isOpsStaff()
       ) && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['isPlatformAdmin', 'isRecruiter'])
+             .hasAny(['isPlatformAdmin', 'isRecruiter', 'engagementGateApplies'])
         && (
           isPlatformAdmin() || isOpsStaff()
           || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['recruiterTrialEndDate'])

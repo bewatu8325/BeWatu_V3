@@ -160,6 +160,8 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     // here — same class of bug already fixed for experiences/recruiterStatus
     // elsewhere in this audit.
     endorsements: data.endorsements ?? [],
+    lastActiveAt: data.lastActiveAt ?? undefined,
+    engagementGateApplies: data.engagementGateApplies ?? false,
   } as any;
 }
 
@@ -225,6 +227,11 @@ async function buildNewUserDoc(
     values: [], availability: 'Exploring opportunities', openTo: [], builderType: 'Professional', skills: [],
     verifiedSkills: null, microIntroductionUrl: null, connectionCount: 0,
     isPublic: true, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    // New signups from here on are weekly-active gated for Factory, the
+    // investor tier, and the recruiter upgrade path — see
+    // lib/engagementGate.ts. Omitted for every pre-existing account, which
+    // is what grandfathers them in automatically.
+    engagementGateApplies: true,
   };
 }
 

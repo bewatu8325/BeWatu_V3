@@ -71,6 +71,7 @@ import TermsConsentModal, { TERMS_VERSION } from './components/TermsConsentModal
 // everyone the same way a Terms update already does.
 const AGE_CONFIRM_VERSION = '1.0';
 import { goToFactory } from './utils/factoryHandoff';
+import { isEngagementGated } from './lib/engagementGate';
 import CookieBanner from './components/CookieBanner';
 import AccountDeletionModal from './components/AccountDeletionModal';
 import DataRequestModal from './components/DataRequestModal';
@@ -361,6 +362,16 @@ const MainApp: React.FC = () => {
       }
     }).catch(() => {});
   }, [fbUser?.uid, currentUser?.id]);
+
+  // ── Weekly-active stamp (lib/engagementGate.ts) — once per calendar day ──
+  // Calendar-day granularity (not onAuthStateChanged/every page load) keeps
+  // this to at most one write per user per day.
+  useEffect(() => {
+    if (!fbUser?.uid || !currentUser) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (currentUser.lastActiveAt?.slice(0, 10) === today) return;
+    updateUserInFirestore(fbUser.uid, { lastActiveAt: new Date().toISOString() }).catch(() => {});
+  }, [fbUser?.uid, currentUser?.id, currentUser?.lastActiveAt]);
 
   // Uses a session-level flag so it never re-fires once dismissed this session
   useEffect(() => {
@@ -1598,6 +1609,10 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
   const handleSetView = (view: View) => {
     // Factory is a separate domain — navigate there directly, don't set view
     if (view === View.Factory) {
+      // Defense in depth: the Header "Go to Factory" button and the pricing
+      // page's "Unlock Factory" button are already disabled while gated,
+      // but this is the single real chokepoint everything funnels through.
+      if (currentUser && isEngagementGated(currentUser)) return;
       goToFactory(fbUser ?? null);
       return;
     }
@@ -1767,7 +1782,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                 isRecruiter, which never became true while an application sat
                 unprocessed, so an applicant saw "Post a role" and could keep
                 opening the whole 4-gate modal again while already pending. */}
-            {!currentUser.isRecruiter && currentUser.recruiterStatus !== 'pending_ops' && (
+            {!currentUser.isRecruiter && currentUser.recruiterStatus !== 'pending_ops' && !isEngagementGated(currentUser) && (
               <Suspense fallback={<div />}>
                 <RecruiterUpgradeBanner
                   currentUser={currentUser}
@@ -2178,7 +2193,12 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               onClose={() => setShowUpgradeModal(null)}
               onSuccess={(tier) => {
                 setShowUpgradeModal(null);
-                if (tier === 'factory') goToFactory(fbUser ?? null);
+                // PricingPage's buttons are already disabled while gated, so
+                // this path shouldn't be reachable gated — but don't redirect
+                // into Factory off a successful purchase without rechecking.
+                if (tier === 'factory' && !(currentUser && isEngagementGated(currentUser))) {
+                  goToFactory(fbUser ?? null);
+                }
               }}
             />
           )}
