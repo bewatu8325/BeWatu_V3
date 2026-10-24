@@ -156,6 +156,10 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     recruiterFeeWaived: data.recruiterFeeWaived ?? false,
     recruiterFeeWaivedAt: data.recruiterFeeWaivedAt,
     recruiterFeeWaivedReason: data.recruiterFeeWaivedReason,
+    // Real, pre-existing field written by endorseSkill() but never read back
+    // here — same class of bug already fixed for experiences/recruiterStatus
+    // elsewhere in this audit.
+    endorsements: data.endorsements ?? [],
   } as any;
 }
 

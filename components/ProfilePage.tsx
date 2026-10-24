@@ -12,6 +12,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { useFirebase } from '../contexts/FirebaseContext';
 import ProfileReelsStrip from './ProfileReelsStrip';
 import ShareProfileModal from './ShareProfileModal';
+import RequestEndorsementModal from './RequestEndorsementModal';
 import { uploadAvatar } from '../lib/storageService';
 import { updateUserInFirestore, generateUniqueUsername } from '../lib/firebaseAuth';
 import { getFollowingCompanies, getMyArenaSubmissions, ArenaSubmissionRecord, getFactoryProjects, FactoryProjectRecord, FACTORY_PROJECT_STATUS_LABEL } from '../lib/firestoreService';
@@ -115,6 +116,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
   // ── Share public profile ─────────────────────────────────────────────────
   const [showShareModal, setShowShareModal] = useState(false);
   const [showShareInfo, setShowShareInfo]   = useState(false);
+
+  // ── Request a skill endorsement (invite-loop) ────────────────────────────
+  const [requestEndorsementSkill, setRequestEndorsementSkill] = useState<string | null>(null);
 
   // ── Followed companies (owner only) ─────────────────────────────────────
   const [followedCompanies, setFollowedCompanies] = useState<any[]>([]);
@@ -604,6 +608,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
                     {name}
                     {typeof skill !== 'string' && (skill.endorsements ?? 0) > 0 && (
                       <span className="text-xs font-semibold text-[var(--bw-green-mid)]">{skill.endorsements}</span>
+                    )}
+                    {isCurrentUser && (
+                      <button
+                        onClick={() => setRequestEndorsementSkill(name)}
+                        className="ml-0.5 text-[var(--bw-green-mid)]/50 hover:text-[var(--bw-green-mid)] transition-colors"
+                        aria-label={`Request an endorsement for ${name}`}
+                        title="Request endorsement"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </button>
                     )}
                     {isCurrentUser && onRemoveSkill && (
                       <button
@@ -1101,6 +1117,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           username={(user as any).username}
           name={user.name}
           onClose={() => setShowShareModal(false)}
+        />
+      )}
+      {requestEndorsementSkill && (
+        <RequestEndorsementModal
+          skillName={requestEndorsementSkill}
+          onClose={() => setRequestEndorsementSkill(null)}
         />
       )}
     </div>

@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/be/:username", "destination": "/index.html" },
+    { "source": "/endorse/:token", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },
     { "source": "/register", "destination": "/index.html" },
     { "source": "/terms", "destination": "/index.html" },

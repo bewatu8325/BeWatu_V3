@@ -973,6 +973,8 @@ export async function fetchUsers(): Promise<User[]> {
       // owner viewing their own.
       experiences: data.experiences ?? [],
       education: data.education ?? [],
+      // Same gap as experiences above, for endorsements.
+      endorsements: data.endorsements ?? [],
       _firestoreUid: d.id,
     } as User & { _firestoreUid: string };
   });
@@ -1026,6 +1028,7 @@ export async function fetchUsersByUids(uids: string[]): Promise<User[]> {
         microIntroductionUrl: data.microIntroductionUrl ?? null,
         experiences: data.experiences ?? [],
         education: data.education ?? [],
+        endorsements: data.endorsements ?? [],
         _firestoreUid: d.id,
       } as User & { _firestoreUid: string };
       return [d.id, user] as const;
