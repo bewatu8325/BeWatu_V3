@@ -66,6 +66,14 @@ async function main() {
     await assertFails(updateDoc(doc(rando, "users", "rando-uid"), { isRecruiter: true }));
   });
 
+  // engagementGateApplies (lib/engagementGate.ts) gates Factory/investor/
+  // recruiter-upgrade behind a week of weekly-active usage for new signups.
+  // Same self-escalation risk as isPlatformAdmin/isRecruiter above: if a
+  // gated user could flip it themselves, the whole gate is a no-op.
+  await check("a normal user CANNOT clear engagementGateApplies on themselves", async () => {
+    await assertFails(updateDoc(doc(rando, "users", "rando-uid"), { engagementGateApplies: false }));
+  });
+
   await check("real platform admin ALSO cannot flip isPlatformAdmin via the client SDK (Admin SDK / Console only)", async () => {
     const admin = testEnv.authenticatedContext("admin-uid").firestore();
     await assertFails(updateDoc(doc(admin, "users", "rando-uid"), { isPlatformAdmin: true }));
@@ -83,23 +91,38 @@ async function main() {
     }));
   });
 
+  // engagementGateApplies: true is what every real signup sets (see
+  // buildNewUserDoc(), lib/firebaseAuth.ts) — included in every fixture
+  // below that's meant to model a legitimate signup through the real app.
   await check("a brand-new signup CAN check 'I'm a recruiter' at registration (real buildNewUserDoc() behavior)", async () => {
     await assertSucceeds(setDoc(doc(testEnv.authenticatedContext("brand-new-uid-2").firestore(), "users", "brand-new-uid-2"), {
-      id: 998, name: "New Recruiter", isPublic: true, isRecruiter: true,
+      id: 998, name: "New Recruiter", isPublic: true, isRecruiter: true, engagementGateApplies: true,
     }));
   });
 
   await check("...but CANNOT later flip isRecruiter to true via update once created", async () => {
     const recruiterCtx = testEnv.authenticatedContext("brand-new-uid-4").firestore();
     await setDoc(doc(recruiterCtx, "users", "brand-new-uid-4"), {
-      id: 996, name: "Fence-Sitter", isPublic: true, isRecruiter: false,
+      id: 996, name: "Fence-Sitter", isPublic: true, isRecruiter: false, engagementGateApplies: true,
     });
     await assertFails(updateDoc(doc(recruiterCtx, "users", "brand-new-uid-4"), { isRecruiter: true }));
   });
 
   await check("a normal signup with neither field present still succeeds", async () => {
     await assertSucceeds(setDoc(doc(testEnv.authenticatedContext("brand-new-uid-3").firestore(), "users", "brand-new-uid-3"), {
-      id: 997, name: "Legit", isPublic: true,
+      id: 997, name: "Legit", isPublic: true, engagementGateApplies: true,
+    }));
+  });
+
+  await check("a brand-new signup CANNOT create their doc with engagementGateApplies:false (self-exempting from the gate)", async () => {
+    await assertFails(setDoc(doc(testEnv.authenticatedContext("brand-new-uid-5").firestore(), "users", "brand-new-uid-5"), {
+      id: 995, name: "Gate Dodger", isPublic: true, engagementGateApplies: false,
+    }));
+  });
+
+  await check("a brand-new signup CANNOT create their doc with engagementGateApplies omitted entirely", async () => {
+    await assertFails(setDoc(doc(testEnv.authenticatedContext("brand-new-uid-6").firestore(), "users", "brand-new-uid-6"), {
+      id: 994, name: "Gate Dodger Two", isPublic: true,
     }));
   });
 
