@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { Check, Zap, Star, Factory, TrendingUp } from 'lucide-react';
 import { TIERS, SubscriptionTier, hasAccess } from '../lib/subscription';
 import { useFirebase } from '../contexts/FirebaseContext';
+import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGate';
 
 interface PricingPageProps {
   onUpgrade: (tier: SubscriptionTier) => void;
@@ -33,6 +34,7 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
   const [annual, setAnnual] = useState(false);
 
   const userTier = (currentUser?.subscriptionTier ?? 'free') as SubscriptionTier;
+  const gated = !!currentUser && isEngagementGated(currentUser);
 
   const tiers: SubscriptionTier[] = ['free', 'pro', 'factory', 'investor'];
 
@@ -79,6 +81,7 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
           const price   = annual ? tier.priceAnnual : tier.price;
           const isCurrent = userTier === tierId;
           const isPopular = tierId === 'factory';
+          const isGatedTier = gated && (tierId === 'factory' || tierId === 'investor');
 
           return (
             <div
@@ -138,7 +141,9 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
               ) : (
                 <button
                   onClick={() => onUpgrade(tierId)}
-                  className={`w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${colors.btn}`}
+                  disabled={isGatedTier}
+                  title={isGatedTier ? ENGAGEMENT_GATE_TOOLTIP : undefined}
+                  className={`w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${colors.btn} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {tierId === 'factory'
                     ? 'Unlock Factory'

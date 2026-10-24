@@ -9,6 +9,7 @@ import { useFirebase } from '../contexts/FirebaseContext';
 import { View } from '../types';
 import { Factory, Loader2 } from 'lucide-react';
 import { goToFactory } from '../utils/factoryHandoff';
+import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGate';
 
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -375,6 +376,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
     }
   }
   async function handleGoToFactory() {
+  if (currentUser && isEngagementGated(currentUser)) return;
   setFactoryLoading(true);
   try {
     // lib/handoff.ts's redirectToFactory() used to be called here — it did
@@ -519,8 +521,9 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
               </button>
               <button
   onClick={() => { handleGoToFactory(); setMenuOpen(false); }}
-  disabled={factoryLoading}
-  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-green-50 transition-colors"
+  disabled={factoryLoading || (currentUser && isEngagementGated(currentUser))}
+  title={currentUser && isEngagementGated(currentUser) ? ENGAGEMENT_GATE_TOOLTIP : undefined}
+  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
   style={{ color: "var(--bw-green)" }}
 >
   {factoryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Factory className="h-4 w-4" />}
