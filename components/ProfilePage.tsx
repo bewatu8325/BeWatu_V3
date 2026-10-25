@@ -1121,7 +1121,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
       )}
       {requestEndorsementSkill && (
         <RequestEndorsementModal
-          skillName={requestEndorsementSkill}
+          initialSkill={requestEndorsementSkill}
+          allSkills={(user.skills ?? []).map((s: any) => (typeof s === 'string' ? s : s?.name ?? '')).filter(Boolean)}
           onClose={() => setRequestEndorsementSkill(null)}
         />
       )}

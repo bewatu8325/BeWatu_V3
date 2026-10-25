@@ -1,11 +1,12 @@
 // api/send-endorsement-request.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Lets a signed-in BeWatu user ask a colleague -- including one who isn't a
-// BeWatu member yet -- to endorse a specific skill on their profile. Sends a
-// Resend email with a link to /endorse/:token (components/EndorseRequestPage.tsx,
-// an unauthenticated page); the colleague can leave the endorsement without
-// ever creating an account (see api/submit-endorsement.ts). This is the
-// invite-loop mechanic: the ask is the thing that pulls a new person in.
+// BeWatu member yet -- to endorse one or more of their skills in a single
+// request (one email, not one per skill). Sends a Resend email with a link
+// to /endorse/:token (components/EndorseRequestPage.tsx, an unauthenticated
+// page); the colleague can leave the endorsement without ever creating an
+// account (see api/submit-endorsement.ts). This is the invite-loop
+// mechanic: the ask is the thing that pulls a new person in.
 //
 // Required env vars (same set api/send-recruiter-otp.ts already uses):
 //   RESEND_API_KEY
@@ -13,7 +14,7 @@
 //
 // POST /api/send-endorsement-request
 //   Headers: Authorization: Bearer <idToken>
-//   Body: { skillName: string, colleagueEmail: string }
+//   Body: { skillNames: string[], colleagueEmail: string }
 //   Returns: { success: true }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,13 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY!;
 const MIN_RESEND_INTERVAL_MS = 60 * 1000;       // 1 send per minute per requester
 const SEND_WINDOW_MS         = 60 * 60 * 1000;  // rolling 1-hour window
 const MAX_SENDS_PER_WINDOW   = 10;              // ...capped at 10 sends in it
+const MAX_SKILLS_PER_REQUEST = 20;              // generous ceiling, not a real limit for any real profile
+
+function formatSkillList(skills: string[]): string {
+  if (skills.length === 1) return skills[0];
+  if (skills.length === 2) return `${skills[0]} and ${skills[1]}`;
+  return `${skills.slice(0, -1).join(', ')}, and ${skills[skills.length - 1]}`;
+}
 
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0];
@@ -52,9 +60,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { skillName, colleagueEmail } = req.body ?? {};
-  if (!skillName || typeof skillName !== 'string') {
-    return res.status(400).json({ error: 'skillName is required' });
+  const { skillNames, colleagueEmail } = req.body ?? {};
+  if (!Array.isArray(skillNames) || skillNames.length === 0 || !skillNames.every((s: any) => typeof s === 'string' && s.trim())) {
+    return res.status(400).json({ error: 'At least one skillName is required' });
+  }
+  if (skillNames.length > MAX_SKILLS_PER_REQUEST) {
+    return res.status(400).json({ error: `At most ${MAX_SKILLS_PER_REQUEST} skills per request` });
   }
   if (!colleagueEmail || !isValidEmail(colleagueEmail)) {
     return res.status(400).json({ error: 'A valid colleague email is required' });
@@ -99,7 +110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await db.collection('endorsement_requests').doc(token).set({
       requesterUid: uid,
       requesterName,
-      skillName,
+      skillNames,
       colleagueEmail,
       status: 'pending',
       createdAt: FieldValue.serverTimestamp(),
@@ -132,7 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ${requesterName} is asking for your endorsement
             </h1>
             <p style="color: #78716c; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-              They'd like you to vouch for their <strong>${skillName}</strong> skill on BeWatu.
+              They'd like you to vouch for their <strong>${formatSkillList(skillNames)}</strong> ${skillNames.length === 1 ? 'skill' : 'skills'} on BeWatu.
               It only takes a minute, and you do not need an account to do it.
             </p>
             <div style="text-align: center; margin-bottom: 24px;">
