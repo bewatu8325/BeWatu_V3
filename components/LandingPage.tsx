@@ -91,11 +91,14 @@ const ForCard: React.FC<{
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+const SERIF = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const MONO  = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
 const PROBLEMS = [
-  "Your profile says ten years of experience. It doesn't say what you actually shipped.",
-  "You want to build something. Everyone around you wants to talk about building something.",
-  "You solved a hard problem last month. Nobody outside your team will ever know.",
-  "A good idea with no team is just a note on your phone.",
+  { label: 'Hidden proof',      text: "Your profile says ten years of experience. It doesn't say what you actually shipped." },
+  { label: 'Too much talk',     text: "You want to build something. Everyone around you wants to talk about building something." },
+  { label: 'Invisible wins',    text: "You solved a hard problem last month. Nobody outside your team will ever know." },
+  { label: 'Ideas need people', text: "A good idea with no team is just a note on your phone." },
 ];
 
 const LandingPage: React.FC<LandingPageProps> = ({
@@ -157,16 +160,37 @@ const LandingPage: React.FC<LandingPageProps> = ({
     </section>
 
     {/* THE PROBLEM */}
-    <section className="border-y py-16" style={{ borderColor: BORDER, backgroundColor: '#faf9f6' }}>
-      <div className="mx-auto max-w-3xl px-6">
-        <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: GREEN }}>The problem</p>
-        <div className="flex flex-col border-b" style={{ borderColor: BORDER }}>
-          {PROBLEMS.map(p => (
-            <p key={p} className="border-t py-6 text-xl font-bold text-stone-900 sm:text-2xl" style={{ borderColor: BORDER }}>
-              {p}
-            </p>
+    <section className="border-y py-16 sm:py-20" style={{ borderColor: BORDER, backgroundColor: '#faf9f6' }}>
+      <div className="mx-auto max-w-6xl px-6">
+        <p className="text-sm font-medium uppercase tracking-[0.14em] mb-5" style={{ color: GREENMID, fontFamily: MONO }}>
+          The problem
+        </p>
+        <h2 className="text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl xl:text-[2.6rem]"
+          style={{ color: '#12241d', fontFamily: SERIF }}>
+          Professional networks tell people where you’ve been.{' '}
+          <br className="hidden lg:block" />
+          They rarely show what you can actually do.
+        </h2>
+        <ol className="mt-10 grid grid-cols-1 gap-5 sm:mt-14 md:grid-cols-2">
+          {PROBLEMS.map((p, i) => (
+            <li key={p.label} className="flex gap-5 rounded-2xl border p-6 sm:gap-6 sm:p-8"
+              style={{ backgroundColor: '#f5f1e9', borderColor: '#ebe5d8' }}>
+              <span aria-hidden="true"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 text-sm font-medium"
+                style={{ color: GREENMID, borderColor: GREENMID, fontFamily: MONO }}>
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium uppercase tracking-[0.12em] pt-3" style={{ color: GREENMID, fontFamily: MONO }}>
+                  {p.label}
+                </p>
+                <p className="mt-3 text-xl font-medium leading-snug sm:text-2xl" style={{ color: '#12241d', fontFamily: SERIF }}>
+                  {p.text}
+                </p>
+              </div>
+            </li>
           ))}
-        </div>
+        </ol>
       </div>
     </section>
 
