@@ -252,22 +252,6 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </div>
     </section>
 
-    {/* PROOF */}
-    <section className="py-16">
-      <div className="mx-auto max-w-3xl px-6">
-        <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: GREEN }}>Proof</p>
-        <h2 className="text-3xl font-extrabold text-stone-900 mb-8">The proof is still being written.</h2>
-        <div className="flex flex-col gap-4">
-          <div className="rounded-xl border-2 border-dashed p-5 text-sm text-stone-500" style={{ borderColor: '#d6ceb0' }}>
-            Testimonial from an early user — name, role, what they actually built. Not published until a real one exists.
-          </div>
-          <div className="rounded-xl border-2 border-dashed p-5 text-sm text-stone-500" style={{ borderColor: '#d6ceb0' }}>
-            Testimonial from a company that posted a real Arena problem — name, company, what they got out of it.
-          </div>
-        </div>
-      </div>
-    </section>
-
     {/* CTA */}
     <section className="py-20">
       <div className="mx-auto max-w-2xl px-6 text-center">
