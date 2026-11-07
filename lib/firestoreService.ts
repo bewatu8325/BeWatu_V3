@@ -30,6 +30,7 @@ import {
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { setFollowing } from './companiesService';
 import { sanitizeLinkPreview, previewForStorage } from './linkPreview';
 import type { LinkPreview } from '../types';
 import { deriveApplicationStage, PIPELINE_STAGES, type ApplicationStage } from './applicationStage';
@@ -1983,22 +1984,15 @@ export async function removeRecruiterFromCompany(companyId: string, recruiterUid
 // COMPANY FOLLOWING
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function followCompany(userUid: string, companyFirestoreId: string): Promise<void> {
-  await updateDoc(doc(db, 'users', userUid), {
-    followingCompanies: arrayUnion(companyFirestoreId),
-  });
-  await updateDoc(doc(db, 'companies', companyFirestoreId), {
-    followerCount: increment(1),
-  });
+// Following goes through api/companies.ts: it updates the member's list and the company's
+// follower count together, only when something really changes, so counts stay honest.
+// (The old two-step browser write failed on the second step for every ordinary member.)
+export async function followCompany(_userUid: string, companyFirestoreId: string): Promise<void> {
+  await setFollowing(companyFirestoreId, true);
 }
 
-export async function unfollowCompany(userUid: string, companyFirestoreId: string): Promise<void> {
-  await updateDoc(doc(db, 'users', userUid), {
-    followingCompanies: arrayRemove(companyFirestoreId),
-  });
-  await updateDoc(doc(db, 'companies', companyFirestoreId), {
-    followerCount: increment(-1),
-  });
+export async function unfollowCompany(_userUid: string, companyFirestoreId: string): Promise<void> {
+  await setFollowing(companyFirestoreId, false);
 }
 
 export async function getSuggestedCompanies(limit_ = 5): Promise<any[]> {
@@ -3917,45 +3911,9 @@ export async function fetchCompanies(claimedOnly = false): Promise<Company[]> {
   }
 }
 
-export async function claimCompany(
-  firestoreId: string,
-  recruiterUid: string,
-  recruiterEmail: string,
-  companyDomain: string
-): Promise<{ success: boolean; reason?: string }> {
-  const freeEmailDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com'];
-  const emailDomain = recruiterEmail.split('@')[1]?.toLowerCase() ?? '';
-
-  if (freeEmailDomains.includes(emailDomain)) {
-    return { success: false, reason: 'A corporate email address is required to claim a company.' };
-  }
-
-  if (companyDomain && !companyDomain.includes(emailDomain) && !emailDomain.includes(companyDomain.replace(/^www\./, ''))) {
-    return {
-      success: false,
-      reason: `Your email domain (${emailDomain}) must match the company domain (${companyDomain}).`,
-    };
-  }
-
-  const ref = doc(db, 'companies', firestoreId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return { success: false, reason: 'Company not found.' };
-
-  const data = snap.data();
-  if (data.claimed && data.adminUid && data.adminUid !== recruiterUid) {
-    return { success: false, reason: 'This company has already been claimed by another admin.' };
-  }
-
-  await updateDoc(ref, {
-    claimed:            true,
-    adminUid:           recruiterUid,
-    verificationStatus: 'pending',
-    claimedAt:          serverTimestamp(),
-    updatedAt:          serverTimestamp(),
-  });
-
-  return { success: true };
-}
+// Claiming a company is done by api/companies.ts ("claim"), which checks a verified work email
+// against the company's own domain before anyone is made administrator. There is deliberately
+// no browser-side version of this.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPANY TEAM MEMBERS

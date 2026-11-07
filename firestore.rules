@@ -1061,6 +1061,15 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.adminUid == request.auth.uid;
     }
 
+    // api/companies.ts: audit trail of company-ownership claims (no email addresses) and the
+    // per-person daily claim counter. Server-side only.
+    match /company_claim_events/{docId} {
+      allow read, write: if false;
+    }
+    match /company_claim_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
     match /companyAdmins/{docId} {
       allow read:   if isAuth();
       allow create: if isAuth();
