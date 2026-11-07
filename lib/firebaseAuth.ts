@@ -162,6 +162,14 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     endorsements: data.endorsements ?? [],
     lastActiveAt: data.lastActiveAt ?? undefined,
     engagementGateApplies: data.engagementGateApplies ?? false,
+    // Consent records. The App.tsx consent gate reads these off currentUser to
+    // decide whether to show the age/Terms/Community walls. They were written
+    // to Firestore but never hydrated here, which was invisible while the gate
+    // never ran after a reload; now that it does, omitting them would re-prompt
+    // every returning user in every new session.
+    agreedToAgeVersion: data.agreedToAgeVersion,
+    agreedToTermsVersion: data.agreedToTermsVersion,
+    agreedToCommunityVersion: data.agreedToCommunityVersion,
     foundingMember: data.foundingMember ?? false,
   } as any;
 }

@@ -377,6 +377,11 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     if (authState !== 'authenticated' || !currentUser || !data) return;
 
+    // A wall is already up (e.g. loadAppData re-ran via pull-to-refresh/Retry and
+    // data went null -> truthy again). The accept handlers chain into the next
+    // wall themselves, so don't stack a second one on top.
+    if (showAgeWall || showTermsWall || showCommunityWall) return;
+
     // Step 0 — check minimum-age confirmation (must come before Terms/Community)
     if (!showAgeWall) {
       const ageSession = sessionStorage.getItem('ageConfirmedThisSession');
@@ -411,8 +416,15 @@ const MainApp: React.FC = () => {
         }
       }
     }
+  // `!!data` is a dependency on purpose: the early return above bails while
+  // `data` is still null, and on a page reload auth/currentUser resolve before
+  // loadAppData finishes. Without it this effect ran once (data null), returned,
+  // and never re-ran, so un-consented users got no prompts. Using the boolean
+  // (not `data`) means it re-evaluates when data first loads but not on every
+  // data mutation; the session flags and agreed*Version fields still
+  // short-circuit users who already agreed.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authState, currentUser?.id]);
+  }, [authState, currentUser?.id, !!data]);
 
   // ── Load app data ─────────────────────────────────────────────────────────
   const loadAppData = useCallback(async (user: User) => {
