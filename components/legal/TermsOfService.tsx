@@ -1,7 +1,7 @@
 // src/components/legal/TermsOfService.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Terms of Service page for bewatu.com
-// Effective: March 31, 2026 | Version 1.0
+// Effective: November 7, 2026 | Version 1.1
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React from 'react';
@@ -10,7 +10,7 @@ interface TermsOfServiceProps {
   onBack?: () => void;
 }
 
-const EFFECTIVE_DATE = 'March 31, 2026';
+const EFFECTIVE_DATE = 'November 7, 2026';
 const LEGAL_EMAIL = 'legal@bewatu.com';
 const COMPANY = 'Bewatu LLC';
 
@@ -28,7 +28,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
           )}
           <div>
             <h1 className="text-base font-semibold text-stone-900">Terms of Service</h1>
-            <p className="text-xs text-stone-600">Effective {EFFECTIVE_DATE} · Version 1.0</p>
+            <p className="text-xs text-stone-600">Effective {EFFECTIVE_DATE} · Version 1.1</p>
           </div>
         </div>
       </div>
