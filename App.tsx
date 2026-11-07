@@ -1040,6 +1040,11 @@ const MainApp: React.FC = () => {
         // Revert optimistic update on failure
         setData(d => d ? { ...d, messages: d.messages.filter(m => m.id !== newMsg.id) } : null);
       }
+    } else {
+      // No account behind this entry, so there is nowhere to deliver it. Don't leave a
+      // message on screen that was never sent.
+      console.error('sendMessage: recipient has no account id', receiverId);
+      setData(d => d ? { ...d, messages: d.messages.filter(m => m.id !== newMsg.id) } : null);
     }
   };
 
