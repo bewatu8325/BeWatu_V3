@@ -4,6 +4,7 @@ import { Circle, Post, User, AppreciationType, Article, LinkPreview } from '../t
 import CreatePost from './CreatePost';
 import PodPostCard from './PodPostCard';
 import { CirclesIcon, UsersIcon, ShieldCheckIcon, VerifiedIcon } from '../constants';
+import { POD_TYPE_ICON } from './icons/PodIcons';
 import { useFirebase } from '../contexts/FirebaseContext';
 import {
   PodNotificationPrefs,
@@ -540,10 +541,16 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl font-bold text-stone-900">{circle.name}</h1>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full border"
-                    style={{ backgroundColor: GREEN_LT, color: GREEN, borderColor: '#a7d9c8' }}>
-                    {(circle as any).podType ?? 'Community'}
-                  </span>
+                  {(() => {
+                    const t = (((circle as any).podType ?? 'community') as keyof typeof POD_TYPE_ICON);
+                    const Icon = POD_TYPE_ICON[t] ?? POD_TYPE_ICON.community;
+                    return (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border capitalize"
+                        style={{ backgroundColor: GREEN_LT, color: GREEN, borderColor: '#a7d9c8' }}>
+                        <Icon size={13} /> {POD_TYPE_ICON[t] ? t : 'community'} pod
+                      </span>
+                    );
+                  })()}
                 </div>
                 <p className="text-stone-600 mt-1">{circle.description}</p>
                 <div className="flex items-center gap-4 mt-2 text-sm text-stone-600">
