@@ -46,6 +46,7 @@ import crypto from 'crypto';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import type { QueryDocumentSnapshot, DocumentSnapshot, QuerySnapshot } from 'firebase-admin/firestore';
 
 // ── Policy ───────────────────────────────────────────────────────────────────
 // Role names match bewatu-ops' ROLES / PERMISSIONS.users. Auditors can see the
@@ -70,6 +71,7 @@ const MAX_CASE_REF = 120;
 const MAX_BUNDLE_BYTES = 10 * 1024 * 1024;
 const SECTION_LIMIT = 200;
 const MIN_RSA_BITS = 3072;
+const GCM_TAG_BYTES = 16;
 
 const PROD_ORIGINS = ['https://ops.bewatu.com', 'https://www.bewatu.com'];
 const DEV_ORIGINS  = ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:4173'];
@@ -77,8 +79,10 @@ const DEV_ORIGINS  = ['http://localhost:5173', 'http://localhost:3000', 'http://
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function setCors(req: VercelRequest, res: VercelResponse) {
   const allowedOrigins = process.env.VERCEL_ENV === 'production' ? PROD_ORIGINS : [...PROD_ORIGINS, ...DEV_ORIGINS];
-  const origin = req.headers.origin as string | undefined;
-  res.setHeader('Access-Control-Allow-Origin', origin && allowedOrigins.includes(origin) ? origin : PROD_ORIGINS[0]);
+  const requested = req.headers.origin as string | undefined;
+  // Echo a literal from the allowlist (never the request's own header value).
+  const allowed = allowedOrigins.find(o => o === requested) ?? PROD_ORIGINS[0];
+  res.setHeader('Access-Control-Allow-Origin', allowed);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
@@ -198,7 +202,7 @@ function engagementState(d: Record<string, any>): 'unlocked' | 'gated' | 'exempt
 async function doSearch(db: ReturnType<typeof getFirestore>, auth: ReturnType<typeof getAuth>, body: any) {
   const limit = Math.min(Math.max(parseInt(body.limit, 10) || SEARCH_PAGE_DEFAULT, 1), SEARCH_PAGE_MAX);
   const q = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
-  let docs: FirebaseFirestore.QueryDocumentSnapshot[] | FirebaseFirestore.DocumentSnapshot[] = [];
+  let docs: QueryDocumentSnapshot[] | DocumentSnapshot[] = [];
   let nextCursor: string | null = null;
 
   if (q.includes('@')) {
@@ -212,7 +216,7 @@ async function doSearch(db: ReturnType<typeof getFirestore>, auth: ReturnType<ty
   } else if (q) {
     // Name prefix. Firestore ranges are case-sensitive, so try as typed and Capitalised.
     const variants = Array.from(new Set([q, q[0].toUpperCase() + q.slice(1)]));
-    const seen = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    const seen = new Map<string, QueryDocumentSnapshot>();
     for (const v of variants) {
       const snap = await db.collection('users')
         .where('displayName', '>=', v).where('displayName', '<=', v + '').limit(limit).get();
@@ -320,7 +324,7 @@ export function encryptBundle(plaintext: Buffer, publicKeyPem: string, header: R
   const dataKey = crypto.randomBytes(32);
   const iv = crypto.randomBytes(12);
   const aad = Buffer.from(JSON.stringify(header));
-  const cipher = crypto.createCipheriv('aes-256-gcm', dataKey, iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', dataKey, iv, { authTagLength: GCM_TAG_BYTES });
   cipher.setAAD(aad);
   const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const wrappedKey = crypto.publicEncrypt(
@@ -341,7 +345,7 @@ async function gatherBundle(db: ReturnType<typeof getFirestore>, auth: ReturnTyp
   const section = async <T,>(fn: () => Promise<T>) => {
     try { return await fn(); } catch (e: any) { return { error: `could not be read: ${e?.code ?? 'error'}` }; }
   };
-  const docs = (snap: FirebaseFirestore.QuerySnapshot) => snap.docs.map(d => ({ id: d.id, ...normalize(d.data()) }));
+  const docs = (snap: QuerySnapshot) => snap.docs.map(d => ({ id: d.id, ...normalize(d.data()) }));
   const userRef = db.collection('users').doc(uid);
 
   return {

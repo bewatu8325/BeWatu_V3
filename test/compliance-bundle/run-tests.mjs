@@ -65,6 +65,18 @@ check('altering the authentication tag is detected and refused', () => {
   const r = decrypt(writeVariant('t2.json', e => { e.tag = flipByte(e.tag); }), goodPrivPath);
   assert(r.status !== 0 && r.stdout === '', 'tampered tag was accepted');
 });
+check('a truncated authentication tag is refused (tag-shortening attack)', () => {
+  for (const bytes of [4, 8, 12, 15]) {
+    const r = decrypt(writeVariant(`trunc${bytes}.json`, e => { e.tag = Buffer.from(e.tag, 'base64').subarray(0, bytes).toString('base64'); }), goodPrivPath);
+    assert(r.status !== 0 && r.stdout === '', `a ${bytes}-byte tag was accepted`);
+  }
+});
+check('an over-long or empty tag is refused', () => {
+  const longer = decrypt(writeVariant('longtag.json', e => { e.tag = Buffer.concat([Buffer.from(e.tag, 'base64'), Buffer.alloc(4)]).toString('base64'); }), goodPrivPath);
+  const empty = decrypt(writeVariant('notag.json', e => { e.tag = ''; }), goodPrivPath);
+  assert(longer.status !== 0 && empty.status !== 0, 'accepted a malformed tag');
+});
+check('the envelope always carries a full 16-byte tag', () => assert(Buffer.from(envelope.tag, 'base64').length === 16, 'short tag produced'));
 check('altering the case reference in the header is detected and refused', () => {
   const r = decrypt(writeVariant('t3.json', e => {
     e.aad = Buffer.from(JSON.stringify({ ...header, caseRef: 'CASE-99' })).toString('base64');

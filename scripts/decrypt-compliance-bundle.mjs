@@ -56,9 +56,12 @@ try {
   const dataKey = crypto.privateDecrypt(
     { key: privateKey, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha256' },
     Buffer.from(envelope.wrappedKey, 'base64'));
-  const decipher = crypto.createDecipheriv('aes-256-gcm', dataKey, Buffer.from(envelope.iv, 'base64'));
+  // Pin the tag length: without it an attacker could shorten the tag and make forgery far easier.
+  const tag = Buffer.from(envelope.tag, 'base64');
+  if (tag.length !== 16) throw new Error('unexpected authentication tag length');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', dataKey, Buffer.from(envelope.iv, 'base64'), { authTagLength: 16 });
   decipher.setAAD(Buffer.from(envelope.aad, 'base64'));
-  decipher.setAuthTag(Buffer.from(envelope.tag, 'base64'));
+  decipher.setAuthTag(tag);
   plaintext = Buffer.concat([decipher.update(Buffer.from(envelope.ciphertext, 'base64')), decipher.final()]);
   dataKey.fill(0);
 } catch {
