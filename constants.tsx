@@ -65,24 +65,29 @@ export const SearchIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 export const HelpfulIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-    </svg>
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {/* soft-edged badge with a check */}
+    <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+    <path d="m8.8 12.2 2.3 2.3 4.2-4.4" />
+  </svg>
 );
 export const ThoughtProvokingIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M15.07 18.68A6.49 6.49 0 0 0 18 12a6.5 6.5 0 0 0-6.5-6.5A6.5 6.5 0 0 0 5 12a6.49 6.49 0 0 0 2.93 5.68" />
-        <path d="M9 18.05a2.5 2.5 0 0 1 5 .02" />
-        <path d="M12 22v-2" />
-        <path d="M12 2v1.5" />
-    </svg>
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {/* light bulb with three rays */}
+    <path d="M12 1.2v1.8M5.4 3.7l1.3 1.3M18.6 3.7 17.3 5" />
+    <path d="M9 17.2c0-.8-.4-1.5-1-2.1a5.4 5.4 0 0 1-1.7-3.9 5.7 5.7 0 0 1 11.4 0c0 1.5-.6 2.9-1.7 3.9-.6.6-1 1.3-1 2.1" />
+    <path d="M9 17.2h6v1.6H9zM10 21.4h4" />
+  </svg>
 );
 export const CollaborationReadyIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 11.08V15a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-4.08" />
-        <path d="M17.89 8.11a2.12 2.12 0 0 0-3 0l-2.06 2.06a1.5 1.5 0 0 0 0 2.12l2.06 2.06a2.12 2.12 0 0 0 3 0l4.24-4.24a2.12 2.12 0 0 0 0-3l-2.12-2.12" />
-        <path d="m6.11 15.89-2.17-2.17a2.12 2.12 0 0 1 0-3L8.18 6.48a2.12 2.12 0 0 1 3 0l2.06 2.06" />
-    </svg>
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {/* two people, arms joined in a loop */}
+    <circle cx="7.4" cy="5" r="1.9" />
+    <circle cx="16.6" cy="5" r="1.9" />
+    <path d="M2 14.4c.5-3.1 2.7-5.2 5.4-5.2 2.1 0 3.7 1.1 4.6 3" />
+    <path d="M22 14.4c-.5-3.1-2.7-5.2-5.4-5.2-2.1 0-3.7 1.1-4.6 3" />
+    <path d="M12 12.2c-1.7 1.4-2.5 3-2.5 4.4a2.5 2.5 0 0 0 5 0c0-1.4-.8-3-2.5-4.4Z" />
+  </svg>
 );
 
 
@@ -94,14 +99,20 @@ export const ThumbUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 export const CommentIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {/* two overlapping speech bubbles */}
+    <path d="M5.2 3h8.3A2.7 2.7 0 0 1 16.2 5.7v3.6A2.7 2.7 0 0 1 13.5 12H9.2L6 14.8V12h-.8A2.7 2.7 0 0 1 2.5 9.3V5.7A2.7 2.7 0 0 1 5.2 3Z" />
+    <path d="M6.3 7.5h.01M9.3 7.5h.01M12.3 7.5h.01" strokeWidth="2.6" />
+    <path d="M16.2 8.3h2.6a2.7 2.7 0 0 1 2.7 2.7v3.6a2.7 2.7 0 0 1-2.7 2.7h-.3v2.5l-3-2.5H11a2.7 2.7 0 0 1-2.4-1.5" />
   </svg>
 );
 
 export const ShareIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6.332l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.332a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {/* paper plane with speed lines */}
+    <path d="M21.5 2.5 3.8 9.9l6.6 2.7 2.7 6.6 8.4-16.7Z" />
+    <path d="m10.4 12.6 4.9-4.9" />
+    <path d="M1.5 14h3.4M2.8 17.4h2.6" />
   </svg>
 );
 

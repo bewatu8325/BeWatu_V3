@@ -16,7 +16,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LinkPreviewCard, LinkifiedText } from './LinkPreviewCard';
 import { PostActionsMenu, PostEditBox, DeleteConfirm, AuthorAvatar } from './PostActions';
-import { MessageCircle, ThumbsUp, Lightbulb, Users, ChevronDown, ChevronUp, Send, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Send, Loader2 } from 'lucide-react';
+import { HelpfulIcon, ThoughtProvokingIcon, CollaborationReadyIcon, CommentIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { addComment, subscribeToComments, notifyPostAuthor, PostComment, updatePostContent, deletePost } from '../lib/firestoreService';
 import { trackCommentMade, trackReactionGiven } from '../lib/analytics/track';
@@ -31,19 +32,19 @@ const REACTIONS: { type: AppreciationType; label: string; icon: React.ReactNode;
   {
     type:  'helpful',
     label: 'Helpful',
-    icon:  <ThumbsUp size={13} />,
+    icon:  <HelpfulIcon width={15} height={15} />,
     color: '#2563eb',
   },
   {
     type:  'thoughtProvoking',
     label: 'Thought-provoking',
-    icon:  <Lightbulb size={13} />,
+    icon:  <ThoughtProvokingIcon width={15} height={15} />,
     color: '#d97706',
   },
   {
     type:  'collaborationReady',
     label: 'Let\'s collaborate',
-    icon:  <Users size={13} />,
+    icon:  <CollaborationReadyIcon width={15} height={15} />,
     color: GREEN,
   },
 ];
@@ -293,7 +294,7 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
             className="flex items-center gap-1 px-2 py-2 rounded-xl text-[11px] font-medium transition-all hover:bg-stone-50 flex-1 justify-center flex-shrink-0"
             style={{ color: showComments ? GREEN : '#9ca3af' }}
           >
-            <MessageCircle size={13} />
+            <CommentIcon width={15} height={15} />
             <span className="whitespace-nowrap">{commentCount > 0 ? commentCount : ''} {commentCount === 1 ? 'Comment' : 'Comment'}</span>
             {commentCount > 0 && (showComments ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
           </button>
