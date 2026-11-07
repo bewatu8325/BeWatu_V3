@@ -19,10 +19,11 @@ interface PostCardProps {
 const ActionButton: React.FC<{icon: React.ReactNode, label: string, onClick?: () => void, className?: string}> = ({ icon, label, onClick, className }) => (
     <button 
       onClick={onClick} 
-      className={`flex items-center gap-1 sm:gap-1.5 text-stone-600 hover:bg-stone-50 rounded-lg px-1.5 py-2 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] min-w-0 flex-shrink-0 ${className}`}
+      className={`flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] min-w-0 flex-shrink-0 hover:bg-[var(--bw-green-light)] focus:outline-none focus-visible:ring-2 ${className}`}
+      style={{ color: 'var(--bw-green)', ['--tw-ring-color' as any]: 'var(--bw-green)' }}
     >
         {icon}
-        <span className="text-[11px] sm:text-sm font-semibold whitespace-nowrap">{label}</span>
+        <span className="text-[11px] sm:text-[15px] leading-none sm:leading-normal font-semibold whitespace-nowrap" style={{ fontFamily: "'Source Serif 4', Georgia, 'Times New Roman', serif" }}>{label}</span>
     </button>
 );
 
@@ -75,11 +76,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
       </div>
       <div className="border-t pt-2 -mx-1 sm:mx-0" style={{ borderColor: "#e7e5e4" }}>
         <div className="flex justify-between sm:justify-around overflow-x-auto scrollbar-hide px-1 sm:px-0 gap-0.5 sm:gap-1">
-          <ActionButton icon={<HelpfulIcon className="w-5 h-5"/>} className="hover:text-orange-400" label="Like" onClick={() => onAppreciatePost(post.id, 'helpful')}/>
-          <ActionButton icon={<ThoughtProvokingIcon className="w-5 h-5"/>} className="hover:text-purple-400" label="Insightful" onClick={() => onAppreciatePost(post.id, 'thoughtProvoking')}/>
-          <ActionButton icon={<CollaborationReadyIcon className="w-5 h-5"/>} className="hover:text-green-400" label="Collab" onClick={() => onAppreciatePost(post.id, 'collaborationReady')}/>
-          <ActionButton icon={<CommentIcon className="w-5 h-5"/>} className="hover:text-stone-600" label="Comment"/>
-          <ActionButton icon={<ShareIcon className="w-5 h-5"/>} className="hover:text-stone-600" label="Share"/>
+          <ActionButton icon={<HelpfulIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Like" onClick={() => onAppreciatePost(post.id, 'helpful')}/>
+          <ActionButton icon={<ThoughtProvokingIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Insightful" onClick={() => onAppreciatePost(post.id, 'thoughtProvoking')}/>
+          <ActionButton icon={<CollaborationReadyIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Collab" onClick={() => onAppreciatePost(post.id, 'collaborationReady')}/>
+          <ActionButton icon={<CommentIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Comment"/>
+          <ActionButton icon={<ShareIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Share"/>
         </div>
       </div>
     </div>
