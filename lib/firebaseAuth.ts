@@ -170,6 +170,7 @@ async function docToUser(data: Record<string, any>): Promise<User> {
     agreedToAgeVersion: data.agreedToAgeVersion,
     agreedToTermsVersion: data.agreedToTermsVersion,
     agreedToCommunityVersion: data.agreedToCommunityVersion,
+    foundingMember: data.foundingMember ?? false,
   } as any;
 }
 
@@ -240,6 +241,10 @@ async function buildNewUserDoc(
     // lib/engagementGate.ts. Omitted for every pre-existing account, which
     // is what grandfathers them in automatically.
     engagementGateApplies: true,
+    // Everyone who signs up during the Founding Members beta. Stop writing
+    // this (and add a cutoff to the firestore.rules create check) when the
+    // beta window closes.
+    foundingMember: true,
   };
 }
 

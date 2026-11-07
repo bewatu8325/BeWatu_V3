@@ -177,7 +177,7 @@ export default function TermsConsentModal({
                 className="font-semibold hover:underline" style={{ color: GREEN }}>
                 Community Guidelines
               </a>
-              . I am at least 18 years old.
+              . I am at least 16 years old.
             </span>
           </label>
 

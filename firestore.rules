@@ -213,6 +213,21 @@ service cloud.firestore {
       ];
     }
 
+    // api/submit-feedback.ts -- in-app "Share feedback" submissions. Written
+    // server-side only (Admin SDK, after rate limiting); ops roles that
+    // already triage support can read them.
+    match /platform_feedback/{feedbackId} {
+      allow read: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'support_manager', 'support_agent', 'auditor'
+      ];
+      allow write: if false;
+    }
+
+    // Same reasoning: api/submit-feedback.ts's send-rate-limit counters.
+    match /feedback_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
     match /content_reports/{reportId} {
       // P0 4 fix: was `if isAuth()` — any signed-in user could read every
       // abuse report and the identity of who filed it. Now: the reporter
@@ -610,6 +625,11 @@ service cloud.firestore {
       allow create: if isAuth() && request.auth.uid == uid
         && request.resource.data.get('isPlatformAdmin', false) == false
         && request.resource.data.get('engagementGateApplies', false) == true;
+      // foundingMember (the Founding Members beta badge) is frozen too, so a
+      // later update can't self-grant it. It's only ever written at account
+      // creation (buildNewUserDoc). That create write is not restricted
+      // here: when the beta window closes, add a request.time cutoff to the
+      // create rule above or a direct write could still claim the badge.
       // engagementGateApplies added to the frozen set alongside
       // isPlatformAdmin/isRecruiter above: it's a client-origin field (set
       // once at signup in buildNewUserDoc) that lib/engagementGate.ts's
@@ -622,7 +642,7 @@ service cloud.firestore {
       allow update: if isAuth() && (
         request.auth.uid == uid || isPlatformAdmin() || isOpsStaff()
       ) && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['isPlatformAdmin', 'isRecruiter', 'engagementGateApplies'])
+             .hasAny(['isPlatformAdmin', 'isRecruiter', 'engagementGateApplies', 'foundingMember'])
         && (
           isPlatformAdmin() || isOpsStaff()
           || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['recruiterTrialEndDate'])
