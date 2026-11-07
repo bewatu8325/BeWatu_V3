@@ -1956,6 +1956,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                 } catch(e) { console.error('Failed to load challenge:', e); }
               }}
               onPostChallenge={() => {}}
+              onViewCompany={handleViewCompany}
               currentUserCompany={selectedCompany}
             />
           </Suspense>

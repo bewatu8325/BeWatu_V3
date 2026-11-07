@@ -32,6 +32,7 @@ import {
   Check, Copy, Info, Bell, Activity,
 } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
+import SponsorshipAdminView from './arenas/SponsorshipAdminView';
 import {
   getAllCompanies,
   adminCreateCompany,
@@ -76,7 +77,8 @@ type AdminView =
   | 'recruiters'
   | 'recruiter_apps'
   | 'discount_codes'
-  | 'founding_members';
+  | 'founding_members'
+  | 'arena_sponsorships';
 
 interface CompanyRecord {
   id: string;
@@ -1359,6 +1361,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
               { key: 'recruiter_apps' as AdminView, label: `Recruiter apps${recruiterApps.length ? ` (${recruiterApps.length})` : ''}` },
               { key: 'discount_codes' as AdminView, label: 'Discount codes' },
               { key: 'founding_members' as AdminView, label: 'Founding members' },
+              { key: 'arena_sponsorships' as AdminView, label: 'Arena sponsors' },
               { key: 'audit_global' as AdminView, label: 'Audit log' },
             ] as const).map(({ key, label }) => (
               <button key={key} onClick={() => setView(key)}
@@ -1775,6 +1778,8 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
         {view === 'founding_members' && (
           <FoundingMembersView onSubmit={handleFoundingSubmit} />
         )}
+
+        {view === 'arena_sponsorships' && <SponsorshipAdminView />}
 
         {view === 'audit_global' && (
           <div className="space-y-5">

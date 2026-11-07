@@ -211,6 +211,38 @@ async function main() {
   await check("delete post: the author cannot delete someone else's post", me.doc("posts/p-del-other").delete(), "DENY");
   await check("delete post: the author can delete their own post", me.doc("posts/p-del-mine").delete(), "ALLOW");
   await check("delete post: a signed-out visitor cannot delete", testEnv.unauthenticatedContext().firestore().doc("posts/p-edit").delete(), "DENY");
+  console.log("\n== arena sponsorships: written only by api/arena-sponsorship.ts ==");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const d = ctx.firestore();
+    await d.doc("arena_sponsorships/s-ok").set({ status: "approved", companyAdminUid: "sponsorAdmin", arenaId: "payments", branding: { primaryColor: "#1a4a3a" } });
+    await d.doc("arena_sponsorships/s-pending").set({ status: "pending_review", companyAdminUid: "sponsorAdmin", arenaId: "insurance" });
+    await d.doc("arena_sponsorships/s-revoked").set({ status: "revoked", companyAdminUid: "sponsorAdmin", arenaId: "banking" });
+    await d.doc("arena_sponsorship_assets/s-ok").set({ banner: "data:image/png;base64,AAAA" });
+    await d.doc("arena_sponsorship_assets/s-pending").set({ banner: "data:image/png;base64,AAAA" });
+  });
+  const sAdmin = testEnv.authenticatedContext("sponsorAdmin").firestore();
+  const padmin = testEnv.authenticatedContext("padmin").firestore();
+  await check("any signed-in member can read an approved sponsorship", me.doc("arena_sponsorships/s-ok").get(), "ALLOW");
+  await check("members can list the approved sponsorships (the directory query)", me.collection("arena_sponsorships").where("status", "==", "approved").get(), "ALLOW");
+  await check("a signed-out visitor cannot read sponsorships", testEnv.unauthenticatedContext().firestore().doc("arena_sponsorships/s-ok").get(), "DENY");
+  await check("members cannot read someone else's pending request", me.doc("arena_sponsorships/s-pending").get(), "DENY");
+  await check("members cannot read a revoked sponsorship", me.doc("arena_sponsorships/s-revoked").get(), "DENY");
+  await check("members cannot list every sponsorship (only the approved ones)", me.collection("arena_sponsorships").get(), "DENY");
+  await check("the company's own administrator can read its pending request", sAdmin.doc("arena_sponsorships/s-pending").get(), "ALLOW");
+  await check("the company's administrator can read its revoked one", sAdmin.doc("arena_sponsorships/s-revoked").get(), "ALLOW");
+  await check("the company's administrator can list their own sponsorships", sAdmin.collection("arena_sponsorships").where("companyAdminUid", "==", "sponsorAdmin").get(), "ALLOW");
+  await check("a platform admin can read all of them", padmin.collection("arena_sponsorships").get(), "ALLOW");
+  await check("nobody can create a sponsorship from a browser (a member)", me.collection("arena_sponsorships").add({ status: "approved", companyAdminUid: "me", arenaId: "payments" }), "DENY");
+  await check("the company administrator cannot approve their own request", sAdmin.doc("arena_sponsorships/s-pending").update({ status: "approved" }), "DENY");
+  await check("the company administrator cannot edit their sponsorship's dates", sAdmin.doc("arena_sponsorships/s-ok").update({ endDate: new Date("2099-01-01") }), "DENY");
+  await check("a platform admin cannot write one from a browser either (it goes through the route)", padmin.doc("arena_sponsorships/s-pending").update({ status: "approved" }), "DENY");
+  await check("nobody can delete a sponsorship record (history is kept)", sAdmin.doc("arena_sponsorships/s-ok").delete(), "DENY");
+  await check("a banner of an approved sponsorship is readable by members", me.doc("arena_sponsorship_assets/s-ok").get(), "ALLOW");
+  await check("a banner of a pending sponsorship is not readable by members", me.doc("arena_sponsorship_assets/s-pending").get(), "DENY");
+  await check("...but is readable by the company's administrator", sAdmin.doc("arena_sponsorship_assets/s-pending").get(), "ALLOW");
+  await check("nobody can write a banner from a browser", sAdmin.doc("arena_sponsorship_assets/s-ok").set({ banner: "data:image/png;base64,BBBB" }), "DENY");
+  await check("arena_sponsorship_rate_limits: no client can read or write the counters", me.doc("arena_sponsorship_rate_limits/me").set({ count: 0 }), "DENY");
+
   await check("link_previews (cache): no client can read it", me.doc("link_previews/abc").get(), "DENY");
   await check("link_previews (cache): no client can write it (no poisoning a shared preview)", me.doc("link_previews/abc").set({ preview: goodCard }), "DENY");
   await check("link_previews (cache): ops staff cannot write it either", ops1.doc("link_previews/abc").set({ preview: goodCard }), "DENY");

@@ -17,7 +17,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import {
   ArrowLeft, Trophy, Zap, Shield, BadgeCheck, Star,
   Clock, Users, ChevronRight, Filter, Search, Building2,
-  Lock, TrendingUp, FileCheck,
+  Lock, TrendingUp, FileCheck, ArrowUpRight,
 } from "lucide-react";
 import {
   getArenaIndustry,
@@ -27,21 +27,30 @@ import {
   type IndustrySlug,
   type ChallengeTier,
 } from "../../lib/arenaService";
-import {
-  ArenaSponsorHero,
-  SponsorChallengeBadge,
-  SponsorSpotlight,
-} from "./ArenaSponsorBranding";
+import { SponsoredArenaHero, useActiveSponsorships } from "./SponsorBrand";
+import { fetchSponsorshipBanner } from "../../lib/arenaSponsorshipService";
+import { safeHttpsUrl } from "../../lib/arenaSponsorship";
+import BecomeSponsorModal from "./BecomeSponsorModal";
 
 // ─── Challenge card ───────────────────────────────────────────────────────────
 
+const deadlineOf = (c: ArenaChallenge): number => {
+  const raw = (c.deadline as any);
+  return raw?.seconds ? raw.seconds * 1000 : new Date(c.deadline).getTime();
+};
+/** A challenge is completed once its deadline has passed or it has been closed. */
+const isCompleted = (c: ArenaChallenge, now: number) => !!c.closedAt || (Number.isFinite(deadlineOf(c)) && deadlineOf(c) < now);
+
 function ChallengeCard({
   challenge,
-  arenaData,
+  sponsorCompanyId,
+  completed,
   onClick,
 }: {
   challenge:  ArenaChallenge;
-  arenaData:  ArenaIndustry | null;
+  /** The Arena's active sponsor, if any: its own challenges are labelled. Other companies keep their own name. */
+  sponsorCompanyId: string | null;
+  completed?: boolean;
   onClick:    () => void;
 }) {
   // Defensive defaults — handles both seeded data and full challenge docs
@@ -72,7 +81,7 @@ function ChallengeCard({
   return (
     <button
       onClick={onClick}
-      className="group w-full text-left bg-white border border-stone-200 rounded-2xl hover:border-stone-300 hover:shadow-sm transition-all duration-200 overflow-hidden"
+      className={"group w-full text-left bg-white border border-stone-200 rounded-2xl hover:border-stone-300 hover:shadow-sm transition-all duration-200 overflow-hidden" + (completed ? " opacity-80" : "")}
     >
       {/* Featured/Exclusive banner */}
       {tier !== "standard" && (
@@ -109,11 +118,10 @@ function ChallengeCard({
             <Shield size={13} className="text-emerald-500" />
           )}
           <div className="ml-auto flex items-center gap-2">
-            {arenaData && <SponsorChallengeBadge industry={arenaData} compact />}
             <div className="flex items-center gap-1">
               <Clock size={11} className="text-stone-600" />
-              <span className={`text-xs font-medium ${daysLeft <= 3 ? "text-red-600" : "text-stone-600"}`}>
-                {daysLeft}d left
+              <span className={`text-xs font-medium ${!completed && daysLeft <= 3 ? "text-red-600" : "text-stone-600"}`}>
+                {completed ? "Closed" : daysLeft + "d left"}
               </span>
             </div>
           </div>
@@ -157,6 +165,9 @@ function ChallengeCard({
               <Users size={11} className="text-stone-600" />
               <span className="text-xs text-stone-600">{challenge.submissionCount ?? 0}</span>
             </div>
+            {sponsorCompanyId && challenge.companyId === sponsorCompanyId && (
+              <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">Sponsor challenge</span>
+            )}
           </div>
           <ChevronRight
             size={14}
@@ -175,6 +186,8 @@ interface ArenaIndustryViewProps {
   onBack: () => void;
   onSelectChallenge: (challengeId: string) => void;
   onPostChallenge?: () => void;
+  /** Opens a company's BeWatu profile (used by the sponsor introduction). */
+  onViewCompany?: (companyId: string) => void;
   currentUserCompany?: { verifiedIndustries?: string[] } | null;
 }
 
@@ -183,6 +196,7 @@ export default function ArenaIndustryView({
   onBack,
   onSelectChallenge,
   onPostChallenge,
+  onViewCompany,
   currentUserCompany,
 }: ArenaIndustryViewProps) {
   const [arenaData, setArenaData] = useState<ArenaIndustry | null>(null);
@@ -191,6 +205,11 @@ export default function ArenaIndustryView({
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<ChallengeTier | "all">("all");
   const [sortBy, setSortBy] = useState<"recent" | "prize" | "deadline">("recent");
+  const [banner, setBanner] = useState<string | null>(null);
+  const [showSponsorModal, setShowSponsorModal] = useState(false);
+  const { forArena, now, loading: sponsorsLoading } = useActiveSponsorships();
+  // The sponsor is whoever has an approved sponsorship covering today. Nothing else counts.
+  const sponsor = forArena(industry);
 
   const isVerified = currentUserCompany?.verifiedIndustries?.includes(industry);
 
@@ -204,6 +223,14 @@ export default function ArenaIndustryView({
     });
     return unsub;
   }, [industry]);
+
+  useEffect(() => {
+    setBanner(null);
+    if (!sponsor?.branding.hasBanner) return;
+    let cancelled = false;
+    fetchSponsorshipBanner(sponsor.id).then(b => { if (!cancelled) setBanner(b); });
+    return () => { cancelled = true; };
+  }, [sponsor?.id, sponsor?.branding.hasBanner]);
 
   const filtered = useMemo(() => {
     let result = [...challenges];
@@ -231,7 +258,10 @@ export default function ArenaIndustryView({
     ];
   }, [challenges, search, tierFilter, sortBy]);
 
-  const totalPrize = challenges.reduce((s, c) => s + (c.prizeAmount ?? 0), 0);
+  const activeList    = filtered.filter(c => !isCompleted(c, now));
+  const completedList = filtered.filter(c => isCompleted(c, now));
+  const activeCount   = challenges.filter(c => !isCompleted(c, now)).length;
+  const totalPrize    = challenges.filter(c => !isCompleted(c, now)).reduce((s, c) => s + (c.prizeAmount ?? 0), 0);
 
   if (!arenaData && !loading) {
     return (
@@ -255,55 +285,109 @@ export default function ArenaIndustryView({
         All Arenas
       </button>
 
-      {/* Sponsor hero banner — replaces old inline sponsor pill */}
-      {arenaData && <ArenaSponsorHero industry={arenaData} />}
-
-      {/* Arena header */}
-      <div
-        className="rounded-2xl p-6 mb-6 relative overflow-hidden"
-        style={{ background: color + "12", border: `1px solid ${color}30` }}
-      >
-        <div className="flex items-start gap-4">
-          <div
-            className="rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ width: 52, height: 52, background: color + "20" }}
-          >
-            <Trophy size={24} style={{ color }} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-stone-900 mb-1">
-              {arenaData?.name ?? "Loading..."}
-            </h1>
-            <p className="text-stone-600 text-sm mb-4 max-w-xl">
-              {arenaData?.description}
-            </p>
-            <div className="flex items-center gap-5 text-sm">
+      {/* Arena header: sponsored -> the sponsor's branded hero; otherwise BeWatu's default branding. */}
+      {(() => {
+        const stats = (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <div className="flex items-center gap-1.5">
+              <Zap size={13} style={{ color }} />
+              <span className="font-semibold text-stone-800">{activeCount} active challenge{activeCount === 1 ? "" : "s"}</span>
+            </div>
+            {totalPrize > 0 && (
               <div className="flex items-center gap-1.5">
-                <Zap size={13} style={{ color }} />
-                <span className="font-semibold text-stone-800">
-                  {challenges.length} active challenges
-                </span>
+                <Trophy size={13} className="text-amber-500" />
+                <span className="font-semibold text-stone-800">${totalPrize.toLocaleString()} in prizes</span>
               </div>
-              {totalPrize > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Trophy size={13} className="text-amber-500" />
-                  <span className="font-semibold text-stone-800">
-                    ${totalPrize.toLocaleString()} in prizes
-                  </span>
+            )}
+            {arenaData?.requiresRegulatory && (
+              <div className="flex items-center gap-1.5">
+                <Shield size={13} className="text-emerald-600" />
+                <span className="text-xs text-stone-600">Regulated companies</span>
+              </div>
+            )}
+          </div>
+        );
+        const actions = (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <a href="#arena-challenges" className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold text-white" style={{ background: "var(--bw-green)" }}>
+              <Trophy size={14} /> Browse challenges
+            </a>
+            {onPostChallenge && (
+              <button onClick={onPostChallenge} className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 hover:bg-stone-50">
+                <Zap size={13} /> Post a challenge
+              </button>
+            )}
+          </div>
+        );
+        if (sponsorsLoading) {
+          // Not yet known whether this Arena is sponsored: hold a neutral placeholder instead of flashing the wrong state.
+          return <div className="h-48 animate-pulse rounded-2xl bg-stone-100" aria-hidden="true" />;
+        }
+        if (sponsor) {
+          return (
+            <SponsoredArenaHero sponsorship={sponsor} banner={banner}>
+              <div className="flex items-start gap-3">
+                <div className="flex flex-shrink-0 items-center justify-center rounded-xl" style={{ width: 44, height: 44, background: color + "18" }}>
+                  <Trophy size={20} style={{ color }} />
                 </div>
-              )}
-              {arenaData?.requiresRegulatory && (
-                <div className="flex items-center gap-1.5">
-                  <Shield size={13} className="text-emerald-600" />
-                  <span className="text-stone-600 text-xs">Regulated companies</span>
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-bold text-stone-900">{arenaData?.name ?? "Loading..."}</h1>
+                  <p className="mt-1 max-w-2xl text-sm text-stone-600">{arenaData?.description}</p>
                 </div>
-              )}
-              {/* Inline sponsor badge in header stats row */}
-              {arenaData && <SponsorChallengeBadge industry={arenaData} />}
+              </div>
+              <div className="mt-4">{stats}</div>
+              {actions}
+            </SponsoredArenaHero>
+          );
+        }
+        return (
+          <div className="relative mb-0 overflow-hidden rounded-2xl p-6" style={{ background: color + "12", border: "1px solid " + color + "30" }}>
+            <div className="flex items-start gap-4">
+              <div className="flex flex-shrink-0 items-center justify-center rounded-xl" style={{ width: 52, height: 52, background: color + "20" }}>
+                <Trophy size={24} style={{ color }} />
+              </div>
+              <div className="min-w-0">
+                <h1 className="mb-1 text-2xl font-bold text-stone-900">{arenaData?.name ?? "Loading..."}</h1>
+                <p className="mb-4 max-w-xl text-sm text-stone-600">{arenaData?.description}</p>
+                {stats}
+                {actions}
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t pt-4" style={{ borderColor: color + "30" }}>
+              <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-medium text-stone-700">Sponsorship available</span>
+              <button type="button" onClick={() => setShowSponsorModal(true)} className="text-sm font-semibold hover:underline" style={{ color: "var(--bw-green)" }}>
+                Become a sponsor →
+              </button>
             </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
+
+      {/* About the sponsor: introduction and a link to its BeWatu profile */}
+      {sponsor && (sponsor.branding.description || sponsor.branding.links.length > 0 || onViewCompany) && (
+        <section className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6" aria-label={"About " + sponsor.companyName}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">About the sponsor</p>
+          <h2 className="mt-1 text-lg font-semibold text-stone-900">{sponsor.companyName}</h2>
+          {sponsor.branding.description && <p className="mt-2 max-w-3xl whitespace-pre-line text-sm leading-relaxed text-stone-700">{sponsor.branding.description}</p>}
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+            {onViewCompany && sponsor.companyId && (
+              <button type="button" onClick={() => onViewCompany(sponsor.companyId)} className="inline-flex items-center gap-1 text-sm font-semibold hover:underline" style={{ color: "var(--bw-green)" }}>
+                View {sponsor.companyName} on BeWatu →
+              </button>
+            )}
+            {[...(sponsor.branding.website ? [{ label: "Website", url: sponsor.branding.website }] : []), ...sponsor.branding.links]
+              .map(l => ({ label: l.label, url: safeHttpsUrl(l.url) }))
+              .filter((l): l is { label: string; url: string } => !!l.url)
+              .map(l => (
+                <a key={l.url + l.label} href={l.url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 text-sm font-medium text-stone-700 underline-offset-2 hover:underline">
+                  {l.label} <ArrowUpRight size={13} aria-hidden="true" />
+                </a>
+              ))}
+          </div>
+        </section>
+      )}
+
+      <div className="mb-6" />
 
       {/* Filters + search */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -316,7 +400,7 @@ export default function ArenaIndustryView({
             className="w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-xl bg-white focus:outline-none focus:border-stone-400"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter size={14} className="text-stone-600" />
           {(["all", "standard", "featured", "exclusive"] as const).map((t) => (
             <button
@@ -344,6 +428,7 @@ export default function ArenaIndustryView({
       </div>
 
       {/* Challenge grid */}
+      <div id="arena-challenges" className="scroll-mt-4" />
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -360,20 +445,29 @@ export default function ArenaIndustryView({
           </p>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((challenge) => (
-            <ChallengeCard
-              key={challenge.id}
-              challenge={challenge}
-              arenaData={arenaData}
-              onClick={() => onSelectChallenge(challenge.id)}
-            />
-          ))}
-        </div>
+        <>
+          <h2 className="mb-3 text-sm font-semibold text-stone-800">Active challenges ({activeList.length})</h2>
+          {activeList.length === 0 ? (
+            <p className="mb-8 rounded-2xl border border-dashed border-stone-300 p-6 text-center text-sm text-stone-600">No active challenges right now.</p>
+          ) : (
+            <div className="mb-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeList.map((challenge) => (
+                <ChallengeCard key={challenge.id} challenge={challenge} sponsorCompanyId={sponsor?.companyId ?? null} onClick={() => onSelectChallenge(challenge.id)} />
+              ))}
+            </div>
+          )}
+          {completedList.length > 0 && (
+            <>
+              <h2 className="mb-3 text-sm font-semibold text-stone-800">Completed challenges ({completedList.length})</h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {completedList.map((challenge) => (
+                  <ChallengeCard key={challenge.id} challenge={challenge} sponsorCompanyId={sponsor?.companyId ?? null} completed onClick={() => onSelectChallenge(challenge.id)} />
+                ))}
+              </div>
+            </>
+          )}
+        </>
       )}
-
-      {/* Sponsor spotlight — below challenge grid */}
-      {arenaData && <SponsorSpotlight industry={arenaData} />}
 
       {/* Post challenge CTA */}
       <div className="mt-8 rounded-2xl border border-stone-200 p-5 flex items-center justify-between gap-4 flex-wrap bg-stone-50">
@@ -408,6 +502,9 @@ export default function ArenaIndustryView({
           )}
         </div>
       </div>
+      {showSponsorModal && (
+        <BecomeSponsorModal arenaId={industry} arenaName={arenaData?.name ?? "this Arena"} onClose={() => setShowSponsorModal(false)} />
+      )}
     </div>
   );
 }

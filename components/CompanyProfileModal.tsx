@@ -17,6 +17,7 @@ import {
   AlertCircle, Check, MoreHorizontal,
 } from 'lucide-react';
 import { Company, Job, User } from '../types';
+import SponsorshipManager from './arenas/SponsorshipManager';
 import { useFirebase } from '../contexts/FirebaseContext';
 import app from '../lib/firebase';
 import {
@@ -1775,7 +1776,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
   const [challenges, setChallenges] = useState<any[]>([]);
   const [userSubmissions, setUserSubmissions] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'overview' | 'challenges' | 'team'>('overview');
+  const [tab, setTab] = useState<'overview' | 'challenges' | 'team' | 'sponsorship'>('overview');
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
 
@@ -1807,6 +1808,8 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
 
   const companyJobs = allJobs.filter(j => j.companyId === company.id);
   const isOwner = company.adminUid === fbUser?.uid || (company.verifiedRecruiters ?? []).includes(fbUser?.uid ?? '');
+  // Only the company's administrator (not a verified recruiter) manages Arena sponsorship.
+  const isCompanyAdmin = !!fbUser && company.adminUid === fbUser.uid && !!company._firestoreId;
   const userSkills = [
     ...((currentUser as any)?.skills ?? []).map((s: any) => (typeof s === 'string' ? s : s.name).toLowerCase()),
     ...((currentUser as any)?.verifiedSkills ?? []).map((s: any) => s.name.toLowerCase()),
@@ -1939,11 +1942,11 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
 
           {/* Tabs */}
           <div className="flex gap-1 mx-4 mt-4 p-1 rounded-2xl bg-stone-100">
-            {(['overview', 'challenges', 'team'] as const).map(t => (
+            {(['overview', 'challenges', 'team', ...(isCompanyAdmin ? ['sponsorship' as const] : [])] as const).map(t => (
               <button key={t} onClick={() => setTab(t)}
                 className="flex-1 py-1.5 rounded-xl text-xs font-bold capitalize transition-all"
                 style={{ background: tab === t ? 'white' : 'transparent', color: tab === t ? '#1c1917' : '#78716c', boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
-                {t === 'challenges' ? `Challenges${challenges.length > 0 ? ` (${challenges.length})` : ''}` : t === 'team' ? `Team${teamMembers.length > 0 ? ` (${teamMembers.length})` : ''}` : 'Overview'}
+                {t === 'challenges' ? `Challenges${challenges.length > 0 ? ` (${challenges.length})` : ''}` : t === 'team' ? `Team${teamMembers.length > 0 ? ` (${teamMembers.length})` : ''}` : t === 'sponsorship' ? 'Sponsorship' : 'Overview'}
               </button>
             ))}
           </div>
@@ -2131,6 +2134,10 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
                   </div>
                 )}
               </>
+            )}
+
+            {tab === 'sponsorship' && isCompanyAdmin && fbUser && (
+              <SponsorshipManager companyId={company._firestoreId!} companyName={company.name} uid={fbUser.uid} />
             )}
 
             {tab === 'challenges' && (

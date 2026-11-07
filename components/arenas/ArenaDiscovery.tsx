@@ -24,6 +24,9 @@ import {
 } from "../../lib/arenaService";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import type { SponsorshipRecord } from "../../lib/arenaSponsorship";
+import { SponsoredCardHeader, useActiveSponsorships } from "./SponsorBrand";
+import BecomeSponsorModal from "./BecomeSponsorModal";
 
 // ─── Icon map ─────────────────────────────────────────────────────────────────
 
@@ -44,107 +47,92 @@ function IndustryCard({
   industry,
   liveCount,
   prizePool,
+  sponsor,
+  sponsorsLoading,
   onClick,
+  onBecomeSponsor,
 }: {
   industry:  ArenaIndustry;
   liveCount: number;
   prizePool: number;
+  /** The ACTIVE sponsorship for this Arena, or null. Never derived from a logo or a name. */
+  sponsor:   SponsorshipRecord | null;
+  /** Until sponsorships have loaded we do not know, so the "available" footer is not shown. */
+  sponsorsLoading: boolean;
   onClick:   () => void;
+  onBecomeSponsor: () => void;
 }) {
-  const IconComp   = ICON_MAP[industry.icon] ?? ICON_MAP.CreditCard;
-  const isSponsored = !!industry.sponsorCompanyId;
+  const IconComp = ICON_MAP[industry.icon] ?? ICON_MAP.CreditCard;
 
   function formatPrize(n: number) {
-    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-    return `$${n}`;
+    if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
+    if (n >= 1_000) return "$" + (n / 1_000).toFixed(0) + "K";
+    return "$" + n;
   }
 
   return (
-    <button
-      onClick={onClick}
-      className="group relative w-full text-left rounded-2xl border border-stone-200 bg-white hover:border-stone-300 hover:shadow-md transition-all duration-200 overflow-hidden"
-      style={{ padding: 0 }}
-    >
-      {/* Sponsor stripe */}
-      {isSponsored && (
-        <div
-          className="absolute top-0 left-0 right-0 h-0.5"
-          style={{ background: industry.color }}
-        />
-      )}
+    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white transition-all duration-200 hover:border-stone-300 hover:shadow-md">
+      {/* Sponsored: the sponsor's branded header. Otherwise BeWatu's default, with the industry icon. */}
+      {sponsor && <SponsoredCardHeader sponsorship={sponsor} />}
 
-      <div style={{ padding: "20px 20px 16px" }}>
-        {/* Header row */}
-        <div className="flex items-start justify-between mb-3">
+      <button
+        onClick={onClick}
+        aria-label={industry.name + (sponsor ? ", sponsored by " + sponsor.companyName : "")}
+        className="block w-full flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+        style={{ padding: "20px 20px 16px", ['--tw-ring-color' as any]: 'var(--bw-green)' }}
+      >
+        <div className="mb-3 flex items-start justify-between">
           <div
             className="flex items-center justify-center rounded-xl"
-            style={{
-              width: 44,
-              height: 44,
-              background: industry.color + "18",
-            }}
+            style={{ width: 44, height: 44, background: industry.color + "18" }}
           >
             <IconComp size={20} color={industry.color} />
           </div>
           <ChevronRight
             size={16}
-            className="text-stone-300 group-hover:text-stone-600 group-hover:translate-x-0.5 transition-all mt-1"
+            className="mt-1 text-stone-300 transition-all group-hover:translate-x-0.5 group-hover:text-stone-600"
           />
         </div>
 
-        {/* Name + tagline */}
-        <h3 className="font-semibold text-stone-900 text-base mb-1 group-hover:text-stone-700 transition-colors">
+        <h3 className="mb-1 text-base font-semibold text-stone-900 transition-colors group-hover:text-stone-700">
           {industry.name}
         </h3>
-        <p className="text-stone-600 text-xs leading-relaxed mb-4">
+        <p className="mb-4 text-xs leading-relaxed text-stone-600">
           {industry.tagline}
         </p>
 
-        {/* Stats row */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
             <Trophy size={12} className="text-stone-600" />
-            <span className="text-xs font-medium text-stone-700">
-              {liveCount} live
-            </span>
+            <span className="text-xs font-medium text-stone-700">{liveCount} live</span>
           </div>
           {prizePool > 0 && (
             <div className="flex items-center gap-1.5">
               <Zap size={12} className="text-stone-600" />
-              <span className="text-xs font-medium text-stone-700">
-                {formatPrize(prizePool)} in prizes
-              </span>
+              <span className="text-xs font-medium text-stone-700">{formatPrize(prizePool)} in prizes</span>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Sponsor footer */}
-      {isSponsored ? (
-        <div
-          className="border-t border-stone-100 px-5 py-2.5 flex items-center gap-2"
-          style={{ background: industry.color + "08" }}
-        >
-          {industry.sponsorLogoUrl ? (
-            <img
-              src={industry.sponsorLogoUrl}
-              alt={industry.sponsorCompanyName ?? ""}
-              className="h-4 object-contain opacity-70"
-            />
-          ) : (
-            <Star size={11} style={{ color: industry.color }} />
-          )}
-          <span className="text-xs" style={{ color: industry.color + "cc" }}>
-            Presented by {industry.sponsorCompanyName}
-          </span>
-        </div>
-      ) : (
-        <div className="border-t border-stone-100 px-5 py-2.5 flex items-center gap-2">
-          <span className="text-xs text-stone-600 italic">Sponsorship available</span>
+        {sponsor && (
+          <p className="mt-4 text-sm font-semibold" style={{ color: 'var(--bw-green)' }}>Explore Arena →</p>
+        )}
+      </button>
+
+      {!sponsor && !sponsorsLoading && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 px-5 py-2.5">
+          <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-700">Sponsorship available</span>
+          <button
+            type="button"
+            onClick={onBecomeSponsor}
+            className="text-xs font-semibold hover:underline focus:outline-none focus-visible:ring-2"
+            style={{ color: 'var(--bw-green)', ['--tw-ring-color' as any]: 'var(--bw-green)' }}
+          >
+            Become a sponsor →
+          </button>
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -182,6 +170,8 @@ export default function ArenaDiscovery({
   const [challengeCounts, setChallengeCounts] = useState<Record<string, number>>({});
   const [prizeTotals,     setPrizeTotals]     = useState<Record<string, number>>({});
   const [loading,         setLoading]         = useState(true);
+  const [sponsorModal,    setSponsorModal]    = useState<{ id: string; name: string } | null>(null);
+  const { forArena, loading: sponsorsLoading } = useActiveSponsorships();
 
   useEffect(() => {
     getArenaIndustries()
@@ -213,7 +203,8 @@ export default function ArenaDiscovery({
 
   const totalLive  = Object.values(challengeCounts).reduce((s, n) => s + n, 0);
   const totalPrize = Object.values(prizeTotals).reduce((s, n) => s + n, 0);
-  const sponsored  = industries.filter((i) => i.sponsorCompanyId).length;
+  // Sponsored = has an approved sponsorship running right now (not "has a logo on file").
+  const sponsored  = industries.filter((i) => forArena(i.id)).length;
 
   function formatPrize(n: number) {
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -307,7 +298,10 @@ export default function ArenaDiscovery({
             industry={industry}
             liveCount={challengeCounts[industry.id] ?? 0}
             prizePool={prizeTotals[industry.id] ?? 0}
+            sponsor={forArena(industry.id)}
+            sponsorsLoading={sponsorsLoading}
             onClick={() => onSelectIndustry(industry.id as IndustrySlug)}
+            onBecomeSponsor={() => setSponsorModal({ id: industry.id, name: industry.name })}
           />
         ))}
       </div>
@@ -338,6 +332,9 @@ export default function ArenaDiscovery({
           )}
         </div>
       </div>
+      {sponsorModal && (
+        <BecomeSponsorModal arenaId={sponsorModal.id} arenaName={sponsorModal.name} onClose={() => setSponsorModal(null)} />
+      )}
     </div>
   );
 }
