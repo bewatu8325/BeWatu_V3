@@ -254,6 +254,11 @@ async function doSearch(db: ReturnType<typeof getFirestore>, auth: ReturnType<ty
       createdAt: iso(d.createdAt),
       lastActiveAt: iso(d.lastActiveAt),
       onWatchlist: !!d.watchlistReason,
+      watchlistCategory: d.watchlistCategory ?? null,
+      credits: d.credits ?? null,
+      reputation: d.reputation ?? null,
+      industry: d.industry ?? null,
+      availability: d.availability ?? null,
     };
   });
   return { rows, nextCursor };
