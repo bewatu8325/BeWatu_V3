@@ -2594,7 +2594,7 @@ export async function writeAdminAuditLog(entry: {
   actorUid: string;
   actorName: string;
   action: string;
-  targetType: 'company' | 'recruiter' | 'verification' | 'discount_code';
+  targetType: 'company' | 'recruiter' | 'verification' | 'discount_code' | 'founding_member';
   targetId: string;
   targetName: string;
   details?: string;
