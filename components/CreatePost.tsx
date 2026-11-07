@@ -94,6 +94,16 @@ const CreatePost: React.FC<CreatePostProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidate, preview?.url]);
 
+  // The post-type menu closes on a click elsewhere or Escape.
+  const typesRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showTypes) return;
+    const onDown = (e: MouseEvent | TouchEvent) => { if (typesRef.current && !typesRef.current.contains(e.target as Node)) setShowTypes(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowTypes(false); };
+    document.addEventListener('mousedown', onDown); document.addEventListener('touchstart', onDown); document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('touchstart', onDown); document.removeEventListener('keydown', onKey); };
+  }, [showTypes]);
+
   const removePreview = () => {
     if (!preview) return;
     skip.current.add(preview.url);
@@ -140,7 +150,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
 
   // Standard post composer
   return (
-    <div className="bg-white rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: '#e7e5e4' }}>
+    <div className="bg-white rounded-2xl border shadow-sm" style={{ borderColor: '#e7e5e4' }}>
       <div className="p-4">
         <div className="flex items-start gap-3">
           {/* Avatar */}
@@ -182,9 +192,11 @@ const CreatePost: React.FC<CreatePostProps> = ({
         {(focused || content.trim() || preview) && (
           <div className="flex items-center justify-between mt-3 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
             {/* Post type selector */}
-            <div className="relative">
+            <div className="relative" ref={typesRef}>
               <button
                 onClick={() => setShowTypes(t => !t)}
+                aria-haspopup="menu"
+                aria-expanded={showTypes}
                 className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border transition-colors hover:bg-stone-50"
                 style={{ borderColor: '#e7e5e4', color: mode === 'standard' ? '#6b7280' : GREEN }}
               >

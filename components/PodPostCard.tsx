@@ -15,9 +15,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { LinkPreviewCard, LinkifiedText } from './LinkPreviewCard';
+import { PostActionsMenu, PostEditBox, DeleteConfirm, AuthorAvatar } from './PostActions';
 import { MessageCircle, ThumbsUp, Lightbulb, Users, ChevronDown, ChevronUp, Send, Loader2 } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { addComment, subscribeToComments, notifyPostAuthor, PostComment } from '../lib/firestoreService';
+import { addComment, subscribeToComments, notifyPostAuthor, PostComment, updatePostContent, deletePost } from '../lib/firestoreService';
 import { trackCommentMade, trackReactionGiven } from '../lib/analytics/track';
 import type { Post, User, AppreciationType } from '../types';
 
@@ -117,6 +118,12 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
   const [submitting,    setSubmitting]    = useState(false);
   const [commentCount,  setCommentCount]  = useState(post.comments ?? 0);
   const unsubRef = useRef<(() => void) | null>(null);
+
+  // Edit / delete (author only; firestore.rules is what actually enforces that).
+  const [mode, setMode]               = useState<'view' | 'edit' | 'delete'>('view');
+  const [localContent, setLocalContent] = useState<string | null>(null); // shown at once after saving
+  const [removed, setRemoved]         = useState(false);
+  useEffect(() => { setLocalContent(null); }, [post.content]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Reaction state — optimistic local counts
@@ -195,21 +202,18 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
   const displayHl     = (post as any).authorHeadline ?? author?.headline ?? null;
   const displayId     = post.authorId ?? author?.id;
 
+  const isOwn = !!fbUser?.uid && ((post as any).authorUid ?? (author as any)?._firestoreUid) === fbUser.uid;
+  const shownContent = localContent ?? post.content;
+  if (removed) return null;
+
   const totalReactions = reactions.helpful + reactions.thoughtProvoking + reactions.collaborationReady;
 
   return (
-    <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: '#e7e5e4' }}>
+    <div className="bg-white rounded-2xl border overflow-x-clip" style={{ borderColor: '#e7e5e4' }}>
       {/* Post header */}
       <div className="flex items-start gap-3 p-4 pb-3">
         <button onClick={() => onViewProfile(displayId)} className="flex-shrink-0">
-          {displayAvatar ? (
-            <img src={displayAvatar} alt={displayName} className="w-9 h-9 rounded-full object-cover" />
-          ) : (
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
-              style={{ backgroundColor: GREEN }}>
-              {displayName[0]}
-            </div>
-          )}
+          <AuthorAvatar name={displayName} src={displayAvatar} size={36} />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
@@ -222,13 +226,32 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
               <span className="text-xs text-stone-600 truncate">{displayHl}</span>
             )}
           </div>
-          <p className="text-xs text-stone-600">{timeAgo((post as any).createdAt)}</p>
+          <p className="text-xs text-stone-600">{timeAgo((post as any).createdAt)}{(post as any).edited || localContent !== null ? ' · Edited' : ''}</p>
         </div>
+        <PostActionsMenu
+          isOwn={isOwn}
+          onEdit={isOwn && post._firestoreId ? () => setMode('edit') : undefined}
+          onDelete={isOwn && post._firestoreId ? () => setMode('delete') : undefined}
+        />
       </div>
 
       {/* Post content */}
       <div className="px-4 pb-3">
-        {post.content && <LinkifiedText text={post.content} className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap" />}
+        {mode === 'delete' && (
+          <DeleteConfirm
+            onCancel={() => setMode('view')}
+            onConfirm={async () => { await deletePost(post._firestoreId!); setRemoved(true); }}
+          />
+        )}
+        {mode === 'edit' && (
+          <PostEditBox
+            initial={shownContent ?? ''}
+            allowEmpty={!!(post as any).linkPreview}
+            onCancel={() => setMode('view')}
+            onSave={async (content) => { await updatePostContent(post._firestoreId!, content); setLocalContent(content); setMode('view'); }}
+          />
+        )}
+        {mode !== 'edit' && shownContent && <LinkifiedText text={shownContent} className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap" />}
         {(post as any).linkPreview && <div className={post.content ? 'mt-3' : ''}><LinkPreviewCard preview={(post as any).linkPreview} /></div>}
       </div>
 

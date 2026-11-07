@@ -71,6 +71,7 @@ function toPost(d: QueryDocumentSnapshot): Post {
     circleId: data.circleId,
     // Re-validated on read: the author's browser wrote this field.
     linkPreview: sanitizeLinkPreview(data.linkPreview) ?? undefined,
+    edited: !!data.editedAt,
     // Denormalized author fields — render the feed without an N+1 lookup
     // against data.users (which only holds the top-50 public users).
     // Note: write field is `authorPhoto`; surface it as `avatarUrl` for the card.
@@ -147,6 +148,20 @@ export async function createPost(
     circleId,
     _firestoreId: ref.id,
   } as Post & { _firestoreId: string };
+}
+
+/** The author changes the text of their post. Only the text and the edit stamp are written. */
+export async function updatePostContent(firestoreId: string, content: string): Promise<void> {
+  await updateDoc(doc(db, 'posts', firestoreId), {
+    content,
+    editedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** The author removes their post (firestore.rules allows only the author). */
+export async function deletePost(firestoreId: string): Promise<void> {
+  await deleteDoc(doc(db, 'posts', firestoreId));
 }
 
 export async function fetchPosts(pageSize = 30, after?: QueryDocumentSnapshot) {
@@ -4162,6 +4177,7 @@ export function subscribeToCirclePosts(
       timestamp:      data.createdAt?.toDate?.()?.toISOString?.() ?? 'Just now',
       circleId:       data.circleId,
       linkPreview:    sanitizeLinkPreview(data.linkPreview) ?? undefined,
+      edited:         !!data.editedAt,
       _firestoreId:   d.id,
       createdAt:      data.createdAt,
       avatarUrl:      data.authorPhoto,

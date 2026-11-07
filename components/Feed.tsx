@@ -8,6 +8,12 @@ interface FeedProps {
   findAuthor: (authorId: number) => User | undefined;
   onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
   onViewProfile: (userId: number) => void;
+  /** Who is looking, so the card knows which posts are theirs. */
+  currentUserId?: number;
+  currentUserUid?: string;
+  onEditPost?: (post: Post, content: string) => Promise<void>;
+  onDeletePost?: (post: Post) => Promise<void>;
+  onReportContent?: (contentId: string, preview: string) => void;
 }
 
 /**
@@ -46,7 +52,7 @@ const calculatePostScore = (post: Post): number => {
 };
 
 
-const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onViewProfile }) => {
+const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onViewProfile, currentUserId, currentUserUid, onEditPost, onDeletePost, onReportContent }) => {
   const sortedPosts = useMemo(() => {
     // Filter for global posts only (no circleId)
     const globalPosts = posts.filter(post => !post.circleId);
@@ -68,6 +74,14 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
     });
   }, [posts]);
 
+  // The author's uid is the reliable signal; the numeric id is only a fallback for older posts.
+  // (firestore.rules decides who may actually edit or delete: the author, nobody else.)
+  const isOwn = (post: Post) => {
+    const uid = (post as any).authorUid as string | undefined;
+    if (uid && currentUserUid) return uid === currentUserUid;
+    return currentUserId !== undefined && post.authorId === currentUserId;
+  };
+
   return (
     <div className="space-y-6">
       {sortedPosts.length === 0 ? (
@@ -85,12 +99,16 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
         sortedPosts.map(post => {
           const author = findAuthor(post.authorId);
           return author ? (
-            <div key={post.id} className="min-w-0 w-full overflow-hidden">
+            <div key={post.id} className="min-w-0 w-full overflow-x-clip">
               <PostCard
                 post={post}
                 author={author}
                 onAppreciatePost={onAppreciatePost}
                 onViewProfile={onViewProfile}
+                isOwnPost={isOwn(post)}
+                onEditPost={onEditPost}
+                onDeletePost={onDeletePost}
+                onReportContent={onReportContent}
               />
             </div>
           ) : null;

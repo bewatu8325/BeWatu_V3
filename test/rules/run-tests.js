@@ -204,6 +204,13 @@ async function main() {
   await check("the author can NOT swap in an invalid card later", me.doc("posts/p-mine").update({ linkPreview: { ...goodCard, url: "javascript:alert(1)" } }), "DENY");
   await check("the author can still edit the text of a post that has a valid card", me.doc("posts/p-mine").update({ content: "edited" }), "ALLOW");
   await check("someone else cannot add a card to the post", atk.doc("posts/p-mine").update({ linkPreview: goodCard }), "DENY");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("posts/p-edit").set({ content: "original", authorUid: "me", appreciations: { helpful: 0 } }); await ctx.firestore().doc("posts/p-del-other").set({ content: "x", authorUid: "someone" }); await ctx.firestore().doc("posts/p-del-mine").set({ content: "x", authorUid: "me" }); });
+  await check("edit post: the author can change the text and stamp the edit time", me.doc("posts/p-edit").update({ content: "edited text", editedAt: new Date(), updatedAt: new Date() }), "ALLOW");
+  await check("edit post: someone else cannot change the text", atk.doc("posts/p-edit").update({ content: "hijacked", editedAt: new Date() }), "DENY");
+  await check("delete post: someone else cannot delete it", atk.doc("posts/p-del-other").delete(), "DENY");
+  await check("delete post: the author cannot delete someone else's post", me.doc("posts/p-del-other").delete(), "DENY");
+  await check("delete post: the author can delete their own post", me.doc("posts/p-del-mine").delete(), "ALLOW");
+  await check("delete post: a signed-out visitor cannot delete", testEnv.unauthenticatedContext().firestore().doc("posts/p-edit").delete(), "DENY");
   await check("link_previews (cache): no client can read it", me.doc("link_previews/abc").get(), "DENY");
   await check("link_previews (cache): no client can write it (no poisoning a shared preview)", me.doc("link_previews/abc").set({ preview: goodCard }), "DENY");
   await check("link_previews (cache): ops staff cannot write it either", ops1.doc("link_previews/abc").set({ preview: goodCard }), "DENY");

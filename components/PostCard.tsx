@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Post, User, AppreciationType } from '../types';
 import { LinkPreviewCard, LinkifiedText } from './LinkPreviewCard';
+import { PostActionsMenu, PostEditBox, DeleteConfirm, AuthorAvatar } from './PostActions';
 import { CommentIcon, ShareIcon, HelpfulIcon, ThoughtProvokingIcon, CollaborationReadyIcon } from '../constants';
 
 interface PostCardProps {
@@ -9,7 +10,10 @@ interface PostCardProps {
   onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
   onViewProfile: (userId: number) => void;
   onReportContent?: (contentId: string, preview: string) => void;
+  /** Own posts get Edit / Delete in the menu; others get Report. */
   isOwnPost?: boolean;
+  onEditPost?: (post: Post, content: string) => Promise<void>;
+  onDeletePost?: (post: Post) => Promise<void>;
 }
 
 const ActionButton: React.FC<{icon: React.ReactNode, label: string, onClick?: () => void, className?: string}> = ({ icon, label, onClick, className }) => (
@@ -23,57 +27,43 @@ const ActionButton: React.FC<{icon: React.ReactNode, label: string, onClick?: ()
 );
 
 
-const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onViewProfile, onReportContent, isOwnPost }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onViewProfile, onReportContent, isOwnPost, onEditPost, onDeletePost }) => {
+  const [mode, setMode] = useState<'view' | 'edit' | 'delete'>('view');
+  // The author's own copy of the name/photo travels with the post, so the card
+  // still has something to show when the profile lookup has no photo.
+  const avatar = author.avatarUrl || (post as any).avatarUrl || null;
 
   return (
     <div className="bg-white p-5 rounded-2xl border shadow-sm" style={{ borderColor: "#e7e5e4" }}>
       <div className="flex items-start justify-between mb-4">
         <button onClick={() => onViewProfile(author.id)} className="flex items-center space-x-3 text-left hover:opacity-80 transition-opacity min-w-0 flex-1">
-          <img src={author.avatarUrl} alt={author.name} className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+          <AuthorAvatar name={author.name} src={avatar} size={48} />
           <div className="min-w-0">
             <p className="font-bold text-stone-900">{author.name}</p>
             <p className="text-xs text-stone-600">{author.headline}</p>
-            <p className="text-xs text-stone-600">{post.timestamp}</p>
+            <p className="text-xs text-stone-600">{post.timestamp}{post.edited ? ' · Edited' : ''}</p>
           </div>
         </button>
 
-        {/* ··· menu */}
-        {!isOwnPost && onReportContent && (
-          <div ref={menuRef} style={{ position: 'relative', flexShrink: 0, marginLeft: 8 }}>
-            <button
-              onClick={() => setMenuOpen(v => !v)}
-              className="w-8 h-8 flex items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 hover:text-stone-600 transition-colors"
-              title="More options"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="5"  r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
-              </svg>
-            </button>
-            {menuOpen && (
-              <div style={{ position: 'absolute', right: 0, top: '110%', background: '#fff', border: '1px solid #e7e5e4', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.1)', zIndex: 50, minWidth: 160, overflow: 'hidden' }}>
-                <button
-                  onClick={() => { setMenuOpen(false); onReportContent(String(post.id), post.content?.slice(0, 80) ?? ''); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#57534e', fontWeight: 500, fontFamily: 'inherit' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f4')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  Report post
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <PostActionsMenu
+          isOwn={!!isOwnPost}
+          onEdit={onEditPost ? () => setMode('edit') : undefined}
+          onDelete={onDeletePost ? () => setMode('delete') : undefined}
+          onReport={onReportContent ? () => onReportContent(String((post as any)._firestoreId ?? post.id), post.content?.slice(0, 80) ?? '') : undefined}
+        />
       </div>
-      {post.content && <LinkifiedText text={post.content} className={`text-stone-700 whitespace-pre-wrap ${post.linkPreview ? 'mb-3' : 'mb-4'}`} />}
+      {mode === 'delete' && onDeletePost && (
+        <DeleteConfirm onCancel={() => setMode('view')} onConfirm={() => onDeletePost(post)} />
+      )}
+      {mode === 'edit' && onEditPost && (
+        <PostEditBox
+          initial={post.content ?? ''}
+          allowEmpty={!!post.linkPreview}
+          onCancel={() => setMode('view')}
+          onSave={async (content) => { await onEditPost(post, content); setMode('view'); }}
+        />
+      )}
+      {mode !== 'edit' && post.content && <LinkifiedText text={post.content} className={`text-stone-700 whitespace-pre-wrap ${post.linkPreview ? 'mb-3' : 'mb-4'}`} />}
       {post.linkPreview && <div className="mb-4"><LinkPreviewCard preview={post.linkPreview} /></div>}
       <div className="flex justify-between items-center text-sm text-stone-600 mb-2">
           <div className="flex items-center space-x-4">
