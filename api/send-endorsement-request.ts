@@ -31,6 +31,18 @@ const SEND_WINDOW_MS         = 60 * 60 * 1000;  // rolling 1-hour window
 const MAX_SENDS_PER_WINDOW   = 10;              // ...capped at 10 sends in it
 const MAX_SKILLS_PER_REQUEST = 20;              // generous ceiling, not a real limit for any real profile
 
+// requesterName, skill names and colleagueEmail are all attacker-controlled and
+// end up in an email that arrives from BeWatu's own domain, so everything
+// interpolated into the HTML body must be escaped. (The subject line is not HTML.)
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatSkillList(skills: string[]): string {
   if (skills.length === 1) return skills[0];
   if (skills.length === 2) return `${skills[0]} and ${skills[1]}`;
@@ -124,6 +136,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const link = `https://www.bewatu.com/endorse/${token}`;
+    const safeRequesterName = escapeHtml(requesterName);
+    const safeSkillList = formatSkillList(skillNames.map(escapeHtml));
+    const safeColleagueEmail = escapeHtml(colleagueEmail);
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -140,10 +155,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               <img src="https://www.bewatu.com/logo.png" alt="BeWatu" height="32" style="height:32px;" />
             </div>
             <h1 style="font-size: 20px; font-weight: 800; color: #1c1917; margin-bottom: 8px;">
-              ${requesterName} is asking for your endorsement
+              ${safeRequesterName} is asking for your endorsement
             </h1>
             <p style="color: #78716c; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-              They'd like you to vouch for their <strong>${formatSkillList(skillNames)}</strong> ${skillNames.length === 1 ? 'skill' : 'skills'} on BeWatu.
+              They'd like you to vouch for their <strong>${safeSkillList}</strong> ${skillNames.length === 1 ? 'skill' : 'skills'} on BeWatu.
               It only takes a minute, and you do not need an account to do it.
             </p>
             <div style="text-align: center; margin-bottom: 24px;">
@@ -156,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             </p>
             <hr style="border: none; border-top: 1px solid #e7e5e4; margin: 24px 0;" />
             <p style="color: #d6d3d1; font-size: 11px;">
-              BeWatu · Endorsement request · This email was sent to ${colleagueEmail}
+              BeWatu · Endorsement request · This email was sent to ${safeColleagueEmail}
             </p>
           </div>
         `,
