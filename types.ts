@@ -212,6 +212,18 @@ export interface Education {
 
 export type AppreciationType = 'helpful' | 'thoughtProvoking' | 'collaborationReady';
 
+// Article preview attached to a post (headline, source, image) -- built by
+// api/link-preview.ts from the page's Open Graph tags when the author pastes a
+// link. Metadata only; the article itself is never stored.
+export interface LinkPreview {
+  url: string;          // the link the author pasted; the whole card opens it
+  title: string;
+  description?: string;
+  image?: string;       // https only; absent -> text-only card
+  siteName?: string;    // og:site_name; the card falls back to hostname
+  hostname: string;
+}
+
 export interface Post {
   id: number;
   authorId: number;
@@ -225,6 +237,7 @@ export interface Post {
   shares: number;
   timestamp: string;
   circleId?: number;
+  linkPreview?: LinkPreview;
 }
 
 export interface Company {

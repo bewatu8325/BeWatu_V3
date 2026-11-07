@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppData, AppreciationType, User, View } from '../types';
+import { AppData, AppreciationType, LinkPreview, User, View } from '../types';
 import ProfileSidebar from './ProfileSidebar';
 import Feed from './Feed';
 import CreatePost from './CreatePost';
@@ -13,7 +13,7 @@ interface HomePageProps {
     onPlayVideo: (url: string) => void;
     onNavigate: (view: View) => void;
     onSelectCircle: (circleId: number) => void;
-    addPost: (content: string) => void;
+    addPost: (content: string, circleId?: number, linkPreview?: LinkPreview) => void;
     onPerspective?: (question: string, context: string, seeking: any[]) => Promise<void>;
     onWisdomThread?: (data: any) => Promise<void>;
     onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;

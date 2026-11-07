@@ -75,6 +75,26 @@ service cloud.firestore {
     // per-user tracking (like isSelfUidToggle's fields) or a Cloud
     // Function, which not every counter fixed here has; each call site
     // below notes which is which.
+    // The article card on a post (headline, source, image URL). A post is written
+    // by the author's own browser, so nothing here can be taken on trust: only
+    // these keys, plain http(s) links (https for the image), bounded lengths.
+    // The app re-checks it on read too (lib/linkPreview.ts sanitizeLinkPreview).
+    function validLinkPreview(p) {
+      return p is map
+        && p.keys().hasOnly(['url', 'title', 'description', 'image', 'siteName', 'hostname'])
+        && p.keys().hasAll(['url', 'title', 'hostname'])
+        && p.url is string && p.url.size() <= 2048 && p.url.matches('https?://[^\\s]+')
+        && p.title is string && p.title.size() > 0 && p.title.size() <= 300
+        && p.hostname is string && p.hostname.size() > 0 && p.hostname.size() <= 253
+        && (!('description' in p) || (p.description is string && p.description.size() <= 300))
+        && (!('siteName' in p) || (p.siteName is string && p.siteName.size() <= 100))
+        && (!('image' in p) || (p.image is string && p.image.size() <= 2048 && p.image.matches('https://[^\\s]+')));
+    }
+    function postLinkPreviewOk() {
+      return !('linkPreview' in request.resource.data)
+        || validLinkPreview(request.resource.data.linkPreview);
+    }
+
     function isCounterBump(before, after) {
       return (before is int || before is float)
           && (after is int || after is float)
@@ -236,6 +256,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /compliance_exports/{bundleId} {
+      allow read, write: if false;
+    }
+
+    // api/link-preview.ts: the cache of fetched article metadata and the per-member
+    // lookup counters. Server-side only (Admin SDK); no client may read or write.
+    match /link_previews/{docId} {
+      allow read, write: if false;
+    }
+    match /link_preview_rate_limits/{docId} {
       allow read, write: if false;
     }
 
@@ -763,7 +792,8 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read:   if isAuth();
       allow create: if isAuth()
-        && request.resource.data.authorUid == request.auth.uid;
+        && request.resource.data.authorUid == request.auth.uid
+        && postLinkPreviewOk();
 
       match /comments/{commentId} {
         allow read:   if isAuth();
@@ -781,7 +811,7 @@ service cloud.firestore {
       // current app write site at all (dead counters as of this pass, but
       // still reachable by any raw client, so still worth closing).
       allow update: if isAuth() && (
-        resource.data.authorUid == request.auth.uid
+        (resource.data.authorUid == request.auth.uid && postLinkPreviewOk())
         || (onlyFields(['comments', 'updatedAt'])
             && isCounterBump(resource.data.comments, request.resource.data.comments))
         || (onlyFields(['shares', 'updatedAt'])

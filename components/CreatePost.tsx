@@ -5,9 +5,12 @@
  * Supports: standard post, perspective post, wisdom thread.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import React, { useState } from 'react';
-import { User } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { User, LinkPreview } from '../types';
 import { BookOpen, Users, FileText, ChevronDown } from 'lucide-react';
+import { auth } from '../lib/firebase';
+import { firstPreviewableUrl, fetchLinkPreview, removeUrlFromText, appendUrlToText } from '../lib/linkPreview';
+import { LinkPreviewCard, LinkPreviewSkeleton } from './LinkPreviewCard';
 import { CreatePerspectivePost, GenerationTag } from './PerspectivePost';
 import { CreateWisdomThread }                   from './WisdomThread';
 
@@ -17,7 +20,7 @@ const GREEN_LT = 'var(--bw-green-light)';
 type PostMode = 'standard' | 'perspective' | 'wisdom';
 
 interface CreatePostProps {
-  addPost:         (content: string, circleId?: number) => void;
+  addPost:         (content: string, circleId?: number, linkPreview?: LinkPreview) => void;
   onPerspective?:  (question: string, context: string, seeking: GenerationTag[]) => Promise<void>;
   onWisdomThread?: (data: any) => Promise<void>;
   currentUser:     User;
@@ -53,13 +56,64 @@ const CreatePost: React.FC<CreatePostProps> = ({
   const [showTypes, setShowTypes] = useState(false);
   const [focused, setFocused]     = useState(false);
 
+  // ── Article preview ──────────────────────────────────────────────────────
+  // Paste a link and a card appears by itself. `preview` is the card, `loadingUrl`
+  // the link being looked up. `urlTaken` records that we moved the link out of the
+  // text (so removing the card can put it back). `skip` holds links that already
+  // failed or that the author dismissed, so they are not looked up again.
+  const [preview, setPreview]       = useState<LinkPreview | null>(null);
+  const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
+  const [urlTaken, setUrlTaken]     = useState(false);
+  const skip = useRef<Set<string>>(new Set());
+  const candidate = useMemo(() => firstPreviewableUrl(content), [content]);
+
+  useEffect(() => {
+    // Nothing to do when the text has no link, it is the card we already have, or we gave up on it.
+    if (!candidate || candidate === preview?.url || skip.current.has(candidate)) return;
+    const ctrl = new AbortController();
+    // Wait briefly so a link that is being typed isn't looked up letter by letter.
+    const timer = setTimeout(async () => {
+      setLoadingUrl(candidate);
+      const result = await fetchLinkPreview(
+        candidate,
+        () => auth.currentUser!.getIdToken(),
+        ctrl.signal,
+      );
+      if (ctrl.signal.aborted) return;
+      setLoadingUrl(null);
+      if (!result) { skip.current.add(candidate); return; } // keep the plain link in the text
+      setPreview(result);
+      // The card carries the link now, so take the raw URL out of the commentary
+      // (only when it stands alone; a link inside a sentence stays put).
+      const r = removeUrlFromText(content, candidate);
+      setContent(c => removeUrlFromText(c, candidate).text);
+      setUrlTaken(r.removed);
+    }, 600);
+    return () => { clearTimeout(timer); ctrl.abort(); setLoadingUrl(null); };
+    // `content` is read only to decide whether the link was taken out; the lookup is keyed on the link itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidate, preview?.url]);
+
+  const removePreview = () => {
+    if (!preview) return;
+    skip.current.add(preview.url);
+    // Give the link back if we had moved it out of the text, so nothing silently disappears.
+    if (urlTaken) setContent(c => appendUrlToText(c, preview.url));
+    setPreview(null);
+    setUrlTaken(false);
+  };
+
   const initials = currentUser.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const currentType = POST_TYPES.find(t => t.mode === mode)!;
 
   const handleStandardPost = () => {
-    if (!content.trim()) return;
-    addPost(content.trim(), circleId);  // circleId scopes post to pod
+    if (!content.trim() && !preview) return;
+    addPost(content.trim(), circleId, preview ?? undefined);  // circleId scopes post to pod
     setContent('');
+    setPreview(null);
+    setLoadingUrl(null);
+    setUrlTaken(false);
+    skip.current.clear();
     setFocused(false);
   };
 
@@ -117,8 +171,15 @@ const CreatePost: React.FC<CreatePostProps> = ({
           </div>
         </div>
 
+        {/* Article card: below the commentary box so the author's own words come first */}
+        {(preview || loadingUrl) && (
+          <div className="mt-3 sm:ml-12">
+            {loadingUrl ? <LinkPreviewSkeleton /> : <LinkPreviewCard preview={preview!} onRemove={removePreview} />}
+          </div>
+        )}
+
         {/* Actions row */}
-        {(focused || content.trim()) && (
+        {(focused || content.trim() || preview) && (
           <div className="flex items-center justify-between mt-3 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
             {/* Post type selector */}
             <div className="relative">
@@ -159,7 +220,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
             {/* Post button */}
             <button
               onClick={handleStandardPost}
-              disabled={!content.trim()}
+              disabled={!content.trim() && !preview}
               className="px-4 py-1.5 rounded-lg text-sm font-bold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
               style={{ backgroundColor: GREEN }}
             >
@@ -169,7 +230,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
         )}
 
         {/* Post type quick buttons when not focused */}
-        {!focused && !content.trim() && (onPerspective || onWisdomThread) && (
+        {!focused && !content.trim() && !preview && (onPerspective || onWisdomThread) && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
             {onPerspective && (
               <button onClick={() => setMode('perspective')}

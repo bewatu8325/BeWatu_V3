@@ -30,6 +30,8 @@ import {
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { sanitizeLinkPreview, previewForStorage } from './linkPreview';
+import type { LinkPreview } from '../types';
 import { deriveApplicationStage, PIPELINE_STAGES, type ApplicationStage } from './applicationStage';
 import {
   Post,
@@ -67,6 +69,8 @@ function toPost(d: QueryDocumentSnapshot): Post {
     shares: data.shares ?? 0,
     timestamp: data.timestamp ?? 'Just now',
     circleId: data.circleId,
+    // Re-validated on read: the author's browser wrote this field.
+    linkPreview: sanitizeLinkPreview(data.linkPreview) ?? undefined,
     // Denormalized author fields — render the feed without an N+1 lookup
     // against data.users (which only holds the top-50 public users).
     // Note: write field is `authorPhoto`; surface it as `avatarUrl` for the card.
@@ -101,7 +105,8 @@ export async function createPost(
   content: string,
   author: User,
   authorUid: string,
-  circleId?: number | string
+  circleId?: number | string,
+  linkPreview?: LinkPreview
 ): Promise<Post> {
   // Store circleId as-is (string _firestoreId preferred, numeric fallback).
   // Also store the string form so subscribeToCirclePosts can always match.
@@ -123,6 +128,9 @@ export async function createPost(
     // (create in Firebase Console → Firestore → Indexes)
     circleId: circleIdStr,
     numericId: Date.now(),
+    // Metadata of the article the author linked (headline, source, image URL).
+    // Never the article itself. Omitted entirely when there is no card.
+    ...(linkPreview ? { linkPreview: previewForStorage(linkPreview) } : {}),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -131,6 +139,7 @@ export async function createPost(
     id: Date.now(),
     authorId: author.id,
     content,
+    ...(linkPreview ? { linkPreview: previewForStorage(linkPreview) } : {}),
     appreciations: { helpful: 0, thoughtProvoking: 0, collaborationReady: 0 },
     comments: 0,
     shares: 0,
@@ -4152,6 +4161,7 @@ export function subscribeToCirclePosts(
       shares:         data.shares ?? 0,
       timestamp:      data.createdAt?.toDate?.()?.toISOString?.() ?? 'Just now',
       circleId:       data.circleId,
+      linkPreview:    sanitizeLinkPreview(data.linkPreview) ?? undefined,
       _firestoreId:   d.id,
       createdAt:      data.createdAt,
       avatarUrl:      data.authorPhoto,
