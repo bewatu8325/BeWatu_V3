@@ -127,6 +127,18 @@ async function main() {
   await check("content_reports: ops staff CAN read a report that isn't theirs", ops1.doc("content_reports/r1").get(), "ALLOW");
   await check("content_reports: any authed user can still file a new report", atk.collection("content_reports").add({ reportedBy: "atk", reason: "spam" }), "ALLOW");
 
+  console.log("\n== ReportModal -> api/submit-report: tickets/fraud cases are server-only for normal users ==");
+  // Payloads mirror what ReportModal used to addDoc straight from the client.
+  const reportTicket = { subject: "User report: spam", category: "safety", priority: "medium", userId: "atk", userName: "Attacker", userEmail: "a@x.com", body: "x", status: "open", assignedTo: null, assignedName: null, slaBreached: false, slaDeadline: new Date(), notes: [], createdByOps: false, linkedReportId: "r1", createdAt: new Date(), updatedAt: new Date(), resolvedAt: null };
+  await check("support_tickets: a normal signed-in user CANNOT create a ticket directly", atk.collection("support_tickets").add(reportTicket), "DENY");
+  await check("support_tickets: a normal user CANNOT create one even with ops-looking fields", atk.collection("support_tickets").add({ ...reportTicket, priority: "critical", status: "resolved", assignedTo: "ops1", createdByOps: true }), "DENY");
+  await check("support_tickets: a normal user CANNOT read tickets", atk.collection("support_tickets").get(), "DENY");
+  await check("support_tickets: ops staff CAN still create a ticket", ops1.collection("support_tickets").add({ ...reportTicket, createdByOps: true }), "ALLOW");
+  await check("fraud_cases: a normal signed-in user CANNOT create a fraud case directly", atk.collection("fraud_cases").add({ userId: "atk", type: "account_compromised", severity: "high", status: "open", riskScore: 60 }), "DENY");
+  await check("report_rate_limits: a normal user CANNOT read or write the rate-limit counters", atk.doc("report_rate_limits/atk").set({ count: 0 }), "DENY");
+  await check("report_rate_limits: ops staff CANNOT touch them either (Admin SDK only)", ops1.doc("report_rate_limits/atk").get(), "DENY");
+  await check("content_reports: the client-side half of a user report still works", atk.collection("content_reports").add({ contentType: "profile", contentId: "victim", reportedBy: "atk", reportedByName: "Attacker", reason: "spam", status: "pending", severity: "medium", source: "user_report" }), "ALLOW");
+
   console.log("\n== platform_feedback: written by api/submit-feedback.ts only, read by support ops ==");
   const support1 = testEnv.authenticatedContext("support1").firestore();
   await check("platform_feedback: a stranger CANNOT read it", atk.doc("platform_feedback/fb1").get(), "DENY");
