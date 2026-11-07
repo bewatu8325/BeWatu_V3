@@ -10,6 +10,7 @@ import { View } from '../types';
 import { Factory, Loader2 } from 'lucide-react';
 import { goToFactory } from '../utils/factoryHandoff';
 import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGate';
+import FeedbackModal from './FeedbackModal';
 
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -345,6 +346,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [factoryLoading, setFactoryLoading] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const menuRef  = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -538,6 +540,10 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
                 <CreditCard className="h-4 w-4" />Pricing
               </button>
+              <button onClick={() => { setShowFeedback(true); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
+                <MessageSquare className="h-4 w-4" />Share feedback
+              </button>
               <div className="my-1 h-px bg-stone-100" />
               <button onClick={() => { setMenuOpen(false); onLogout(); }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-900/20 transition-colors">
@@ -547,6 +553,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
           )}
         </div>
       </div>
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </header>
   );
 }
