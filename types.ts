@@ -148,6 +148,10 @@ export interface User {
   // grandfathers them in automatically — no backfill, no cutoff-date
   // comparison needed.
   engagementGateApplies?: boolean;
+  // True for accounts created during the Founding Members beta. Set once in
+  // buildNewUserDoc and frozen from client updates (firestore.rules), so it
+  // can't be self-granted later. Drives the profile badge.
+  foundingMember?: boolean;
 }
 
 export const AVAILABILITY_OPTIONS: User['availability'][] = [

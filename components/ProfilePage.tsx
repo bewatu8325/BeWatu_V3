@@ -17,6 +17,7 @@ import { uploadAvatar } from '../lib/storageService';
 import { updateUserInFirestore, generateUniqueUsername } from '../lib/firebaseAuth';
 import { getFollowingCompanies, getMyArenaSubmissions, ArenaSubmissionRecord, getFactoryProjects, FactoryProjectRecord, FACTORY_PROJECT_STATUS_LABEL } from '../lib/firestoreService';
 import SkillResume from './profile/SkillResume';
+import FoundingMemberBadge from './FoundingMemberBadge';
 
 interface ProfilePageProps {
   user: User;
@@ -437,6 +438,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
               </span>
             )}
           </div>
+
+          {user.foundingMember && (
+            <div className="mt-2 flex items-center justify-center">
+              <FoundingMemberBadge />
+            </div>
+          )}
 
           <p className="text-sm text-stone-600 mt-1 break-words">{user.headline}</p>
 
