@@ -19,11 +19,11 @@ interface PostCardProps {
 const ActionButton: React.FC<{icon: React.ReactNode, label: string, onClick?: () => void, className?: string}> = ({ icon, label, onClick, className }) => (
     <button 
       onClick={onClick} 
-      className={`flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] min-w-0 flex-shrink-0 hover:bg-[var(--bw-green-light)] focus:outline-none focus-visible:ring-2 ${className}`}
+      className={`flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] min-w-0 flex-shrink-0 hover:bg-[var(--bw-green-light)] focus:outline-none focus-visible:ring-2 ${className}`}
       style={{ color: 'var(--bw-green)', ['--tw-ring-color' as any]: 'var(--bw-green)' }}
     >
         {icon}
-        <span className="text-[11px] sm:text-[15px] leading-none sm:leading-normal font-semibold whitespace-nowrap" style={{ fontFamily: "'Source Serif 4', Georgia, 'Times New Roman', serif" }}>{label}</span>
+        <span className="text-[11px] sm:text-[13px] leading-none sm:leading-normal font-semibold whitespace-nowrap">{label}</span>
     </button>
 );
 
@@ -76,11 +76,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
       </div>
       <div className="border-t pt-2 -mx-1 sm:mx-0" style={{ borderColor: "#e7e5e4" }}>
         <div className="flex justify-between sm:justify-around overflow-x-auto scrollbar-hide px-1 sm:px-0 gap-0.5 sm:gap-1">
-          <ActionButton icon={<HelpfulIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Like" onClick={() => onAppreciatePost(post.id, 'helpful')}/>
-          <ActionButton icon={<ThoughtProvokingIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Insightful" onClick={() => onAppreciatePost(post.id, 'thoughtProvoking')}/>
-          <ActionButton icon={<CollaborationReadyIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Collab" onClick={() => onAppreciatePost(post.id, 'collaborationReady')}/>
-          <ActionButton icon={<CommentIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Comment"/>
-          <ActionButton icon={<ShareIcon className="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-shrink-0"/>} className="" label="Share"/>
+          <ActionButton icon={<HelpfulIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px] flex-shrink-0"/>} className="" label="Like" onClick={() => onAppreciatePost(post.id, 'helpful')}/>
+          <ActionButton icon={<ThoughtProvokingIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px] flex-shrink-0"/>} className="" label="Insightful" onClick={() => onAppreciatePost(post.id, 'thoughtProvoking')}/>
+          <ActionButton icon={<CollaborationReadyIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px] flex-shrink-0"/>} className="" label="Collab" onClick={() => onAppreciatePost(post.id, 'collaborationReady')}/>
+          <ActionButton icon={<CommentIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px] flex-shrink-0"/>} className="" label="Comment"/>
+          <ActionButton icon={<ShareIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px] flex-shrink-0"/>} className="" label="Share"/>
         </div>
       </div>
     </div>
