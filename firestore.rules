@@ -1710,6 +1710,34 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Arena sponsorships (api/arena-sponsorship.ts). Written only by that route
+    // (Admin SDK): a company can ask to sponsor, but approval, dates and the
+    // no-overlapping-exclusives rule are enforced server-side. Anyone signed in
+    // can read APPROVED records (they are public branding); the company's own
+    // administrator can also read its pending / rejected / revoked ones; platform
+    // admins can read everything. Whether a record is *active* is decided from its
+    // dates by the app (lib/arenaSponsorship.ts), never stored.
+    match /arena_sponsorships/{sponsorshipId} {
+      allow read: if isAuth() && (
+        resource.data.status == 'approved'
+        || resource.data.companyAdminUid == request.auth.uid
+        || isPlatformAdmin()
+      );
+      allow write: if false;
+    }
+    // The optional banner image, kept apart so listing sponsorships stays light.
+    match /arena_sponsorship_assets/{sponsorshipId} {
+      allow read: if isAuth() && (
+        get(/databases/$(database)/documents/arena_sponsorships/$(sponsorshipId)).data.status == 'approved'
+        || get(/databases/$(database)/documents/arena_sponsorships/$(sponsorshipId)).data.companyAdminUid == request.auth.uid
+        || isPlatformAdmin()
+      );
+      allow write: if false;
+    }
+    match /arena_sponsorship_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
     match /industry_verifications/{verificationId} {
       allow read:           if isAuth()
                               && resource.data.recruiterUid == request.auth.uid;
