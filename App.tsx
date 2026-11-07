@@ -3,7 +3,7 @@ import SparksTray from './components/sparks/SparksTray';
 import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
-import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification } from './types';
+import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification, LinkPreview } from './types';
 import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/claudeService';
 import { LoadingIcon } from './constants';
 import { PodsIcon, BridgeIcon } from './components/IconComponents';
@@ -878,7 +878,7 @@ const MainApp: React.FC = () => {
 
   // ── Data mutation handlers ────────────────────────────────────────────────
 
-  const addPost = async (content: string, circleId?: number) => {
+  const addPost = async (content: string, circleId?: number, linkPreview?: LinkPreview) => {
     if (!data || !currentUser || !fbUser) return;
     let resolvedCircleId: string | number | undefined = circleId;
     if (circleId !== undefined && circleId !== null) {
@@ -886,7 +886,7 @@ const MainApp: React.FC = () => {
       if (circle?._firestoreId) resolvedCircleId = circle._firestoreId;
     }
     try {
-      const newPost = await fbCreatePost(content, currentUser, fbUser.uid, resolvedCircleId as any);
+      const newPost = await fbCreatePost(content, currentUser, fbUser.uid, resolvedCircleId as any, linkPreview);
       trackThreadStarted(fbUser.uid, circleId ? 'pod' : 'feed', (newPost as any)._firestoreId ?? String(newPost.id));
       if (resolvedCircleId !== undefined) return;
       setData({ ...data, posts: [newPost, ...data.posts] });

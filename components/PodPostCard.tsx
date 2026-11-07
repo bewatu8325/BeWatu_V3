@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { LinkPreviewCard, LinkifiedText } from './LinkPreviewCard';
 import { MessageCircle, ThumbsUp, Lightbulb, Users, ChevronDown, ChevronUp, Send, Loader2 } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { addComment, subscribeToComments, notifyPostAuthor, PostComment } from '../lib/firestoreService';
@@ -227,7 +228,8 @@ const PodPostCard: React.FC<PodPostCardProps> = ({
 
       {/* Post content */}
       <div className="px-4 pb-3">
-        <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+        {post.content && <LinkifiedText text={post.content} className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap" />}
+        {(post as any).linkPreview && <div className={post.content ? 'mt-3' : ''}><LinkPreviewCard preview={(post as any).linkPreview} /></div>}
       </div>
 
       {/* Reaction counts (if any) */}

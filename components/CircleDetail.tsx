@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import PeerLearning from './PeerLearning';
-import { Circle, Post, User, AppreciationType, Article } from '../types';
+import { Circle, Post, User, AppreciationType, Article, LinkPreview } from '../types';
 import CreatePost from './CreatePost';
 import PodPostCard from './PodPostCard';
 import { CirclesIcon, UsersIcon, ShieldCheckIcon, VerifiedIcon } from '../constants';
@@ -209,7 +209,7 @@ interface CircleDetailProps {
   allArticles: Article[];
   allUsers: User[];
   currentUser: User;
-  addPost: (content: string, circleId?: number) => void;
+  addPost: (content: string, circleId?: number, linkPreview?: LinkPreview) => void;
   onBack?: () => void;
   onApplyToCircle?: (circleId: number) => void;
   findAuthor: (authorId: number) => User | undefined;

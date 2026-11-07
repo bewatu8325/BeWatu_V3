@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Post, User, AppreciationType } from '../types';
+import { LinkPreviewCard, LinkifiedText } from './LinkPreviewCard';
 import { CommentIcon, ShareIcon, HelpfulIcon, ThoughtProvokingIcon, CollaborationReadyIcon } from '../constants';
 
 interface PostCardProps {
@@ -72,7 +73,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
           </div>
         )}
       </div>
-      <p className="text-stone-700 mb-4 whitespace-pre-wrap">{post.content}</p>
+      {post.content && <LinkifiedText text={post.content} className={`text-stone-700 whitespace-pre-wrap ${post.linkPreview ? 'mb-3' : 'mb-4'}`} />}
+      {post.linkPreview && <div className="mb-4"><LinkPreviewCard preview={post.linkPreview} /></div>}
       <div className="flex justify-between items-center text-sm text-stone-600 mb-2">
           <div className="flex items-center space-x-4">
              {post.appreciations.helpful > 0 && <span className="flex items-center">🔥 {post.appreciations.helpful}</span>}
