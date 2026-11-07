@@ -57,6 +57,9 @@ async function main() {
     await db.doc("users/victim/private/contact").set({ email: "victim@x.com", phone: "555-1234", location: "SF", stripeCustomerId: "cus_abc" });
     await db.doc("ops_staff/ops1").set({ role: "trust_agent", isActive: true });
     await db.doc("ops_staff/support1").set({ role: "support_agent", isActive: true });
+    await db.doc("users/padmin").set({ isPlatformAdmin: true, displayName: "Platform Admin" });
+    await db.doc("compliance_exports/BW-1").set({ bundleId: "BW-1", status: "delivered" });
+    await db.doc("ops_reveal_rate_limits/reveal_support1").set({ count: 1 });
     await db.doc("platform_feedback/fb1").set({ uid: "author1", message: "hi", category: "idea" });
   });
 
@@ -111,6 +114,29 @@ async function main() {
   await check("users/private/contact: the owner CAN read their own", testEnv.authenticatedContext("victim").firestore().doc("users/victim/private/contact").get(), "ALLOW");
   await check("users/private/contact: a stranger CANNOT write into someone else's", atk.doc("users/victim/private/contact").set({ email: "hacked@x.com" }), "DENY");
   await check("users/private/contact: the owner CAN update their own", testEnv.authenticatedContext("victim").firestore().doc("users/victim/private/contact").update({ phone: "555-9999" }), "ALLOW");
+
+  console.log("\n== ops PII controls: private/contact is owner-ONLY (staff go through api/ops/user-data.ts) ==");
+  const support1ctx = testEnv.authenticatedContext("support1").firestore();
+  const padminCtx   = testEnv.authenticatedContext("padmin").firestore();
+  await check("users/private/contact: an ops support_agent CANNOT read it", support1ctx.doc("users/victim/private/contact").get(), "DENY");
+  await check("users/private/contact: a trust_agent CANNOT read it", ops1.doc("users/victim/private/contact").get(), "DENY");
+  await check("users/private/contact: a platform admin CANNOT read it directly", padminCtx.doc("users/victim/private/contact").get(), "DENY");
+  await check("users/private/contact: ops staff CANNOT overwrite it", support1ctx.doc("users/victim/private/contact").set({ email: "hacked@x.com" }), "DENY");
+  await check("users/private/contact: a platform admin CANNOT overwrite it", padminCtx.doc("users/victim/private/contact").update({ stripeCustomerId: "cus_x" }), "DENY");
+  await check("users/private: no other doc under private/ is staff-readable either", support1ctx.doc("users/victim/private/anything").get(), "DENY");
+
+  console.log("\n== platform_feedback inbox: support roles may triage only ==");
+  await check("platform_feedback: a support_agent CAN set status/handledBy", support1ctx.doc("platform_feedback/fb1").update({ status: "triaged", handledBy: "support1" }), "ALLOW");
+  await check("platform_feedback: ...but CANNOT edit the member's message", support1ctx.doc("platform_feedback/fb1").update({ message: "edited" }), "DENY");
+  await check("platform_feedback: ...or reassign it to another member", support1ctx.doc("platform_feedback/fb1").update({ uid: "someone-else" }), "DENY");
+  await check("platform_feedback: a trust_agent CANNOT triage it", ops1.doc("platform_feedback/fb1").update({ status: "closed" }), "DENY");
+  await check("platform_feedback: a stranger CANNOT triage it", atk.doc("platform_feedback/fb1").update({ status: "closed" }), "DENY");
+  await check("platform_feedback: nobody can delete one", support1ctx.doc("platform_feedback/fb1").delete(), "DENY");
+
+  console.log("\n== compliance_exports / ops_reveal_rate_limits: server-side only ==");
+  await check("compliance_exports: a platform admin CANNOT read the record from the client", padminCtx.doc("compliance_exports/BW-1").get(), "DENY");
+  await check("compliance_exports: ops staff CANNOT write one", support1ctx.doc("compliance_exports/BW-2").set({ status: "delivered" }), "DENY");
+  await check("ops_reveal_rate_limits: ops staff CANNOT reset their own counter", support1ctx.doc("ops_reveal_rate_limits/reveal_support1").set({ count: 0 }), "DENY");
 
   console.log("\n== circles/challenges fix (this pass, P0 3): postedByUid ownership ==");
   await check("circles/challenges: create with a spoofed postedByUid is denied", atk.collection("circles/c1/challenges").add({ postedBy: "Some Name", postedByUid: "someone-else" }), "DENY");

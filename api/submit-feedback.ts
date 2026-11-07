@@ -122,7 +122,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await db.collection('platform_feedback').add({
       uid,
       name,
-      email,
+      // The member's email is deliberately NOT stored here: it stays in Firebase
+      // Auth, and goes to the team only as the email's reply-to header, so a
+      // plaintext copy doesn't pile up in a collection staff can read.
       category,
       message: text,
       foundingMember: userData.foundingMember === true,

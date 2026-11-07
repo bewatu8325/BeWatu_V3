@@ -220,7 +220,23 @@ service cloud.firestore {
       allow read: if isOpsStaff() && opsRole() in [
         'platform_admin', 'support_manager', 'support_agent', 'auditor'
       ];
-      allow write: if false;
+      // The ops feedback inbox may only triage: change status and record who
+      // handled it. The member's message and identity are never editable.
+      allow update: if isOpsStaff() && opsRole() in [
+        'platform_admin', 'support_manager', 'support_agent'
+      ] && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'handledBy', 'handledAt']);
+      allow create, delete: if false;
+    }
+
+    // api/ops/user-data.ts: reveal / compliance-export rate-limit counters and
+    // the metadata record of each legal export (no personal data in it).
+    // Server-side only.
+    match /ops_reveal_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+    match /compliance_exports/{bundleId} {
+      allow read, write: if false;
     }
 
     // Same reasoning: api/submit-feedback.ts's send-rate-limit counters.
@@ -705,9 +721,17 @@ service cloud.firestore {
       // the users/{uid} doc itself, readable by ANY authenticated user (the
       // parent read rule above is isPublic==true || isAuth() — necessarily
       // whole-document, since rules can't restrict individual fields on one
-      // doc). Split into this owner/ops-only subcollection instead.
+      // doc). Split into this owner-only subcollection instead.
+      //
+      // Owner-ONLY since the ops PII controls: this used to also let any ops
+      // staff role (and any platform admin) read AND WRITE every member's
+      // contact record straight from the browser, so one compromised staff
+      // login could dump every email, phone number and location. Staff now
+      // reach this data only through api/ops/user-data.ts (Admin SDK), which
+      // checks the role, requires a stated reason, rate-limits, and writes
+      // the audit entry before returning anything.
       match /private/{docId} {
-        allow read, write: if isAuth() && (request.auth.uid == uid || isPlatformAdmin() || isOpsStaff());
+        allow read, write: if isAuth() && request.auth.uid == uid;
       }
 
       // Security audit events
