@@ -75,7 +75,8 @@ type AdminView =
   | 'verify_queue'
   | 'recruiters'
   | 'recruiter_apps'
-  | 'discount_codes';
+  | 'discount_codes'
+  | 'founding_members';
 
 interface CompanyRecord {
   id: string;
@@ -146,6 +147,8 @@ function AuditBadge({ action }: { action: string }) {
     recruiter_fee_waiver_revoked: { label: 'Waiver ended', color: '#dc2626', bg: '#fef2f2' },
     discount_code_created:        { label: 'Code created', color: '#0e7490', bg: '#ecfeff' },
     discount_code_deactivated:    { label: 'Code deactivated', color: '#dc2626', bg: '#fef2f2' },
+    founding_member_added:        { label: 'Founding ✓',  color: 'var(--bw-green)', bg: 'var(--bw-green-light)' },
+    founding_member_removed:      { label: 'Founding ✗',  color: '#dc2626', bg: '#fef2f2' },
     recruiter_application_approved: { label: 'App approved', color: 'var(--bw-green)', bg: 'var(--bw-green-light)' },
     recruiter_application_rejected: { label: 'App rejected', color: '#dc2626', bg: '#fef2f2' },
   };
@@ -242,6 +245,130 @@ function RecruitersView({
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Founding members — bulk add / remove by email ───────────────────────────
+type FoundingAction = 'add' | 'remove';
+interface FoundingResult { email: string; status: string; uid?: string; name?: string }
+
+const FOUNDING_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+  added:      { label: 'Added',                  color: 'var(--bw-green)', bg: 'var(--bw-green-light)' },
+  removed:    { label: 'Removed',                color: '#b45309',         bg: '#fef3c7' },
+  already:    { label: 'No change',              color: '#57534e',         bg: '#f5f5f4' },
+  not_found:  { label: 'No BeWatu account',      color: '#dc2626',         bg: '#fef2f2' },
+  no_profile: { label: 'Account has no profile', color: '#dc2626',         bg: '#fef2f2' },
+  invalid:    { label: 'Not a valid email',      color: '#dc2626',         bg: '#fef2f2' },
+};
+
+function FoundingMembersView({
+  onSubmit,
+}: {
+  onSubmit: (action: FoundingAction, emails: string[]) => Promise<{ results: FoundingResult[]; summary: Record<string, number> }>;
+}) {
+  const [text, setText] = useState('');
+  const [action, setAction] = useState<FoundingAction>('add');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [results, setResults] = useState<FoundingResult[] | null>(null);
+  const [summary, setSummary] = useState<Record<string, number>>({});
+
+  const emails = Array.from(new Set(
+    text.split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean)
+  ));
+  const tooMany = emails.length > 200;
+
+  const run = async () => {
+    if (emails.length === 0 || tooMany || busy) return;
+    if (action === 'remove' && !window.confirm(`Remove the Founding Member badge from up to ${emails.length} member(s)?`)) return;
+    setBusy(true);
+    setError('');
+    try {
+      const out = await onSubmit(action, emails);
+      setResults(out.results);
+      setSummary(out.summary);
+      setText('');
+    } catch (e: any) {
+      setError(e.message ?? 'Something went wrong.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-xl font-black text-stone-900">Founding members</h2>
+        <p className="mt-1 text-sm text-stone-600">
+          Everyone who signs up during the beta becomes a Founding Member automatically. Use this to add (or remove) existing members by their sign-in email.
+        </p>
+      </div>
+
+      <div className={CARD + ' p-5 space-y-4'}>
+        <div className="inline-flex rounded-xl border border-stone-200 p-0.5" role="radiogroup" aria-label="Action">
+          {(['add', 'remove'] as FoundingAction[]).map(a => (
+            <button key={a} type="button" role="radio" aria-checked={action === a}
+              onClick={() => setAction(a)} disabled={busy}
+              className="rounded-lg px-4 py-1.5 text-sm font-bold transition-colors"
+              style={action === a
+                ? { background: a === 'add' ? G : '#b45309', color: 'white' }
+                : { color: '#57534e' }}>
+              {a === 'add' ? 'Add to beta' : 'Remove from beta'}
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <label htmlFor="founding-emails" className="mb-1.5 block text-xs font-black uppercase tracking-wider text-stone-600">
+            Emails
+          </label>
+          <textarea id="founding-emails" value={text} onChange={e => setText(e.target.value)} rows={6}
+            disabled={busy}
+            placeholder={'Paste one or more emails, separated by new lines, commas or spaces.\nada@example.com\ngrace@example.com'}
+            className={INPUT + ' resize-y font-mono'} />
+          <p className="mt-1.5 text-xs" style={{ color: tooMany ? '#dc2626' : '#78716c' }}>
+            {emails.length === 0
+              ? 'No emails yet.'
+              : tooMany
+                ? `${emails.length} emails detected. The limit is 200 per run, so split this into smaller batches.`
+                : `${emails.length} unique email${emails.length === 1 ? '' : 's'} detected.`}
+          </p>
+        </div>
+
+        {error && <p role="alert" className="text-sm font-semibold text-red-600">{error}</p>}
+
+        <button onClick={run} disabled={busy || emails.length === 0 || tooMany}
+          className={BTN_G} style={{ background: action === 'add' ? G : '#b45309' }}>
+          {busy ? 'Working…' : action === 'add' ? 'Add to Founding Members' : 'Remove from Founding Members'}
+        </button>
+      </div>
+
+      {results && (
+        <div className={CARD + ' overflow-hidden'}>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-stone-100 bg-stone-50 px-5 py-3">
+            <p className="text-xs font-black uppercase tracking-wider text-stone-600">Result</p>
+            {Object.entries(summary).map(([status, n]) => (
+              <p key={status} className="text-sm font-bold text-stone-700">
+                {FOUNDING_STATUS[status]?.label ?? status}: {n}
+              </p>
+            ))}
+          </div>
+          <div className="divide-y divide-stone-50">
+            {results.map(r => {
+              const cfg = FOUNDING_STATUS[r.status] ?? { label: r.status, color: '#57534e', bg: '#f5f5f4' };
+              return (
+                <div key={r.email} className="flex items-center gap-3 px-5 py-2.5">
+                  <span className="whitespace-nowrap rounded-lg px-2 py-0.5 text-xs font-black"
+                    style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                  <p className="min-w-0 flex-1 truncate font-mono text-sm text-stone-800">{r.email}</p>
+                  {r.name && <p className="hidden truncate text-sm text-stone-600 sm:block">{r.name}</p>}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1153,6 +1280,21 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
     }
   }, [view, loadDiscountCodes]);
 
+  const handleFoundingSubmit = async (action: 'add' | 'remove', emails: string[]) => {
+    const idToken = await fbUser?.getIdToken();
+    const res = await fetch('/api/admin/set-founding-member', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ action, emails }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? 'Request failed');
+    setGlobalAudit([]); // reload the audit log the next time it is opened
+    const changed = (data.summary?.added ?? 0) + (data.summary?.removed ?? 0);
+    showToast(`${changed} member${changed === 1 ? '' : 's'} ${action === 'add' ? 'added to' : 'removed from'} the Founding Members beta.`);
+    return data;
+  };
+
   const handleMutated = (msg: string) => {
     showToast(msg);
     setView('list');
@@ -1216,6 +1358,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
               { key: 'recruiters' as AdminView,   label: 'Recruiters' },
               { key: 'recruiter_apps' as AdminView, label: `Recruiter apps${recruiterApps.length ? ` (${recruiterApps.length})` : ''}` },
               { key: 'discount_codes' as AdminView, label: 'Discount codes' },
+              { key: 'founding_members' as AdminView, label: 'Founding members' },
               { key: 'audit_global' as AdminView, label: 'Audit log' },
             ] as const).map(({ key, label }) => (
               <button key={key} onClick={() => setView(key)}
@@ -1629,6 +1772,10 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
         {/* ══════════════════════════════════════════════════════════
             VIEW: GLOBAL AUDIT LOG
         ══════════════════════════════════════════════════════════ */}
+        {view === 'founding_members' && (
+          <FoundingMembersView onSubmit={handleFoundingSubmit} />
+        )}
+
         {view === 'audit_global' && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
