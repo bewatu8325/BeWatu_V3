@@ -312,7 +312,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
           <div>
             <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: GREENLT, opacity: 0.8 }}>The old way</p>
             <p className="text-white/90 leading-relaxed">
-              The old way of building a career online rewards whoever posts the most. Connection counts, follower counts, endorsements from people who've never seen your work — vanity metrics that measure attention, not ability.
+              Much of the career internet rewards whoever posts the most. Big connection and follower counts, and endorsements from people who've never seen your work, show attention more than ability.
             </p>
             <p className="mt-4 text-white/90 leading-relaxed">
               A resume or job board profile tells someone where you worked. It was never built to show them what you actually built while you were there.

@@ -1,7 +1,7 @@
 // src/components/legal/TermsOfService.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Terms of Service page for bewatu.com
-// Effective: March 31, 2026 | Version 1.0
+// Effective: November 7, 2026 | Version 1.1
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React from 'react';
@@ -10,7 +10,7 @@ interface TermsOfServiceProps {
   onBack?: () => void;
 }
 
-const EFFECTIVE_DATE = 'March 31, 2026';
+const EFFECTIVE_DATE = 'November 7, 2026';
 const LEGAL_EMAIL = 'legal@bewatu.com';
 const COMPANY = 'Bewatu LLC';
 
@@ -28,7 +28,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
           )}
           <div>
             <h1 className="text-base font-semibold text-stone-900">Terms of Service</h1>
-            <p className="text-xs text-stone-600">Effective {EFFECTIVE_DATE} · Version 1.0</p>
+            <p className="text-xs text-stone-600">Effective {EFFECTIVE_DATE} · Version 1.1</p>
           </div>
         </div>
       </div>
@@ -71,7 +71,12 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-stone-900">6. Prohibited Conduct</h2>
+            <h2 className="text-base font-semibold text-stone-900">6. Badges and Recognition</h2>
+            <p>BeWatu may award badges, such as the Founding Member badge for people who joined during the beta. A badge is a display feature of the Platform. It is not a right, a property interest, or a guarantee of any benefit, and it is not sold. We may change, rename, withdraw, or remove any badge, for one member or for all members, if our policies or the Platform's features change, if a badge was granted in error, or if a member breaches these Terms. Removing a badge does not affect your account or your content.</p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-base font-semibold text-stone-900">7. Prohibited Conduct</h2>
             <p>You agree not to:</p>
             <ul className="list-disc list-inside space-y-1 pl-2 text-stone-600">
               <li>Harass, threaten, or intimidate other users</li>
@@ -85,43 +90,43 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-stone-900">7. Intellectual Property</h2>
+            <h2 className="text-base font-semibold text-stone-900">8. Intellectual Property</h2>
             <p>The BeWatu name, logo, and platform design are the intellectual property of {COMPANY}. You may not use our branding without prior written permission. Content created by BeWatu, including but not limited to the platform interface, generated insights, and editorial content, remains our exclusive property.</p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-stone-900">8. Subscriptions and Payments</h2>
+            <h2 className="text-base font-semibold text-stone-900">9. Subscriptions and Payments</h2>
             <p>Some features of BeWatu require a paid subscription. Subscriptions are billed in advance and are non-refundable except as required by applicable law. Payments are processed by a PCI-compliant third-party payment processor — your full payment card details are handled directly by that processor and are never stored by BeWatu.</p>
             <p>We may change subscription pricing with 30 days' notice. If you do not agree to a price change, you may cancel your subscription before the change takes effect.</p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-stone-900">9. Data Retention and Deletion</h2>
+            <h2 className="text-base font-semibold text-stone-900">10. Data Retention and Deletion</h2>
             <p>We retain your personal data for up to one year after account deletion. Upon requesting account deletion, your profile will be anonymised within 30 days and permanently deleted within 12 months. You may request a copy of your data at any time by contacting {LEGAL_EMAIL}.</p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-stone-900">10. Disclaimers and Limitation of Liability</h2>
+            <h2 className="text-base font-semibold text-stone-900">11. Disclaimers and Limitation of Liability</h2>
             <p>The Platform is provided "as is" without warranties of any kind. BeWatu does not guarantee the accuracy, completeness, or usefulness of any content on the Platform. To the maximum extent permitted by law, BeWatu shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the Platform.</p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-stone-900">11. Termination</h2>
+            <h2 className="text-base font-semibold text-stone-900">12. Termination</h2>
             <p>We may suspend or terminate your access to the Platform at any time, with or without notice, for conduct that we determine violates these Terms or is harmful to other users, us, or third parties. You may delete your account at any time through your profile settings.</p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-stone-900">12. Governing Law and Disputes</h2>
+            <h2 className="text-base font-semibold text-stone-900">13. Governing Law and Disputes</h2>
             <p>These Terms are governed by the laws of the United States and the Commonwealth of Virginia, without regard to conflict of law provisions. Any disputes arising under these Terms shall be resolved through binding arbitration in accordance with the rules of the American Arbitration Association, seated in Virginia, except that either party may seek injunctive relief in a court of competent jurisdiction.</p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-stone-900">13. Changes to These Terms</h2>
+            <h2 className="text-base font-semibold text-stone-900">14. Changes to These Terms</h2>
             <p>We may update these Terms from time to time. When we do, we will notify you via email and require you to review and agree to the updated Terms before continuing to use the Platform. Your continued use after agreeing to updated Terms constitutes acceptance of the changes.</p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-stone-900">14. Contact</h2>
+            <h2 className="text-base font-semibold text-stone-900">15. Contact</h2>
             <p>If you have questions about these Terms, please contact us at <a href={`mailto:${LEGAL_EMAIL}`} className="text-[var(--bw-green)] underline">{LEGAL_EMAIL}</a>.</p>
             <p className="text-stone-600 text-xs">{COMPANY} · United States</p>
           </section>

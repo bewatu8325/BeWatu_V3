@@ -12,10 +12,10 @@
  */
 
 import React, { useRef, useState } from 'react';
-import { Shield, FileText, Users, AlertTriangle, ExternalLink, Check } from 'lucide-react';
+import { Shield, FileText, Users, AlertTriangle, Award, ExternalLink, Check } from 'lucide-react';
 import { useModalA11y } from '../hooks/useModalA11y';
 
-export const TERMS_VERSION = '1.0';
+export const TERMS_VERSION = '1.1';  // 1.1: added section 6, Badges and Recognition
 
 interface TermsConsentModalProps {
   userName:    string;
@@ -40,6 +40,11 @@ const SUMMARY_POINTS = [
     icon: <FileText size={16} />,
     title: 'Content you post',
     body:  'You own your content. By posting, you grant BeWatu a limited licence to display it on the platform. You\'re responsible for ensuring you have rights to anything you share.',
+  },
+  {
+    icon: <Award size={16} />,
+    title: 'Badges',
+    body:  'Badges such as Founding Member are a display feature, not a right or a guarantee. We may change or remove them if our policies or the platform change.',
   },
   {
     icon: <AlertTriangle size={16} />,
