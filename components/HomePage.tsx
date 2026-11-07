@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppData, AppreciationType, LinkPreview, User, View } from '../types';
+import { AppData, AppreciationType, LinkPreview, Post, User, View } from '../types';
 import ProfileSidebar from './ProfileSidebar';
 import Feed from './Feed';
 import CreatePost from './CreatePost';
@@ -18,6 +18,10 @@ interface HomePageProps {
     onWisdomThread?: (data: any) => Promise<void>;
     onAppreciatePost: (postId: number, appreciationType: AppreciationType) => void;
     onViewProfile: (userId: number) => void;
+    currentUserUid?: string;
+    onEditPost?: (post: Post, content: string) => Promise<void>;
+    onDeletePost?: (post: Post) => Promise<void>;
+    onReportContent?: (contentId: string, preview: string) => void;
     onViewCompany?: (companyId: number | string) => void;
 }
 const HomePage: React.FC<HomePageProps> = (props) => {
@@ -25,6 +29,7 @@ const HomePage: React.FC<HomePageProps> = (props) => {
         data, currentUser, onGenerateSkills, onRecordVideo, onPlayVideo,
         onNavigate, onSelectCircle, addPost, onPerspective, onWisdomThread,
         onAppreciatePost, onViewProfile, onViewCompany,
+        currentUserUid, onEditPost, onDeletePost, onReportContent,
     } = props;
     // IDs of connections + circle members
     const networkIds = new Set<number>(
@@ -86,6 +91,11 @@ const HomePage: React.FC<HomePageProps> = (props) => {
                     onAppreciatePost={onAppreciatePost}
                     onViewProfile={onViewProfile}
                     findAuthor={(id) => data.users.find(u => u.id === id)}
+                    currentUserId={currentUser.id}
+                    currentUserUid={currentUserUid}
+                    onEditPost={onEditPost}
+                    onDeletePost={onDeletePost}
+                    onReportContent={onReportContent}
                 />
             </main>
             {/* Right Sidebar */}

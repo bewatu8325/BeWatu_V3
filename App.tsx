@@ -31,6 +31,8 @@ import { auth } from './lib/firebase';
 // ── Firestore services (single import block) ──────────────────────────────────
 import {
   createPost as fbCreatePost,
+  updatePostContent as fbUpdatePostContent,
+  deletePost as fbDeletePost,
   fetchPosts,
   appreciatePost as fbAppreciatePost,
   sendMessage as fbSendMessage,
@@ -895,6 +897,21 @@ const MainApp: React.FC = () => {
     }
   };
 
+  // Author edits / deletes a post from the feed. Both throw on failure so the card can
+  // say so; the local list only changes once Firestore has accepted the change.
+  const handleEditPost = async (post: Post, content: string) => {
+    const fid = (post as any)._firestoreId as string | undefined;
+    if (!fid) throw new Error('post has no id');
+    await fbUpdatePostContent(fid, content);
+    setData(d => d && ({ ...d, posts: d.posts.map(p => p.id === post.id ? { ...p, content, edited: true } : p) }));
+  };
+  const handleDeletePost = async (post: Post) => {
+    const fid = (post as any)._firestoreId as string | undefined;
+    if (!fid) throw new Error('post has no id');
+    await fbDeletePost(fid);
+    setData(d => d && ({ ...d, posts: d.posts.filter(p => p.id !== post.id) }));
+  };
+
   const handlePerspectivePost = async (question: string, context: string, seeking: any[]) => {
     if (!fbUser || !currentUser) return;
     const { createPerspectivePost } = await import('./lib/generationalFeatures');
@@ -1738,6 +1755,10 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               onWisdomThread={handleWisdomThread}
               onAppreciatePost={handleAppreciatePost}
               onViewProfile={handleViewProfile}
+              currentUserUid={fbUser?.uid}
+              onEditPost={handleEditPost}
+              onDeletePost={handleDeletePost}
+              onReportContent={(id, preview) => openReport({ content: { type: 'post', id, preview } }, 'content')}
               onViewCompany={handleViewCompany}
             />
           </div>

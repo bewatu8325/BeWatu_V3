@@ -238,6 +238,7 @@ export interface Post {
   timestamp: string;
   circleId?: number;
   linkPreview?: LinkPreview;
+  edited?: boolean;      // the author changed the text after posting
 }
 
 export interface Company {
