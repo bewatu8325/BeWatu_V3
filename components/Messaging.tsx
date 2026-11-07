@@ -4,6 +4,7 @@ import { analyzeMessageTone } from '../services/claudeService';
 import { SparklesIcon, LoadingIcon } from '../constants';
 import { Search, Plus, X, Edit } from 'lucide-react';
 import { EmptyState } from './EmptyState';
+import { AuthorAvatar } from './PostActions';
 
 interface MessagingProps {
   users: User[];
@@ -61,7 +62,7 @@ function NewMessagePicker({
                 onClick={() => { onSelect(user.id); onClose(); }}
                 className="w-full flex items-center gap-3 p-3 hover:bg-stone-50 transition-colors text-left"
               >
-                <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                <AuthorAvatar name={user.name} src={user.avatarUrl} size={40} />
                 <div className="min-w-0">
                   <p className="font-semibold text-stone-900 text-sm truncate">{user.name}</p>
                   <p className="text-xs text-stone-600 truncate">{user.headline}</p>
@@ -92,8 +93,11 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
       if (msg.receiverId === currentUser.id) partnerIds.add(msg.senderId);
     });
     if (initialActiveUserId) partnerIds.add(initialActiveUserId);
+    // Someone picked from "New Message" has no messages yet, but the chat has to open
+    // for them, or the "No messages yet" screen stays up and nothing appears to happen.
+    if (activeChatUserId) partnerIds.add(activeChatUserId);
     return users.filter(user => partnerIds.has(user.id));
-  }, [messages, currentUser.id, users, initialActiveUserId]);
+  }, [messages, currentUser.id, users, initialActiveUserId, activeChatUserId]);
 
   const activeChatPartner = users.find(u => u.id === activeChatUserId);
 
@@ -226,7 +230,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
                   onClick={() => setActiveChatUserId(user.id)}
                   className={`p-4 flex items-center space-x-3 cursor-pointer transition-colors flex-shrink-0 ${activeChatUserId === user.id ? 'bg-stone-100' : 'hover:bg-stone-50'}`}
                 >
-                  <img src={user.avatarUrl} alt={user.name} className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
+                  <AuthorAvatar name={user.name} src={user.avatarUrl} size={44} />
                   <div className="min-w-0">
                     <p className="font-semibold text-stone-900 truncate">{user.name}</p>
                     <p className="text-sm text-stone-600 truncate">{user.headline}</p>
@@ -248,7 +252,7 @@ const Messaging: React.FC<MessagingProps> = ({ users, messages, currentUser, onS
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
                 </button>
-                <img src={activeChatPartner.avatarUrl} alt={activeChatPartner.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                <AuthorAvatar name={activeChatPartner.name} src={activeChatPartner.avatarUrl} size={36} />
                 <div className="min-w-0">
                   <h2 className="text-base font-bold text-stone-900 truncate">{activeChatPartner.name}</h2>
                   <p className="text-xs text-stone-600 truncate">{activeChatPartner.headline}</p>
