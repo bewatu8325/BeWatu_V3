@@ -6,7 +6,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { BookOpen, Users, Zap, Plus, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { PerspectiveIcon, WisdomIcon, PodsNetworkIcon, AllSparkIcon, GenerationalPairIcon } from './icons/PodIcons';
 import { User } from '../types';
 import { PerspectivePostCard, CreatePerspectivePost, PerspectivePostData, GenerationTag } from './PerspectivePost';
 import { WisdomThreadCard, CreateWisdomThread, WisdomThreadData } from './WisdomThread';
@@ -28,10 +29,10 @@ type FeedItem =
   | { type: 'pod';         data: GenerationalPodData };
 
 const TAB_CONFIG: { id: FeedTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'all',          label: 'All',        icon: <Zap size={13} /> },
-  { id: 'perspectives', label: 'Perspectives', icon: <Users size={13} /> },
-  { id: 'wisdom',       label: 'Wisdom',     icon: <BookOpen size={13} /> },
-  { id: 'pods',         label: 'Pods',       icon: <Zap size={13} /> },
+  { id: 'all',          label: 'All',          icon: <AllSparkIcon size={18} /> },
+  { id: 'perspectives', label: 'Perspectives', icon: <PerspectiveIcon size={18} /> },
+  { id: 'wisdom',       label: 'Wisdom',       icon: <WisdomIcon size={18} /> },
+  { id: 'pods',         label: 'Pods',         icon: <PodsNetworkIcon size={18} /> },
 ];
 
 function inferCareerStage(user: User): CareerStage {
@@ -194,19 +195,19 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
       {!creating && (
         <div className="flex gap-2 mb-5 flex-wrap">
           <button onClick={() => setCreating('perspective')}
-            className="flex items-center gap-1.5 text-xs font-bold rounded-xl px-3.5 py-2 border hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 text-sm font-bold rounded-full px-4 py-2.5 border hover:opacity-80 transition-opacity"
             style={{ backgroundColor: GREEN_LT, color: GREEN, borderColor: '#c7e8d8' }}>
-            <Plus size={12} /> Perspective Post
+            <PerspectiveIcon size={20} /> Perspective Post
           </button>
           <button onClick={() => setCreating('wisdom')}
-            className="flex items-center gap-1.5 text-xs font-bold rounded-xl px-3.5 py-2 border hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 text-sm font-bold rounded-full px-4 py-2.5 border hover:opacity-80 transition-opacity"
             style={{ backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }}>
-            <Plus size={12} /> Wisdom Thread
+            <WisdomIcon size={20} /> Wisdom Thread
           </button>
           <button onClick={() => setCreating('pod')}
-            className="flex items-center gap-1.5 text-xs font-bold rounded-xl px-3.5 py-2 border hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 text-sm font-bold rounded-full px-4 py-2.5 border hover:opacity-80 transition-opacity"
             style={{ backgroundColor: '#ede9fe', color: '#4c1d95', borderColor: '#ddd6fe' }}>
-            <Plus size={12} /> Generational Pod
+            <GenerationalPairIcon size={20} /> Generational Pod
           </button>
         </div>
       )}
@@ -234,10 +235,10 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-5 border-b" style={{ borderColor: '#e7e5e4' }}>
+      <div className="flex gap-1 mb-5 border-b overflow-x-auto" style={{ borderColor: '#e7e5e4' }}>
         {TAB_CONFIG.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold transition-colors relative"
+            className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap px-3 py-3 text-sm font-bold transition-colors relative sm:px-4"
             style={{ color: tab === t.id ? GREEN : '#9ca3af' }}>
             {t.icon}
             {t.label}

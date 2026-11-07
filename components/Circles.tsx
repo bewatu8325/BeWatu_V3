@@ -11,6 +11,7 @@ import {
   LogOut, AlertTriangle, Loader2,
 } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { POD_TYPE_ICON, AllSparkIcon } from './icons/PodIcons';
 import { db } from '../lib/firebase';
 
 const GREEN    = 'var(--bw-green)';
@@ -30,12 +31,12 @@ interface CirclesProps {
 // ── Pod type config ────────────────────────────────────────────────────────────
 
 const POD_TYPE_CONFIG: Record<PodType, {
-  label: string; color: string; bg: string; border: string; description: string; emoji: string;
+  label: string; color: string; bg: string; border: string; description: string;
 }> = {
-  community:    { label: 'Community',    color: '#1e3a8a', bg: '#dbeafe', border: '#93c5fd', description: 'Bring people together around shared goals, industries, or passions', emoji: '🌐' },
-  innovation:   { label: 'Innovation',   color: '#92400e', bg: '#fef3c7', border: '#fcd34d', description: 'Build something together — idea → team → startup',                  emoji: '💡' },
-  challenge:    { label: 'Challenge',    color: '#4c1d95', bg: '#ede9fe', border: '#c4b5fd', description: 'Form a pod around an Arena challenge and split the prize',          emoji: '🏆' },
-  generational: { label: 'Generational', color: '#065f46', bg: '#d1fae5', border: '#6ee7b7', description: 'Mix experience levels — seniors mentor, juniors bring fresh energy', emoji: '🌱' },
+  community:    { label: 'Community',    color: '#1e3a8a', bg: '#dbeafe', border: '#93c5fd', description: 'Bring people together around shared goals, industries, or passions' },
+  innovation:   { label: 'Innovation',   color: '#92400e', bg: '#fef3c7', border: '#fcd34d', description: 'Build something together — idea → team → startup' },
+  challenge:    { label: 'Challenge',    color: '#4c1d95', bg: '#ede9fe', border: '#c4b5fd', description: 'Form a pod around an Arena challenge and split the prize' },
+  generational: { label: 'Generational', color: '#065f46', bg: '#d1fae5', border: '#6ee7b7', description: 'Mix experience levels — seniors mentor, juniors bring fresh energy' },
 };
 
 const INNOVATION_STAGES: PodStage[] = ['Idea', 'Exploring', 'Building', 'Pitching'];
@@ -91,7 +92,7 @@ function PodTypeBadge({ type }: { type: PodType }) {
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
       style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-      {cfg.emoji} {cfg.label}
+      {React.createElement(POD_TYPE_ICON[type], { size: 12, strokeWidth: 2 })} {cfg.label}
     </span>
   );
 }
@@ -512,7 +513,11 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
             </h2>
             <p className="text-xs text-stone-600 mt-0.5">
               {step === 'type' ? 'Choose the type that fits your goal' :
-                selectedType ? `${POD_TYPE_CONFIG[selectedType].emoji} ${POD_TYPE_CONFIG[selectedType].label} pod` : ''}
+                selectedType ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    {React.createElement(POD_TYPE_ICON[selectedType], { size: 14 })} {POD_TYPE_CONFIG[selectedType].label} pod
+                  </span>
+                ) : ''}
             </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="text-stone-600 hover:text-stone-600"><X size={16} /></button>
@@ -535,9 +540,9 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
                 <button key={type} onClick={() => { setSelectedType(type); setStep('details'); }}
                   className="w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all hover:border-stone-300 hover:bg-stone-50"
                   style={{ borderColor: '#e7e5e4' }}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                    style={{ backgroundColor: cfg.bg }}>
-                    {cfg.emoji}
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: cfg.bg, color: GREEN }}>
+                    {React.createElement(POD_TYPE_ICON[type], { size: 34, strokeWidth: 1.6 })}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-stone-900 text-sm">{cfg.label} Pod</p>
@@ -807,12 +812,12 @@ const Circles: React.FC<CirclesProps> = ({
     .filter(c => c.podType === 'challenge' && c.challengeId)
     .map(c => c.challengeId!);
 
-  const FILTER_TABS: { id: PodType | 'all'; label: string; emoji: string }[] = [
-    { id: 'all',          label: 'All',          emoji: '✨' },
-    { id: 'community',    label: 'Community',    emoji: '🌐' },
-    { id: 'innovation',   label: 'Innovation',   emoji: '💡' },
-    { id: 'challenge',    label: 'Challenge',    emoji: '🏆' },
-    { id: 'generational', label: 'Generational', emoji: '🌱' },
+  const FILTER_TABS: { id: PodType | 'all'; label: string; Icon: React.FC<any> }[] = [
+    { id: 'all',          label: 'All',          Icon: AllSparkIcon },
+    { id: 'community',    label: 'Community',    Icon: POD_TYPE_ICON.community },
+    { id: 'innovation',   label: 'Innovation',   Icon: POD_TYPE_ICON.innovation },
+    { id: 'challenge',    label: 'Challenge',    Icon: POD_TYPE_ICON.challenge },
+    { id: 'generational', label: 'Generational', Icon: POD_TYPE_ICON.generational },
   ];
 
   return (
@@ -890,7 +895,7 @@ const Circles: React.FC<CirclesProps> = ({
                       style={activeFilter === tab.id
                         ? { backgroundColor: GREEN_LT, color: GREEN, borderColor: GREEN }
                         : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }}>
-                      {tab.emoji} {tab.label}
+                      <tab.Icon size={14} /> {tab.label}
                     </button>
                   ))}
                 </div>
