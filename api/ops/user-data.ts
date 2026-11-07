@@ -94,6 +94,30 @@ function getAdminApp() {
   return initializeApp({ credential: cert(JSON.parse(sa)) });
 }
 
+// Firebase Auth user LOOKUPS (email -> account, account -> sign-in email) need an Auth-read
+// permission that the Firestore-only app-server service account deliberately does not have
+// (the repo's "P0 7 least privilege" design). So they go through the Auth-scoped account when
+// one is provisioned, else the shared key, exactly as api/factory-token.ts does for Auth work.
+// verifyIdToken needs no IAM permission, so it stays on the main client.
+function getLookupAuth() {
+  const name = 'auth-lookup';
+  let app = getApps().find(a => a.name === name);
+  if (!app) {
+    const sa = process.env.FIREBASE_SERVICE_ACCOUNT_AUTH_ONLY
+      ?? process.env.FIREBASE_SERVICE_ACCOUNT
+      ?? process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER;
+    if (!sa) throw new Error('No Firebase service account configured');
+    app = initializeApp({ credential: cert(JSON.parse(sa)) }, name);
+  }
+  return getAuth(app);
+}
+
+/** True when an Admin SDK error means "this credential is not allowed to do that". */
+export function isPermissionError(err: any): boolean {
+  const text = `${err?.code ?? ''} ${err?.message ?? ''} ${err?.errorInfo?.code ?? ''}`;
+  return /insufficient-permission|permission[_ -]?denied|not authori[sz]ed|forbidden|\b403\b|caller does not have permission/i.test(text);
+}
+
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -199,7 +223,7 @@ function engagementState(d: Record<string, any>): 'unlocked' | 'gated' | 'exempt
 }
 
 // ── search ───────────────────────────────────────────────────────────────────
-async function doSearch(db: ReturnType<typeof getFirestore>, auth: ReturnType<typeof getAuth>, body: any) {
+export async function doSearch(db: ReturnType<typeof getFirestore>, auth: Pick<ReturnType<typeof getAuth>, 'getUserByEmail'>, body: any) {
   const limit = Math.min(Math.max(parseInt(body.limit, 10) || SEARCH_PAGE_DEFAULT, 1), SEARCH_PAGE_MAX);
   const q = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
   let docs: QueryDocumentSnapshot[] | DocumentSnapshot[] = [];
@@ -210,7 +234,12 @@ async function doSearch(db: ReturnType<typeof getFirestore>, auth: ReturnType<ty
       const u = await auth.getUserByEmail(q.toLowerCase());
       const snap = await db.collection('users').doc(u.uid).get();
       if (snap.exists) docs = [snap];
-    } catch { /* no such account: empty result */ }
+    } catch (err: any) {
+      if (isPermissionError(err)) {
+        throw new HttpError(503, 'Searching by email is unavailable: the server is not permitted to look up sign-in accounts. Search by name or user ID instead, and ask an engineer to grant the server Firebase Authentication read access.');
+      }
+      if (err?.code !== 'auth/user-not-found') throw err; // not found = empty result; anything else is a real fault
+    }
   } else if (q && /^[A-Za-z0-9]{20,40}$/.test(q) && (await db.collection('users').doc(q).get()).exists) {
     docs = [await db.collection('users').doc(q).get()];
   } else if (q) {
@@ -234,11 +263,16 @@ async function doSearch(db: ReturnType<typeof getFirestore>, auth: ReturnType<ty
     nextCursor = snap.docs.length === limit ? snap.docs[snap.docs.length - 1].id : null;
   }
 
-  // Emails come from Firebase Auth (the source of truth), masked before they leave.
+  // Emails come from the owner-only contact record (Firestore, same account as the rest of this route),
+  // falling back to a legacy copy on the profile, and are masked before they leave. Deliberately not
+  // Firebase Auth: the list must keep working on a Firestore-only service account.
   const emails = new Map<string, string>();
   if (docs.length) {
-    const found = await auth.getUsers(docs.map(d => ({ uid: d.id })));
-    found.users.forEach(u => { if (u.email) emails.set(u.uid, u.email); });
+    const contactSnaps = await db.getAll(...docs.map(d => db.collection('users').doc(d.id).collection('private').doc('contact')));
+    docs.forEach((d, i) => {
+      const e = contactSnaps[i].data()?.email ?? d.data()?.email;
+      if (typeof e === 'string' && e) emails.set(d.id, e);
+    });
   }
 
   const rows = docs.map(snap => {
@@ -451,6 +485,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const adminApp = getAdminApp();
     const auth = getAuth(adminApp);
+    const lookup = getLookupAuth();
     const db = getFirestore(adminApp);
 
     const staff = await verifyStaff(req, auth, db);
@@ -462,19 +497,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     switch (body.action) {
       case 'search':
         if (!SEARCH_ROLES.includes(staff.role)) throw new HttpError(403, 'Your role cannot look up members');
-        return res.status(200).json(await doSearch(db, auth, body));
+        return res.status(200).json(await doSearch(db, lookup, body));
       case 'reveal':
         if (!REVEAL_ROLES.includes(staff.role)) throw new HttpError(403, 'Your role cannot reveal contact details');
-        return res.status(200).json(await doReveal(db, auth, staff, ip, body));
+        return res.status(200).json(await doReveal(db, lookup, staff, ip, body));
       case 'compliance_export':
         if (!COMPLIANCE_ROLES.includes(staff.role)) throw new HttpError(403, 'Your role cannot run compliance exports');
-        return res.status(200).json(await doComplianceExport(db, auth, staff, ip, body));
+        return res.status(200).json(await doComplianceExport(db, lookup, staff, ip, body));
       default:
         throw new HttpError(400, 'Unknown action');
     }
   } catch (err: any) {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
     console.error('ops/user-data error:', err);
-    return res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    // Only staff reach this point, and an error CODE (never a message or data) is what makes a fault diagnosable.
+    const code = err?.code !== undefined && String(err.code).length <= 80 ? ` (ref: ${String(err.code)})` : '';
+    return res.status(500).json({ error: `Something went wrong. Please try again.${code}` });
   }
 }

@@ -34,6 +34,27 @@ const WRITE_CHUNK       = 200;  // 2 writes per member (profile + audit entry) s
 type Status = 'added' | 'removed' | 'already' | 'not_found' | 'no_profile' | 'invalid';
 interface Result { email: string; status: Status; uid?: string; name?: string }
 
+// Auth user lookups need an Auth-read permission the Firestore-only app-server account does not
+// have (repo "P0 7 least privilege" design), so they use the Auth-scoped account when provisioned,
+// else the shared key, as api/factory-token.ts does. verifyIdToken needs no permission.
+function getLookupAuth() {
+  const name = 'auth-lookup';
+  let app = getApps().find(a => a.name === name);
+  if (!app) {
+    const sa = process.env.FIREBASE_SERVICE_ACCOUNT_AUTH_ONLY
+      ?? process.env.FIREBASE_SERVICE_ACCOUNT
+      ?? process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER;
+    if (!sa) throw new Error('No Firebase service account configured');
+    app = initializeApp({ credential: cert(JSON.parse(sa)) }, name);
+  }
+  return getAuth(app);
+}
+
+function isPermissionError(err: any): boolean {
+  const text = `${err?.code ?? ''} ${err?.message ?? ''} ${err?.errorInfo?.code ?? ''}`;
+  return /insufficient-permission|permission[_ -]?denied|not authori[sz]ed|forbidden|\b403\b|caller does not have permission/i.test(text);
+}
+
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0];
   const sa = process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER ?? process.env.FIREBASE_SERVICE_ACCOUNT!;
@@ -105,7 +126,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // email -> uid, via Firebase Auth.
     const uidByEmail = new Map<string, string>();
     for (const part of chunk(valid, AUTH_LOOKUP_CHUNK)) {
-      const found = await adminAuth.getUsers(part.map(email => ({ email })));
+      let found;
+      try {
+        found = await getLookupAuth().getUsers(part.map(email => ({ email })));
+      } catch (err: any) {
+        if (isPermissionError(err)) {
+          return res.status(503).json({ error: 'The server is not permitted to look up sign-in accounts by email. Ask an engineer to grant it Firebase Authentication read access.' });
+        }
+        throw err;
+      }
       for (const u of found.users) {
         if (u.email) uidByEmail.set(u.email.toLowerCase(), u.uid);
       }
@@ -174,9 +203,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (err: any) {
     console.error('set-founding-member error:', err);
+    const ref = err?.code !== undefined && String(err.code).length <= 80 ? ` (ref: ${String(err.code)})` : '';
     if (err.code === 'auth/argument-error' || err.code === 'auth/invalid-id-token' || err.code === 'auth/id-token-expired') {
       return res.status(401).json({ error: 'Invalid ID token' });
     }
-    return res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    return res.status(500).json({ error: `Something went wrong. Please try again.${ref}` });
   }
 }
