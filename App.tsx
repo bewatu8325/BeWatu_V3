@@ -2086,7 +2086,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
       case View.Companies:
         content = (
           <Suspense fallback={<div />}>
-            <CompaniesPage onViewCompany={handleViewCompany} />
+            <CompaniesPage onViewCompany={handleViewCompany} onEditProfile={() => handleSetView(View.Profile)} />
           </Suspense>
         );
         break;

@@ -17,6 +17,7 @@ import {
   AlertCircle, Check, MoreHorizontal,
 } from 'lucide-react';
 import { Company, Job, User } from '../types';
+import { fetchCompanyDetail, claimCompanyRequest, type CompanyDetail } from '../lib/companiesService';
 import SponsorshipManager from './arenas/SponsorshipManager';
 import { useFirebase } from '../contexts/FirebaseContext';
 import app from '../lib/firebase';
@@ -1784,6 +1785,12 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
     (currentUser as any)?.followingCompanies?.includes(company._firestoreId) ?? false
   );
   const [followBusy, setFollowBusy] = useState(false);
+  const [followError, setFollowError] = useState<string | null>(null);
+  // Real activity from the server (open roles, live challenges, sponsorship) and the claim state.
+  const [detail, setDetail] = useState<CompanyDetail | null>(null);
+  const [claimOpen, setClaimOpen] = useState(false);
+  const [claimBusy, setClaimBusy] = useState(false);
+  const [claimMsg, setClaimMsg] = useState<{ kind: 'ok' | 'info' | 'error'; text: string } | null>(null);
 
   const [showCreateChallenge, setShowCreateChallenge] = useState(false);
   const [submitTarget, setSubmitTarget] = useState<any | null>(null);
@@ -1814,6 +1821,30 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
     ...((currentUser as any)?.skills ?? []).map((s: any) => (typeof s === 'string' ? s : s.name).toLowerCase()),
     ...((currentUser as any)?.verifiedSkills ?? []).map((s: any) => s.name.toLowerCase()),
   ];
+
+  useEffect(() => {
+    if (!company._firestoreId || !fbUser) return;
+    let live = true;
+    fetchCompanyDetail(company._firestoreId)
+      .then(d => { if (live) { setDetail(d); setIsFollowing(d.following); } })
+      .catch(() => { /* the profile still works without the activity panel */ });
+    return () => { live = false; };
+  }, [company._firestoreId, fbUser]);
+
+  async function handleClaim() {
+    if (!company._firestoreId || claimBusy) return;
+    setClaimBusy(true); setClaimMsg(null);
+    try {
+      const r = await claimCompanyRequest(company._firestoreId);
+      if (r.status === 'manual_review') {
+        setClaimMsg({ kind: 'info', text: "We couldn't confirm that your email belongs to this company, so our team will review your request. We haven't made you an administrator yet." });
+      } else {
+        setClaimMsg({ kind: 'ok', text: r.status === 'already_admin' ? 'You already administer this company.' : "You're now this company's administrator. BeWatu will verify the company shortly." });
+        const d = await fetchCompanyDetail(company._firestoreId, true).catch(() => null); if (d) setDetail(d);
+      }
+    } catch (e: any) { setClaimMsg({ kind: 'error', text: e?.message ?? 'Could not submit your claim.' }); }
+    finally { setClaimBusy(false); }
+  }
 
   async function loadChallenges() {
     if (!company._firestoreId) { setLoading(false); return; }
@@ -1851,7 +1882,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
 
   async function handleFollow() {
     if (!fbUser || !company._firestoreId) return;
-    setFollowBusy(true);
+    setFollowBusy(true); setFollowError(null);
     try {
       if (isFollowing) {
         await unfollowCompany(fbUser.uid, company._firestoreId);
@@ -1867,6 +1898,8 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
           sendSignal({ domain, mentions: 1, positive_mentions: 1, negative_mentions: 0, engagement_score: 0.7, top_topics: [] }).catch(() => {});
         }
       }
+    } catch (e: any) {
+      setFollowError(e?.message ?? 'Could not update. Please try again.');
     } finally {
       setFollowBusy(false);
     }
@@ -1925,6 +1958,37 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
             {company.description && (
               <p className="mt-4 text-sm text-stone-600 leading-relaxed">{company.description}</p>
             )}
+            {followError && <p role="alert" className="mt-3 text-xs text-red-700">{followError}</p>}
+            {detail && (detail.openRoleCount > 0 || detail.liveChallengeCount > 0 || detail.sponsoredArenas.length > 0 || detail.company.followerCount > 0) && (
+              <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-stone-700">
+                {detail.openRoleCount > 0 && <span className="rounded-full bg-stone-100 px-2.5 py-1">{detail.openRoleCount} open role{detail.openRoleCount === 1 ? '' : 's'}</span>}
+                {detail.liveChallengeCount > 0 && <span className="rounded-full bg-stone-100 px-2.5 py-1">{detail.liveChallengeCount} live challenge{detail.liveChallengeCount === 1 ? '' : 's'}</span>}
+                {detail.sponsoredArenas.length > 0 && <span className="rounded-full bg-stone-100 px-2.5 py-1">Sponsors the {detail.sponsoredArenas[0]}</span>}
+                {detail.company.followerCount > 0 && <span className="px-1 py-1 text-stone-500">{detail.company.followerCount.toLocaleString()} follower{detail.company.followerCount === 1 ? '' : 's'}</span>}
+              </div>
+            )}
+            {/* Claiming lives here, on the profile. Only offered while nobody administers the company. */}
+            {fbUser && (detail?.claim.available || claimMsg) && (
+              <div className="mt-4 border-t pt-4" style={{ borderColor: '#f3f4f6' }}>
+                {!claimOpen && !claimMsg ? (
+                  <button type="button" onClick={() => { setClaimOpen(true); setClaimMsg(null); }} className="text-sm font-semibold hover:underline" style={{ color: GREEN }}>
+                    Work at {company.name}? Claim this company
+                  </button>
+                ) : (
+                  <div className="rounded-xl bg-stone-50 p-4 text-sm text-stone-700">
+                    <p className="font-semibold text-stone-900">Claim {company.name}</p>
+                    <p className="mt-1">To manage this company you need a <strong>verified work email</strong> at the company's own website domain. Personal email addresses can't be used. If yours isn't on that domain, our team will review your request instead.</p>
+                    {claimMsg && <p role={claimMsg.kind === 'error' ? 'alert' : 'status'} className={`mt-3 rounded-lg px-3 py-2 ${claimMsg.kind === 'error' ? 'bg-red-50 text-red-800' : claimMsg.kind === 'ok' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>{claimMsg.text}</p>}
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={handleClaim} disabled={claimBusy || claimMsg?.kind === 'ok' || claimMsg?.kind === 'info'} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-semibold text-white disabled:opacity-50" style={{ background: GREEN }}>
+                        {claimBusy && <Loader2 className="h-4 w-4 animate-spin" />} Claim company
+                      </button>
+                      <button type="button" onClick={() => setClaimOpen(false)} className="rounded-lg border border-stone-300 px-4 py-2 font-semibold text-stone-700 hover:bg-stone-100">Close</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Follower info banner */}
@@ -1955,6 +2019,36 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
           <div className="flex-1 px-4 py-4 pb-24 space-y-4">
             {tab === 'overview' && (
               <>
+                {detail && (
+                  <div className="bg-white rounded-2xl border p-4 space-y-4" style={{ borderColor: '#e7e5e4' }}>
+                    <h3 className="font-bold text-stone-900 text-sm">Latest from {company.name}</h3>
+                    {detail.updates.length === 0 ? (
+                      <p className="text-sm text-stone-600">No recent updates yet. Follow {company.name} to hear when they post roles or challenges.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {detail.updates.map((u, i) => (
+                          <li key={i} className="flex items-start justify-between gap-3 text-sm">
+                            <span className="text-stone-800">{u.text}</span>
+                            <span className="flex-shrink-0 text-xs text-stone-500">{(() => { const d = Math.floor((Date.now() - u.atMs) / 86400000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 30 ? `${d}d ago` : new Date(u.atMs).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); })()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {detail.roles.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">Open roles</p>
+                        <ul className="mt-1.5 space-y-1">{detail.roles.map((r, i) => <li key={i} className="text-sm text-stone-800">{r.title}{r.location ? <span className="text-stone-500"> · {r.location}</span> : null}{r.type ? <span className="text-stone-500"> · {r.type}</span> : null}</li>)}</ul>
+                      </div>
+                    )}
+                    {detail.related.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">Related challenges</p>
+                        <ul className="mt-1.5 space-y-1">{detail.related.map(r => <li key={r.id} className="text-sm text-stone-800">{r.title}<span className="text-stone-500"> · {r.companyName} · {r.arenaName}{r.prize > 0 ? ` · $${r.prize.toLocaleString()}` : ''}</span></li>)}</ul>
+                      </div>
+                    )}
+                    <button type="button" onClick={() => setTab('team')} className="text-sm font-semibold hover:underline" style={{ color: GREEN }}>See people at {company.name} on BeWatu →</button>
+                  </div>
+                )}
                 {/* Culture signals */}
                 {((company as any).values?.length > 0 || (company as any).culture || (company as any).size) && (
                   <div className="bg-white rounded-2xl border p-4 space-y-3" style={{ borderColor: '#e7e5e4' }}>

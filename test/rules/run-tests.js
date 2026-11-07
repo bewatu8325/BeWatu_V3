@@ -211,6 +211,12 @@ async function main() {
   await check("delete post: the author cannot delete someone else's post", me.doc("posts/p-del-other").delete(), "DENY");
   await check("delete post: the author can delete their own post", me.doc("posts/p-del-mine").delete(), "ALLOW");
   await check("delete post: a signed-out visitor cannot delete", testEnv.unauthenticatedContext().firestore().doc("posts/p-edit").delete(), "DENY");
+  console.log("\n== companies: ownership is granted by the server, not the browser ==");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("companies/unclaimed1").set({ name: "Unclaimed Co", domain: "unclaimed.example.com", followerCount: 3 }); });
+  await check("a member cannot make themselves administrator of an unclaimed company from a browser", me.doc("companies/unclaimed1").update({ adminUid: "me", claimed: true }), "DENY");
+  await check("a member cannot bump a company's follower count from a browser", me.doc("companies/unclaimed1").update({ followerCount: 4 }), "DENY");
+  await check("company_claim_events: no client can read or write the audit trail", me.collection("company_claim_events").add({ companyId: "x", uid: "me", outcome: "granted" }), "DENY");
+  await check("company_claim_rate_limits: no client can reset their own counter", me.doc("company_claim_rate_limits/me").set({ count: 0 }), "DENY");
   console.log("\n== arena sponsorships: written only by api/arena-sponsorship.ts ==");
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const d = ctx.firestore();
