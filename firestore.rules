@@ -1747,6 +1747,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Staff-to-member messaging (api/ops/comms.ts). Campaign records are server-only; a site-wide
+    // banner is readable by any signed-in member and written only by the server.
+    match /comms_campaigns/{campaignId} {
+      allow read, write: if false;
+    }
+    match /site_announcements/{announcementId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
     match /industry_verifications/{verificationId} {
       allow read:           if isAuth()
                               && resource.data.recruiterUid == request.auth.uid;

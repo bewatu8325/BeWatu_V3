@@ -11,6 +11,8 @@ import { Factory, Loader2 } from 'lucide-react';
 import { goToFactory } from '../utils/factoryHandoff';
 import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGate';
 import FeedbackModal from './FeedbackModal';
+import AnnouncementBanner from './AnnouncementBanner';
+import { Megaphone } from 'lucide-react';
 
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -26,6 +28,11 @@ interface NotifItem {
   circleFirestoreId?: string;
   isRead:      boolean;
   createdAt?:  any;
+  // Staff messages from the ops console (type 'announcement')
+  title?:      string;
+  link?:       string | null;
+  linkLabel?:  string | null;
+  severity?:   'info' | 'warning' | 'critical';
 }
 
 // ── NotificationsPanel ────────────────────────────────────────────────────────
@@ -190,7 +197,11 @@ function NotificationsPanel({
     return `${Math.floor(diff / 86400)}d ago`;
   }
 
-  function notifIcon(type: string) {
+  function notifIcon(type: string, severity?: string) {
+    if (type === 'announcement') {
+      const tone = severity === 'critical' ? 'bg-red-50 text-red-600' : severity === 'warning' ? 'bg-amber-50 text-amber-600' : '';
+      return <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${tone}`} style={tone ? undefined : { backgroundColor: GREEN_LT, color: GREEN }}><Megaphone size={14} /></div>;
+    }
     if (type === 'circle_invite' || type === 'circle_approved' || type === 'circle_denied' || type === 'circle_post' || type === 'circle_join_request' || type === 'post_comment') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT }}><UsersIcon size={14} style={{ color: GREEN }} /></div>;
     }
@@ -235,10 +246,12 @@ function NotificationsPanel({
                 <div className="flex items-start gap-3">
                   {n.actorAvatar
                     ? <img src={n.actorAvatar} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                    : notifIcon(n.type)
+                    : notifIcon(n.type, n.severity)
                   }
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-stone-800 leading-snug">{n.message}</p>
+                    {n.type === 'announcement' && n.title && <p className="text-sm font-semibold text-stone-900 leading-snug">{n.title}</p>}
+                    <p className="text-sm text-stone-800 leading-snug whitespace-pre-line">{n.message}</p>
+                    {n.type === 'announcement' && (() => { try { const u = new URL(String(n.link)); return u.protocol === 'https:' ? <a href={u.toString()} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm font-semibold underline" style={{ color: GREEN }}>{n.linkLabel || 'Learn more'}</a> : null; } catch { return null; } })()}
                     <p className="text-xs text-stone-600 mt-0.5">{timeAgo(n.createdAt)}</p>
 
                     {/* Circle invite — accept/decline from bell */}
@@ -553,6 +566,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
           )}
         </div>
       </div>
+      <AnnouncementBanner />
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </header>
   );
