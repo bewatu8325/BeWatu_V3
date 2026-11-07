@@ -104,8 +104,8 @@ const FOUNDING_BENEFITS = [
     body: 'Join Pods and the Bridge community, or start a Pod of your own.' },
   { title: 'Opportunities to connect and collaborate',
     body: 'Meet members, build together in Pods, and take on real Arena challenges.' },
-  { title: 'A permanent Founding Member badge',
-    body: 'Shown on your profile for good.' },
+  { title: 'A Founding Member badge',
+    body: 'Shown on your profile to mark that you joined in the beta. Badges follow BeWatu\u2019s policies and may change if the platform does.' },
 ];
 
 const PROBLEMS = [
@@ -261,7 +261,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
           <Step num="02" icon={<IconTrophy />} title="Solve"
             body="Join an Arena and prove your skills on a real problem a real company posted." />
           <Step num="03" icon={<IconUsers />} title="Build"
-            body="Take a real idea into Factory, find a team, and build it into something that ships. AI quietly surfaces who might want to team up — it never does the building for you." />
+            body="After your first week of activity, take a real idea into Factory, post the roles you need, and build it into something that ships." />
         </div>
       </div>
     </section>
@@ -273,22 +273,22 @@ const LandingPage: React.FC<LandingPageProps> = ({
           <h2 className="text-3xl font-extrabold text-stone-900">Built first for builders.</h2>
           <p className="mt-3 text-stone-600 max-w-xl">
             BeWatu starts with the individual professional who wants their work to speak for itself.
-            Pre-founders and companies belong here too — the same Pods, Arena, and Factory serve all three.
+            Pre-founders and companies belong here too — the same Pods and Arena serve all three, and Factory opens up once you've been active for a week.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           <ForCard
             primary
             label="The Builder"
-            pain="You're good at your job, but your resume reads like everyone else's."
-            gives="A record of real work that speaks for you when you apply — and a community of people who built it with you."
+            pain="You're good at your job, but a resume can't show what you can actually do."
+            gives="A skills profile backed by real work that speaks for you when you apply — and a community of people who built it with you."
             cta="Join an Arena"
             onClick={onNavigateToRegister}
           />
           <ForCard
             label="The Pre-Founder"
             pain="You have an idea and no way to find people who'll actually build it with you."
-            gives="Find your people in a Pod, then take the idea into Factory and build it into something real."
+            gives="Find your people in a Pod first. After your first week of activity, take the idea into Factory and build it into something real."
             cta="Start a Project"
             onClick={onNavigateToRegister}
           />
@@ -307,7 +307,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
     <section className="py-16" style={{ backgroundColor: GREEN }}>
       <div className="mx-auto max-w-5xl px-6">
         <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: GREENLT }}>Skills over metrics</p>
-        <h2 className="text-3xl font-extrabold text-white sm:text-4xl max-w-xl">Your record, not your resume.</h2>
+        <h2 className="text-3xl font-extrabold text-white sm:text-4xl max-w-xl text-balance">Your skills, backed by your work.</h2>
         <div className="mt-10 grid grid-cols-1 gap-10 sm:grid-cols-2">
           <div>
             <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: GREENLT, opacity: 0.8 }}>The old way</p>
@@ -315,16 +315,16 @@ const LandingPage: React.FC<LandingPageProps> = ({
               The old way of building a career online rewards whoever posts the most. Connection counts, follower counts, endorsements from people who've never seen your work — vanity metrics that measure attention, not ability.
             </p>
             <p className="mt-4 text-white/90 leading-relaxed">
-              A job board profile tells someone where you worked. It was never built to show them what you actually built while you were there.
+              A resume or job board profile tells someone where you worked. It was never built to show them what you actually built while you were there.
             </p>
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: GREENLT, opacity: 0.8 }}>The BeWatu way</p>
             <p className="text-white font-medium leading-relaxed">
-              BeWatu rewards whoever actually does the work. Every Arena challenge, every Pod you help form, every Factory project you ship becomes part of a real record — proof of work, not a popularity contest.
+              BeWatu puts your skills first and backs them with the work behind them: the Arena challenges you solve, the Pods you help build and the Factory projects you ship. Have a resume? Import it and BeWatu builds your skills from it.
             </p>
             <p className="mt-4 text-white font-medium leading-relaxed">
-              And where other platforms ask you to send a connection request, BeWatu asks you to form a Pod — because the people worth connecting with are the people you're already building alongside.
+              You can still connect with people, but the strongest connections come from working together — so Pods, Arena challenges and Factory projects come first.
             </p>
           </div>
         </div>
@@ -348,7 +348,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             Our story →
           </button>
         </div>
-        <p className="mt-4 text-xs text-stone-600">No follower counts. No empty connection requests. A real community, built on real work.</p>
+        <p className="mt-4 text-xs text-stone-600">Skills first. A real community, built on real work.</p>
       </div>
     </section>
 
