@@ -285,8 +285,11 @@ async function doReveal(db: ReturnType<typeof getFirestore>, auth: ReturnType<ty
   let authEmail: string | null = null;
   try { authEmail = (await auth.getUser(uid)).email ?? null; } catch { /* auth record gone */ }
 
+  // city/state/country were separate legacy fields; they may sit in the private record
+  // (after scripts/purge-legacy-profile-pii.mjs moved them) or still on the profile.
+  const place = (k: string) => contact[k] || main[k];
   const location = contact.location
-    || [main.city, main.state, main.country].filter(Boolean).join(', ')
+    || [place('city'), place('state'), place('country')].filter(Boolean).join(', ')
     || null;
   const result = {
     email: authEmail ?? contact.email ?? main.email ?? null,
