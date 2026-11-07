@@ -1263,6 +1263,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // api/submit-report.ts's per-user submit-rate counters -- server-side only
+    // via Admin SDK. That route is also the only way a normal user's report
+    // becomes a support_tickets / fraud_cases doc (both are ops-only above).
+    match /report_rate_limits/{uid} {
+      allow read, write: if false;
+    }
+
     // api/send-endorsement-request.ts / api/submit-endorsement.ts --
     // endorsement-request docs, keyed by an unguessable crypto-random token
     // (the doc ID itself). No Firestore rule can verify "this caller holds

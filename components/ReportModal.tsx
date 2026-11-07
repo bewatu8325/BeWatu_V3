@@ -2,8 +2,10 @@
  * components/ReportModal.tsx
  *
  * Universal report and fraud/complaint flow for the BeWatu consumer app.
- * Self-contained — handles its own Firestore writes directly so nothing
- * else in the app needs to change except the three trigger points below.
+ * Self-contained — content_reports are written directly from the client
+ * (rules let any signed-in user create one); support_tickets and fraud_cases
+ * are ops-only in firestore.rules, so those go through POST /api/submit-report
+ * (api/submit-report.ts), which writes them with the Admin SDK.
  *
  * THREE REPORT PATHS:
  *   user    → content_reports (Trust & Safety) + support_tickets
@@ -29,9 +31,9 @@
  *   />
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -104,35 +106,60 @@ function slaMs(priority: string): number {
 
 // ── Firestore writes ──────────────────────────────────────────────────────────
 
+/**
+ * support_tickets / fraud_cases can't be written from the client (ops-only in
+ * firestore.rules), so ask the server to create them. The reporter's identity
+ * and the ticket priority/SLA are derived server-side from the ID token and the
+ * allow-listed reason.
+ */
+async function submitReportToServer(
+  reporter: ReportReporter,
+  body: Record<string, unknown>,
+): Promise<{ ticketId: string }> {
+  const user = auth.currentUser;
+  if (!user || user.uid !== reporter.firestoreUid) {
+    throw new Error('Please sign in again to submit your report.');
+  }
+  const idToken = await user.getIdToken();
+  const res = await fetch('/api/submit-report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? 'Failed to submit your report. Please try again.');
+  return { ticketId: data.ticketId as string };
+}
+
 async function writeUserReport(
   reporter: ReportReporter, target: ReportTarget,
-  reason: string, details: string
+  reason: string, details: string,
+  // Holds the content_reports id once it exists, so a retry after a failed
+  // ticket request reuses it instead of filing a duplicate.
+  reportIdRef: { current: string | undefined },
 ): Promise<string> {
   const severity = severityFromReason(reason);
-  const priority = severity === 'critical' ? 'critical' : severity === 'high' ? 'high' : 'medium';
 
-  const reportRef = await addDoc(collection(db, 'content_reports'), {
-    contentType: 'profile', contentId: target.user?.firestoreId ?? 'unknown',
-    contentPreview: target.user?.name ?? null,
-    reportedBy: reporter.firestoreUid, reportedByName: reporter.name,
-    reason, details: details || '', status: 'pending', severity,
-    reportCount: 1, assignedTo: null, assignedName: null,
-    source: 'user_report', createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  if (!reportIdRef.current) {
+    const reportRef = await addDoc(collection(db, 'content_reports'), {
+      contentType: 'profile', contentId: target.user?.firestoreId ?? 'unknown',
+      contentPreview: target.user?.name ?? null,
+      reportedBy: reporter.firestoreUid, reportedByName: reporter.name,
+      reason, details: details || '', status: 'pending', severity,
+      reportCount: 1, assignedTo: null, assignedName: null,
+      source: 'user_report', createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+    reportIdRef.current = reportRef.id;
+  }
+
+  const reportId = reportIdRef.current!;
+  await submitReportToServer(reporter, {
+    type: 'user', reason, details,
+    target: target.user ? { user: target.user } : undefined,
+    linkedReportId: reportId,
   });
 
-  await addDoc(collection(db, 'support_tickets'), {
-    subject: `User report: ${reason.replace(/_/g,' ')} — ${target.user?.name ?? 'Unknown'}`,
-    category: 'safety', priority,
-    userId: reporter.firestoreUid, userName: reporter.name, userEmail: reporter.email,
-    body: details || 'No additional details provided.',
-    status: 'open', assignedTo: null, assignedName: null,
-    slaBreached: false, slaDeadline: new Date(Date.now() + slaMs(priority)),
-    notes: [], createdByOps: false, linkedReportId: reportRef.id,
-    metadata: { reportType: 'user_report', targetUserId: target.user?.firestoreId ?? null, targetUserName: target.user?.name ?? null },
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), resolvedAt: null,
-  });
-
-  return reportRef.id;
+  return reportId;
 }
 
 async function writeContentReport(
@@ -156,44 +183,32 @@ async function writeFraudReport(
   fraudType: string, details: string
 ): Promise<string> {
   const isCompromise = ['account_compromised', 'identity_theft'].includes(fraudType);
-  const priority = isCompromise ? 'critical' : 'high';
 
-  const ticketRef = await addDoc(collection(db, 'support_tickets'), {
-    subject: `Fraud report: ${fraudType.replace(/_/g,' ')}${target?.user ? ` — ${target.user.name}` : ''}`,
-    category: 'safety', priority,
-    userId: reporter.firestoreUid, userName: reporter.name, userEmail: reporter.email,
-    body: details, status: 'open', assignedTo: null, assignedName: null,
-    slaBreached: false, slaDeadline: new Date(Date.now() + slaMs(priority)),
-    notes: [], createdByOps: false,
-    metadata: { reportType: 'fraud_report', fraudType, isCompromise, targetUserId: target?.user?.firestoreId ?? null, targetUserName: target?.user?.name ?? null },
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), resolvedAt: null,
+  // Server creates the ticket (and, for account compromise, the fraud case).
+  const { ticketId } = await submitReportToServer(reporter, {
+    type: 'fraud', fraudType, details,
+    target: target?.user ? { user: target.user } : undefined,
   });
 
-  if (isCompromise) {
-    await addDoc(collection(db, 'fraud_cases'), {
-      userId: reporter.firestoreUid, userName: reporter.name, userEmail: reporter.email,
-      type: fraudType, severity: 'high', status: 'open', riskScore: 60,
-      signals: [{ type: 'manual_flag', description: `User self-reported: ${details.slice(0, 200)}`, ts: new Date().toISOString() }],
-      attestationsNeeded: 2, attestationsReceived: 0, attestations: [],
-      assignedTo: null, assignedName: null,
-      notes: [{ body: `Self-reported. Details: ${details}`, authorName: 'System (user self-report)', authorUid: reporter.firestoreUid, ts: new Date().toISOString() }],
-      linkedTicketId: ticketRef.id, source: 'user_self_report',
-      resolvedAt: null, resolution: null, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-    });
-  }
-
+  // The ticket is what reaches the support queue, so it's the report. This
+  // linked content_reports doc is a best-effort extra for Trust & Safety: if it
+  // fails, don't tell the user their (already filed) report failed.
   if (!isCompromise && target?.user) {
-    await addDoc(collection(db, 'content_reports'), {
-      contentType: 'profile', contentId: target.user.firestoreId, contentPreview: target.user.name,
-      reportedBy: reporter.firestoreUid, reportedByName: reporter.name,
-      reason: fraudType, details, status: 'pending', severity: 'high', reportCount: 1,
-      assignedTo: null, assignedName: null,
-      source: 'fraud_report', linkedTicketId: ticketRef.id,
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-    });
+    try {
+      await addDoc(collection(db, 'content_reports'), {
+        contentType: 'profile', contentId: target.user.firestoreId, contentPreview: target.user.name,
+        reportedBy: reporter.firestoreUid, reportedByName: reporter.name,
+        reason: fraudType, details, status: 'pending', severity: 'high', reportCount: 1,
+        assignedTo: null, assignedName: null,
+        source: 'fraud_report', linkedTicketId: ticketId,
+        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn('ReportModal: linked content_reports write failed after ticket was filed', e);
+    }
   }
 
-  return ticketRef.id;
+  return ticketId;
 }
 
 // ── Small shared components ───────────────────────────────────────────────────
@@ -247,6 +262,9 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
   const [caseRef,    setCaseRef]    = useState<string | null>(null);
+  // content_reports doc already filed for the current user report, so a retry
+  // after a failed ticket request doesn't create a duplicate.
+  const pendingReportId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -254,7 +272,12 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
     setReportType(defaultType ?? 'user');
     setReason(''); setFraudType(''); setDetails('');
     setError(null); setCaseRef(null);
+    pendingReportId.current = undefined;
   }, [isOpen, defaultType]);
+
+  // The filed content_reports doc only stands in for a retry of the *same*
+  // report; if the reporter goes back and changes it, file a fresh one.
+  useEffect(() => { pendingReportId.current = undefined; }, [reason, details]);
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === 'Escape' && step !== 'done') onClose(); };
@@ -272,7 +295,7 @@ const ReportModal: React.FC<Props> = ({ isOpen, onClose, reporter, target, defau
     setSubmitting(true); setError(null);
     try {
       let ref: string;
-      if      (reportType === 'user')    ref = await writeUserReport(reporter, target ?? {}, reason, details);
+      if      (reportType === 'user')    ref = await writeUserReport(reporter, target ?? {}, reason, details, pendingReportId);
       else if (reportType === 'content') ref = await writeContentReport(reporter, target ?? {}, reason, details);
       else                               ref = await writeFraudReport(reporter, target, fraudType, details);
       setCaseRef(ref); setStep('done');
