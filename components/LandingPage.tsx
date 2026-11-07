@@ -94,6 +94,20 @@ const ForCard: React.FC<{
 const SERIF = "'Source Serif 4', Georgia, 'Times New Roman', serif";
 const MONO  = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
+// Each line describes something the beta really does, not a roadmap item.
+const FOUNDING_BENEFITS = [
+  { title: 'Early access to BeWatu',
+    body: 'Pods, the Bridge community and Arena challenges, open to you from day one.' },
+  { title: 'A voice in shaping the platform',
+    body: 'Share ideas and problems from inside the app. They go straight to the team.' },
+  { title: 'Communities from day one',
+    body: 'Join Pods and the Bridge community, or start a Pod of your own.' },
+  { title: 'Opportunities to connect and collaborate',
+    body: 'Meet members, build together in Pods, and take on real Arena challenges.' },
+  { title: 'A permanent Founding Member badge',
+    body: 'Shown on your profile for good.' },
+];
+
 const PROBLEMS = [
   { label: 'Hidden proof',      text: "Your profile says ten years of experience. It doesn't say what you actually shipped." },
   { label: 'Too much talk',     text: "You want to build something. Everyone around you wants to talk about building something." },
@@ -155,6 +169,47 @@ const LandingPage: React.FC<LandingPageProps> = ({
         />
         <div className="px-4 py-2.5 text-xs font-medium text-stone-600 border-t" style={{ borderColor: BORDER, backgroundColor: '#faf9f6' }}>
           Real product screen — not a mockup
+        </div>
+      </div>
+    </section>
+
+    {/* FOUNDING MEMBERS */}
+    <section id="founding-members" style={{ backgroundColor: GREEN }} className="py-16 sm:py-20">
+      <div className="mx-auto grid max-w-6xl items-start gap-10 px-6 md:grid-cols-[1.05fr_1fr] md:gap-16">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.14em] mb-5" style={{ color: GREENLT, fontFamily: MONO }}>
+            BeWatu · Founding Members beta
+          </p>
+          <h2 className="text-4xl font-semibold leading-[1.1] tracking-tight text-balance text-white sm:text-5xl" style={{ fontFamily: SERIF }}>
+            Your network starts here.
+          </h2>
+          <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/85">
+            Join the first generation of BeWatu members. Meet ambitious students and professionals, discover communities, exchange ideas, and collaborate on things that matter.
+          </p>
+          <button onClick={onNavigateToRegister}
+            className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-base font-bold hover:opacity-90 transition-opacity"
+            style={{ color: GREEN }}>
+            Become a Founding Member <IconArrow />
+          </button>
+          <p className="mt-4 text-sm text-white/70">Free to join. For students and professionals aged 16 and up.</p>
+        </div>
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.12em] mb-2" style={{ color: GREENLT, fontFamily: MONO }}>
+            As a Founding Member, you get
+          </p>
+          <ul className="flex flex-col">
+            {FOUNDING_BENEFITS.map(b => (
+              <li key={b.title} className="flex gap-4 border-t py-5" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+                <svg className="mt-0.5 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke={GREENLT} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" /><path d="m8 12.5 2.8 2.8L16 9.6" />
+                </svg>
+                <div>
+                  <p className="font-semibold text-white">{b.title}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-white/70">{b.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>

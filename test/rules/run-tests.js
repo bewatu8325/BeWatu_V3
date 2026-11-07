@@ -56,6 +56,8 @@ async function main() {
     await db.doc("users/victim").set({ isPublic: false, displayName: "Victim" });
     await db.doc("users/victim/private/contact").set({ email: "victim@x.com", phone: "555-1234", location: "SF", stripeCustomerId: "cus_abc" });
     await db.doc("ops_staff/ops1").set({ role: "trust_agent", isActive: true });
+    await db.doc("ops_staff/support1").set({ role: "support_agent", isActive: true });
+    await db.doc("platform_feedback/fb1").set({ uid: "author1", message: "hi", category: "idea" });
   });
 
   const atk = testEnv.authenticatedContext("atk").firestore();
@@ -136,6 +138,16 @@ async function main() {
   await check("report_rate_limits: a normal user CANNOT read or write the rate-limit counters", atk.doc("report_rate_limits/atk").set({ count: 0 }), "DENY");
   await check("report_rate_limits: ops staff CANNOT touch them either (Admin SDK only)", ops1.doc("report_rate_limits/atk").get(), "DENY");
   await check("content_reports: the client-side half of a user report still works", atk.collection("content_reports").add({ contentType: "profile", contentId: "victim", reportedBy: "atk", reportedByName: "Attacker", reason: "spam", status: "pending", severity: "medium", source: "user_report" }), "ALLOW");
+
+  console.log("\n== platform_feedback: written by api/submit-feedback.ts only, read by support ops ==");
+  const support1 = testEnv.authenticatedContext("support1").firestore();
+  await check("platform_feedback: a stranger CANNOT read it", atk.doc("platform_feedback/fb1").get(), "DENY");
+  await check("platform_feedback: even the author CANNOT read it back directly", testEnv.authenticatedContext("author1").firestore().doc("platform_feedback/fb1").get(), "DENY");
+  await check("platform_feedback: a trust_agent (not a support role) CANNOT read it", ops1.doc("platform_feedback/fb1").get(), "DENY");
+  await check("platform_feedback: a support_agent CAN read it", support1.doc("platform_feedback/fb1").get(), "ALLOW");
+  await check("platform_feedback: a signed-in user CANNOT write one directly", atk.collection("platform_feedback").add({ uid: "atk", message: "spam", category: "idea" }), "DENY");
+  await check("platform_feedback: ops staff CANNOT write one directly either", support1.collection("platform_feedback").add({ uid: "x", message: "y", category: "idea" }), "DENY");
+  await check("feedback_rate_limits: no client can read or write the counters", atk.doc("feedback_rate_limits/atk").set({ sendCount: 0 }), "DENY");
 
   console.log(`\n${pass} passed, ${fail} failed (of ${pass + fail})`);
   await testEnv.cleanup();

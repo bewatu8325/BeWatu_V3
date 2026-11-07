@@ -18,6 +18,7 @@ import React, { useEffect, useState } from 'react';
 import { fetchPublicProfileByUsername } from '../lib/firebaseAuth';
 import ProfileUnavailablePage from './ProfileUnavailablePage';
 import { LogoIcon } from '../constants';
+import FoundingMemberBadge from './FoundingMemberBadge';
 
 const BG        = '#f0ede6';
 const BORDER    = '#e8e4dc';
@@ -133,6 +134,7 @@ function PublicProfileCard({ profile, firestoreUid, onSignUp }: {
                     Verified skills
                   </span>
                 )}
+                {profile.foundingMember === true && <FoundingMemberBadge />}
               </div>
               {headline && <p className="text-sm text-stone-600 mt-1">{headline}</p>}
               {industry && <p className="text-xs text-stone-600 mt-0.5">{industry}</p>}

@@ -74,6 +74,12 @@ async function main() {
     await assertFails(updateDoc(doc(rando, "users", "rando-uid"), { engagementGateApplies: false }));
   });
 
+  // foundingMember is the Founding Members beta badge. Written once at
+  // signup, so an update must never be able to grant (or strip) it.
+  await check("a normal user CANNOT grant themselves foundingMember via update", async () => {
+    await assertFails(updateDoc(doc(rando, "users", "rando-uid"), { foundingMember: true }));
+  });
+
   await check("real platform admin ALSO cannot flip isPlatformAdmin via the client SDK (Admin SDK / Console only)", async () => {
     const admin = testEnv.authenticatedContext("admin-uid").firestore();
     await assertFails(updateDoc(doc(admin, "users", "rando-uid"), { isPlatformAdmin: true }));
@@ -111,6 +117,12 @@ async function main() {
   await check("a normal signup with neither field present still succeeds", async () => {
     await assertSucceeds(setDoc(doc(testEnv.authenticatedContext("brand-new-uid-3").firestore(), "users", "brand-new-uid-3"), {
       id: 997, name: "Legit", isPublic: true, engagementGateApplies: true,
+    }));
+  });
+
+  await check("a brand-new signup CAN be created as a founding member (real buildNewUserDoc() behavior)", async () => {
+    await assertSucceeds(setDoc(doc(testEnv.authenticatedContext("brand-new-uid-7").firestore(), "users", "brand-new-uid-7"), {
+      id: 993, name: "Founder One", isPublic: true, engagementGateApplies: true, foundingMember: true,
     }));
   });
 
