@@ -5,6 +5,7 @@ import { Header } from './components/Header';
 import { MobileNav, MOBILE_NAV_CLEARANCE } from './components/MobileNav';
 import AccountSheet from './components/mobile/AccountSheet';
 import CommunityTabs from './components/CommunityTabs';
+import SponsorIntentHost from './components/arenas/SponsorIntentHost';
 import CreateMenu from './components/CreateMenu';
 import { pathFor, parsePath, ARENA_INDUSTRY_VIEW, ARENA_CHALLENGE_VIEW } from './lib/routes';
 import { canPostChallenge, type CreateActionId } from './lib/createActions';
@@ -1262,6 +1263,13 @@ const MainApp: React.FC = () => {
   // Who may post an Arena challenge: a recruiter whose organization is verified for at least one Arena industry.
   const myCompany: any = (data?.companies ?? []).find(c => !!fbUser && ((c as any).adminUid === fbUser.uid || ((c as any).verifiedRecruiters ?? []).includes(fbUser.uid))) ?? null;
   const canPostArena = canPostChallenge(currentUser as any, myCompany);
+  // From "Sponsor this Arena": take the member to the existing screens for getting an organization. A claim is made on the
+  // organization's own profile in the directory; creating one is done in the recruiter console (a recruiter account).
+  const handleSponsorSetup = (kind: 'create' | 'claim') => {
+    if (kind === 'claim') handleSetView(View.Companies);
+    else if (currentUser?.isRecruiter) setActiveProfile('recruiter');
+    else handleSetView(View.Jobs);
+  };
   // Each Create action takes you to the page that does it and opens the right control there.
   const handleCreate = (id: CreateActionId) => {
     if (id === 'post') { handleSetView(View.Feed); requestIntent('focus-composer'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
@@ -2305,6 +2313,8 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)} onOpenCreate={() => setCreateOpen(true)}
           />
           <main className={`flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 ${MOBILE_NAV_CLEARANCE} overflow-x-hidden`}>
+            {/* Picks "sponsor this Arena" back up after the member has created or claimed an organization */}
+            <SponsorIntentHost uid={fbUser?.uid} isRecruiter={!!currentUser?.isRecruiter} onSetup={handleSponsorSetup} />
             <PullToRefresh onRefresh={async () => { if (currentUser) await loadAppData(currentUser); }}>
               {content}
             </PullToRefresh>
