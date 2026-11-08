@@ -4,6 +4,7 @@ import { useFirebase } from '../contexts/FirebaseContext';
 import { updateUserInFirestore } from '../lib/firebaseAuth';
 import { Download, Trash2 } from 'lucide-react';
 import { PodNotificationPrefs } from './PodFeatures';
+import EmailPreferences from './EmailPreferences';
 
 // ── Safely import optional auth functions ─────────────────────────────────────
 async function safeGetSecurityEvents(uid: string, limit: number): Promise<any[]> {
@@ -316,6 +317,9 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
           </div>
         )}
       </div>
+
+      {/* Email: product updates on/off (the unsubscribe link in an update email writes the same choice) */}
+      <EmailPreferences />
 
       {/* Account Protection */}
       <div className="bg-white rounded-2xl border p-5 sm:p-6 space-y-5" style={{ borderColor: '#e7e5e4' }}>

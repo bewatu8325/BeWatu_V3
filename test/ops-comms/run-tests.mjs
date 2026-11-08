@@ -4,7 +4,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { runAction, HttpError, validateMessage, validateAudience, matchesSegment, isEligible, unsubscribeToken, maskEmail } from '../../api/ops/comms.ts';
-import { unsubscribe, tokenIsValid, tokenFor } from '../../api/unsubscribe.ts';
+import { unsubscribe, tokenIsValid, tokenFor, resubscribe } from '../../api/unsubscribe.ts';
 import { pickAnnouncement } from '../../lib/announcements.ts';
 
 let pass = 0, fail = 0;
@@ -262,6 +262,15 @@ await check('a valid link records the opt-out; a forged or tampered link does no
   assert(await unsubscribe(db, SECRET, 'm12', tokenFor(SECRET, 'm12')) === true, 'valid link refused'); assert((await db.doc('users/m12').get()).data().commsOptOut === true, 'not recorded');
   assert(await unsubscribe(db, SECRET, 'm13', tokenFor(SECRET, 'm12')) === false, "someone else's token worked"); assert(!(await db.doc('users/m13').get()).data().commsOptOut, 'm13 changed');
   assert(await unsubscribe(db, SECRET, 'm13', 'deadbeef') === false && await unsubscribe(db, undefined, 'm13', tokenFor(SECRET, 'm13')) === false && await unsubscribe(db, SECRET, '../x', 'x') === false, 'bad tokens accepted');
+});
+await check('resubscribing turns updates back on, only with a valid signed link, and only for that member', async () => {
+  assert(await unsubscribe(db, SECRET, 'm15', tokenFor(SECRET, 'm15')) === true && (await db.doc('users/m15').get()).data().commsOptOut === true, 'setup');
+  assert(await resubscribe(db, SECRET, 'm15', tokenFor(SECRET, 'm14')) === false && (await db.doc('users/m15').get()).data().commsOptOut === true, "someone else's token resubscribed them");
+  assert(await resubscribe(db, undefined, 'm15', tokenFor(SECRET, 'm15')) === false && await resubscribe(db, SECRET, 'm15', 'nope') === false && await resubscribe(db, SECRET, '../x', 'x') === false, 'bad links accepted');
+  assert(await resubscribe(db, SECRET, 'm15', tokenFor(SECRET, 'm15')) === true, 'valid link refused');
+  const d = (await db.doc('users/m15').get()).data();
+  assert(d.commsOptOut === false && d.commsResubscribedAt, 'not recorded: ' + JSON.stringify(d));
+  assert((await db.doc('users/m12').get()).data().commsOptOut === true, 'another member was changed');
 });
 await check('the token the sender generates is the token the unsubscribe page accepts', async () => assert(unsubscribeToken(SECRET, 'm5') === tokenFor(SECRET, 'm5'), 'algorithms differ'));
 await check('after unsubscribing, the member no longer gets product updates but still gets account messages', async () => {
