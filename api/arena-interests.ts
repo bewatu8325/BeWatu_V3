@@ -16,7 +16,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue, type Firestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, type Firestore, type DocumentData } from 'firebase-admin/firestore';
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -29,7 +29,7 @@ async function realIndustries(db: Firestore): Promise<Set<string>> {
   return new Set(snap.docs.filter(d => d.data().isActive !== false).map(d => d.id));
 }
 
-const read = (x: FirebaseFirestore.DocumentData | undefined) => ({
+const read = (x: DocumentData | undefined) => ({
   industries: Array.isArray(x?.arenaFollows) ? x!.arenaFollows.filter((s: unknown) => typeof s === 'string').slice(0, MAX_FOLLOWS) as string[] : [],
   notify: x?.arenaNotify === true,
 });
