@@ -4,8 +4,8 @@
 // and organization profiles.
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { runAction, resetDirectoryCache, categoryOf as apiCategoryOf, normalizeType as apiNormalizeType } from '../../api/companies.ts';
-import { categoryOf, normalizeType, ORGANIZATION_TYPES, sanitizeProfile, locationText } from '../../lib/organizations.ts';
+import { runAction, resetDirectoryCache, categoryOf as apiCategoryOf, classify as apiClassify, BROAD_CATEGORIES as API_BROAD, normLabel as apiNorm, normalizeType as apiNormalizeType } from '../../api/companies.ts';
+import { categoryOf, classify, BROAD_CATEGORIES, DEFAULT_PILLS, normLabel, normalizeType, ORGANIZATION_TYPES, sanitizeProfile, locationText } from '../../lib/organizations.ts';
 
 let pass = 0, fail = 0;
 async function check(label, fn) {
@@ -32,9 +32,27 @@ await check('lib/ and api/ agree on type and category for a spread of inputs', (
   for (const [t, i] of inputs) {
     const o = { organizationType: t, industry: i };
     assert(categoryOf(o) === apiCategoryOf(o), `category differs for ${JSON.stringify(o)}: ${categoryOf(o)} vs ${apiCategoryOf(o)}`);
+    assert(classify(o).join() === apiClassify(o).join(), `classification differs for ${JSON.stringify(o)}`);
     assert(normalizeType(t) === apiNormalizeType(t), `type differs for ${JSON.stringify(t)}`);
   }
 });
+await check('the category tables are identical in lib/ and api/ (one classification, two copies)', () => {
+  assert(JSON.stringify(BROAD_CATEGORIES) === JSON.stringify(API_BROAD), 'BROAD_CATEGORIES differ');
+  for (const v of ['Financial & Services', 'Café  Édition', 'a-b_c', null, 42]) assert(normLabel(v) === apiNorm(v), 'normLabel differs for ' + v);
+});
+await check('classification is by exact recorded label, never by keyword', () => {
+  // the listed subcategories of every category land in that category
+  for (const c of BROAD_CATEGORIES) for (const sub of c.subcategories) assert(classify({ industry: sub }).join() === c.key, `${sub} should be ${c.key}: ${classify({ industry: sub })}`);
+  // case, punctuation and "&" do not matter
+  assert(classify({ industry: 'financial   SERVICES' }).join() === 'finance' && classify({ industry: 'IT Services' }).join() === 'technology', 'normalisation');
+  // a word that merely CONTAINS a category word is not classified by it
+  for (const trap of ['Healthcare Staffing Agency', 'Bankruptcy Law', 'Software Licensing Litigation', 'Educational Toys', 'Manufacturing Consulting']) assert(classify({ industry: trap }).join() === 'other', `${trap} must not be guessed: ${classify({ industry: trap })}`);
+  // subindustries count; types count; nothing recorded is Other
+  assert(classify({ industry: 'Conglomerate', subindustries: ['Banking', 'Software'] }).join() === 'finance,technology', 'subindustries');
+  assert(classify({ organizationType: 'college_university', industry: '' }).join() === 'education' && classify({ organizationType: 'hospital' }).join() === 'healthcare' && classify({ organizationType: 'health_system' }).join() === 'healthcare', 'types');
+  assert(classify({}).join() === 'other' && classify({ industry: 42 }).join() === 'other', 'nothing recorded');
+});
+await check('the standard shortcuts are Finance, Healthcare, Technology, Education, in that order', () => { assert(DEFAULT_PILLS.join() === 'finance,healthcare,technology,education', DEFAULT_PILLS.join()); });
 await check('a record with no organizationType is a business, so existing companies keep working', () => {
   assert(normalizeType(undefined) === 'business' && normalizeType('') === 'business' && normalizeType('weird') === 'business', 'default');
   assert(categoryOf({ industry: 'Finance' }) === 'finance' && categoryOf({ industry: 'Retail' }) === 'other', 'finance business');
@@ -42,7 +60,8 @@ await check('a record with no organizationType is a business, so existing compan
 });
 await check('type decides before industry: a hospital is a hospital, a nonprofit in healthcare is not a medical company', () => {
   assert(categoryOf({ organizationType: 'hospital', industry: 'Manufacturing' }) === 'hospitals', 'hospital');
-  assert(categoryOf({ organizationType: 'nonprofit', industry: 'Healthcare' }) === 'other', 'nonprofit');
+  assert(categoryOf({ organizationType: 'nonprofit', industry: 'Healthcare' }) === 'other', 'a nonprofit has a general profile (its filter category is still Healthcare)');
+  assert(classify({ organizationType: 'nonprofit', industry: 'Healthcare' }).join() === 'healthcare', 'nonprofit in healthcare is filterable as Healthcare');
 });
 await check('profile facts keep only known fields with sane values', () => {
   const p = sanitizeProfile('hospitals', { beds: '250', starRating: 9, emergencyServices: 'Y', facilityType: 'Acute Care', bogus: 'x', established: 1850 });
@@ -80,29 +99,25 @@ await check('every existing company is still listed, with no record altered', as
   const doc = (await db.collection('companies').doc('legacy-corp').get()).data();
   assert(!('organizationType' in doc), 'must not rewrite existing records');
 });
-await check('the four categories and their counts are exact', async () => {
+await check('every category and its count is exact; an organization can be in more than one', async () => {
   const r = await list({});
   const c = Object.fromEntries(r.categories.map(x => [x.key, x.count]));
-  assert(c.colleges === 15, 'colleges ' + c.colleges);
-  assert(c.hospitals === 2, 'hospitals ' + c.hospitals);
-  assert(c.medical === 2, 'medical ' + c.medical); // legacy-med and biotech; the charity is a nonprofit, the hospitals are hospitals
-  assert(c.manufacturing === 2, 'manufacturing ' + c.manufacturing);
-  assert(c.finance === 1, 'finance ' + c.finance);
-  assert(Object.values(c).reduce((a, b) => a + b, 0) === r.total, 'categories must sum to the total');
-  assert(r.categories.length === 6, 'all categories are always listed');
+  assert(c.education === 15 && c.healthcare === 5 && c.manufacturing === 2 && c.finance === 1 && c.other === 0, JSON.stringify(c));
+  assert(r.categories.map(x => x.key).join() === 'finance,healthcare,technology,education,manufacturing,other', 'order: ' + r.categories.map(x => x.key));
+  assert(Object.values(c).reduce((a, b) => a + b, 0) === r.total, 'no overlaps in this data, so they sum to the total');
 });
 await check('choosing a category returns exactly its members and the total matches', async () => {
-  const r = await list({ category: 'colleges', limit: 24 });
-  assert(r.total === 15 && r.items.length === 15 && r.items.every(i => i.category === 'colleges'), 'colleges');
-  const h = await list({ category: 'hospitals' });
-  assert(h.total === 2 && h.items.every(i => ['hospital', 'health_system'].includes(i.organizationType)), 'hospitals');
+  const r = await list({ category: 'education', limit: 24 });
+  assert(r.total === 15 && r.items.length === 15 && r.items.every(i => i.categories.includes('education')), 'education');
+  const h = await list({ category: 'healthcare', limit: 24 });
+  assert(h.total === 5 && h.items.every(i => i.categories.includes('healthcare')), 'healthcare ' + h.total);
   const m = await list({ category: 'manufacturing' });
   assert(m.items.map(i => i.id).sort().join() === 'gears,steel', m.items.map(i => i.id).join());
 });
 await check('paging inside a category: 12 then 3, no duplicates', async () => {
-  const p1 = await list({ category: 'colleges', sort: 'alpha' });
+  const p1 = await list({ category: 'education', sort: 'alpha' });
   assert(p1.items.length === 12 && p1.nextCursor, 'first page');
-  const p2 = await list({ category: 'colleges', sort: 'alpha', cursor: p1.nextCursor });
+  const p2 = await list({ category: 'education', sort: 'alpha', cursor: p1.nextCursor });
   assert(p2.items.length === 3 && p2.nextCursor === null, 'second page');
   const all = [...p1.items, ...p2.items].map(i => i.id);
   assert(new Set(all).size === 15, 'duplicates');
@@ -111,21 +126,21 @@ await check('paging inside a category: 12 then 3, no duplicates', async () => {
 
 console.log('== filters combine, and counts stay honest ==');
 await check('category + country: the count is the intersection', async () => {
-  const r = await list({ category: 'colleges', country: 'kenya' });
+  const r = await list({ category: 'education', country: 'kenya' });
   assert(r.total === 7 && r.items.every(i => i.location.country === 'Kenya'), 'kenya colleges ' + r.total);
 });
 await check('country facet ignores the country filter but respects the category', async () => {
-  const r = await list({ category: 'colleges', country: 'kenya' });
+  const r = await list({ category: 'education', country: 'kenya' });
   const c = Object.fromEntries(r.countries.map(x => [x.label, x.count]));
   assert(c['Kenya'] === 7 && c['United States'] === 8, JSON.stringify(c));
 });
 await check('category facet ignores the category filter but respects the country', async () => {
-  const r = await list({ category: 'colleges', country: 'kenya' });
+  const r = await list({ category: 'education', country: 'kenya' });
   const c = Object.fromEntries(r.categories.map(x => [x.key, x.count]));
-  assert(c.colleges === 7 && c.manufacturing === 1 && c.hospitals === 0, JSON.stringify(c)); // steel is the one Kenyan manufacturer
+  assert(c.education === 7 && c.manufacturing === 1 && c.healthcare === 0, JSON.stringify(c)); // steel is the one Kenyan manufacturer
 });
 await check('search + category + sort together', async () => {
-  const r = await list({ q: 'university 1', category: 'colleges', sort: 'followers' });
+  const r = await list({ q: 'university 1', category: 'education', sort: 'followers' });
   assert(r.items.length > 0 && r.items.every(i => /university/i.test(i.name) && i.name.includes('1')), r.items.map(i => i.name).join());
   assert(r.total === r.items.length, 'total');
   assert(r.items[0].followerCount >= r.items[r.items.length - 1].followerCount, 'followers order');
@@ -151,20 +166,36 @@ await check('an unknown category or type is ignored, not an error', async () => 
   assert(r.total === 22 || r.total > 20, 'total ' + r.total);
 });
 
-await check('a category filter can be several categories (Healthcare = healthcare companies + hospitals and health systems)', async () => {
-  const r = await list({ category: 'medical,hospitals', limit: 24 });
-  assert(r.total === 4 && r.items.every(i => ['medical', 'hospitals'].includes(i.category)), 'healthcare group ' + r.total);
-  const withJunk = await list({ category: ' hospitals , bogus,,hospitals', limit: 24 });
-  assert(withJunk.total === 2, 'unknown keys are ignored: ' + withJunk.total);
+await check('several categories mean OR: in any of them', async () => {
+  const r = await list({ category: 'healthcare,finance', limit: 24 });
+  assert(r.total === 6 && r.items.every(i => i.categories.includes('healthcare') || i.categories.includes('finance')), 'healthcare or finance ' + r.total);
+  assert(r.items.some(i => i.id === 'legacy-corp') && r.items.some(i => i.id === 'mercy'), 'both groups present');
+  const withJunk = await list({ category: ' healthcare , bogus,,healthcare', limit: 24 });
+  assert(withJunk.total === 5, 'unknown keys and repeats are ignored: ' + withJunk.total);
   const none = await list({ category: 'bogus' });
-  assert(none.total === r.total + 0 || none.total > 0, 'only-unknown means no category filter');
-  const f = await list({ category: 'finance' });
-  assert(f.total === 1 && f.items[0].id === 'legacy-corp', 'finance');
+  assert(none.total > 20, 'only-unknown means no category filter: ' + none.total);
 });
-await check('with a multi-category filter the category facet still shows every category (it ignores its own filter)', async () => {
-  const r = await list({ category: 'medical,hospitals' });
+await check('OR across categories, AND with the other filters', async () => {
+  const r = await list({ category: 'healthcare,education', country: 'kenya', limit: 24 });
+  assert(r.items.length === r.total && r.items.every(i => i.location.country === 'Kenya' && (i.categories.includes('education') || i.categories.includes('healthcare'))), 'kenya within either');
+  assert(r.total === 7, 'total ' + r.total);
+  const h = await list({ category: 'healthcare,finance', filters: { hiring: true } });
+  assert(h.total === 0, 'nobody in either is hiring: ' + h.total);
+});
+await check('with several categories chosen the category facet still shows every category (it ignores its own filter)', async () => {
+  const r = await list({ category: 'healthcare,finance' });
   const c = Object.fromEntries(r.categories.map(x => [x.key, x.count]));
-  assert(c.colleges === 15 && c.manufacturing === 2 && c.medical === 2 && c.hospitals === 2, JSON.stringify(c));
+  assert(c.education === 15 && c.manufacturing === 2 && c.healthcare === 5 && c.finance === 1, JSON.stringify(c));
+});
+await check('an organization with several recorded subindustries is counted in each category once', async () => {
+  await org('multi', { name: 'Multi Group', industry: 'Conglomerate', subindustries: ['Banking', 'Software'] });
+  resetDirectoryCache();
+  const r = await list({});
+  const c = Object.fromEntries(r.categories.map(x => [x.key, x.count]));
+  assert(c.finance === 2 && c.technology === 1, JSON.stringify(c));
+  const both = await list({ category: 'finance,technology', limit: 24 });
+  assert(both.items.filter(i => i.id === 'multi').length === 1 && both.total === 2, 'listed once: ' + both.total);
+  await db.collection('companies').doc('multi').delete(); resetDirectoryCache();
 });
 
 console.log('== profiles ==');
@@ -200,6 +231,55 @@ await check('an old company id still opens (links keep working), and an unknown 
   assert(status === 404, 'status ' + status);
 });
 
+console.log('== saved defaults and suggested shortcuts ==');
+const me2 = { uid: 'prefs-user', email: 'p@example.org', emailVerified: true };
+await db.doc('users/prefs-user').set({ name: 'P' });
+const run2 = (body) => runAction(db, me2, body);
+await check('a new member has no saved defaults and is offered no personalised shortcuts (the page shows the standard four)', async () => {
+  assert((await run2({ action: 'prefs' })).categories.length === 0, 'prefs');
+  const r = await run2({ action: 'list' });
+  assert(r.meta.saved.length === 0 && r.meta.suggested.length === 0, JSON.stringify([r.meta.saved, r.meta.suggested]));
+  assert(r.total > 20, 'and everything is listed');
+});
+await check('saving defaults stores only valid categories, in canonical order, and returns them', async () => {
+  const r = await run2({ action: 'setPrefs', categories: ['healthcare', 'bogus', 'finance', 'healthcare'] });
+  assert(r.categories.join() === 'finance,healthcare', r.categories.join());
+  assert((await run2({ action: 'prefs' })).categories.join() === 'finance,healthcare', 'reads back');
+  assert((await db.doc('users/prefs-user').get()).data().orgInterests.join() === 'finance,healthcare', 'stored on the member record');
+});
+await check('saved defaults are what the shortcuts lead with, and listing does not apply or change them', async () => {
+  const r = await run2({ action: 'list' });
+  assert(r.meta.saved.join() === 'finance,healthcare' && r.meta.suggested.join() === 'finance,healthcare,technology,education', JSON.stringify([r.meta.saved, r.meta.suggested]));
+  assert(r.total > 20, 'the server never narrows the list by itself; the page sends the categories it wants');
+  await run2({ action: 'list', category: 'education' });
+  assert((await run2({ action: 'prefs' })).categories.join() === 'finance,healthcare', 'a temporary filter did not touch the saved defaults');
+});
+await check('followed organizations shape the shortcuts only when nothing is saved, and never write anything', async () => {
+  await run2({ action: 'setPrefs', categories: [] });
+  await db.doc('users/prefs-user').set({ followingCompanies: ['gears', 'steel', 'uni-01'] }, { merge: true });
+  const r = await run2({ action: 'list' });
+  assert(r.meta.suggested[0] === 'manufacturing' && r.meta.suggested.includes('education'), JSON.stringify(r.meta.suggested));
+  assert(r.meta.suggested.length === 4 && !r.meta.suggested.includes('other'), 'four, never "other"');
+  assert((await run2({ action: 'prefs' })).categories.length === 0, 'inferred interests were not saved');
+});
+await check('saving an empty list clears the defaults; bad input is refused', async () => {
+  assert((await run2({ action: 'setPrefs', categories: [] })).categories.length === 0, 'cleared');
+  for (const bad of ['finance', null, [1], new Array(13).fill('finance')]) {
+    let status = 0; try { await run2({ action: 'setPrefs', categories: bad }); } catch (e) { status = e.status; }
+    assert(status === 400, 'refused ' + JSON.stringify(bad));
+  }
+  let st = 0; try { await runAction(db, { uid: 'ghost', email: 'g@example.org', emailVerified: true }, { action: 'setPrefs', categories: ['finance'] }); } catch (e) { st = e.status; }
+  assert(st === 404 && !(await db.doc('users/ghost').get()).exists, 'no record is created for a missing account');
+});
+await check('one member cannot read or change another member\'s defaults', async () => {
+  await run2({ action: 'setPrefs', categories: ['education'] });
+  const other = { uid: 'someone-else', email: 's@example.org', emailVerified: true };
+  await db.doc('users/someone-else').set({ name: 'S' });
+  assert((await runAction(db, other, { action: 'prefs' })).categories.length === 0, 'saw another member\'s defaults');
+  await runAction(db, other, { action: 'setPrefs', categories: ['finance'] });
+  assert((await run2({ action: 'prefs' })).categories.join() === 'education', 'changed another member\'s defaults');
+});
+
 console.log('== a large directory is served from a snapshot ==');
 {
   // 1,600 more records pushes the directory over the snapshot threshold.
@@ -215,7 +295,7 @@ console.log('== a large directory is served from a snapshot ==');
 }
 resetDirectoryCache();
 await check('the first request builds a snapshot, and answers correctly from it', async () => {
-  const r = await list({ category: 'colleges' });
+  const r = await list({ category: 'education' });
   assert(r.total === 1615, 'total ' + r.total);
   const meta = (await db.collection('directory_snapshot').doc('meta').get()).data();
   assert(meta && meta.count >= 1600 && meta.chunks >= 4, JSON.stringify(meta));
@@ -223,27 +303,27 @@ await check('the first request builds a snapshot, and answers correctly from it'
 await check('a later request reads the snapshot and not the whole collection', async () => {
   resetDirectoryCache();
   await db.collection('companies').doc('late-arrival').set({ name: 'Late Arrival University', organizationType: 'college_university', industry: 'Higher Education', followerCount: 0 });
-  const r = await list({ category: 'colleges' });
+  const r = await list({ category: 'education' });
   assert(r.total === 1615, 'a record created after the snapshot is not in it yet: ' + r.total);
 });
 await check('page items are live: a follower added after the snapshot shows at once', async () => {
   await db.collection('companies').doc('uni-01').update({ followerCount: 999 });
   resetDirectoryCache();
-  const r = await list({ category: 'colleges', q: 'University 01' });
+  const r = await list({ category: 'education', q: 'University 01' });
   const u = r.items.find(i => i.id === 'uni-01');
   assert(u && u.followerCount === 999, 'live follower count: ' + u?.followerCount);
 });
 await check('an expired snapshot is rebuilt and picks up new records', async () => {
   resetDirectoryCache();
   const later = Date.now() + 11 * 60_000;
-  const r = await list({ category: 'colleges' }, later);
+  const r = await list({ category: 'education' }, later);
   assert(r.total === 1616, 'total ' + r.total);
 });
 await check('a held lease keeps other instances on the last good snapshot', async () => {
   resetDirectoryCache();
   await db.collection('directory_snapshot').doc('lease').set({ until: Date.now() + 40 * 60_000 });
   await db.collection('companies').doc('later-still').set({ name: 'Later Still University', organizationType: 'college_university', industry: 'Higher Education', followerCount: 0 });
-  const r = await list({ category: 'colleges' }, Date.now() + 25 * 60_000);
+  const r = await list({ category: 'education' }, Date.now() + 25 * 60_000);
   assert(r.total === 1616, 'served the stale snapshot: ' + r.total);
 });
 await check('a damaged snapshot falls back safely instead of failing', async () => {
@@ -251,7 +331,7 @@ await check('a damaged snapshot falls back safely instead of failing', async () 
   const meta = (await db.collection('directory_snapshot').doc('meta').get()).data();
   await db.collection('directory_snapshot').doc(`c_${meta.gen}_1`).delete();
   await db.collection('directory_snapshot').doc('lease').delete();
-  const r = await list({ category: 'colleges' }, meta.builtAtMs + 1000);
+  const r = await list({ category: 'education' }, meta.builtAtMs + 1000);
   assert(r.total >= 1616, 'total ' + r.total);
 });
 

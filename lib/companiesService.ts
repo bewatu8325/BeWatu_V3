@@ -11,7 +11,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { auth } from './firebase';
-import type { CategoryKey, OrganizationType, OrganizationLocation } from './organizations';
+import type { CategoryKey, BroadKey, OrganizationType, OrganizationLocation } from './organizations';
 
 export type CompaniesView = 'for_you' | 'following' | 'all';
 export type CompaniesSort = 'relevance' | 'recent' | 'followers' | 'alpha';
@@ -38,7 +38,10 @@ export interface CompanyItem {
   domain: string;
   ticker: string;
   organizationType: OrganizationType;
+  /** Which kind of profile it has (not a filter). */
   category: CategoryKey;
+  /** Every filter category it belongs to. */
+  categories: BroadKey[];
   typeLabel: string;
   subindustries: string[];
   location: OrganizationLocation;
@@ -58,10 +61,10 @@ export interface CompaniesPage {
   total: number;
   nextCursor: string | null;
   facets: { key: string; label: string; count: number }[];
-  categories: { key: CategoryKey; label: string; count: number }[];
+  categories: { key: BroadKey; label: string; count: number }[];
   types: { key: OrganizationType; label: string; count: number }[];
   countries: { key: string; label: string; count: number }[];
-  meta: { view: CompaniesView; sort: CompaniesSort; forYou?: { hasPreferences: boolean; personalisedCount: number; fallback: boolean } };
+  meta: { view: CompaniesView; sort: CompaniesSort; saved?: BroadKey[]; suggested?: BroadKey[]; forYou?: { hasPreferences: boolean; personalisedCount: number; fallback: boolean } };
 }
 
 export interface OrganizationInfo {
@@ -168,4 +171,16 @@ export async function claimCompanyRequest(companyId: string): Promise<ClaimResul
 export function appendUnique(existing: CompanyItem[], incoming: CompanyItem[]): CompanyItem[] {
   const seen = new Set(existing.map(c => c.id));
   return [...existing, ...incoming.filter(c => !seen.has(c.id))];
+}
+
+/** The categories this member saved as their defaults ([] = none saved). */
+export async function getOrgPrefs(): Promise<BroadKey[]> {
+  const r = await companiesApi({ action: 'prefs' });
+  return Array.isArray(r.categories) ? r.categories : [];
+}
+/** Saves (or, with [], clears) the member's default categories. Changes nothing else. */
+export async function saveOrgPrefs(categories: BroadKey[]): Promise<BroadKey[]> {
+  const r = await companiesApi({ action: 'setPrefs', categories });
+  clearCompaniesCache();
+  return Array.isArray(r.categories) ? r.categories : [];
 }
