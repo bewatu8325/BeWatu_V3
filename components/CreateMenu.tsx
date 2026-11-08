@@ -10,6 +10,7 @@ import { createActions, type CreateActionId } from '../lib/createActions';
 import { PodsIcon } from './IconComponents';
 import BottomSheet from './mobile/BottomSheet';
 import { InviteIcon } from './icons/NavIcons';
+import { TalkIcon } from './icons/BridgeIcons';
 
 const GREEN = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -22,6 +23,7 @@ const ICON: Record<CreateActionId, React.ReactNode> = {
   pod: <PodsIcon className="h-5 w-5" />,
   project: <Lightbulb className="h-5 w-5" aria-hidden="true" />,
   invite: <InviteIcon className="h-5 w-5" />,
+  talk: <TalkIcon className="h-5 w-5" />,
   challenge: <Trophy className="h-5 w-5" aria-hidden="true" />,
 };
 

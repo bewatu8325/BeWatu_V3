@@ -47,9 +47,13 @@ check('every destination belongs under the right navigation item', () => {
 
 console.log('== Create menu ==');
 const ids = (ctx) => createActions(ctx).map(a => a.id).join();
-check('everyone gets post, wisdom, reel, spark, pod, project and invite; the challenge action only when authorized', () => {
-  assert(ids({ view: View.Feed, canPostChallenge: false }) === 'post,wisdom,reel,spark,pod,project,invite', ids({ view: View.Feed, canPostChallenge: false }));
-  assert(ids({ view: View.Feed, canPostChallenge: true }) === 'post,wisdom,reel,spark,pod,project,invite,challenge', ids({ view: View.Feed, canPostChallenge: true }));
+check('on Bridge, the suggested action is to share a Talk', () => {
+  for (const v of [View.Bridge, 'BRIDGE_TALKS', 'BRIDGE_TALK']) assert(createActions({ view: v, canPostChallenge: false })[0].id === 'talk' && createActions({ view: v, canPostChallenge: false })[0].suggested, `view ${v}`);
+  assert(createActions({ view: View.Circles, canPostChallenge: false })[0].id === 'pod', 'Pods still suggest a Pod');
+});
+check('everyone gets post, wisdom, a Bridge Talk, reel, spark, pod, project and invite; the challenge action only when authorized', () => {
+  assert(ids({ view: View.Feed, canPostChallenge: false }) === 'post,wisdom,talk,reel,spark,pod,project,invite', ids({ view: View.Feed, canPostChallenge: false }));
+  assert(ids({ view: View.Feed, canPostChallenge: true }) === 'post,wisdom,talk,reel,spark,pod,project,invite,challenge', ids({ view: View.Feed, canPostChallenge: true }));
 });
 check('the action that fits the page comes first and is the only one marked suggested', () => {
   assert(ids({ view: View.Prove, canPostChallenge: false }).startsWith('reel,'), 'prove');

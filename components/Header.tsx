@@ -13,6 +13,7 @@ import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGat
 import FeedbackModal from './FeedbackModal';
 import { navKeyFor } from '../lib/routes';
 import { NavHomeIcon, NavCommunityIcon, NavArenasIcon, NavProveIcon, NavDiscoverIcon, NavMessagesIcon, NavPlusIcon, InviteIcon } from './icons/NavIcons';
+import { TalkIcon } from './icons/BridgeIcons';
 import AnnouncementBanner from './AnnouncementBanner';
 import { Megaphone } from 'lucide-react';
 
@@ -213,6 +214,9 @@ function NotificationsPanel({
     if (type === 'connection_request' || type === 'follow_request' || type === 'follow_accepted') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-50"><Users size={14} className="text-blue-500" /></div>;
     }
+    if (type === 'talk_reply' || type === 'talk_speaker_reply' || type === 'talk_review') {
+      return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT, color: GREEN }}><TalkIcon className="h-4 w-4" /></div>;
+    }
     if (type === 'invitation_joined') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT, color: GREEN }}><InviteIcon className="h-4 w-4" /></div>;
     }
@@ -261,6 +265,10 @@ function NotificationsPanel({
                     <p className="text-sm text-stone-800 leading-snug whitespace-pre-line">{n.message}</p>
                     {n.type === 'announcement' && (() => { try { const u = new URL(String(n.link)); return u.protocol === 'https:' ? <a href={u.toString()} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm font-semibold underline" style={{ color: GREEN }}>{n.linkLabel || 'Learn more'}</a> : null; } catch { return null; } })()}
                     <p className="text-xs text-stone-600 mt-0.5">{timeAgo(n.createdAt)}</p>
+                    {(n.type === 'talk_reply' || n.type === 'talk_speaker_reply' || n.type === 'talk_review') && (n as any).talkId && (
+                      <button type="button" onClick={() => { window.dispatchEvent(new CustomEvent('bewatu:open-talk', { detail: { id: (n as any).talkId } })); onClose(); }}
+                        className="mt-1 min-h-[36px] text-sm font-semibold underline" style={{ color: GREEN }}>View Talk</button>
+                    )}
                     {n.type === 'arena_challenge' && (n as any).challengeId && (
                       <button type="button" onClick={() => { window.dispatchEvent(new CustomEvent('bewatu:open-challenge', { detail: { id: (n as any).challengeId } })); onClose(); }}
                         className="mt-1 min-h-[36px] text-sm font-semibold underline" style={{ color: GREEN }}>View challenge</button>

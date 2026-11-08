@@ -669,6 +669,7 @@ service cloud.firestore {
       // update-side freeze below doesn't cover on its own).
       allow create: if isAuth() && request.auth.uid == uid
         && request.resource.data.get('isPlatformAdmin', false) == false
+        && request.resource.data.get('bridgeContributor', false) == false
         && request.resource.data.get('engagementGateApplies', false) == true;
       // foundingMember (the Founding Members beta badge) is frozen too, so a
       // later update can't self-grant it. It's only ever written at account
@@ -687,7 +688,7 @@ service cloud.firestore {
       allow update: if isAuth() && (
         request.auth.uid == uid || isPlatformAdmin() || isOpsStaff()
       ) && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['isPlatformAdmin', 'isRecruiter', 'engagementGateApplies', 'foundingMember'])
+             .hasAny(['isPlatformAdmin', 'isRecruiter', 'engagementGateApplies', 'foundingMember', 'bridgeContributor'])
         && (
           isPlatformAdmin() || isOpsStaff()
           || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['recruiterTrialEndDate'])
@@ -741,6 +742,14 @@ service cloud.firestore {
       // so this mirrors the same openly-readable convention already used
       // for circles/{id} and arena_challenges/{id} themselves. Write stays
       // owner-only.
+      // Talks this member saved from Bridge. Theirs alone; nothing else reads or writes it.
+      match /savedTalks/{talkId} {
+        allow read, delete: if isAuth() && request.auth.uid == uid;
+        allow create, update: if isAuth() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['talkId', 'savedAt'])
+          && request.resource.data.talkId == talkId;
+      }
+
       match /podPrefs/{podId} {
         allow read:  if isAuth();
         allow write: if isAuth() && request.auth.uid == uid;
@@ -1762,6 +1771,60 @@ service cloud.firestore {
     // banner is readable by any signed-in member and written only by the server.
     // Shared portfolios (api/portfolio.ts): every share, its tallies and its limits are server-only. A visitor never reads
     // Firestore; the server draws the page from the member's own records and only what they chose.
+    // ── BRIDGE TALKS ───────────────────────────────────────────────────────────
+    // A Talk is written only by api/bridge-talks.ts (the lifecycle, the reviewer's decision, the speaker's identity and the
+    // file checks cannot be rules). The one thing a member may change is their own like. A Talk that is not published is
+    // readable only by its speaker and by BeWatu's reviewers, so a draft or a declined Talk is never exposed.
+    function talkIsPublished(talkId) {
+      return get(/databases/$(database)/documents/bridge_talks/$(talkId)).data.status == 'published';
+    }
+    match /bridge_talks/{talkId} {
+      allow read: if isAuth() && (
+        resource.data.status == 'published'
+        || resource.data.speakerUid == request.auth.uid
+        || isPlatformAdmin()
+      );
+      allow create, delete: if false;
+      allow update: if isAuth()
+        && resource.data.status == 'published'
+        && onlyFields(['likedByUids'])
+        && isSelfUidToggle(resource.data.likedByUids, request.resource.data.likedByUids);
+
+      // The discussion. Members write their own comments on a published Talk; one level of replies; edit or delete only your
+      // own (BeWatu's reviewers can remove any). Whether a comment is the speaker's is worked out from the Talk when it is
+      // shown, never stored, so nobody can label themselves "Speaker".
+      match /comments/{commentId} {
+        allow read: if isAuth() && (talkIsPublished(talkId) || isPlatformAdmin());
+        allow create: if isAuth() && talkIsPublished(talkId)
+          && request.resource.data.keys().hasOnly(['authorUid', 'authorName', 'authorAvatar', 'authorHeadline', 'content', 'parentId', 'replyToUid', 'replyToName', 'depth', 'createdAt', 'updatedAt', 'edited', 'likedByUids'])
+          && request.resource.data.get('likedByUids', []) == []
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.content is string
+          && request.resource.data.content.size() > 0 && request.resource.data.content.size() <= 2000
+          && ((request.resource.data.depth == 0 && request.resource.data.parentId == null)
+              || (request.resource.data.depth == 1 && request.resource.data.parentId is string));
+        allow update: if isAuth() && (
+          (resource.data.authorUid == request.auth.uid
+            && onlyFields(['content', 'updatedAt', 'edited'])
+            && request.resource.data.content is string
+            && request.resource.data.content.size() > 0 && request.resource.data.content.size() <= 2000)
+          // a member's own appreciation of a comment (adding or removing only their own uid), on a published Talk
+          || (talkIsPublished(talkId)
+            && onlyFields(['likedByUids'])
+            && isSelfUidToggle(resource.data.get('likedByUids', []), request.resource.data.likedByUids))
+        );
+        allow delete: if isAuth() && (resource.data.authorUid == request.auth.uid || isPlatformAdmin());
+      }
+    }
+    // The reviewer's notes and the Talk's history: its speaker and BeWatu's reviewers can read them; only the server writes.
+    match /bridge_talk_reviews/{talkId} {
+      allow read: if isAuth() && (resource.data.speakerUid == request.auth.uid || isPlatformAdmin());
+      allow write: if false;
+    }
+    match /bridge_contributor_requests/{uid} { allow read, write: if false; }
+    match /bridge_talk_suggestions/{id}      { allow read, write: if false; }
+    match /bridge_rate_limits/{key}          { allow read, write: if false; }
+
     match /portfolio_shares/{id}         { allow read, write: if false; }
     match /portfolio_rate_limits/{key}   { allow read, write: if false; }
 

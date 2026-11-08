@@ -23,7 +23,8 @@ export type Surface =
   | 'messaging'
   | 'jobs'
   | 'companies'
-  | 'discover';
+  | 'discover'
+  | 'bridge';
 
 export type EventType =
   // ── Tier 1: initiation vs participation (the agency signal) ──
@@ -52,7 +53,19 @@ export type EventType =
   | 'reaction_given'
   | 'wisdom_answer_given'
   // ── Tier 2: network ──
-  | 'connection_made';
+  | 'connection_made'
+  // ── Bridge Talks: what happened to a Talk, never how many people looked ──
+  | 'talk_discovered'
+  | 'talk_opened'
+  | 'talk_video_started'
+  | 'talk_progress'
+  | 'talk_completed'
+  | 'talk_saved'
+  | 'talk_shared'
+  | 'talk_discussion_started'
+  | 'talk_comment_submitted'
+  | 'talk_speaker_followed'
+  | 'talk_related_pod_explored';
 
 export type Role = 'builder' | 'strategist' | 'connector' | 'operator';
 export type Outcome = 'completed' | 'abandoned' | 'pending' | 'started';
@@ -73,7 +86,7 @@ export interface BehavioralEvent {
   /** The thing acted on (pod id, challenge id, post id, person id). */
   targetId?: string;
   /** What kind of thing the target is. */
-  targetType?: 'pod' | 'challenge' | 'post' | 'comment' | 'person' | 'job' | 'company';
+  targetType?: 'pod' | 'challenge' | 'post' | 'comment' | 'person' | 'job' | 'company' | 'talk';
   /** Role taken, where a role is selectable. */
   role?: Role;
   /** Outcome / state transition. */

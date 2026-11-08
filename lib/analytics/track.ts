@@ -94,3 +94,30 @@ export const trackConnectionMade = (uid: string, targetPersonId: string) =>
  *
  * Each call is a no-op unless the user granted Analytics consent.
  * ───────────────────────────────────────────────────────────────────────────── */
+
+// ── Bridge Talks ──────────────────────────────────────────────────────────────
+// The measure that matters is meaningful engagement per Talk (a real conversation, a connection that began there), so comments carry
+// their length and every event names the Talk, its topic and its speaker. A view count is deliberately not an event of its own.
+const talkTags = (category?: string, speakerUid?: string) => ({ category, speakerUid });
+export const trackTalkDiscovered = (uid: string, talkId: string, category?: string, speakerUid?: string) =>
+  logEvent(makeEvent(uid, 'talk_discovered', 'bridge', { targetId: talkId, targetType: 'talk', tags: talkTags(category, speakerUid) }));
+export const trackTalkOpened = (uid: string, talkId: string, category?: string, speakerUid?: string) =>
+  logEvent(makeEvent(uid, 'talk_opened', 'bridge', { targetId: talkId, targetType: 'talk', tags: talkTags(category, speakerUid) }));
+export const trackTalkVideoStarted = (uid: string, talkId: string, category?: string, speakerUid?: string) =>
+  logEvent(makeEvent(uid, 'talk_video_started', 'bridge', { targetId: talkId, targetType: 'talk', outcome: 'started', tags: talkTags(category, speakerUid) }));
+export const trackTalkProgress = (uid: string, talkId: string, percent: number, category?: string, speakerUid?: string) =>
+  logEvent(makeEvent(uid, 'talk_progress', 'bridge', { targetId: talkId, targetType: 'talk', magnitude: percent, tags: talkTags(category, speakerUid) }));
+export const trackTalkCompleted = (uid: string, talkId: string, category?: string, speakerUid?: string) =>
+  logEvent(makeEvent(uid, 'talk_completed', 'bridge', { targetId: talkId, targetType: 'talk', outcome: 'completed', tags: talkTags(category, speakerUid) }));
+export const trackTalkSaved = (uid: string, talkId: string, saved: boolean) =>
+  logEvent(makeEvent(uid, 'talk_saved', 'bridge', { targetId: talkId, targetType: 'talk', outcome: saved ? 'completed' : 'abandoned' }));
+export const trackTalkShared = (uid: string, talkId: string, how: string) =>
+  logEvent(makeEvent(uid, 'talk_shared', 'bridge', { targetId: talkId, targetType: 'talk', tags: { how } }));
+export const trackTalkDiscussionStarted = (uid: string, talkId: string) =>
+  logEvent(makeEvent(uid, 'talk_discussion_started', 'bridge', { targetId: talkId, targetType: 'talk', outcome: 'started' }));
+export const trackTalkComment = (uid: string, talkId: string, commentId: string, length: number, isReply: boolean, bySpeaker: boolean) =>
+  logEvent(makeEvent(uid, 'talk_comment_submitted', 'bridge', { targetId: commentId, targetType: 'comment', parentId: talkId, magnitude: length, tags: { kind: isReply ? 'reply' : 'comment', bySpeaker: bySpeaker ? 'yes' : 'no' } }));
+export const trackTalkSpeakerFollowed = (uid: string, talkId: string, speakerUid: string) =>
+  logEvent(makeEvent(uid, 'talk_speaker_followed', 'bridge', { targetId: speakerUid, targetType: 'person', parentId: talkId }));
+export const trackTalkRelatedPod = (uid: string, talkId: string, podId: string) =>
+  logEvent(makeEvent(uid, 'talk_related_pod_explored', 'bridge', { targetId: podId, targetType: 'pod', parentId: talkId }));
