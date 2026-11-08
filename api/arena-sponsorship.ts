@@ -112,6 +112,22 @@ async function requirePlatformAdmin(db: Firestore, uid: string): Promise<string>
   return String(snap.data()?.displayName ?? 'BeWatu admin').slice(0, 80);
 }
 
+// ── Which organizations may ask ──────────────────────────────────────────────
+// Only an organization BeWatu has verified may ask to sponsor an Arena: sponsorship puts its name and branding in front of members,
+// so "an administrator" alone is not enough. This is checked here, on the server, every time (the screens only explain it).
+export type OrgState = 'eligible' | 'pending_verification' | 'ineligible';
+export interface OrgEligibility { state: OrgState; reason: string; next: string }
+
+export function orgEligibility(company: { verificationStatus?: unknown; status?: unknown } | undefined): OrgEligibility {
+  const v = typeof company?.verificationStatus === 'string' ? company.verificationStatus : 'unverified';
+  const st = typeof company?.status === 'string' ? company.status : 'active';
+  if (st === 'suspended' || st === 'inactive' || v === 'suspended') return { state: 'ineligible', reason: 'This organization is suspended.', next: 'Contact support to resolve this before sponsoring.' };
+  if (v === 'verified') return { state: 'eligible', reason: '', next: '' };
+  if (v === 'pending') return { state: 'pending_verification', reason: 'BeWatu is verifying this organization.', next: 'You can request sponsorship as soon as verification is complete. We will keep your place.' };
+  if (v === 'rejected') return { state: 'ineligible', reason: 'This organization could not be verified.', next: 'Contact support to review the decision, or update its details and apply again.' };
+  return { state: 'ineligible', reason: 'This organization has not been verified yet.', next: 'Complete verification for the organization, then come back to sponsor.' };
+}
+
 async function requireCompanyAdmin(db: Firestore, uid: string, companyId: unknown): Promise<{ id: string; name: string }> {
   if (typeof companyId !== 'string' || !companyId || companyId.length > 128 || companyId.includes('/')) throw new HttpError(400, 'A company is required.');
   const snap = await db.collection('companies').doc(companyId).get();
@@ -150,6 +166,8 @@ export async function runAction(db: Firestore, uid: string, body: any, now: numb
   switch (action) {
     case 'request': {
       const company = await requireCompanyAdmin(db, uid, body.companyId);
+      const gate = orgEligibility((await db.collection('companies').doc(company.id).get()).data());
+      if (gate.state !== 'eligible') throw new HttpError(403, `${gate.reason} ${gate.next}`.trim());
       const arenaId = typeof body.arenaId === 'string' ? body.arenaId : '';
       if (!/^[a-z0-9_-]{2,40}$/.test(arenaId)) throw new HttpError(400, 'Choose an Arena.');
       const arena = await db.collection('arena_industries').doc(arenaId).get();
@@ -178,6 +196,33 @@ export async function runAction(db: Firestore, uid: string, body: any, now: numb
       if (banner) batch.set(db.collection('arena_sponsorship_assets').doc(ref.id), { banner, updatedAt: FieldValue.serverTimestamp() });
       await batch.commit();
       return { ok: true, id: ref.id, status: 'pending_review' };
+    }
+
+    // What this person may do for an Arena, from the records (never from what the browser says): the Arena's availability, each
+    // organization they administer and whether it may ask, any request already open for this Arena, and claims awaiting review.
+    case 'eligibility': {
+      if (!uid) throw new HttpError(401, 'Unauthorized');
+      const arenaId = typeof body.arenaId === 'string' ? body.arenaId : '';
+      if (!/^[a-z0-9_-]{2,40}$/.test(arenaId)) throw new HttpError(400, 'Choose an Arena.');
+      const [arena, mine, tickets, running] = await Promise.all([
+        db.collection('arena_industries').doc(arenaId).get(),
+        db.collection('companies').where('adminUid', '==', uid).limit(25).get(),
+        db.collection('support_tickets').where('userId', '==', uid).limit(50).get(),
+        col.where('arenaId', '==', arenaId).where('status', '==', 'approved').get(),
+      ]);
+      const open = arena.exists && arena.data()?.isActive !== false;
+      const live = running.docs.map(d => d.data()).filter(x => x.endDate && x.endDate.toMillis() > now && (!x.startDate || x.startDate.toMillis() <= now))[0];
+      const orgs = await Promise.all(mine.docs.map(async d => {
+        const x = d.data(); const e = orgEligibility(x);
+        const requests = (await col.where('companyId', '==', d.id).get()).docs.map(r => r.data()).filter(r => r.arenaId === arenaId && (r.status === 'pending_review' || (r.status === 'approved' && r.endDate && r.endDate.toMillis() > now)));
+        return { id: d.id, name: clean(x.name, 120) || 'Organization', logoUrl: typeof x.logoUrl === 'string' && x.logoUrl.startsWith('https://') ? x.logoUrl : '', state: e.state, reason: e.reason, next: e.next, existing: requests[0] ? (requests[0].status === 'approved' ? 'approved' : 'pending_review') : null };
+      }));
+      const claims = tickets.docs.map(t => t.data()).filter(t => t.metadata?.type === 'company_claim' && t.status !== 'resolved' && t.status !== 'closed')
+        .map(t => ({ companyId: clean(t.metadata?.companyId, 128), name: clean(String(t.subject ?? '').replace(/^Company claim:\s*/i, ''), 120) }));
+      return {
+        arena: { id: arenaId, name: arena.exists ? clean(arena.data()?.name, 80) : '', open, sponsoredUntil: live?.endDate ? live.endDate.toMillis() : null, sponsorName: live ? clean(live.companyName, 120) : null },
+        organizations: orgs, pendingClaims: claims,
+      };
     }
 
     case 'update_branding': {

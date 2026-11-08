@@ -3,7 +3,7 @@
 // validated branding, and "active" being derived from status + dates (lib/arenaSponsorship.ts).
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import { runAction, HttpError } from '../../api/arena-sponsorship.ts';
+import { runAction, HttpError, orgEligibility } from '../../api/arena-sponsorship.ts';
 import { toSponsorshipRecord, activeSponsorship, sponsorshipPhase } from '../../lib/arenaSponsorship.ts';
 
 let pass = 0, fail = 0;
@@ -41,8 +41,8 @@ await db.doc('users/pa').set({ displayName: 'Pat Admin', isPlatformAdmin: true }
 await db.doc('users/rando').set({ displayName: 'Random' });
 await db.doc('users/a1').set({ displayName: 'Admin One' });
 await db.doc('users/a2').set({ displayName: 'Admin Two' });
-await db.doc('companies/c1').set({ name: 'Meridian Financial', adminUid: 'a1' });
-await db.doc('companies/c2').set({ name: 'Northwind Pay', adminUid: 'a2' });
+await db.doc('companies/c1').set({ verificationStatus: 'verified', name: 'Meridian Financial', adminUid: 'a1' });
+await db.doc('companies/c2').set({ verificationStatus: 'verified', name: 'Northwind Pay', adminUid: 'a2' });
 await db.doc('arena_industries/payments').set({ name: 'Payments Arena', isActive: true });
 await db.doc('arena_industries/insurance').set({ name: 'Insurance Arena', isActive: true });
 await db.doc('arena_industries/retired').set({ name: 'Retired Arena', isActive: false });
@@ -97,18 +97,18 @@ await check('a banner that is an SVG, or too big, is refused', async () => {
 });
 await check('PNG, JPEG and WebP logos are accepted', async () => {
   for (const [i, logo] of [PNG, JPEG, WEBP].entries()) {
-    await db.doc(`companies/ci${i}`).set({ name: `Img ${i}`, adminUid: `ai${i}` });
+    await db.doc(`companies/ci${i}`).set({ verificationStatus: 'verified', name: `Img ${i}`, adminUid: `ai${i}` });
     await runAction(db, `ai${i}`, { action: 'request', arenaId: 'insurance', companyId: `ci${i}`, branding: branding({ logo }) }, NOW);
   }
 });
 await check('text is cleaned and clipped; the colour is lower-cased', async () => {
-  await db.doc('companies/ct').set({ name: 'Clean Co', adminUid: 'at' });
+  await db.doc('companies/ct').set({ verificationStatus: 'verified', name: 'Clean Co', adminUid: 'at' });
   const r = await runAction(db, 'at', { action: 'request', arenaId: 'insurance', companyId: 'ct', branding: branding({ primaryColor: '#AABBCC', tagline: 'a\u0000b\n\nc ' + 'x'.repeat(300) }) }, NOW);
   const d = await get(r.id);
   assert(d.branding.primaryColor === '#aabbcc', d.branding.primaryColor); assert(d.branding.tagline.length <= 120 && !/[\u0000-\u001f]/.test(d.branding.tagline), d.branding.tagline);
 });
 await check('a banner is stored separately from the sponsorship', async () => {
-  await db.doc('companies/cb').set({ name: 'Banner Co', adminUid: 'ab' });
+  await db.doc('companies/cb').set({ verificationStatus: 'verified', name: 'Banner Co', adminUid: 'ab' });
   const r = await runAction(db, 'ab', { action: 'request', arenaId: 'insurance', companyId: 'cb', branding: branding(), banner: JPEG }, NOW);
   const a = (await db.doc(`arena_sponsorship_assets/${r.id}`).get()).data();
   assert(a?.banner === JPEG && (await get(r.id)).branding.hasBanner === true && !('banner' in (await get(r.id)).branding), 'banner not stored apart');
@@ -151,7 +151,7 @@ await check('dates that begin exactly when the first ends are fine (no overlap)'
   assert(activeSponsorship(list, 'payments', NOW + 200 * DAY) === null, 'nobody should hold it after both end');
 });
 await check('after a revocation the Arena is free for those dates again', async () => {
-  await db.doc('companies/c3').set({ name: 'Third Co', adminUid: 'a3' });
+  await db.doc('companies/c3').set({ verificationStatus: 'verified', name: 'Third Co', adminUid: 'a3' });
   const third = (await runAction(db, 'a3', { action: 'request', arenaId: 'payments', companyId: 'c3', branding: branding() }, NOW)).id;
   await refuses(approve('pa', third, { startDate: iso(NOW), endDate: iso(NOW + 30 * DAY) }), 409);
   await runAction(db, 'pa', { action: 'revoke', id: first, note: 'Policy breach' }, NOW);
@@ -159,7 +159,7 @@ await check('after a revocation the Arena is free for those dates again', async 
   assert(activeSponsorship([await rec(first), await rec(third)], 'payments', NOW)?.id === third, 'wrong holder');
 });
 await check('two non-exclusive sponsorships may run together', async () => {
-  await db.doc('companies/n1').set({ name: 'Non One', adminUid: 'an1' }); await db.doc('companies/n2').set({ name: 'Non Two', adminUid: 'an2' });
+  await db.doc('companies/n1').set({ verificationStatus: 'verified', name: 'Non One', adminUid: 'an1' }); await db.doc('companies/n2').set({ verificationStatus: 'verified', name: 'Non Two', adminUid: 'an2' });
   await db.doc('arena_industries/healthcare').set({ name: 'Healthcare Arena', isActive: true });
   const a = (await runAction(db, 'an1', { action: 'request', arenaId: 'healthcare', companyId: 'n1', branding: branding() }, NOW)).id;
   const b = (await runAction(db, 'an2', { action: 'request', arenaId: 'healthcare', companyId: 'n2', branding: branding() }, NOW)).id;
@@ -168,7 +168,7 @@ await check('two non-exclusive sponsorships may run together', async () => {
 await check('two approvals racing for the same dates: exactly one wins', async () => {
   await db.doc('arena_industries/retail').set({ name: 'Retail Arena', isActive: true });
   const ids = [];
-  for (const n of ['r1', 'r2', 'r3']) { await db.doc(`companies/${n}`).set({ name: n, adminUid: `u-${n}` }); ids.push((await runAction(db, `u-${n}`, { action: 'request', arenaId: 'retail', companyId: n, branding: branding() }, NOW)).id); }
+  for (const n of ['r1', 'r2', 'r3']) { await db.doc(`companies/${n}`).set({ verificationStatus: 'verified', name: n, adminUid: `u-${n}` }); ids.push((await runAction(db, `u-${n}`, { action: 'request', arenaId: 'retail', companyId: n, branding: branding() }, NOW)).id); }
   const results = await Promise.allSettled(ids.map(id => approve('pa', id)));
   const ok = results.filter(r => r.status === 'fulfilled').length;
   assert(ok === 1, `${ok} of 3 approvals succeeded`);
@@ -191,7 +191,7 @@ await check('a logo and a company name alone never make a sponsor', async () => 
 
 console.log('== revoke / reject ==');
 await check('rejecting and revoking need a reason and a platform admin', async () => {
-  await db.doc('companies/c9').set({ name: 'Nine', adminUid: 'a9' });
+  await db.doc('companies/c9').set({ verificationStatus: 'verified', name: 'Nine', adminUid: 'a9' });
   const id = (await runAction(db, 'a9', { action: 'request', arenaId: 'insurance', companyId: 'c9', branding: branding() }, NOW)).id;
   await refuses(runAction(db, 'a9', { action: 'reject', id, note: 'because I say so' }, NOW), 403);
   await refuses(runAction(db, 'pa', { action: 'reject', id, note: 'no' }, NOW), 400);
@@ -204,7 +204,7 @@ await check('rejecting and revoking need a reason and a platform admin', async (
 console.log('== managing branding while active ==');
 let live;
 await check('setup: an approved, running sponsorship', async () => {
-  await db.doc('companies/c5').set({ name: 'Five Co', adminUid: 'a5' });
+  await db.doc('companies/c5').set({ verificationStatus: 'verified', name: 'Five Co', adminUid: 'a5' });
   await db.doc('arena_industries/banking').set({ name: 'Banking Arena', isActive: true });
   live = (await runAction(db, 'a5', { action: 'request', arenaId: 'banking', companyId: 'c5', branding: branding() }, NOW)).id;
   await approve('pa', live);
@@ -252,7 +252,7 @@ await check('the company can withdraw; it stops being active at once', async () 
   assert(activeSponsorship([await rec(live)], 'banking', NOW) === null, 'still active');
 });
 await check('a rate limit stops a runaway client', async () => {
-  await db.doc('companies/c7').set({ name: 'Seven', adminUid: 'a7' });
+  await db.doc('companies/c7').set({ verificationStatus: 'verified', name: 'Seven', adminUid: 'a7' });
   const id = (await runAction(db, 'a7', { action: 'request', arenaId: 'retail', companyId: 'c7', branding: branding() }, NOW)).id;
   let blocked = 0;
   for (let i = 0; i < 45; i++) { try { await runAction(db, 'a7', { action: 'update_branding', id, branding: branding({ tagline: `t${i}` }) }, NOW); } catch (e) { if (e.status === 429) blocked++; else throw e; } }
@@ -260,6 +260,72 @@ await check('a rate limit stops a runaway client', async () => {
 });
 await check('an unknown action is refused', async () => refuses(runAction(db, 'pa', { action: 'make_me_sponsor' }, NOW), 400));
 await check('history is kept on the record', async () => { const h = (await get(first)).history; assert(h.length >= 3 && h[0].action === 'requested' && h.some(x => x.action === 'approved') && h.some(x => x.action === 'revoked'), JSON.stringify(h.map(x => x.action))); });
+
+console.log('== onboarding: who may ask, and what they are told ==');
+await check('an organization may ask only when BeWatu has verified it; every other state says why and what to do', () => {
+  assert(orgEligibility({ verificationStatus: 'verified' }).state === 'eligible', 'verified');
+  const pending = orgEligibility({ verificationStatus: 'pending' }); assert(pending.state === 'pending_verification' && /verifying/i.test(pending.reason) && pending.next.length > 10, 'pending');
+  for (const v of [undefined, 'unverified', 'rejected', 'bogus', 42]) { const e = orgEligibility({ verificationStatus: v }); assert(e.state === 'ineligible' && e.reason && e.next, 'ineligible for ' + v); }
+  assert(orgEligibility({ verificationStatus: 'verified', status: 'suspended' }).state === 'ineligible' && orgEligibility({ verificationStatus: 'suspended' }).state === 'ineligible', 'suspended is never eligible, even if "verified"');
+  assert(orgEligibility(undefined).state === 'ineligible', 'no record');
+});
+for (const [id, vs] of [['ov1', 'pending'], ['ov2', 'unverified'], ['ov3', 'rejected'], ['ov4', undefined]]) {
+  await db.doc('users/' + id).set({ displayName: id }); await db.doc('companies/' + id).set({ name: 'Org ' + id, adminUid: id, ...(vs ? { verificationStatus: vs } : {}) });
+}
+await check('a request from an organization that is not verified is refused, with the reason, and nothing is stored', async () => {
+  const before = (await db.collection('arena_sponsorships').get()).size;
+  for (const id of ['ov1', 'ov2', 'ov3', 'ov4']) {
+    try { await runAction(db, id, { action: 'request', arenaId: 'payments', companyId: id, branding: branding() }, NOW); throw new Error('allowed ' + id); }
+    catch (e) { assert(e instanceof HttpError && e.status === 403 && e.message.length > 25, `${id}: ${e.status} ${e.message}`); }
+  }
+  assert((await db.collection('arena_sponsorships').get()).size === before, 'no record was created');
+});
+await check('the browser cannot claim to be verified: only the stored record counts', async () => {
+  await refuses(runAction(db, 'ov2', { action: 'request', arenaId: 'payments', companyId: 'ov2', verificationStatus: 'verified', verified: true, branding: branding() }, NOW), 403);
+});
+
+await db.doc('users/pend').set({ displayName: 'P' });
+await db.doc('users/multi').set({ displayName: 'M' });
+await db.doc('companies/m1').set({ name: 'Multi One', adminUid: 'multi', verificationStatus: 'verified' });
+await db.doc('companies/m2').set({ name: 'Multi Two', adminUid: 'multi', verificationStatus: 'pending' });
+await db.doc('companies/m3').set({ name: 'Multi Three', adminUid: 'multi', verificationStatus: 'unverified' });
+await db.doc('support_tickets/company_claim_x_pend').set({ userId: 'pend', subject: 'Company claim: Acme Pay', status: 'open', metadata: { type: 'company_claim', companyId: 'x' } });
+await db.doc('support_tickets/company_claim_y_pend').set({ userId: 'pend', subject: 'Company claim: Old Co', status: 'resolved', metadata: { type: 'company_claim', companyId: 'y' } });
+await db.doc('support_tickets/other_pend').set({ userId: 'pend', subject: 'Something else', status: 'open', metadata: { type: 'bug' } });
+const elig = (uid, arenaId = 'payments') => runAction(db, uid, { action: 'eligibility', arenaId }, NOW);
+
+await check('no organization yet: nothing to choose from, and the Arena is open', async () => {
+  const r = await elig('rando'); assert(r.arena.open === true && r.arena.name === 'Payments Arena' && r.organizations.length === 0 && r.pendingClaims.length === 0, JSON.stringify(r));
+});
+await check('every organization you administer is listed with whether it may ask, and only yours', async () => {
+  const r = await elig('multi'); const by = Object.fromEntries(r.organizations.map(o => [o.id, o.state]));
+  assert(r.organizations.length === 3 && by.m1 === 'eligible' && by.m2 === 'pending_verification' && by.m3 === 'ineligible', JSON.stringify(by));
+  assert(r.organizations.find(o => o.id === 'm3').reason && r.organizations.find(o => o.id === 'm3').next, 'the ineligible one says why and what to do');
+  assert(!(await elig('a1')).organizations.some(o => o.id.startsWith('m')), 'someone else\'s organizations never appear');
+});
+await check('a claim waiting for BeWatu to review is reported (and a resolved one or an unrelated ticket is not)', async () => {
+  const r = await elig('pend'); assert(r.pendingClaims.length === 1 && r.pendingClaims[0].name === 'Acme Pay', JSON.stringify(r.pendingClaims));
+});
+await check('an Arena that is not open is reported before anyone is asked to set up an organization', async () => {
+  assert((await elig('rando', 'retired')).arena.open === false, 'retired');
+  assert((await elig('rando', 'does-not-exist')).arena.open === false, 'unknown');
+  await refuses(elig('rando', '../x'), 400);
+  await refuses(runAction(db, '', { action: 'eligibility', arenaId: 'payments' }, NOW), undefined);
+});
+await db.doc('users/dup').set({ displayName: 'D' }); await db.doc('companies/dup1').set({ name: 'Dup One', adminUid: 'dup', verificationStatus: 'verified' });
+await check('a request already open for this Arena is shown, so the same request is never made twice', async () => {
+  assert((await elig('dup')).organizations[0].existing === null, 'nothing open yet');
+  await runAction(db, 'dup', { action: 'request', arenaId: 'insurance', companyId: 'dup1', branding: branding() }, NOW);
+  assert((await elig('dup', 'insurance')).organizations[0].existing === 'pending_review', 'the open request is reported');
+  assert((await elig('dup', 'payments')).organizations[0].existing === null, 'and only for that Arena');
+  await refuses(runAction(db, 'dup', { action: 'request', arenaId: 'insurance', companyId: 'dup1', branding: branding() }, NOW), 409);
+  assert((await db.collection('arena_sponsorships').where('companyId', '==', 'dup1').get()).size === 1, 'still exactly one request');
+});
+await check('an Arena that already has a sponsor says who until when, but can still be asked about', async () => {
+  const r = await elig('rando', 'payments');
+  const approved = (await db.collection('arena_sponsorships').where('arenaId', '==', 'payments').where('status', '==', 'approved').get()).docs.map(d => d.data()).filter(x => x.endDate && x.endDate.toMillis() > NOW);
+  assert(approved.length === 0 ? r.arena.sponsoredUntil === null : r.arena.sponsoredUntil > NOW && !!r.arena.sponsorName, JSON.stringify(r.arena));
+});
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

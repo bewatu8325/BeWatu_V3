@@ -89,6 +89,8 @@ jobs:
       # ── no emulator needed ──
       - name: Mobile feed suggestions
         run: tsx test/mobile-feed/run-tests.mjs
+      - name: Sponsorship onboarding: remembered intent and resume
+        run: tsx test/sponsor-onboarding/run-tests.mjs
       - name: Organizations page URL state and categories
         run: tsx test/org-url-state/run-tests.mjs
       - name: Compliance bundle encryption
