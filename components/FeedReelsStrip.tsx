@@ -10,6 +10,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Share2, Flag, Plus, X, Play, Heart, MessageCircle, ChevronLeft, ChevronRight, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { getReelVibes, toggleReelLike, incrementReelView, type ReelVibe } from '../lib/firestoreService';
+import { readRowHint, writeRowHint } from '../lib/homeFeed';
 
 const GREEN = 'var(--bw-green)';
 
@@ -209,36 +210,31 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
   const [loading, setLoading] = useState(true);
   const [activeModal, setActiveModal] = useState<number | null>(null);
 
+  // A row that had reels last time keeps its place while it loads (no jump); one that never did shows nothing until there is something.
+  const uid = fbUser?.uid ?? '';
+  const reserved = useRef(readRowHint(window.localStorage, uid, 'reels'));
+
   useEffect(() => {
     getReelVibes(30)
       .then(all => {
         // Filter to network (connections + circles) + own reels
         const filtered = all.filter(r => networkIds.has(r.authorId));
         setReels(filtered);
+        writeRowHint(window.localStorage, uid, 'reels', filtered.length > 0);
       })
       .catch(() => setReels([]))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-3 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-        {[1,2,3,4].map(i => (
-          <div key={i} className="flex flex-col items-center gap-1.5 flex-shrink-0">
-            <div className="w-16 h-16 rounded-full bg-stone-200 animate-pulse" />
-            <div className="w-12 h-2 bg-stone-200 rounded animate-pulse" />
-          </div>
-        ))}
-      </div>
-    );
-  }
+  if (loading) return reserved.current ? <div aria-hidden="true" className="h-[96px] animate-pulse rounded-2xl bg-stone-100/70" /> : null;
 
   // Group reels by author — show one bubble per author
   const authorMap = new Map<number, ReelVibe>();
   reels.forEach(r => { if (!authorMap.has(r.authorId)) authorMap.set(r.authorId, r); });
   const uniqueReels = Array.from(authorMap.values());
 
-  if (uniqueReels.length === 0 && !onAddReel) return null;
+  // Nothing from the network yet: no empty panel on Home. Recording one is in the Create menu and on Prove.
+  if (uniqueReels.length === 0) return null;
 
   // The current user's own reel (if they have one) and everyone else's —
   // kept separate so "you" is never rendered as two adjacent bubbles (an
@@ -248,17 +244,13 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
 
   return (
     <>
-      <div className="bg-white rounded-2xl border shadow-sm" style={{ borderColor: '#e7e5e4' }}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b" style={{ borderColor: '#f5f5f4' }}>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-sm font-bold text-stone-800">Reel Vibes</span>
-            <span className="text-xs text-stone-600">· from your network</span>
-          </div>
-
+      <section aria-label="Reel Vibes from your network">
+        <div className="mb-1 flex items-center gap-2 px-0.5">
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-500" />
+          <h2 className="text-xs font-bold text-stone-800">Reel Vibes</h2>
+          <span className="text-xs text-stone-600">from your network</span>
         </div>
-        <div className="flex items-center gap-3 overflow-x-auto px-3 py-3" style={{ scrollbarWidth: 'none' }}>
+        <div className="-mx-3 flex items-center gap-3 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0" style={{ scrollbarWidth: 'none' }}>
 
           {/* Your reel — one bubble either way, so "you" never appears twice
               in a row. No reel yet: a dashed add-CTA. Already have one:
@@ -331,7 +323,7 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
                 >
                   <div className="w-full h-full rounded-full overflow-hidden border-2 border-white">
                     {reel.thumbnailUrl ? (
-                      <img src={reel.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                      <img src={reel.thumbnailUrl} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     ) : reel.authorAvatar ? (
                       <img src={reel.authorAvatar} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -348,11 +340,8 @@ export default function FeedReelsStrip({ currentUser, networkIds, onAddReel, onV
             );
           })}
 
-          {otherReels.length === 0 && (
-            <p className="text-sm text-stone-600 py-1 flex items-center">No reels from your network yet — be the first!</p>
-          )}
         </div>
-      </div>
+      </section>
 
       {/* Full screen player modal */}
       {activeModal !== null && (

@@ -9,7 +9,7 @@ import type { Circle, User } from '../types';
 export function suggestPeople(users: User[], me: User, connected: Set<number>, max = 3): User[] {
   const mine = (me.industry ?? '').trim().toLowerCase();
   return users
-    .filter(u => u.id !== me.id && !connected.has(u.id) && u.name)
+    .filter(u => u.id !== me.id && !connected.has(u.id) && u.name && u.privacySettings?.profileVisibility !== 'private')   // a private profile is never put in front of people who are not connected
     .map(u => ({ u, shared: mine && (u.industry ?? '').trim().toLowerCase() === mine ? 1 : 0 }))
     .sort((a, b) => b.shared - a.shared || (b.u.reputation ?? 0) - (a.u.reputation ?? 0))
     .slice(0, max).map(x => x.u);

@@ -29,6 +29,9 @@ interface Props {
   onViewProfile: (userId: number) => void;
   onViewCompany?: (companyId: number | string) => void;
   onNavigate: (view: View) => void;
+  /** Already recommended inside the feed: not offered again here. */
+  excludeCircleIds?: Set<number>;
+  excludeUserIds?: Set<number>;
 }
 
 const Section: React.FC<{ title: string; actionLabel: string; onAction: () => void; children: React.ReactNode }> = ({ title, actionLabel, onAction, children }) => (
@@ -58,7 +61,7 @@ const Avatar: React.FC<{ name: string; src?: string }> = ({ name, src }) => src
   ? <img src={src} alt="" loading="lazy" className="h-10 w-10 flex-shrink-0 rounded-full object-cover" />
   : <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: GREEN }}>{name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</span>;
 
-const FeedEnd: React.FC<Props> = ({ postCount, circles, users, currentUser, connectedIds, onSelectCircle, onViewProfile, onViewCompany, onNavigate }) => {
+const FeedEnd: React.FC<Props> = ({ postCount, circles, users, currentUser, connectedIds, onSelectCircle, onViewProfile, onViewCompany, onNavigate, excludeCircleIds, excludeUserIds }) => {
   const { fbUser } = useFirebase();
   const { followed } = useOrgFollows(fbUser?.uid, (currentUser as any)?.followingCompanies);
   const [allOrgs, setAllOrgs] = useState<CompanyItem[]>([]);
@@ -73,8 +76,8 @@ const FeedEnd: React.FC<Props> = ({ postCount, circles, users, currentUser, conn
     return () => { live = false; };
   }, []);
 
-  const pods = suggestPods(circles, currentUser);
-  const people = suggestPeople(users, currentUser, connectedIds);
+  const pods = suggestPods(circles.filter(c => !excludeCircleIds?.has(c.id)), currentUser);
+  const people = suggestPeople(users.filter(u => !excludeUserIds?.has(u.id)), currentUser, connectedIds);
   const sparse = postCount < 5;
   const hasSuggestions = pods.length + people.length + orgs.length > 0;
 
