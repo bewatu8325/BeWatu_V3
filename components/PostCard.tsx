@@ -19,11 +19,11 @@ interface PostCardProps {
 const ActionButton: React.FC<{icon: React.ReactNode, label: string, onClick?: () => void, className?: string}> = ({ icon, label, onClick, className }) => (
     <button 
       onClick={onClick} 
-      className={`flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] min-w-0 flex-shrink-0 hover:bg-[var(--bw-green-light)] focus:outline-none focus-visible:ring-2 ${className}`}
+      className={`flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 rounded-lg px-0.5 py-1.5 sm:px-3 sm:py-2 transition-colors justify-center min-h-[44px] min-w-[44px] flex-1 sm:flex-none hover:bg-[var(--bw-green-light)] focus:outline-none focus-visible:ring-2 ${className}`}
       style={{ color: 'var(--bw-green)', ['--tw-ring-color' as any]: 'var(--bw-green)' }}
     >
         {icon}
-        <span className="text-[11px] sm:text-[13px] leading-none sm:leading-normal font-semibold whitespace-nowrap">{label}</span>
+        <span className="text-[10.5px] min-[360px]:text-[11px] sm:text-[13px] leading-none sm:leading-normal font-semibold whitespace-nowrap">{label}</span>
     </button>
 );
 
@@ -35,10 +35,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
   const avatar = author.avatarUrl || (post as any).avatarUrl || null;
 
   return (
-    <div className="bg-white p-5 rounded-2xl border shadow-sm" style={{ borderColor: "#e7e5e4" }}>
-      <div className="flex items-start justify-between mb-4">
+    <div className="bg-white p-3.5 sm:p-5 rounded-2xl border shadow-sm" style={{ borderColor: "#e7e5e4" }}>
+      <div className="flex items-start justify-between mb-3 sm:mb-4">
         <button onClick={() => onViewProfile(author.id)} className="flex items-center space-x-3 text-left hover:opacity-80 transition-opacity min-w-0 flex-1">
-          <AuthorAvatar name={author.name} src={avatar} size={48} />
+          <AuthorAvatar name={author.name} src={avatar} size={44} />
           <div className="min-w-0">
             <p className="font-bold text-stone-900">{author.name}</p>
             <p className="text-xs text-stone-600">{author.headline}</p>
@@ -64,9 +64,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
           onSave={async (content) => { await onEditPost(post, content); setMode('view'); }}
         />
       )}
-      {mode !== 'edit' && post.content && <LinkifiedText text={post.content} className={`text-stone-700 whitespace-pre-wrap ${post.linkPreview ? 'mb-3' : 'mb-4'}`} />}
-      {post.linkPreview && <div className="mb-4"><LinkPreviewCard preview={post.linkPreview} /></div>}
-      <div className="flex justify-between items-center text-sm text-stone-600 mb-2">
+      {mode !== 'edit' && post.content && <LinkifiedText text={post.content} className={`text-stone-700 whitespace-pre-wrap ${post.linkPreview ? 'mb-2.5 sm:mb-3' : 'mb-3 sm:mb-4'}`} />}
+      {post.linkPreview && <div className="mb-3 sm:mb-4"><LinkPreviewCard preview={post.linkPreview} /></div>}
+      <div className="flex justify-between items-center text-sm text-stone-600 mb-1.5 sm:mb-2">
           <div className="flex items-center space-x-4">
              {post.appreciations.helpful > 0 && <span className="flex items-center">🔥 {post.appreciations.helpful}</span>}
              {post.appreciations.thoughtProvoking > 0 && <span className="flex items-center">🧠 {post.appreciations.thoughtProvoking}</span>}
@@ -74,8 +74,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, author, onAppreciatePost, onV
           </div>
           {post.comments > 0 && <span>{post.comments} Comments</span>}
       </div>
-      <div className="border-t pt-2 -mx-1 sm:mx-0" style={{ borderColor: "#e7e5e4" }}>
-        <div className="flex justify-between sm:justify-around overflow-x-auto scrollbar-hide px-1 sm:px-0 gap-0.5 sm:gap-1">
+      <div className="border-t pt-1.5 sm:pt-2" style={{ borderColor: "#e7e5e4" }}>
+        <div className="flex justify-between sm:justify-around overflow-x-auto scrollbar-hide gap-0 sm:gap-1">
           <ActionButton icon={<HelpfulIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px] flex-shrink-0"/>} className="" label="Like" onClick={() => onAppreciatePost(post.id, 'helpful')}/>
           <ActionButton icon={<ThoughtProvokingIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px] flex-shrink-0"/>} className="" label="Insightful" onClick={() => onAppreciatePost(post.id, 'thoughtProvoking')}/>
           <ActionButton icon={<CollaborationReadyIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px] flex-shrink-0"/>} className="" label="Collab" onClick={() => onAppreciatePost(post.id, 'collaborationReady')}/>
