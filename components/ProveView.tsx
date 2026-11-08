@@ -38,6 +38,7 @@ import {
 } from '../lib/proveDiscovery';
 import { ArenaLinkNote, ArenaLinkModal } from './prove/ArenaLink';
 import BottomSheet from './mobile/BottomSheet';
+import ShareWorkButton from './share/ShareWorkButton';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -772,9 +773,12 @@ export default function ProveView({
           <h1 className="text-2xl font-bold text-stone-900 sm:text-3xl">Prove</h1>
           <p className="mt-1 text-sm text-stone-600 sm:text-base">Let your work speak for you. Short videos from professionals showing a skill, a project or a problem they solved.</p>
         </div>
-        <button type="button" onClick={() => setShowUpload(true)} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white focus:outline-none focus-visible:ring-2" style={{ backgroundColor: GREEN, ...ring }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <ShareWorkButton variant="outline" label="Share my work" />
+          <button type="button" onClick={() => setShowUpload(true)} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white focus:outline-none focus-visible:ring-2" style={{ backgroundColor: GREEN, ...ring }}>
           <Video size={15} aria-hidden="true" /> Upload a reel
         </button>
+        </div>
       </header>
 
       {/* Tabs */}

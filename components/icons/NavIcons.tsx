@@ -45,4 +45,7 @@ export const NavDiscoverIcon: React.FC<P> = p => (
 export const NavPlusIcon: React.FC<P> = p => (
   <svg {...base(p)}><path d="M12 5.5v13M5.5 12h13" /></svg>
 );
-
+/** A framed page with an arrow leaving it: "Share my work". Same grid and stroke as the rest of the set. */
+export const ShareWorkIcon: React.FC<P> = p => (
+  <svg {...base(p)}><path d="M13.5 4.5H7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4.5" /><path d="M8.6 15.4h4.2M8.6 12.2h2.6" /><path d="M14.2 9.8 19.5 4.5M15.6 4.5h3.9v3.9" /></svg>
+);

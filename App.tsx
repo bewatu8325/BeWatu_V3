@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, Suspense, lazy } from 'react';
 import { SparkCreateHost } from './components/sparks/SparksTray';
+import ShareWorkHost from './components/share/ShareWorkHost';
 import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav, MOBILE_NAV_CLEARANCE } from './components/MobileNav';
@@ -2206,6 +2207,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {currentUser && (
           <>
             <SparkCreateHost />
+            <ShareWorkHost myName={currentUser.name} />
             <CreateMenu open={createOpen} onClose={() => setCreateOpen(false)} view={String(currentView)} canPostChallenge={canPostArena} onChoose={handleCreate} />
           </>
         )}

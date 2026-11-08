@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ShareWorkButton from './share/ShareWorkButton';
 
 interface ShareProfileModalProps {
   username: string;
@@ -174,6 +175,11 @@ const ShareProfileModal: React.FC<ShareProfileModalProps> = ({ username, name, o
               </svg>
               Preview
             </a>
+          </div>
+
+          {/* A work portfolio is a different thing from the profile link: it needs no account to view and shows only what you choose. */}
+          <div className="mt-4 border-t pt-4" style={{ borderColor: BORDER }}>
+            <ShareWorkButton variant="row" label="Share my work" onBefore={onClose} />
           </div>
 
           {/* Social row */}

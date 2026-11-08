@@ -18,6 +18,7 @@ import { updateUserInFirestore, generateUniqueUsername } from '../lib/firebaseAu
 import { getFollowingCompanies, getMyArenaSubmissions, ArenaSubmissionRecord, getFactoryProjects, FactoryProjectRecord, FACTORY_PROJECT_STATUS_LABEL } from '../lib/firestoreService';
 import SkillResume from './profile/SkillResume';
 import FoundingMemberBadge from './FoundingMemberBadge';
+import ShareWorkButton from './share/ShareWorkButton';
 
 interface ProfilePageProps {
   user: User;
@@ -474,6 +475,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, isCurrentUser, connecti
           ) : null}
 
           <p className="text-stone-700 text-sm mt-4 break-words">{user.bio}</p>
+
+          {/* Share my work — a page for recruiters and employers, no sign-up needed to view it. Separate from inviting people to BeWatu. */}
+          {isCurrentUser && (
+            <div className="mt-4 flex justify-center">
+              <ShareWorkButton variant="outline" label="Share my work" />
+            </div>
+          )}
 
           {/* Share public profile — owner only */}
           {isCurrentUser && (user as any).username && (
