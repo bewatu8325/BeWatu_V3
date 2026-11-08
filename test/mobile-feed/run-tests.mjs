@@ -14,6 +14,11 @@ check('people: never yourself, never someone already connected or pending, never
   const r = suggestPeople(users, me, new Set([1, 3]));
   assert(!r.some(x => x.id === 1 || x.id === 3 || x.id === 6), r.map(x => x.id).join());
 });
+check('people: a private profile is never suggested to someone who is not connected', () => {
+  const withPrivate = [...users, { id: 8, name: 'Hidden', industry: 'Technology', reputation: 99, headline: '', privacySettings: { profileVisibility: 'private' } }, { id: 9, name: 'Shown', industry: 'Technology', reputation: 3, headline: '', privacySettings: { profileVisibility: 'public' } }];
+  const r = suggestPeople(withPrivate, me, new Set([1]), 10);
+  assert(!r.some(x => x.id === 8) && r.some(x => x.id === 9), r.map(x => x.id).join());
+});
 check('people: your own industry first, then by reputation', () => {
   const r = suggestPeople(users, me, new Set([1]));
   assert(r.map(x => x.id).join() === '4,7,3', r.map(x => x.id).join());

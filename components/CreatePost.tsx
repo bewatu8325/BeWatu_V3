@@ -18,7 +18,7 @@ import { useIntent } from '../lib/uiIntent';
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
 
-type PostMode = 'standard' | 'perspective' | 'wisdom';
+export type PostMode = 'standard' | 'perspective' | 'wisdom';
 
 interface CreatePostProps {
   addPost:         (content: string, circleId?: number, linkPreview?: LinkPreview) => void;
@@ -26,6 +26,11 @@ interface CreatePostProps {
   onWisdomThread?: (data: any) => Promise<void>;
   currentUser:     User;
   circleId?:       number;  // set when posting inside a pod
+  /** Home opens this editor in a sheet: start in a given mode, take focus, keep an unsent draft, and say when a post went out. */
+  initialMode?:    PostMode;
+  autoFocus?:      boolean;
+  draftKey?:       string;
+  onDone?:         () => void;
 }
 
 const POST_TYPES: { mode: PostMode; label: string; icon: React.ReactNode; description: string }[] = [
@@ -50,13 +55,21 @@ const POST_TYPES: { mode: PostMode; label: string; icon: React.ReactNode; descri
 ];
 
 const CreatePost: React.FC<CreatePostProps> = ({
-  addPost, onPerspective, onWisdomThread, currentUser, circleId,
+  addPost, onPerspective, onWisdomThread, currentUser, circleId, initialMode, autoFocus, draftKey, onDone,
 }) => {
-  const [mode, setMode]           = useState<PostMode>('standard');
-  const [content, setContent]     = useState('');
+  const [mode, setMode]           = useState<PostMode>(initialMode ?? 'standard');
+  // An unsent draft survives closing the sheet by accident (kept for this tab only, cleared when the post goes out).
+  const draftStore = (k: string) => { try { return window.sessionStorage.getItem(k); } catch { return null; } };
+  const [content, setContent]     = useState(() => (draftKey ? draftStore('bewatuDraft:' + draftKey) ?? '' : ''));
   const [showTypes, setShowTypes] = useState(false);
-  const [focused, setFocused]     = useState(false);
+  const [focused, setFocused]     = useState(!!autoFocus);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!draftKey) return;
+    try { if (content) window.sessionStorage.setItem('bewatuDraft:' + draftKey, content); else window.sessionStorage.removeItem('bewatuDraft:' + draftKey); } catch { /* storage unavailable */ }
+  }, [content, draftKey]);
+  // The sheet takes focus itself when it opens, so ask for ours just after.
+  useEffect(() => { if (!autoFocus || mode !== 'standard') return; const t = setTimeout(() => textareaRef.current?.focus({ preventScroll: true }), 80); return () => clearTimeout(t); }, [autoFocus, mode]);
   // "Write a post" from the Create tab lands here with the box ready to type in.
   useIntent('focus-composer', () => { if (!circleId) textareaRef.current?.focus({ preventScroll: true }); });
 
@@ -129,6 +142,9 @@ const CreatePost: React.FC<CreatePostProps> = ({
     setUrlTaken(false);
     skip.current.clear();
     setFocused(false);
+    // The sheet may close (and this unmount) before the draft effect runs, so the saved draft is removed here.
+    if (draftKey) { try { window.sessionStorage.removeItem('bewatuDraft:' + draftKey); } catch { /* ignore */ } }
+    onDone?.();
   };
 
   // If a special mode is active, render that form
@@ -179,7 +195,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
               onChange={e => setContent(e.target.value)}
               onFocus={() => setFocused(true)}
               placeholder={circleId ? `Share something with this pod…` : `What's on your mind, ${currentUser.name.split(' ')[0]}?`}
-              rows={focused ? 3 : 1}
+              rows={autoFocus ? 5 : focused ? 3 : 1}
               className="w-full resize-none text-sm text-stone-900 placeholder:text-stone-600 focus:outline-none bg-transparent"
               style={{ lineHeight: 1.6 }}
             />

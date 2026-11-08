@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getActiveSparks, toggleSparkReaction, createSpark, type SparkFormat } from '../../lib/firestoreService';
 import { useFirebase } from '../../contexts/FirebaseContext';
+import { useIntent, requestIntent } from '../../lib/uiIntent';
+import { readRowHint, writeRowHint } from '../../lib/homeFeed';
 import {
   Plus, X, ChevronLeft, ChevronRight,
   Flame, Lightbulb, Flag, Link, MapPin,
@@ -276,16 +278,23 @@ function CreateSparkDialog({ open, onClose, onCreated, authorId, authorName, aut
   );
 }
 
-// ─── Sparks Tray (main export) ────────────────────────────────────────────────
+// ─── Sparks row (Home) ────────────────────────────────────────────────────────
+// A compact row of story bubbles, shown only when there are active Sparks (they last 48 hours; the query already leaves out the
+// expired). With none there is nothing on Home: sharing one is in the Create menu. While loading, a row that had content last
+// time keeps its place so the feed does not jump; a row that never had any shows nothing until something arrives.
 
-export function SparksTray() {
+const SPARKS_CHANGED = 'bewatu:sparks-changed';
+
+export function SparksRow() {
   const { currentUser, fbUser } = useFirebase();
-  const [groups,           setGroups]           = useState<SparkGroup[]>([]);
-  const [viewerOpen,       setViewerOpen]       = useState(false);
+  const uid = fbUser?.uid ?? '';
+  const [groups, setGroups] = useState<SparkGroup[]>([]);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
-  const [createOpen,       setCreateOpen]       = useState(false);
+  const reserved = useRef(readRowHint(window.localStorage, uid, 'sparks'));
 
-  async function loadSparks() {
+  const loadSparks = React.useCallback(async () => {
     try {
       const sparks = await getActiveSparks();
       const map = new Map<string, SparkGroup>();
@@ -295,98 +304,89 @@ export function SparksTray() {
         map.get(key)!.sparks.push(s);
       }
       const arr = Array.from(map.values());
-      const myIdx = arr.findIndex(g => g.authorId === fbUser?.uid);
+      const myIdx = arr.findIndex(g => g.authorId === uid);
       if (myIdx > 0) { const [mine] = arr.splice(myIdx, 1); arr.unshift(mine); }
-      setGroups(arr);
-    } catch { setGroups([]); }
-  }
+      setGroups(arr); setStatus('ready');
+      writeRowHint(window.localStorage, uid, 'sparks', arr.length > 0);
+    } catch { setStatus('error'); }
+  }, [uid]);
 
-  useEffect(() => { loadSparks(); }, [fbUser?.uid]);
-  function openGroup(index: number) { setActiveGroupIndex(index); setViewerOpen(true); }
+  useEffect(() => { loadSparks(); }, [loadSparks]);
+  useEffect(() => { window.addEventListener(SPARKS_CHANGED, loadSparks); return () => window.removeEventListener(SPARKS_CHANGED, loadSparks); }, [loadSparks]);
+
   if (!currentUser || !fbUser) return null;
+  if (status === 'loading') return reserved.current ? <div aria-hidden="true" className="h-[72px] animate-pulse rounded-2xl bg-stone-100/70" /> : null;
+  if (status === 'error') return (
+    <p role="status" className="flex min-h-[44px] items-center gap-2 text-xs text-stone-600">
+      Sparks could not be loaded.
+      <button type="button" onClick={() => { setStatus('loading'); loadSparks(); }} className="min-h-[44px] px-1 font-semibold underline" style={{ color: 'var(--bw-green)' }}>Try again</button>
+    </p>
+  );
+  if (groups.length === 0) return null;
 
   const myHasSpark = groups.some(g => g.authorId === fbUser.uid);
+  const ring = (on: boolean) => `inline-flex rounded-full p-[2px] ${on ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : 'bg-stone-200'}`;
 
   return (
     <>
-      <div className="bg-white border rounded-2xl shadow-sm overflow-hidden" style={{ borderColor: '#e7e5e4' }}>
-        <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
-          <div className="flex items-center gap-1.5">
-            <Flame className="h-3.5 w-3.5 text-amber-500" />
-            <h2 className="text-xs font-bold text-stone-700">Sparks</h2>
-          </div>
-          <span className="text-[10px] text-stone-600">48h</span>
-        </div>
-
-        <div className="flex items-center gap-3 overflow-x-auto px-3 pb-3 pt-1"
-          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-
-          {/* Create spark button */}
-          <button onClick={() => setCreateOpen(true)} className="flex flex-col items-center gap-1 shrink-0">
-            <div className="relative">
-              <div className={`rounded-full p-[2.5px] ${myHasSpark ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : 'bg-stone-200'}`}>
-                {currentUser.avatarUrl ? (
-                  <img src={currentUser.avatarUrl} alt="" className="h-12 w-12 rounded-full object-cover border-2 border-white" />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-medium text-white border-2 border-white" style={{ backgroundColor: 'var(--bw-green)' }}>
-                    {initials(currentUser.name)}
-                  </div>
-                )}
-              </div>
-              <FlameBadge active={myHasSpark} />
-              <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--bw-green)] text-white shadow-sm" style={{ zIndex: 20 }}>
-                <Plus className="h-3 w-3" />
-              </div>
-            </div>
-            <span className="max-w-[56px] truncate text-[10px] text-stone-600">Your Spark</span>
-          </button>
-
-          {/* Spark groups */}
-          {groups.map((group, i) => {
-            const hasUnviewed = group.sparks.some(s =>
-              !s.reactions?.relate?.includes(fbUser.uid) &&
-              !s.reactions?.inspire?.includes(fbUser.uid) &&
-              !s.reactions?.collab?.includes(fbUser.uid)
-            );
-            return (
-              <button key={group.authorId} onClick={() => openGroup(i)} className="flex flex-col items-center gap-1 shrink-0">
-                <div className="relative">
-                  <div className={`rounded-full p-[2.5px] ${hasUnviewed ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : 'bg-stone-200'}`}>
-                    {group.authorAvatar ? (
-                      <img src={group.authorAvatar} alt="" className="h-12 w-12 rounded-full object-cover border-2 border-white" />
-                    ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full text-xs font-medium text-white border-2 border-white" style={{ backgroundColor: 'var(--bw-green)' }}>
-                        {initials(group.authorName)}
-                      </div>
-                    )}
-                  </div>
-                  <FlameBadge active={hasUnviewed} />
-                </div>
-                <span className="max-w-[60px] truncate text-[10px] text-stone-600">
-                  {group.authorId === fbUser.uid ? 'You' : group.authorName.split(' ')[0]}
+      <section aria-label="Sparks, shared in the last 48 hours" className="-mx-3 sm:mx-0">
+        <ul className="flex items-start gap-1 overflow-x-auto px-3 sm:px-0" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+          {!myHasSpark && (
+            <li className="shrink-0">
+              <button type="button" onClick={() => requestIntent('create-spark')} aria-label="Share a Spark"
+                className="flex min-h-[64px] min-w-[56px] flex-col items-center gap-1 rounded-xl px-1 py-1 focus:outline-none focus-visible:ring-2" style={{ ['--tw-ring-color' as any]: 'var(--bw-green)' }}>
+                <span className="relative">
+                  <span className={ring(false)}>
+                    {currentUser.avatarUrl
+                      ? <img src={currentUser.avatarUrl} alt="" className="h-11 w-11 rounded-full border-2 border-white object-cover" />
+                      : <span className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-white text-xs font-medium text-white" style={{ backgroundColor: 'var(--bw-green)' }}>{initials(currentUser.name)}</span>}
+                  </span>
+                  <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full text-white shadow-sm" style={{ backgroundColor: 'var(--bw-green)' }}><Plus className="h-3 w-3" aria-hidden="true" /></span>
                 </span>
+                <span className="max-w-[56px] truncate text-[10px] text-stone-700">Your Spark</span>
               </button>
+            </li>
+          )}
+          {groups.map((group, i) => {
+            const unseen = group.sparks.some(s => !s.reactions?.relate?.includes(fbUser.uid) && !s.reactions?.inspire?.includes(fbUser.uid) && !s.reactions?.collab?.includes(fbUser.uid));
+            const mine = group.authorId === fbUser.uid;
+            return (
+              <li key={group.authorId} className="shrink-0">
+                <button type="button" onClick={() => { setActiveGroupIndex(i); setViewerOpen(true); }}
+                  aria-label={`${mine ? 'Your' : group.authorName + "'s"} Spark${group.sparks.length > 1 ? 's' : ''}${unseen ? ', new' : ''}`}
+                  className="flex min-h-[64px] min-w-[56px] flex-col items-center gap-1 rounded-xl px-1 py-1 focus:outline-none focus-visible:ring-2" style={{ ['--tw-ring-color' as any]: 'var(--bw-green)' }}>
+                  <span className="relative">
+                    <span className={ring(unseen)}>
+                      {group.authorAvatar
+                        ? <img src={group.authorAvatar} alt="" loading="lazy" className="h-11 w-11 rounded-full border-2 border-white object-cover" />
+                        : <span className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-white text-xs font-medium text-white" style={{ backgroundColor: 'var(--bw-green)' }}>{initials(group.authorName)}</span>}
+                    </span>
+                    <FlameBadge active={unseen} />
+                  </span>
+                  <span className="max-w-[60px] truncate text-[10px] text-stone-700">{mine ? 'You' : group.authorName.split(' ')[0]}</span>
+                </button>
+              </li>
             );
           })}
-
-          {groups.length === 0 && (
-            <div className="flex items-center gap-2 py-1">
-              <p className="text-xs text-stone-600">No sparks yet — share a win with your network</p>
-            </div>
-          )}
-        </div>
-      </div>
-
+        </ul>
+      </section>
       {viewerOpen && groups[activeGroupIndex] && (
-        <SparkViewer groups={groups} initialGroupIndex={activeGroupIndex}
-          onClose={() => setViewerOpen(false)} onReacted={loadSparks} uid={fbUser.uid} />
+        <SparkViewer groups={groups} initialGroupIndex={activeGroupIndex} onClose={() => setViewerOpen(false)} onReacted={loadSparks} uid={fbUser.uid} />
       )}
-
-      <CreateSparkDialog open={createOpen} onClose={() => setCreateOpen(false)}
-        onCreated={loadSparks} authorId={fbUser.uid}
-        authorName={currentUser.name} authorAvatar={currentUser.avatarUrl} />
     </>
   );
 }
 
-export default SparksTray;
+/** "Share a Spark" from the Create menu (or anywhere): opens the dialog wherever the member is, and tells the Sparks row to refresh. */
+export function SparkCreateHost() {
+  const { currentUser, fbUser } = useFirebase();
+  const [open, setOpen] = useState(false);
+  useIntent('create-spark', () => setOpen(true));
+  if (!currentUser || !fbUser) return null;
+  return (
+    <CreateSparkDialog open={open} onClose={() => setOpen(false)} onCreated={() => window.dispatchEvent(new Event(SPARKS_CHANGED))}
+      authorId={fbUser.uid} authorName={currentUser.name} authorAvatar={currentUser.avatarUrl} />
+  );
+}
+
+export default SparksRow;

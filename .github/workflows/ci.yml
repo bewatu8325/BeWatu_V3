@@ -91,6 +91,8 @@ jobs:
         run: tsx test/mobile-feed/run-tests.mjs
       - name: Sponsorship onboarding - remembered intent and resume
         run: tsx test/sponsor-onboarding/run-tests.mjs
+      - name: Home feed - For You, Following and recommendation cards
+        run: tsx test/home-feed/run-tests.mjs
       - name: Organizations page URL state and categories
         run: tsx test/org-url-state/run-tests.mjs
       - name: Compliance bundle encryption

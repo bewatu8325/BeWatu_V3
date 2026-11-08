@@ -19,6 +19,11 @@ interface FeedProps {
   onLoadMore?: () => Promise<{ done: boolean }>;
   /** What to show once everything has loaded (see FeedEnd). */
   endSlot?: React.ReactNode;
+  /** Cards placed inside the feed: each shows once, after that many posts (or at the end of a shorter feed). */
+  inserts?: { key: string; after: number; node: React.ReactNode }[];
+  /** How many posts to draw first, and a note of how many are drawn: coming back to Home redraws as far as you had read. */
+  initialVisible?: number;
+  onVisibleChange?: (n: number) => void;
 }
 
 const STEP = 10; // posts drawn at a time
@@ -59,7 +64,7 @@ const calculatePostScore = (post: Post): number => {
 };
 
 
-const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onViewProfile, currentUserId, currentUserUid, onEditPost, onDeletePost, onReportContent, onLoadMore, endSlot }) => {
+const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onViewProfile, currentUserId, currentUserUid, onEditPost, onDeletePost, onReportContent, onLoadMore, endSlot, inserts = [], initialVisible, onVisibleChange }) => {
   const ranked = useMemo(() => {
     // Filter for global posts only (no circleId)
     const globalPosts = posts.filter(post => !post.circleId);
@@ -97,7 +102,8 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
   }, [ranked, currentUserId]);
 
   // ── progressive rendering and fetching ──
-  const [visible, setVisible] = useState(STEP);
+  const [visible, setVisible] = useState(Math.max(STEP, initialVisible ?? STEP));
+  useEffect(() => { onVisibleChange?.(visible); }, [visible]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [loadingMore, setLoadingMore] = useState(false);
   const [exhausted, setExhausted] = useState(!onLoadMore);
   const [loadError, setLoadError] = useState(false);
@@ -149,6 +155,7 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
     <div className="space-y-3 sm:space-y-5">
       {sortedPosts.length === 0 && finished ? (
         <>
+          {inserts.map(i => <React.Fragment key={i.key}>{i.node}</React.Fragment>)}
           {endSlot ?? (
             <EmptyState
               compact
@@ -165,10 +172,13 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
         </>
       ) : (
         <>
-          {shown.map(post => {
+          {inserts.filter(i => i.after === 0).map(i => <React.Fragment key={i.key}>{i.node}</React.Fragment>)}
+          {shown.map((post, idx) => {
             const author = findAuthor(post.authorId);
+            const here = inserts.filter(i => i.after > 0 && i.after === idx + 1);
             return author ? (
-              <div key={post.id} className="min-w-0 w-full overflow-x-clip">
+              <React.Fragment key={post.id}>
+              <div className="min-w-0 w-full overflow-x-clip">
                 <PostCard
                   post={post}
                   author={author}
@@ -180,8 +190,12 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
                   onReportContent={onReportContent}
                 />
               </div>
+              {here.map(i => <React.Fragment key={i.key}>{i.node}</React.Fragment>)}
+              </React.Fragment>
             ) : null;
           })}
+          {/* a feed shorter than a card's position: the card goes at the end, before the closing suggestions */}
+          {finished && inserts.filter(i => i.after > shown.length).map(i => <React.Fragment key={i.key}>{i.node}</React.Fragment>)}
           <div ref={sentinel} aria-hidden="true" />
           {!finished && (
             <div className="flex min-h-[44px] items-center justify-center" role="status" aria-live="polite">

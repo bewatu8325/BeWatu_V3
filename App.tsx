@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, Suspense, lazy } from 'react';
-import SparksTray from './components/sparks/SparksTray';
+import { SparkCreateHost } from './components/sparks/SparksTray';
 import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav, MOBILE_NAV_CLEARANCE } from './components/MobileNav';
@@ -1272,7 +1272,9 @@ const MainApp: React.FC = () => {
   };
   // Each Create action takes you to the page that does it and opens the right control there.
   const handleCreate = (id: CreateActionId) => {
-    if (id === 'post') { handleSetView(View.Feed); requestIntent('focus-composer'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    // Post an Update and Share Wisdom open the same editor Home's composer opens (components/home/HomeComposer.tsx).
+    if (id === 'post' || id === 'wisdom') { handleSetView(View.Feed); requestIntent('focus-composer', id === 'wisdom' ? { composeMode: 'wisdom' } : undefined); }
+    else if (id === 'spark') requestIntent('create-spark');
     else if (id === 'reel') { handleSetView(View.Prove); requestIntent('upload-reel'); }
     else if (id === 'pod') { handleSetView(View.Circles); requestIntent('create-pod'); }
     else if (id === 'project') { handleSetView(View.Circles); requestIntent('create-pod', { podType: 'innovation' }); }
@@ -1874,7 +1876,6 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         content = (
           <div className="space-y-4">
             <FactoryUnlockBanner onUnlock={() => setShowUpgradeModal('factory')} />
-            <SparksTray />
             <HomePage
               data={data}
               currentUser={currentUser}
@@ -1894,6 +1895,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               onReportContent={(id, preview) => openReport({ content: { type: 'post', id, preview } }, 'content')}
               onViewCompany={handleViewCompany}
               onLoadMorePosts={loadMorePosts}
+              onCreate={handleCreate}
             />
           </div>
         );
@@ -2202,7 +2204,10 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
 
         {/* Create: the menu is permission- and page-aware; the Arena challenge flow opens over whatever page you are on */}
         {currentUser && (
-          <CreateMenu open={createOpen} onClose={() => setCreateOpen(false)} view={String(currentView)} canPostChallenge={canPostArena} onChoose={handleCreate} />
+          <>
+            <SparkCreateHost />
+            <CreateMenu open={createOpen} onClose={() => setCreateOpen(false)} view={String(currentView)} canPostChallenge={canPostArena} onChoose={handleCreate} />
+          </>
         )}
         {postChallengeOpen && canPostArena && myCompany && fbUser && (
           <Suspense fallback={null}>

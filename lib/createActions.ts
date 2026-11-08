@@ -7,13 +7,15 @@
  */
 import { navKeyFor } from './routes';
 
-export type CreateActionId = 'post' | 'reel' | 'pod' | 'project' | 'challenge';
+export type CreateActionId = 'post' | 'wisdom' | 'reel' | 'spark' | 'pod' | 'project' | 'challenge';
 
 export interface CreateAction { id: CreateActionId; label: string; hint: string; suggested: boolean }
 
 const ALL: Record<CreateActionId, { label: string; hint: string }> = {
-  post:      { label: 'Write a Post',            hint: 'Share a thought, a link or a lesson' },
-  reel:      { label: 'Upload a Reel',           hint: 'Show a skill in 30 to 90 seconds' },
+  post:      { label: 'Post an Update',          hint: 'Share a thought, an article link or a question' },
+  wisdom:    { label: 'Share Wisdom',            hint: 'Pass on a hard-won career lesson' },
+  reel:      { label: 'Upload a Prove Reel',     hint: 'Show a skill in 30 to 90 seconds' },
+  spark:     { label: 'Share a Spark',           hint: 'A win, insight or goal that lasts 48 hours' },
   pod:       { label: 'Start a Pod',             hint: 'Bring people together around a goal' },
   project:   { label: 'Start a Project',         hint: 'Build something with a team, from idea to launch' },
   challenge: { label: 'Post an Arena Challenge', hint: 'Put a real problem in front of professionals' },
@@ -24,7 +26,7 @@ export function canPostChallenge(user: { isRecruiter?: boolean } | null | undefi
 }
 
 export function createActions(ctx: { view: string; canPostChallenge: boolean }): CreateAction[] {
-  const ids: CreateActionId[] = ['post', 'reel', 'pod', 'project', ...(ctx.canPostChallenge ? ['challenge' as const] : [])];
+  const ids: CreateActionId[] = ['post', 'wisdom', 'reel', 'spark', 'pod', 'project', ...(ctx.canPostChallenge ? ['challenge' as const] : [])];
   const nav = navKeyFor(ctx.view);
   const fit: CreateActionId =
     nav === 'prove' ? 'reel'

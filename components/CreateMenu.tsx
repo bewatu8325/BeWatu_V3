@@ -5,7 +5,7 @@
  * What is shown comes from lib/createActions.ts; the page that does the creating is chosen by App.
  */
 import React from 'react';
-import { PenLine, Video, Lightbulb, Trophy } from 'lucide-react';
+import { PenLine, Video, Lightbulb, Trophy, BookOpen, Flame } from 'lucide-react';
 import { createActions, type CreateActionId } from '../lib/createActions';
 import { PodsIcon } from './IconComponents';
 import BottomSheet from './mobile/BottomSheet';
@@ -15,7 +15,9 @@ const GREEN_LT = 'var(--bw-green-light)';
 
 const ICON: Record<CreateActionId, React.ReactNode> = {
   post: <PenLine className="h-5 w-5" aria-hidden="true" />,
+  wisdom: <BookOpen className="h-5 w-5" aria-hidden="true" />,
   reel: <Video className="h-5 w-5" aria-hidden="true" />,
+  spark: <Flame className="h-5 w-5" aria-hidden="true" />,
   pod: <PodsIcon className="h-5 w-5" />,
   project: <Lightbulb className="h-5 w-5" aria-hidden="true" />,
   challenge: <Trophy className="h-5 w-5" aria-hidden="true" />,

@@ -47,9 +47,9 @@ check('every destination belongs under the right navigation item', () => {
 
 console.log('== Create menu ==');
 const ids = (ctx) => createActions(ctx).map(a => a.id).join();
-check('everyone gets post, reel, pod and project; the challenge action only when authorized', () => {
-  assert(ids({ view: View.Feed, canPostChallenge: false }) === 'post,reel,pod,project', ids({ view: View.Feed, canPostChallenge: false }));
-  assert(ids({ view: View.Feed, canPostChallenge: true }) === 'post,reel,pod,project,challenge', ids({ view: View.Feed, canPostChallenge: true }));
+check('everyone gets post, wisdom, reel, spark, pod and project; the challenge action only when authorized', () => {
+  assert(ids({ view: View.Feed, canPostChallenge: false }) === 'post,wisdom,reel,spark,pod,project', ids({ view: View.Feed, canPostChallenge: false }));
+  assert(ids({ view: View.Feed, canPostChallenge: true }) === 'post,wisdom,reel,spark,pod,project,challenge', ids({ view: View.Feed, canPostChallenge: true }));
 });
 check('the action that fits the page comes first and is the only one marked suggested', () => {
   assert(ids({ view: View.Prove, canPostChallenge: false }).startsWith('reel,'), 'prove');

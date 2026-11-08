@@ -29,9 +29,9 @@ export const NavYouIcon: React.FC<P> = p => (
   <svg {...base(p)}><circle cx="12" cy="8.4" r="3.4" /><path d="M5 20.2c.6-3.8 3.3-6 7-6s6.4 2.2 7 6" /></svg>
 );
 
-/** An arena: a rounded track with a centre mark. Matches the Arena glyph used on challenge cards. */
+/** A trophy: Arenas, where members put their expertise to work on real challenges. The same mark as the Arena cards and the Explore Arenas prompt. */
 export const NavArenasIcon: React.FC<P> = p => (
-  <svg {...base(p)}><rect x="2.8" y="6" width="18.4" height="12" rx="6" /><ellipse cx="12" cy="12" rx="4.6" ry="2.9" /></svg>
+  <svg {...base(p)}><path d="M8 4.2h8v5.1a4 4 0 0 1-8 0z" /><path d="M8 6.2H5.6a1 1 0 0 0-1 1c0 2.1 1.4 3.6 3.6 3.9M16 6.2h2.4a1 1 0 0 1 1 1c0 2.1-1.4 3.6-3.6 3.9" /><path d="M12 13.3v3.4M9 19.8h6M9.8 16.7h4.4" /></svg>
 );
 /** A play mark inside a frame: Prove, the professional video showcase. */
 export const NavProveIcon: React.FC<P> = p => (

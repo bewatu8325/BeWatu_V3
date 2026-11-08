@@ -7,8 +7,8 @@
  */
 import { useEffect } from 'react';
 
-export type UiIntent = 'focus-composer' | 'create-pod' | 'upload-reel' | 'post-challenge';
-export interface IntentPayload { podType?: 'community' | 'innovation' | 'challenge' | 'generational'; challengeId?: string; challengeTitle?: string }
+export type UiIntent = 'focus-composer' | 'create-pod' | 'upload-reel' | 'post-challenge' | 'create-spark';
+export interface IntentPayload { composeMode?: 'standard' | 'perspective' | 'wisdom'; podType?: 'community' | 'innovation' | 'challenge' | 'generational'; challengeId?: string; challengeTitle?: string }
 
 const EVENT = 'bewatu:intent';
 let pending: { intent: UiIntent; payload?: IntentPayload } | null = null;
