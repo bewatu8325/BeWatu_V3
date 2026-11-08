@@ -232,10 +232,10 @@ await check('--max-create stops a run from writing more than asked', async () =>
 await check('imported organizations show up in the directory by category, with accurate counts and claim status', async () => {
   resetDirectoryCache();
   const me = { uid: 'u1', email: 'a@b.org', emailVerified: true };
-  const r = await runAction(db, me, { action: 'list', category: 'colleges', limit: 24 });
-  assert(r.items.some(i => i.id === 'org_ror_0aaa0001') && r.items.every(i => i.category === 'colleges'), 'colleges listed');
+  const r = await runAction(db, me, { action: 'list', category: 'education', limit: 24 });
+  assert(r.items.some(i => i.id === 'org_ror_0aaa0001') && r.items.every(i => i.categories.includes('education')), 'colleges listed');
   assert(r.items.find(i => i.id === 'org_ror_0aaa0001').claimStatus === 'unclaimed', 'unclaimed');
-  const h = await runAction(db, me, { action: 'list', category: 'hospitals', limit: 24 });
+  const h = await runAction(db, me, { action: 'list', category: 'healthcare', limit: 24 });
   assert(h.total === h.items.length && h.items.some(i => i.id === 'org_ror_0ccc0003') && h.items.some(i => i.id === 'org_ror_0ddd0004'), 'hospitals + health systems');
   const m = await runAction(db, me, { action: 'list', category: 'manufacturing', limit: 24 });
   assert(m.items.some(i => i.id === 'member-co'), 'the member company stays in manufacturing');

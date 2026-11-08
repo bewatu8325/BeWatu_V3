@@ -1,33 +1,36 @@
 /**
  * components/CompaniesPage.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Discover organizations (companies, colleges and universities, hospitals and health
- * systems, and more), the way you'd explore a professional network: 12 at a time,
- * with For You / Following / All views, search with suggestions, a compact category
- * dropdown plus quick-filter chips for the four main categories, "More filters"
- * (organization type, industry, country, activity), four sorts, and "Load more".
+ * Discover organizations (companies, colleges and universities, hospitals and health systems, and more): 12 at a
+ * time, with For You / Following / All views, search with suggestions, category pills, a "More" sheet for every category
+ * and the advanced filters, and "Load more".
  *
- * Everything is fetched from api/companies.ts one page at a time; the browser
- * never holds the whole directory. Search, filters, sort and paging are one query
- * on the server, so the count and the pages always agree. Your choices (view,
- * search, filters, sort) and the list you had loaded survive leaving the page and
- * coming back.
+ * Three things stay distinct:
+ *   suggested   shortcuts in the pill row (Finance, Healthcare, Technology, Education for a new member). Pressing one selects it.
+ *   selected    what is filtering the list right now. Temporary: lives in the address and this tab, never overwrites the saved defaults.
+ *   saved       the member's own default categories, stored in their account and restored on any device. Changed only by
+ *               "Save as my defaults".
+ * When the page opens, the address decides first (a shared or bookmarked link), then what this tab already had, then the
+ * member's saved defaults, then no category at all (everything).
  *
+ * Everything is fetched from api/companies.ts one page at a time; the browser never holds the whole directory.
  * Claiming an organization lives on its profile, not on these cards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Search, X, SlidersHorizontal, Building2, AlertTriangle, Loader2, Users, Sparkles, GraduationCap, Stethoscope, Factory, HeartPulse } from 'lucide-react';
+import { Search, X, Building2, AlertTriangle, Loader2, Users, Sparkles, Check } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import {
-  queryCompanies, suggestCompanies, setFollowing, appendUnique, queryKey,
+  queryCompanies, suggestCompanies, setFollowing, appendUnique, queryKey, getOrgPrefs, saveOrgPrefs,
   type CompaniesQuery, type CompaniesPage as PageData, type CompanyItem, type CompaniesView, type CompaniesSort,
 } from '../lib/companiesService';
 import CompanyCard, { CompanyCardSkeleton } from './companies/CompanyCard';
-import { CATEGORIES, type CategoryKey, type OrganizationType } from '../lib/organizations';
+import { parseCategoryParam, categoryParam, BROAD_LABEL, DEFAULT_PILLS, type BroadKey, type OrganizationType } from '../lib/organizations';
+import { fromSearch, toSearch, isDirectoryPath } from '../lib/orgUrlState';
+import CategoryPills, { type ActiveFilter } from './organizations/CategoryPills';
+import MoreFiltersSheet from './organizations/MoreFiltersSheet';
 
 const GREEN = 'var(--bw-green)';
-const POPULAR_CHIPS = 6;
 const STORAGE_KEY = 'beWatuCompaniesState';
 const SNAPSHOT_MS = 5 * 60_000;
 
@@ -38,20 +41,12 @@ interface CompaniesPageProps {
 }
 
 interface UiState {
-  view: CompaniesView; q: string; industry: string; category: CategoryKey | ''; orgType: OrganizationType | ''; country: string;
+  view: CompaniesView; q: string; industry: string; category: string; orgType: OrganizationType | ''; country: string;
   hiring: boolean; challenges: boolean; sponsor: boolean; sort: CompaniesSort;
 }
 
-const VIEW_LABEL: Record<CompaniesView, string> = { for_you: 'For You', following: 'Following', all: 'All Organizations' };
+const VIEW_LABEL: Record<CompaniesView, string> = { for_you: 'For You', following: 'Following', all: 'All' };
 const SORT_LABEL: Record<CompaniesSort, string> = { relevance: 'Relevance', recent: 'Recent activity', followers: 'Most followed', alpha: 'A–Z' };
-// The four prominent categories get a quick-filter chip each (in this order); "Other" lives in the dropdown.
-const CHIP_CATEGORIES = CATEGORIES.filter(c => c.key !== 'other');
-const CATEGORY_ICON: Record<CategoryKey, React.ReactNode> = {
-  colleges: <GraduationCap size={15} aria-hidden="true" />, medical: <Stethoscope size={15} aria-hidden="true" />,
-  hospitals: <HeartPulse size={15} aria-hidden="true" />, manufacturing: <Factory size={15} aria-hidden="true" />, other: <Building2 size={15} aria-hidden="true" />,
-};
-const isCategory = (v: unknown): v is CategoryKey => CATEGORIES.some(c => c.key === v);
-
 // ── remembered between visits ────────────────────────────────────────────────
 function readSaved(): Partial<UiState> | null {
   try { const raw = sessionStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
@@ -75,19 +70,26 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
   const { currentUser, fbUser } = useFirebase();
   const hasPrefs = !!((currentUser as any)?.industry || ((currentUser as any)?.professionalGoals?.length ?? 0) > 0);
 
+  // The address wins (a shared or reloaded link), then what this tab remembered, then the member's saved defaults (below), then everything.
+  const fromUrl = useMemo(() => (typeof window !== 'undefined' && isDirectoryPath(window.location.pathname) ? fromSearch(window.location.search) : {}), []);
   const [ui, setUi] = useState<UiState>(() => {
-    const s = readSaved();
+    const s = { ...(readSaved() ?? {}), ...fromUrl } as Partial<UiState>;
     return {
       view: (['for_you', 'following', 'all'] as const).includes(s?.view as any) ? s!.view! : hasPrefs ? 'for_you' : 'all',
       q: typeof s?.q === 'string' ? s.q : '', industry: typeof s?.industry === 'string' ? s.industry : '',
-      category: isCategory(s?.category) ? s!.category! : '', orgType: typeof s?.orgType === 'string' ? s.orgType as OrganizationType : '', country: typeof s?.country === 'string' ? s.country : '',
+      category: categoryParam(parseCategoryParam(s?.category)), orgType: typeof s?.orgType === 'string' ? s.orgType as OrganizationType : '', country: typeof s?.country === 'string' ? s.country : '',
       hiring: !!s?.hiring, challenges: !!s?.challenges, sponsor: !!s?.sponsor,
       sort: (['relevance', 'recent', 'followers', 'alpha'] as const).includes(s?.sort as any) ? s!.sort! : 'relevance',
     };
   });
   // The profile can finish loading after this page opens. If the member has never picked a view
   // (nothing remembered, nothing clicked), start them on For You once we know they have interests.
-  const hadSavedView = useRef(!!readSaved()?.view);
+  const hadSavedView = useRef(!!readSaved()?.view || !!fromUrl.view);
+  // Saved defaults are loaded from the account. They are applied only when neither the address nor this tab already has a category choice.
+  const needsSaved = useMemo(() => fromUrl.category === undefined && typeof readSaved()?.category !== 'string', [fromUrl]);
+  const [saved, setSaved] = useState<BroadKey[]>([]);
+  const [prefsReady, setPrefsReady] = useState(!needsSaved);
+  const touchedCategory = useRef(false);
   const pickedView = useRef(false);
   useEffect(() => {
     if (hasPrefs && !hadSavedView.current && !pickedView.current) setUi(p => (p.view === 'all' ? { ...p, view: 'for_you' } : p));
@@ -109,15 +111,40 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
 
   const set = useCallback(<K extends keyof UiState>(k: K, v: UiState[K]) => {
     if (k === 'view') pickedView.current = true;
+    if (k === 'category') touchedCategory.current = true;
     setUi(p => ({ ...p, [k]: v }));
   }, []);
+
+  useEffect(() => {
+    let live = true;
+    getOrgPrefs()
+      .then(cats => { if (!live) return; setSaved(cats); if (needsSaved && !touchedCategory.current && cats.length) setUi(u => ({ ...u, category: categoryParam(cats) })); })
+      .catch(() => { /* no saved defaults available: show everything */ })
+      .finally(() => { if (live) setPrefsReady(true); });
+    const t = setTimeout(() => { if (live) setPrefsReady(true); }, 3000);   // never hold the page up for it
+    return () => { live = false; clearTimeout(t); };
+  }, [needsSaved]);
 
   // keep the typed text and the committed query in step, and remember the choices
   useEffect(() => { setUi(p => (p.q === debouncedQ ? p : { ...p, q: debouncedQ })); }, [debouncedQ]);
   useEffect(() => { writeSaved(ui); }, [ui]);
+  // Keep the address in step with the choices, without adding history entries. The app adds this page's own entry just after
+  // the page mounts, so wait a tick: the query belongs on that entry, not on the page you came from. Each entry keeps its own
+  // address, so Back to the directory restores the same filters.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        const st: any = window.history.state;
+        if (st?.bwView && st.bwView !== 'COMPANIES') return;      // not this page's entry
+        window.history.replaceState(window.history.state, '', `/organizations${toSearch(ui)}`);
+      } catch { /* not allowed here */ }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [ui]);
 
   // ── first page for the current query ──
   const loadFirst = useCallback(async (force = false) => {
+    if (!prefsReady) return;
     const id = ++reqId.current;
     setLoading(true); setError(null); setMoreError(null);
     try {
@@ -128,7 +155,7 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
       if (id !== reqId.current || e?.name === 'AbortError') return;
       setError(e?.message ?? 'Could not load organizations.');
     } finally { if (id === reqId.current) setLoading(false); }
-  }, [query]);
+  }, [query, prefsReady]);
 
   useEffect(() => {
     if (!restored.current && snapshot && snapshot.key === key && Date.now() - snapshot.at < SNAPSHOT_MS) {
@@ -206,31 +233,69 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
     else if (e.key === 'Escape') { setFocused(false); setActiveIdx(-1); }
   };
 
-  // ── filters ──
+  // ── filters: one shared state (`ui`) drives the pills, the More sheet, the address and the query ──
   const facets = page?.facets ?? [];
-  const categoryCounts = page?.categories ?? [];
   const types = page?.types ?? [];
   const countries = page?.countries ?? [];
-  const countOf = (k: CategoryKey) => categoryCounts.find(c => c.key === k)?.count;
-  const moreCount = (ui.hiring ? 1 : 0) + (ui.challenges ? 1 : 0) + (ui.sponsor ? 1 : 0) + (ui.industry ? 1 : 0) + (ui.orgType ? 1 : 0) + (ui.country ? 1 : 0);
-  const anyFilter = !!ui.industry || !!ui.category || !!ui.orgType || !!ui.country || ui.hiring || ui.challenges || ui.sponsor || !!qInput.trim();
+  const selected = parseCategoryParam(ui.category);
+  const counts: Partial<Record<BroadKey, number>> = Object.fromEntries((page?.categories ?? []).map(c => [c.key, c.count]));
+  // Suggested shortcuts: the member's own interests / followed organizations when there are any, else the standard four.
+  const suggested: BroadKey[] = (page?.meta.suggested?.length ? page.meta.suggested : DEFAULT_PILLS).filter(k => k !== 'other');
+  const typeLabel = ui.orgType ? (types.find(t => t.key === ui.orgType)?.label ?? ui.orgType.replace(/_/g, ' ')) : '';
+  // Until the facets arrive (a shared link), show the key tidied up rather than raw lower case.
+  const tidy = (v: string) => v.replace(/\b\w/g, c => c.toUpperCase());
+  const industryLabel = ui.industry ? (facets.find(f => f.key === ui.industry)?.label ?? tidy(ui.industry)) : '';
+  const countryLabel = ui.country ? (countries.find(c => c.key === ui.country)?.label ?? tidy(ui.country)) : '';
+  const others: ActiveFilter[] = [
+    ...(ui.orgType ? [{ id: 'type', label: typeLabel, clear: () => set('orgType', '') }] : []),
+    ...(ui.industry ? [{ id: 'industry', label: industryLabel, clear: () => set('industry', '') }] : []),
+    ...(ui.country ? [{ id: 'country', label: countryLabel, clear: () => set('country', '') }] : []),
+    ...(ui.hiring ? [{ id: 'hiring', label: 'Hiring now', clear: () => set('hiring', false) }] : []),
+    ...(ui.challenges ? [{ id: 'challenges', label: 'Has live challenges', clear: () => set('challenges', false) }] : []),
+    ...(ui.sponsor ? [{ id: 'sponsor', label: 'Sponsors an Arena', clear: () => set('sponsor', false) }] : []),
+  ];
+  const anyFilter = selected.length > 0 || others.length > 0 || !!qInput.trim();
   const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!moreOpen) return;
-    const down = (e: MouseEvent) => { if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false); };
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoreOpen(false); };
-    document.addEventListener('mousedown', down); document.addEventListener('keydown', key);
-    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
-  }, [moreOpen]);
-  const clearAll = () => { setQInput(''); setUi(p => ({ ...p, q: '', industry: '', category: '', orgType: '', country: '', hiring: false, challenges: false, sponsor: false })); };
-  const activeCategoryLabel = ui.category ? CATEGORIES.find(c => c.key === ui.category)?.label : '';
+  const toggleCategory = (k: BroadKey) => set('category', categoryParam(selected.includes(k) ? selected.filter(x => x !== k) : [...selected, k]));
+  // "Clear filters" resets what is temporary. The saved defaults are not touched.
+  const clearFilters = () => setUi(p => ({ ...p, industry: '', category: '', orgType: '', country: '', hiring: false, challenges: false, sponsor: false }));
+  const clearAll = () => { setQInput(''); setUi(p => ({ ...p, q: '', industry: '', category: '', orgType: '', country: '', hiring: false, challenges: false, sponsor: false })); touchedCategory.current = true; };
+
+  // ── saved defaults ──
+  const sameSet = (a: BroadKey[], b: BroadKey[]) => categoryParam(a) === categoryParam(b);
+  const [savingDefaults, setSavingDefaults] = useState(false);
+  const [defaultsMsg, setDefaultsMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const atDefaults = saved.length > 0 && sameSet(selected, saved);
+  const saveDefaults = async () => {
+    setSavingDefaults(true); setDefaultsMsg(null);
+    try {
+      const cats = await saveOrgPrefs(selected);
+      setSaved(cats);
+      setDefaultsMsg({ ok: true, text: cats.length ? 'Saved. These categories will be your starting point on any device.' : 'Your saved defaults are cleared.' });
+    } catch (e: any) { setDefaultsMsg({ ok: false, text: e?.message ?? 'Could not save. Try again.' }); }
+    finally { setSavingDefaults(false); }
+  };
+  const resetToDefaults = () => { set('category', categoryParam(saved)); setDefaultsMsg(null); };
+  const linkBtn = 'inline-flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-sm font-semibold hover:underline focus:outline-none focus-visible:ring-2 disabled:opacity-60';
+  const defaultsControls = (
+    <div>
+      <p className="text-sm font-semibold text-stone-800">Your defaults</p>
+      <p className="mt-0.5 text-xs text-stone-600">
+        {saved.length ? `Saved: ${saved.map(k => BROAD_LABEL[k]).join(', ')}. You start here on every visit.` : 'Nothing saved. Pick categories, then save them to start here every time.'}
+      </p>
+      <div className="-mx-2 mt-1 flex flex-wrap items-center">
+        <button type="button" onClick={saveDefaults} disabled={savingDefaults || (selected.length === 0 ? saved.length === 0 : atDefaults)} className={linkBtn} style={{ color: GREEN, ['--tw-ring-color' as any]: GREEN }}>
+          {savingDefaults && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{selected.length === 0 && saved.length > 0 ? 'Clear my saved defaults' : 'Save as my defaults'}
+        </button>
+        <button type="button" onClick={resetToDefaults} disabled={saved.length === 0 || atDefaults} className={`${linkBtn} text-stone-700`} style={{ ['--tw-ring-color' as any]: GREEN }}>Reset to my defaults</button>
+        <button type="button" onClick={clearFilters} disabled={selected.length === 0 && others.length === 0} className={`${linkBtn} text-stone-700`} style={{ ['--tw-ring-color' as any]: GREEN }}>Clear filters</button>
+      </div>
+      <p role="status" aria-live="polite" className={`min-h-[1rem] text-xs ${defaultsMsg?.ok === false ? 'text-red-700' : 'text-emerald-700'}`}>{defaultsMsg?.text ?? ''}</p>
+    </div>
+  );
 
   const total = page?.total ?? 0;
   const forYou = page?.meta.forYou;
-  const chipCls = (on: boolean) => `whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 ${on ? 'text-white' : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'}`;
-  const chipStyle = (on: boolean): React.CSSProperties => ({ ['--tw-ring-color' as any]: GREEN, ...(on ? { backgroundColor: GREEN, borderColor: GREEN } : {}) });
-
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
       <header className="mb-5">
@@ -249,117 +314,69 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
         ))}
       </div>
 
-      {/* Search + sort */}
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" aria-hidden="true" />
-          <input
-            type="text" role="combobox" aria-expanded={showSugg} aria-controls={listId} aria-autocomplete="list"
-            aria-activedescendant={activeIdx >= 0 ? `${listId}-${activeIdx}` : undefined}
-            aria-label="Search organizations" placeholder="Search by name, industry, place or ticker"
-            value={qInput} onChange={e => setQInput(e.target.value)}
-            onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 120)} onKeyDown={onSearchKey}
-            className="w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-10 text-sm focus:outline-none focus-visible:ring-2"
-            style={{ ['--tw-ring-color' as any]: GREEN }}
-          />
-          {qInput && (
-            <button type="button" aria-label="Clear search" onClick={() => setQInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-stone-500 hover:bg-stone-100"><X size={15} /></button>
-          )}
-          {showSugg && (
-            <ul id={listId} role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg">
-              {options.map((o, i) => (
-                <li key={o.type + o.value} id={`${listId}-${i}`} role="option" aria-selected={i === activeIdx}
-                  onMouseDown={e => { e.preventDefault(); choose(o); }}
-                  className={`flex cursor-pointer items-center justify-between gap-3 px-3.5 py-2 text-sm ${i === activeIdx ? 'bg-stone-100' : 'hover:bg-stone-50'}`}>
-                  <span className="truncate text-stone-900">{o.label}</span>
-                  <span className="flex-shrink-0 text-xs text-stone-500">{o.hint}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <label className="flex items-center gap-2 text-sm text-stone-600">
-          <span className="sr-only">Category</span>
-          <select aria-label="Category" value={ui.category} onChange={e => set('category', (e.target.value || '') as CategoryKey | '')}
-            className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus-visible:ring-2 sm:w-auto" style={{ ['--tw-ring-color' as any]: GREEN }}>
-            <option value="">All categories</option>
-            {CATEGORIES.map(c => {
-              const n = countOf(c.key);
-              return <option key={c.key} value={c.key}>{c.label}{n !== undefined ? ` (${n.toLocaleString()})` : ''}</option>;
-            })}
-          </select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-stone-600">
-          <span className="sr-only sm:not-sr-only">Sort</span>
-          <select aria-label="Sort organizations" value={ui.sort} onChange={e => set('sort', e.target.value as CompaniesSort)}
-            className="rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus-visible:ring-2" style={{ ['--tw-ring-color' as any]: GREEN }}>
-            {(Object.keys(SORT_LABEL) as CompaniesSort[]).map(s => <option key={s} value={s}>{SORT_LABEL[s]}</option>)}
-          </select>
-        </label>
+      {/* Search */}
+      <div className="relative mb-3">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" aria-hidden="true" />
+        <input
+          type="text" role="combobox" aria-expanded={showSugg} aria-controls={listId} aria-autocomplete="list"
+          aria-activedescendant={activeIdx >= 0 ? `${listId}-${activeIdx}` : undefined}
+          aria-label="Search organizations" placeholder="Search organizations"
+          value={qInput} onChange={e => setQInput(e.target.value)}
+          onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 120)} onKeyDown={onSearchKey}
+          className="min-h-[44px] w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-11 text-base focus:outline-none focus-visible:ring-2 sm:text-sm"
+          style={{ ['--tw-ring-color' as any]: GREEN }}
+        />
+        {qInput && (
+          <button type="button" aria-label="Clear search" onClick={() => setQInput('')} className="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-stone-500 hover:bg-stone-100"><X size={16} /></button>
+        )}
+        {showSugg && (
+          <ul id={listId} role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg">
+            {options.map((o, i) => (
+              <li key={o.type + o.value} id={`${listId}-${i}`} role="option" aria-selected={i === activeIdx}
+                onMouseDown={e => { e.preventDefault(); choose(o); }}
+                className={`flex min-h-[44px] cursor-pointer items-center justify-between gap-3 px-3.5 py-2 text-sm ${i === activeIdx ? 'bg-stone-100' : 'hover:bg-stone-50'}`}>
+                <span className="text-stone-900">{o.label}</span>
+                <span className="flex-shrink-0 text-xs text-stone-500">{o.hint}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
-      {/* Category quick filters + more filters */}
-      <div className="mb-4 flex items-center gap-2">
-        <div className="-mx-1 flex w-0 min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 py-1" role="group" aria-label="Categories">
-          <button type="button" aria-pressed={!ui.category} onClick={() => set('category', '')} className={chipCls(!ui.category)} style={chipStyle(!ui.category)}>All</button>
-          {CHIP_CATEGORIES.map(c => {
-            const on = ui.category === c.key; const n = countOf(c.key);
-            return (
-              <button key={c.key} type="button" aria-pressed={on} onClick={() => set('category', on ? '' : c.key)} title={c.blurb}
-                className={`${chipCls(on)} inline-flex items-center gap-1.5`} style={chipStyle(on)}>
-                {CATEGORY_ICON[c.key]} {c.label}
-                {n !== undefined && <span className={on ? 'text-white/80' : 'text-stone-500'}>{n.toLocaleString()}</span>}
-              </button>
-            );
-          })}
-          {ui.category === 'other' && (
-            <button type="button" aria-pressed onClick={() => set('category', '')} className={`${chipCls(true)} inline-flex items-center gap-1`} style={chipStyle(true)}>
-              Other organizations <X size={13} aria-label="Remove category filter" />
+      {/* Category pills: suggested shortcuts, or your selection; "More" holds every category and the advanced filters */}
+      <div className="mb-1" style={{ ['--org-page-bg' as any]: '#f5f5f4' }}>
+        <CategoryPills
+          selected={selected} suggested={suggested} counts={counts} others={others} moreBadge={others.length + (selected.length > 0 ? 1 : 0)}
+          onSelect={k => toggleCategory(k)} onRemove={k => toggleCategory(k)} onReset={() => set('category', '')} onOpenMore={() => setMoreOpen(true)}
+        />
+      </div>
+
+      {/* Defaults: only offered when it would change something */}
+      {(selected.length > 0 || saved.length > 0) && (
+        <div className="mb-2 flex flex-wrap items-center gap-x-1 text-sm" role="group" aria-label="Your default categories">
+          {atDefaults && <span className="inline-flex min-h-[44px] items-center gap-1 px-1 text-xs font-semibold text-stone-600"><Check size={14} style={{ color: GREEN }} aria-hidden="true" /> Your defaults</span>}
+          {!atDefaults && selected.length > 0 && (
+            <button type="button" onClick={saveDefaults} disabled={savingDefaults} className={linkBtn} style={{ color: GREEN, ['--tw-ring-color' as any]: GREEN }}>
+              {savingDefaults && <Loader2 size={14} className="animate-spin" aria-hidden="true" />} Save as my defaults
             </button>
           )}
+          {!atDefaults && saved.length > 0 && <button type="button" onClick={resetToDefaults} className={`${linkBtn} text-stone-700`} style={{ ['--tw-ring-color' as any]: GREEN }}>Reset to my defaults</button>}
+          {(selected.length > 0 || others.length > 0) && <button type="button" onClick={clearFilters} className={`${linkBtn} text-stone-700`} style={{ ['--tw-ring-color' as any]: GREEN }}>Clear filters</button>}
+          <span role="status" aria-live="polite" className={`text-xs ${defaultsMsg?.ok === false ? 'text-red-700' : 'text-emerald-700'}`}>{defaultsMsg?.text ?? ''}</span>
         </div>
-        <div className="relative flex-shrink-0" ref={moreRef}>
-          <button type="button" aria-expanded={moreOpen} aria-haspopup="dialog" onClick={() => setMoreOpen(o => !o)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 focus:outline-none focus-visible:ring-2" style={{ ['--tw-ring-color' as any]: GREEN }}>
-            <SlidersHorizontal size={14} aria-hidden="true" /> More filters
-            {moreCount > 0 && <span className="rounded-full px-1.5 text-xs font-bold text-white" style={{ backgroundColor: GREEN }}>{moreCount}</span>}
-          </button>
-          {moreOpen && (
-            <div role="dialog" aria-label="More filters" className="absolute right-0 z-20 mt-2 max-h-[70vh] w-72 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-4 shadow-xl">
-              <label className="block text-xs font-semibold text-stone-700" htmlFor={`${listId}-type`}>Organization type</label>
-              <select id={`${listId}-type`} value={ui.orgType} onChange={e => set('orgType', e.target.value as OrganizationType | '')} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm">
-                <option value="">Any type</option>
-                {ui.orgType && !types.some(t => t.key === ui.orgType) && <option value={ui.orgType}>{ui.orgType.replace(/_/g, ' ')} (0)</option>}
-                {types.map(t => <option key={t.key} value={t.key}>{t.label} ({t.count.toLocaleString()})</option>)}
-              </select>
-              <label className="mt-4 block text-xs font-semibold text-stone-700" htmlFor={`${listId}-ind`}>Industry</label>
-              <select id={`${listId}-ind`} value={ui.industry} onChange={e => set('industry', e.target.value)} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm">
-                <option value="">All industries</option>
-                {ui.industry && !facets.some(f => f.key === ui.industry) && <option value={ui.industry}>{ui.industry} (0)</option>}
-                {facets.map(f => <option key={f.key} value={f.key}>{f.label} ({f.count.toLocaleString()})</option>)}
-              </select>
-              <label className="mt-4 block text-xs font-semibold text-stone-700" htmlFor={`${listId}-country`}>Country</label>
-              <select id={`${listId}-country`} value={ui.country} onChange={e => set('country', e.target.value)} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm">
-                <option value="">Anywhere</option>
-                {ui.country && !countries.some(c => c.key === ui.country) && <option value={ui.country}>{ui.country} (0)</option>}
-                {countries.map(c => <option key={c.key} value={c.key}>{c.label} ({c.count.toLocaleString()})</option>)}
-              </select>
-              <fieldset className="mt-4 space-y-2">
-                <legend className="text-xs font-semibold text-stone-700">Activity</legend>
-                {([['hiring', 'Hiring now'], ['challenges', 'Has live challenges'], ['sponsor', 'Sponsors an Arena']] as const).map(([k, label]) => (
-                  <label key={k} className="flex items-center gap-2 text-sm text-stone-800">
-                    <input type="checkbox" checked={ui[k]} onChange={e => set(k, e.target.checked)} className="h-4 w-4 rounded border-stone-300" /> {label}
-                  </label>
-                ))}
-              </fieldset>
-              <div className="mt-4 flex justify-between">
-                <button type="button" onClick={clearAll} className="text-sm font-semibold text-stone-600 hover:underline">Clear all</button>
-                <button type="button" onClick={() => setMoreOpen(false)} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Done</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
+
+      <MoreFiltersSheet
+        open={moreOpen} onClose={() => setMoreOpen(false)}
+        selected={selected} counts={counts} onToggle={toggleCategory}
+        orgType={ui.orgType} industry={ui.industry} country={ui.country}
+        types={types.map(t => ({ k: t.key, l: `${t.label} (${t.count.toLocaleString()})` }))}
+        industries={facets.map(f => ({ k: f.key, l: `${f.label} (${f.count.toLocaleString()})` }))}
+        countries={countries.map(c => ({ k: c.key, l: `${c.label} (${c.count.toLocaleString()})` }))}
+        onType={v => set('orgType', v as OrganizationType | '')} onIndustry={v => set('industry', v)} onCountry={v => set('country', v)}
+        hiring={ui.hiring} challenges={ui.challenges} sponsor={ui.sponsor} onActivity={(k, v) => set(k, v)}
+        defaults={defaultsControls} onClear={clearFilters} total={page?.total ?? 0} loading={loading}
+      />
 
       {/* For You hint: only when the list is the general fallback */}
       {ui.view === 'for_you' && forYou && forYou.fallback && !loading && items.length > 0 && (
@@ -374,10 +391,19 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
         </div>
       )}
 
-      {/* Count */}
-      <p className="mb-3 text-sm text-stone-600" aria-live="polite">
-        {loading ? 'Loading organizations…' : error ? '' : `${total.toLocaleString()} ${total === 1 ? 'organization' : 'organizations'}${activeCategoryLabel ? ` in ${activeCategoryLabel}` : ''}${debouncedQ.trim() ? ` matching “${debouncedQ.trim()}”` : ''}`}
-      </p>
+      {/* Count and sort */}
+      <div className="mb-3 mt-2 flex items-center justify-between gap-3">
+        <p className="min-w-0 text-sm text-stone-600" aria-live="polite">
+          {loading ? 'Loading organizations…' : error ? '' : `${total.toLocaleString()} ${total === 1 ? 'organization' : 'organizations'}${selected.length ? ` in ${selected.map(k => BROAD_LABEL[k]).join(' or ')}` : ''}${debouncedQ.trim() ? ` matching “${debouncedQ.trim()}”` : ''}`}
+        </p>
+        <label className="flex flex-shrink-0 items-center gap-2 text-sm text-stone-600">
+          <span className="sr-only min-[420px]:not-sr-only">Sort</span>
+          <select aria-label="Sort organizations" value={ui.sort} onChange={e => set('sort', e.target.value as CompaniesSort)}
+            className="min-h-[44px] rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 focus:outline-none focus-visible:ring-2" style={{ ['--tw-ring-color' as any]: GREEN }}>
+            {(Object.keys(SORT_LABEL) as CompaniesSort[]).map(k => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
+          </select>
+        </label>
+      </div>
 
       {/* Results */}
       {error ? (
@@ -391,7 +417,12 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
           {Array.from({ length: 12 }).map((_, i) => <CompanyCardSkeleton key={i} />)}
         </div>
       ) : items.length === 0 ? (
-        <EmptyResults view={ui.view} anyFilter={anyFilter} query={debouncedQ.trim()} onClear={clearAll} onBrowse={() => set('view', 'all')} />
+        <EmptyResults view={ui.view} anyFilter={anyFilter} query={debouncedQ.trim()} onClear={clearAll} onBrowse={() => set('view', 'all')}
+          broaden={[
+            ...(debouncedQ.trim() ? [{ label: 'Clear search', run: () => setQInput('') }] : []),
+            ...selected.map(k => ({ label: `Remove ${BROAD_LABEL[k]}`, run: () => toggleCategory(k) })),
+            ...others.map(f => ({ label: `Remove ${f.label}`, run: f.clear })),
+          ].slice(0, 4)} />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -417,12 +448,17 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
   );
 }
 
-function EmptyResults({ view, anyFilter, query, onClear, onBrowse }: { view: CompaniesView; anyFilter: boolean; query: string; onClear: () => void; onBrowse: () => void }) {
+function EmptyResults({ view, anyFilter, query, onClear, onBrowse, broaden }: { view: CompaniesView; anyFilter: boolean; query: string; onClear: () => void; onBrowse: () => void; broaden: { label: string; run: () => void }[] }) {
   let title = 'No organizations found', body = 'Try a different search.', action: React.ReactNode = null;
   if (anyFilter) {
     title = query ? `No organizations match “${query}”` : 'No organizations match these filters';
-    body = 'Try a shorter search, or remove a filter.';
-    action = <button type="button" onClick={onClear} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-50">Clear search and filters</button>;
+    body = 'Try a shorter search, or broaden it:';
+    action = (
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {broaden.map(b => <button key={b.label} type="button" onClick={b.run} className="min-h-[44px] rounded-full border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-800 hover:bg-stone-50">{b.label}</button>)}
+        <button type="button" onClick={onClear} className="min-h-[44px] rounded-full px-4 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Show all organizations</button>
+      </div>
+    );
   } else if (view === 'following') {
     title = 'You are not following any organizations yet';
     body = 'Follow organizations to see them here, and to hear about their roles and challenges.';

@@ -68,11 +68,8 @@ const SUPPORT_EMAIL = 'support@bewatu.com';
 // ── The organization model (a small copy of lib/organizations.ts; test/organizations checks they agree) ──
 export type OrgType = 'business' | 'college_university' | 'hospital' | 'health_system' | 'research_institute' | 'nonprofit' | 'government' | 'other';
 const ORG_TYPES: OrgType[] = ['business', 'college_university', 'hospital', 'health_system', 'research_institute', 'nonprofit', 'government', 'other'];
-export type CategoryKey = 'colleges' | 'medical' | 'hospitals' | 'manufacturing' | 'other';
-const CATEGORY_KEYS: { key: CategoryKey; label: string }[] = [
-  { key: 'colleges', label: 'Colleges & Universities' }, { key: 'medical', label: 'Medical & Healthcare Companies' },
-  { key: 'hospitals', label: 'Hospitals & Health Systems' }, { key: 'manufacturing', label: 'Manufacturing' }, { key: 'other', label: 'Other organizations' },
-];
+/** What kind of profile an organization gets (the "About this ..." facts). Not the same as the filter categories below. */
+export type CategoryKey = 'colleges' | 'medical' | 'hospitals' | 'manufacturing' | 'finance' | 'other';
 const TYPE_LABEL: Record<OrgType, string> = {
   business: 'Business', college_university: 'College or university', hospital: 'Hospital', health_system: 'Health system',
   research_institute: 'Research institute', nonprofit: 'Nonprofit', government: 'Government', other: 'Organization',
@@ -81,18 +78,60 @@ export function normalizeType(raw: unknown): OrgType {
   const v = typeof raw === 'string' ? raw.trim().toLowerCase().replace(/[\s-]+/g, '_') : '';
   return (ORG_TYPES as string[]).includes(v) ? (v as OrgType) : 'business';
 }
-const HEALTH_INDUSTRY_RE = /(health|medical|medicine|biotech|pharma|life.?science|clinical|diagnostic|therapeut)/i;
-const MANUFACTURING_INDUSTRY_RE = /manufactur/i;
-export function categoryOf(o: { organizationType?: unknown; industry?: unknown }): CategoryKey {
+
+// ── Classification: no keyword guessing (a copy of lib/organizations.ts; test/organizations checks they are identical) ──
+// An organization belongs to a category when its TYPE says so (college or university = Education, hospital or health
+// system = Healthcare) or its industry or a subindustry is exactly (ignoring case, punctuation, "&" vs "and") one of the
+// category's own labels. Anything else is "Other".
+export type BroadKey = 'finance' | 'healthcare' | 'technology' | 'education' | 'manufacturing' | 'other';
+export interface BroadCategory { key: BroadKey; label: string; subcategories: string[]; aliases: string[] }
+export const BROAD_CATEGORIES: BroadCategory[] = [
+  { key: 'finance', label: 'Finance',
+    subcategories: ['Banking', 'Fintech', 'Financial Services', 'Insurance'],
+    aliases: ['Finance', 'Financial', 'Banks', 'Financial Technology', 'Investment Banking', 'Asset Management', 'Wealth Management', 'Payments', 'Capital Markets', 'Lending', 'Credit Unions'] },
+  { key: 'healthcare', label: 'Healthcare',
+    subcategories: ['Hospitals', 'Health Systems', 'Pharmaceuticals', 'Biotechnology', 'Medical Devices'],
+    aliases: ['Healthcare', 'Health Care', 'Health', 'Medical', 'Medicine', 'Life Sciences', 'Pharma', 'Biotech', 'Medical Device', 'Hospital', 'Health System', 'Diagnostics', 'Clinical Research', 'Health Services'] },
+  { key: 'technology', label: 'Technology',
+    subcategories: ['Software', 'Hardware', 'AI', 'IT Services'],
+    aliases: ['Technology', 'Tech', 'Information Technology', 'IT', 'Artificial Intelligence', 'SaaS', 'Cloud Computing', 'Cybersecurity', 'Semiconductors', 'Computer Hardware', 'Internet', 'Software Development'] },
+  { key: 'education', label: 'Education',
+    subcategories: ['Colleges', 'Universities', 'Technical Institutions', 'Education Technology'],
+    aliases: ['Education', 'Higher Education', 'College', 'University', 'Technical Institute', 'Vocational Education', 'Edtech', 'E-Learning'] },
+  { key: 'manufacturing', label: 'Manufacturing',
+    subcategories: [],
+    aliases: ['Manufacturing', 'Industrial Manufacturing', 'Industrial', 'Machinery', 'Automotive Manufacturing', 'Electronics Manufacturing', 'Aerospace and Defense'] },
+  { key: 'other', label: 'Other organizations', subcategories: [], aliases: [] },
+];
+const BROAD_KEYS = BROAD_CATEGORIES.map(c => c.key);
+export const normLabel = (v: unknown): string =>
+  (typeof v === 'string' ? v : '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
+const LABEL_TO_BROAD = new Map<string, BroadKey>();
+for (const c of BROAD_CATEGORIES) for (const l of [c.label, ...c.subcategories, ...c.aliases]) if (c.key !== 'other') LABEL_TO_BROAD.set(normLabel(l), c.key);
+export function classify(o: { organizationType?: unknown; industry?: unknown; subindustries?: unknown }): BroadKey[] {
+  const out = new Set<BroadKey>();
+  const type = normalizeType(o.organizationType);
+  if (type === 'college_university') out.add('education');
+  if (type === 'hospital' || type === 'health_system') out.add('healthcare');
+  for (const l of [o.industry, ...(Array.isArray(o.subindustries) ? o.subindustries : [])]) { const k = LABEL_TO_BROAD.get(normLabel(l)); if (k) out.add(k); }
+  return out.size ? BROAD_KEYS.filter(k => out.has(k)) : ['other'];
+}
+export function categoryOf(o: { organizationType?: unknown; industry?: unknown; subindustries?: unknown }): CategoryKey {
   const type = normalizeType(o.organizationType);
   if (type === 'college_university') return 'colleges';
   if (type === 'hospital' || type === 'health_system') return 'hospitals';
-  const industry = typeof o.industry === 'string' ? o.industry : '';
   if (type === 'business') {
-    if (HEALTH_INDUSTRY_RE.test(industry)) return 'medical';
-    if (MANUFACTURING_INDUSTRY_RE.test(industry)) return 'manufacturing';
+    const c = classify(o);
+    if (c.includes('healthcare')) return 'medical';
+    if (c.includes('manufacturing')) return 'manufacturing';
+    if (c.includes('finance')) return 'finance';
   }
   return 'other';
+}
+/** "healthcare,finance" -> ['finance','healthcare'] (canonical order); unknown keys and duplicates dropped. */
+export function parseCategoryParam(raw: unknown): BroadKey[] {
+  const wanted = new Set(typeof raw === 'string' ? raw.split(',').slice(0, 12).map(x => x.trim()) : Array.isArray(raw) ? raw.slice(0, 12).map(String) : []);
+  return BROAD_KEYS.filter(k => wanted.has(k));
 }
 // Every key a category-specific profile may carry (see PROFILE_SECTIONS in lib/organizations.ts).
 const PROFILE_KEYS = new Set(['control', 'established', 'enrollment', 'campusSetting', 'accreditation', 'facilityType', 'ownership', 'beds', 'emergencyServices', 'starRating', 'employeeRange', 'regulatoryStatus', 'sicDescription', 'exchange']);
@@ -103,7 +142,7 @@ interface Lite {
   industry: string; industryKey: string; description: string; logoUrl: string;
   website: string; domain: string; ticker: string; tickerLower: string;
   verified: boolean; followerCount: number; hasAdmin: boolean;
-  orgType: OrgType; category: CategoryKey;
+  orgType: OrgType; category: CategoryKey; broad: BroadKey[];
   subindustries: string[]; subLower: string;
   city: string; region: string; country: string; countryKey: string; locationLower: string;
   parentId: string;
@@ -165,7 +204,7 @@ function toLite(id: string, x: DocumentData): Lite | null {
     description: clean(x.description, 220), logoUrl: httpsOrEmpty(x.logoUrl), website, domain,
     ticker: clean(x.ticker, 12), tickerLower: clean(x.ticker, 12).toLowerCase(),
     verified: x.verificationStatus === 'verified', followerCount: Math.max(0, Number(x.followerCount) || 0), hasAdmin: !!x.adminUid,
-    orgType, category: categoryOf({ organizationType: orgType, industry }),
+    orgType, category: categoryOf({ organizationType: orgType, industry, subindustries }), broad: classify({ organizationType: orgType, industry, subindustries }),
     subindustries, subLower: subindustries.join(' ').toLowerCase(),
     city, region, country, countryKey: country.toLowerCase(), locationLower: [city, region, country].join(' ').toLowerCase().trim(),
     parentId: typeof x.parentId === 'string' && x.parentId.length <= 128 && !x.parentId.includes('/') ? x.parentId : '',
@@ -368,7 +407,7 @@ export function activityScore(c: Pick<Lite, 'verified' | 'followerCount'>, a: Ac
   return s;
 }
 
-interface Profile { industry: string; goals: string[]; following: Set<string>; followedIndustries: Set<string> }
+interface Profile { industry: string; goals: string[]; following: Set<string>; followedIndustries: Set<string>; interests: BroadKey[] }
 const STOP = new Set(['with', 'from', 'that', 'this', 'into', 'your', 'have', 'more', 'work', 'build', 'become', 'help', 'make', 'grow', 'learn']);
 
 function personalise(c: Lite, p: Profile): { score: number; reasons: string[] } {
@@ -426,14 +465,16 @@ async function loadProfile(db: Firestore, uid: string, dir: Directory): Promise<
   following.forEach(id => { const k = dir.byId.get(id)?.industryKey; if (k) followedIndustries.add(k); });
   const goals: string[] = Array.isArray(u.professionalGoals) ? u.professionalGoals.filter((x: unknown) => typeof x === 'string').map((x: string) => clean(x, 80)).filter(Boolean).slice(0, 12) : [];
   const industry = clean(u.industry, 60);
-  return { industry, goals, following, followedIndustries, hasPrefs: !!industry || goals.length > 0 || followedIndustries.size > 0 };
+  // Categories the member chose to save as their own defaults (never inferred, never changed except by them).
+  const interests = parseCategoryParam(u.orgInterests);
+  return { industry, goals, following, followedIndustries, interests, hasPrefs: !!industry || goals.length > 0 || followedIndustries.size > 0 };
 }
 
 function toItem(r: Row, following: Set<string>) {
   const { c, a } = r;
   return {
     id: c.id, name: c.name, industry: c.industry, description: c.description, logoUrl: c.logoUrl, domain: c.domain, ticker: c.ticker,
-    organizationType: c.orgType, category: c.category, typeLabel: TYPE_LABEL[c.orgType],
+    organizationType: c.orgType, category: c.category, categories: c.broad, typeLabel: TYPE_LABEL[c.orgType],
     subindustries: c.subindustries, location: { city: c.city, region: c.region, country: c.country },
     claimStatus: c.hasAdmin ? 'claimed' : 'unclaimed',
     verified: c.verified, followerCount: c.followerCount, following: following.has(c.id),
@@ -451,7 +492,9 @@ async function list(db: Firestore, caller: Caller, body: any, now: number) {
   const sort: Sort = (['relevance', 'recent', 'followers', 'alpha'] as const).includes(body.sort) ? body.sort : 'relevance';
   const q = clean(body.q, 80);
   const industry = clean(body.industry, 60).toLowerCase();
-  const category = CATEGORY_KEYS.some(c => c.key === body.category) ? (body.category as CategoryKey) : '';
+  // One category or a comma-separated list (the Healthcare choice is healthcare companies + hospitals/health systems).
+  // Several categories mean OR (in any of them); the other filters below are ANDed with that.
+  const wantCategories = new Set<BroadKey>(parseCategoryParam(body.category));
   const orgType = (ORG_TYPES as string[]).includes(body.organizationType) ? (body.organizationType as OrgType) : '';
   const country = clean(body.country, 60).toLowerCase();
   const f = body.filters && typeof body.filters === 'object' ? body.filters : {};
@@ -488,22 +531,23 @@ async function list(db: Firestore, caller: Caller, body: any, now: number) {
   // 2. facets: for each filter, the counts you would get by choosing it now, given every OTHER filter
   type F = 'category' | 'orgType' | 'industry' | 'country';
   const passes = (c: Lite, skip?: F) =>
-    (skip === 'category' || !category || c.category === category) &&
+    (skip === 'category' || wantCategories.size === 0 || c.broad.some(k => wantCategories.has(k))) &&
     (skip === 'orgType' || !orgType || c.orgType === orgType) &&
     (skip === 'industry' || !industry || c.industryKey === industry) &&
     (skip === 'country' || !country || c.countryKey === country);
-  const catCounts = new Map<CategoryKey, number>();
+  const catCounts = new Map<BroadKey, number>();
   const typeCounts = new Map<string, { label: string; count: number }>();
   const industryCounts = new Map<string, { label: string; count: number }>();
   const countryCounts = new Map<string, { label: string; count: number }>();
   for (const { c } of base) {
-    if (passes(c, 'category')) catCounts.set(c.category, (catCounts.get(c.category) ?? 0) + 1);
+    if (passes(c, 'category')) for (const k of c.broad) catCounts.set(k, (catCounts.get(k) ?? 0) + 1);
     if (passes(c, 'orgType')) { const e = typeCounts.get(c.orgType) ?? { label: TYPE_LABEL[c.orgType], count: 0 }; e.count++; typeCounts.set(c.orgType, e); }
     if (c.industryKey && passes(c, 'industry')) { const e = industryCounts.get(c.industryKey) ?? { label: dir.industries.get(c.industryKey)?.label ?? c.industry, count: 0 }; e.count++; industryCounts.set(c.industryKey, e); }
     if (c.countryKey && passes(c, 'country')) { const e = countryCounts.get(c.countryKey) ?? { label: c.country, count: 0 }; e.count++; countryCounts.set(c.countryKey, e); }
   }
   const facets = facetList(industryCounts, 60);
-  const categories = CATEGORY_KEYS.map(c => ({ key: c.key, label: c.label, count: catCounts.get(c.key) ?? 0 }));
+  // An organization can belong to more than one category, so these can add up to more than the total.
+  const categories = BROAD_CATEGORIES.map(c => ({ key: c.key, label: c.label, count: catCounts.get(c.key) ?? 0 }));
 
   // 3. all filters, then total order, then the page after the cursor
   const rows = base.filter(r => passes(r.c));
@@ -539,9 +583,43 @@ async function list(db: Firestore, caller: Caller, body: any, now: number) {
     meta: {
       view, sort,
       // For You: were these chosen from the member's own profile, or is this the general fallback?
+      // Distinct on purpose: `saved` is what the member chose to keep, `suggested` is only a hint for the shortcut row.
+      saved: profile.interests, suggested: suggestedCategories(profile, dir),
       forYou: view === 'for_you' ? { hasPreferences: profile.hasPrefs, personalisedCount, fallback: personalisedCount === 0 } : undefined,
     },
   };
+}
+
+/**
+ * The category shortcuts to offer, most relevant first. Only explicit signals count: categories the member saved, then
+ * the categories of organizations they follow. With neither, nothing is returned and the page shows the standard five
+ * (Finance, Healthcare, Technology, Education). This never writes anything: saved defaults change only when the member saves.
+ */
+const DEFAULT_PILLS: BroadKey[] = ['finance', 'healthcare', 'technology', 'education'];
+function suggestedCategories(profile: Profile, dir: Directory): BroadKey[] {
+  const out: BroadKey[] = [];
+  const add = (k: BroadKey) => { if (k !== 'other' && !out.includes(k)) out.push(k); };
+  profile.interests.forEach(add);
+  const freq = new Map<BroadKey, number>();
+  profile.following.forEach(id => dir.byId.get(id)?.broad.forEach(k => freq.set(k, (freq.get(k) ?? 0) + 1)));
+  [...freq.entries()].sort((a, b) => b[1] - a[1]).forEach(([k]) => add(k));
+  if (out.length === 0) return [];
+  DEFAULT_PILLS.forEach(add);
+  return out.slice(0, 4);
+}
+
+async function getPrefs(db: Firestore, uid: string) {
+  const snap = await db.collection('users').doc(uid).get();
+  return { categories: parseCategoryParam(snap.data()?.orgInterests) };
+}
+/** Saves (or, with an empty list, clears) the member's default categories. Only this field is written. */
+async function setPrefs(db: Firestore, uid: string, body: any) {
+  if (!Array.isArray(body.categories) || body.categories.length > 12 || body.categories.some((k: unknown) => typeof k !== 'string')) throw new HttpError(400, 'categories must be a list of category keys.');
+  const categories = parseCategoryParam(body.categories);
+  const ref = db.collection('users').doc(uid);
+  if (!(await ref.get()).exists) throw new HttpError(404, 'Account not found.');
+  await ref.set({ orgInterests: categories, orgInterestsUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  return { categories };
 }
 
 // ── suggest ──────────────────────────────────────────────────────────────────
@@ -736,6 +814,8 @@ export async function runAction(db: Firestore, caller: Caller, body: any, now: n
     case 'follow':   return setFollow(db, caller.uid, body, true);
     case 'unfollow': return setFollow(db, caller.uid, body, false);
     case 'claim':    return claim(db, caller, body, now);
+    case 'prefs':    return getPrefs(db, caller.uid);
+    case 'setPrefs': return setPrefs(db, caller.uid, body);
     default: throw new HttpError(400, 'Unknown action.');
   }
 }
