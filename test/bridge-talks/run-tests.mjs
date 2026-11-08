@@ -39,7 +39,7 @@ files[SAM_THUMB] = { type: 'image/jpeg', size: 80_000 };
 const FULL = { title: 'What 30 years of leadership taught me about people', summary: 'Three lessons from running large teams, and the mistake I would not repeat.', experience: 'Led operations for 12,000 people across four countries.', category: 'leadership', keyTakeaways: ['Listen first', 'Be consistent', 'Say thank you'], discussionPrompt: 'What did your best manager do differently?', visibility: 'members', publicConsent: false, videoUrl: SAM_VIDEO, thumbnailUrl: SAM_THUMB, durationSec: 12 * 60 };
 
 const reset = async () => {
-  for (const c of ['bridge_talks', 'bridge_talk_reviews', 'bridge_contributor_requests', 'bridge_talk_suggestions', 'bridge_rate_limits']) {
+  for (const c of ['bridge_talks', 'bridge_talk_reviews', 'bridge_contributor_requests', 'bridge_talk_suggestions', 'bridge_rate_limits', 'audit_log', 'ops_staff']) {
     const s = await db.collection(c).get();
     for (const x of s.docs) { for (const sub of await x.ref.listCollections()) { const ss = await sub.get(); await Promise.all(ss.docs.map(y => y.ref.delete())); } await x.ref.delete(); }
   }
@@ -287,6 +287,48 @@ await check('a member who muted reply alerts is not notified', async () => {
 await check('comments on a Talk that is not published notify no one', async () => {
   await run('admin', { action: 'transition', id: talkId, to: 'unpublished', note: 'Pending a fix to the audio.' });
   await post('c7', { authorUid: 'nia', parentId: 'c1', depth: 1, replyToUid: 'lee' }); assert((await run('nia', { action: 'comment_notify', talkId, commentId: 'c7' })).notified === 0, 'notified');
+});
+
+// ── reviewers from the Operations console ──
+await reset();
+const staff = async (uid, role, extra = {}) => db.collection('ops_staff').doc(uid).set({ role, isActive: true, email: uid + '@bewatu.test', ...extra });
+const audits = async () => (await db.collection('audit_log').get()).docs.map(x => x.data());
+await check('ops staff in a trust role can review and publish, with no member profile of their own', async () => {
+  await reset(); await staff('ops-trust', 'trust_agent'); const id = await submitted();
+  assert((await run('ops-trust', { action: 'me' })).admin === true, 'not recognised as a reviewer');
+  await run('ops-trust', { action: 'transition', id, to: 'under_review' }); await run('ops-trust', { action: 'transition', id, to: 'published' });
+  assert((await get(id)).status === 'published', 'not published');
+  const a = (await audits()).filter(x => x.action === 'bridge_talk_published'); assert(a.length === 1 && a[0].actorUid === 'ops-trust' && a[0].actorRole === 'trust_agent' && a[0].targetId === id && a[0].actorEmail === 'ops-trust@bewatu.test', JSON.stringify(a));
+});
+await check('other ops roles, inactive staff and ordinary members cannot', async () => {
+  await staff('ops-support', 'support_agent'); await staff('ops-off', 'trust_manager', { isActive: false }); const id = await submitted();
+  for (const who of ['ops-support', 'ops-off', 'lee']) {
+    await refuses(run(who, { action: 'transition', id, to: 'published' }), 404);
+    for (const body of [{ action: 'admin_talks', kind: 'waiting' }, { action: 'admin_review', id }, { action: 'admin_contributors' }, { action: 'admin_list', kind: 'requests' }, { action: 'resolve_request', uid: 'lee', decision: 'approve' }, { action: 'revoke_contributor', uid: 'sam' }]) await refuses(run(who, body), 403);
+  }
+});
+await check('the console lists what is waiting and what is live, with the video and the reviewer\'s history', async () => {
+  await reset(); await staff('ops-mgr', 'trust_manager'); const w = await submitted({ title: 'Waiting one' }); const l = await published({ title: 'Live one' });
+  const waiting = (await run('ops-mgr', { action: 'admin_talks', kind: 'waiting' })).items, live = (await run('ops-mgr', { action: 'admin_talks', kind: 'live' })).items;
+  assert(waiting.length === 1 && waiting[0].id === w && waiting[0].videoUrl === SAM_VIDEO && waiting[0].status === 'submitted' && typeof waiting[0].updatedAt === 'number', JSON.stringify(waiting));
+  assert(live.length === 1 && live[0].id === l && live[0].publishedAt > 0, JSON.stringify(live)); await refuses(run('ops-mgr', { action: 'admin_talks', kind: 'drafts' }), 400);
+  await draft({ title: 'A private draft' }); assert((await run('ops-mgr', { action: 'admin_talks', kind: 'waiting' })).items.every(t => t.status !== 'draft'), 'drafts are listed');
+  const r = await run('ops-mgr', { action: 'admin_review', id: w }); assert(Array.isArray(r.history) && r.history.length >= 2, JSON.stringify(r));
+  assert((await run('ops-mgr', { action: 'admin_contributors' })).items.some(c => c.id === 'sam'), 'contributors missing');
+});
+await check('contributor decisions by ops staff are audited, with the reason', async () => {
+  await reset(); await staff('ops-adm', 'platform_admin');
+  await run('lee', { action: 'request_access', expertise: 'Fifteen years designing banking apps; I would speak about design critique.' });
+  await run('ops-adm', { action: 'resolve_request', uid: 'lee', decision: 'decline', note: 'Not this quarter, thank you.' });
+  await run('ops-adm', { action: 'revoke_contributor', uid: 'nia' });
+  const a = await audits(); const dec = a.find(x => x.action === 'bridge_contributor_declined'), rev = a.find(x => x.action === 'bridge_contributor_withdrawn');
+  assert(dec && dec.targetId === 'lee' && dec.reason.includes('Not this quarter') && dec.actorRole === 'platform_admin', JSON.stringify(a)); assert(rev && rev.targetId === 'nia', 'withdrawal not audited');
+});
+await check('a take-down and a decline are audited with their reasons; a speaker\'s own withdrawal is not a staff action', async () => {
+  await reset(); await staff('ops-tm', 'trust_manager'); const id = await published();
+  const before = (await audits()).length; await run('sam', { action: 'transition', id, to: 'unpublished' }); assert((await audits()).length === before, 'speaker action in the staff log');
+  await run('ops-tm', { action: 'transition', id, to: 'published' }); await run('ops-tm', { action: 'transition', id, to: 'unpublished', note: 'A claim in the video needs a source.' });
+  const a = (await audits()).find(x => x.action === 'bridge_talk_unpublished'); assert(a && a.reason.includes('needs a source') && a.after.from === 'published', JSON.stringify(a));
 });
 
 // ── the browser's copy agrees with the server's ──

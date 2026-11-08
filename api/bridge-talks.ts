@@ -18,10 +18,16 @@
 //   { action: 'request_access', expertise, topics }                                any member
 //   { action: 'suggest_speaker', name, why, topic? }                               any member
 //   { action: 'comment_notify', talkId, commentId }                                the comment's author
-//   { action: 'admin_list', kind: 'requests' | 'suggestions' }                     platform admin
-//   { action: 'resolve_request', uid, decision: 'approve' | 'decline', note? }     platform admin
-//   { action: 'revoke_contributor', uid }                                          platform admin
-//   { action: 'resolve_suggestion', id }                                           platform admin
+//   { action: 'admin_list', kind: 'requests' | 'suggestions' }                     reviewer
+//   { action: 'admin_talks', kind: 'waiting' | 'live' }                            reviewer: the Talks to look at, with their video
+//   { action: 'admin_review', id }                                                 reviewer: a Talk's history and note
+//   { action: 'admin_contributors' }                                               reviewer
+//   { action: 'resolve_request', uid, decision: 'approve' | 'decline', note? }     reviewer
+//   { action: 'revoke_contributor', uid }                                          reviewer
+//   { action: 'resolve_suggestion', id }                                           reviewer
+//
+// A "reviewer" is a member whose profile is a platform admin, or active BeWatu ops staff in the platform_admin, trust_manager or
+// trust_agent role (the Operations console calls this route). Every decision a reviewer makes is written to audit_log.
 //
 // Self-contained on purpose: api/ routes cannot import from lib/ on Vercel (the limits and the table below mirror lib/bridgeTalks.ts).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,10 +97,35 @@ async function limit(d: Deps, key: string, max: number, windowMs: number, messag
   if (!(await hit(d.db, key, max, windowMs, d.now))) throw new HttpError(429, message);
 }
 
-const isAdmin = async (db: Firestore, uid: string) => (await db.collection('users').doc(uid).get()).data()?.isPlatformAdmin === true;
-async function requireAdmin(db: Firestore, uid: string) {
-  if (!(await isAdmin(db, uid))) throw new HttpError(403, 'BeWatu reviewer access is required.');
+/** Ops roles that may review Talks and decide on contributor access (the console's trust team). */
+export const REVIEW_ROLES = ['platform_admin', 'trust_manager', 'trust_agent'];
+/** Who is deciding: a member who is a platform admin, or active BeWatu ops staff in a reviewing role. null for everyone else. */
+async function reviewerOf(db: Firestore, uid: string): Promise<{ via: 'member' | 'ops'; role: string; email: string } | null> {
+  const [u, o] = await Promise.all([db.collection('users').doc(uid).get(), db.collection('ops_staff').doc(uid).get()]);
+  const ops = o.data();
+  if (ops?.isActive === true && typeof ops.role === 'string' && REVIEW_ROLES.includes(ops.role)) return { via: 'ops', role: ops.role, email: String(ops.email ?? '') };
+  if (u.data()?.isPlatformAdmin === true) return { via: 'member', role: 'platform_admin', email: String(u.data()?.email ?? '') };
+  return null;
 }
+const isAdmin = async (db: Firestore, uid: string) => !!(await reviewerOf(db, uid));
+async function requireAdmin(db: Firestore, uid: string) {
+  const r = await reviewerOf(db, uid);
+  if (!r) throw new HttpError(403, 'BeWatu reviewer access is required.');
+  return r;
+}
+/** Every decision a reviewer makes is written to the staff audit log: who, what, which Talk or member, and why. */
+async function audit(d: Deps, uid: string, who: { role: string; email: string }, action: string, targetId: string, targetType: string, after: unknown, reason = '') {
+  try {
+    await d.db.collection('audit_log').add({ action, actorUid: uid, actorEmail: who.email, actorRole: who.role, targetId, targetType, before: null, after: after ?? null, reason, ip: 'api', requiresApproval: false, approved: false, ts: FieldValue.serverTimestamp() });
+  } catch (e: any) { console.error('bridge audit failed:', e?.code ?? e?.message); }
+}
+const ms = (v: any): number | null => (v?.toMillis ? v.toMillis() : typeof v === 'number' ? v : null);
+const talkForReviewer = (id: string, t: Record<string, any>) => ({
+  id, speakerUid: t.speakerUid, speakerId: t.speakerId ?? null, speakerName: t.speakerName, speakerHeadline: t.speakerHeadline, speakerAvatar: t.speakerAvatar ?? null,
+  title: t.title, summary: t.summary, experience: t.experience, category: t.category, keyTakeaways: t.keyTakeaways ?? [], discussionPrompt: t.discussionPrompt ?? '',
+  transcript: t.transcript ?? '', hasCaptions: !!t.captionsVtt, captionsVtt: t.captionsVtt ?? '', durationSec: t.durationSec ?? 0, videoUrl: t.videoUrl, thumbnailUrl: t.thumbnailUrl ?? null,
+  visibility: t.visibility, publicConsent: t.publicConsent === true, status: t.status, publishedAt: ms(t.publishedAt), createdAt: ms(t.createdAt), updatedAt: ms(t.updatedAt),
+});
 async function requireContributor(db: Firestore, uid: string) {
   const u = (await db.collection('users').doc(uid).get()).data();
   if (u?.bridgeContributor !== true && u?.isPlatformAdmin !== true) throw new HttpError(403, 'Bridge Talks are shared by invited contributors. You can ask for access from Bridge.');
@@ -203,7 +234,7 @@ export async function runAction(d: Deps, uid: string, body: Record<string, any>)
     case 'me': {
       const u = (await db.collection('users').doc(uid).get()).data();
       const r = (await db.collection('bridge_contributor_requests').doc(uid).get()).data();
-      return { contributor: u?.bridgeContributor === true || u?.isPlatformAdmin === true, admin: u?.isPlatformAdmin === true, request: r ? { status: r.status, note: r.status === 'declined' ? r.note ?? null : null } : null };
+      return { contributor: u?.bridgeContributor === true || u?.isPlatformAdmin === true, admin: await isAdmin(db, uid), request: r ? { status: r.status, note: r.status === 'declined' ? r.note ?? null : null } : null };
     }
 
     case 'save': {
@@ -235,7 +266,8 @@ export async function runAction(d: Deps, uid: string, body: Record<string, any>)
       const to = typeof body.to === 'string' ? body.to as TalkStatus : null;
       if (!to || !(to in TRANSITIONS)) throw new HttpError(400, 'Unknown status.');
       const note = oneLine(body.note, LIMITS.note.max);
-      const admin = await isAdmin(db, uid);
+      const who = await reviewerOf(db, uid);
+      const admin = !!who;
       const ref = talks.doc(id);
       const first = await ref.get();
       if (!first.exists) throw new HttpError(404, 'That Talk was not found.');
@@ -277,6 +309,7 @@ export async function runAction(d: Deps, uid: string, body: Record<string, any>)
         return { from, title: t.title, speakerUid: t.speakerUid as string };
       });
 
+      if (adminOnly && who) await audit(d, uid, who, `bridge_talk_${to}`, id, 'bridge_talk', { from: out.from, to, title: out.title }, note);
       if (adminOnly) {
         const title = out.title || 'your Talk';
         const msg: Record<string, string | undefined> = {
@@ -356,6 +389,24 @@ export async function runAction(d: Deps, uid: string, body: Record<string, any>)
     }
 
     // ── reviewers ──
+    case 'admin_talks': {
+      await requireAdmin(db, uid);
+      const q = body.kind === 'live' ? talks.where('status', '==', 'published').orderBy('publishedAt', 'desc')
+        : body.kind === 'waiting' ? talks.where('status', 'in', ['submitted', 'under_review']).orderBy('updatedAt', 'desc')
+        : null;
+      if (!q) throw new HttpError(400, 'Unknown list.');
+      return { items: (await q.limit(50).get()).docs.map(x => talkForReviewer(x.id, x.data())) };
+    }
+    case 'admin_review': {
+      await requireAdmin(db, uid);
+      const r = (await reviews.doc(idOf(body.id)).get()).data();
+      return { note: r?.note ?? null, history: (r?.history ?? []).slice(-30) };
+    }
+    case 'admin_contributors': {
+      await requireAdmin(db, uid);
+      const s = await db.collection('users').where('bridgeContributor', '==', true).limit(100).get();
+      return { items: s.docs.map(x => ({ id: x.id, name: oneLine(x.data().displayName, 80) || 'Member', headline: oneLine(x.data().headline, 120) })) };
+    }
     case 'admin_list': {
       await requireAdmin(db, uid);
       if (body.kind === 'requests') {
@@ -369,7 +420,7 @@ export async function runAction(d: Deps, uid: string, body: Record<string, any>)
       throw new HttpError(400, 'Unknown list.');
     }
     case 'resolve_request': {
-      await requireAdmin(db, uid);
+      const who = await requireAdmin(db, uid);
       const target = idOf(body.uid);
       const decision = body.decision === 'approve' ? 'approved' : body.decision === 'decline' ? 'declined' : null;
       if (!decision) throw new HttpError(400, 'Choose approve or decline.');
@@ -380,6 +431,7 @@ export async function runAction(d: Deps, uid: string, body: Record<string, any>)
       if (!r || r.status !== 'pending') throw new HttpError(409, 'That request is not waiting for a decision.');
       await ref.update({ status: decision, note: note || null, decidedAt: FieldValue.serverTimestamp(), decidedBy: uid });
       if (decision === 'approved') await db.collection('users').doc(target).set({ bridgeContributor: true }, { merge: true });
+      await audit(d, uid, who, decision === 'approved' ? 'bridge_contributor_approved' : 'bridge_contributor_declined', target, 'user', { decision }, note);
       await notify(d, target, {
         type: 'talk_review',
         message: decision === 'approved' ? 'You can now share Bridge Talks. Open Bridge and choose Share a Bridge Talk.' : `Thank you for your interest in sharing a Bridge Talk. ${note}`,
@@ -387,9 +439,10 @@ export async function runAction(d: Deps, uid: string, body: Record<string, any>)
       return { ok: true, status: decision };
     }
     case 'revoke_contributor': {
-      await requireAdmin(db, uid);
+      const who = await requireAdmin(db, uid);
       const target = idOf(body.uid);
       await db.collection('users').doc(target).set({ bridgeContributor: false }, { merge: true });
+      await audit(d, uid, who, 'bridge_contributor_withdrawn', target, 'user', { bridgeContributor: false });
       return { ok: true };
     }
     case 'resolve_suggestion': {
@@ -405,7 +458,7 @@ export async function runAction(d: Deps, uid: string, body: Record<string, any>)
 }
 
 // ── HTTP handler ─────────────────────────────────────────────────────────────
-const ALLOWED_ORIGINS = ['https://www.bewatu.com', 'https://bewatu.com'];
+const ALLOWED_ORIGINS = ['https://www.bewatu.com', 'https://bewatu.com', 'https://ops.bewatu.com'];
 
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0];
