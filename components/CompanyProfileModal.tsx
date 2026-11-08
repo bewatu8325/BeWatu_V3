@@ -14,10 +14,11 @@ import {
   CheckCircle, Star, Send, Bookmark, Trophy, ArrowLeft, Loader2,
   Eye, EyeOff, Sword, Info, BookOpen, Target, ChevronDown,
   UserPlus, Briefcase, Calendar, MessageSquare, Gift, Link2,
-  AlertCircle, Check, MoreHorizontal,
+  AlertCircle, Check, MoreHorizontal, MapPin,
 } from 'lucide-react';
 import { Company, Job, User } from '../types';
 import { fetchCompanyDetail, claimCompanyRequest, type CompanyDetail } from '../lib/companiesService';
+import { PROFILE_SECTIONS, sanitizeProfile, formatProfileValue, locationText } from '../lib/organizations';
 import SponsorshipManager from './arenas/SponsorshipManager';
 import { useFirebase } from '../contexts/FirebaseContext';
 import app from '../lib/firebase';
@@ -1764,14 +1765,57 @@ function Inbox({ className }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>;
 }
 
+// ─── Category-specific facts, structure and provenance ───────────────────────
+// Shows only what a named source (or the organization itself) has supplied. Missing facts are
+// left out rather than shown as zero or "N/A", and every imported record names where it came from.
+function OrganizationFacts({ info, onOpen }: { info: NonNullable<CompanyDetail['organization']>; onOpen?: (id: string) => void }) {
+  const spec = PROFILE_SECTIONS[info.category];
+  const facts = sanitizeProfile(info.category, info.profile);
+  const rows = spec.fields.filter(f => facts[f.key] !== undefined);
+  const hasStructure = !!info.parent || info.children.length > 0;
+  if (rows.length === 0 && !hasStructure && !info.source && info.claimStatus === 'claimed') return null;
+  const link = (id: string, name: string) => onOpen
+    ? <button type="button" onClick={() => onOpen(id)} className="font-semibold underline-offset-2 hover:underline" style={{ color: GREEN }}>{name}</button>
+    : <span className="font-semibold text-stone-800">{name}</span>;
+  return (
+    <div className="bg-white rounded-2xl border p-4 space-y-3" style={{ borderColor: '#e7e5e4' }}>
+      <h3 className="font-bold text-stone-900 text-sm">{spec.title}</h3>
+      {rows.length > 0 && (
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          {rows.map(f => (
+            <div key={f.key} className="min-w-0">
+              <dt className="text-xs text-stone-500">{f.label}</dt>
+              <dd className="font-medium text-stone-900">{formatProfileValue(f.kind, facts[f.key])}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {info.parent && <p className="text-sm text-stone-600">Part of {link(info.parent.id, info.parent.name)}</p>}
+      {info.children.length > 0 && (
+        <div className="text-sm text-stone-600">
+          <p className="text-xs text-stone-500 mb-1">{info.childCount === 1 ? '1 member organization' : `${info.childCount} member organizations`}</p>
+          <ul className="space-y-1">{info.children.map(c => <li key={c.id}>{link(c.id, c.name)} <span className="text-xs text-stone-500">{c.typeLabel}</span></li>)}</ul>
+          {info.childCount > info.children.length && <p className="mt-1 text-xs text-stone-500">and {info.childCount - info.children.length} more</p>}
+        </div>
+      )}
+      <p className="text-xs text-stone-500">
+        {info.claimStatus === 'claimed' ? 'Managed by this organization on BeWatu.' : 'Not yet claimed by this organization. Details come from public sources and may be incomplete.'}
+        {info.source && <> Source: {info.source.url ? <a href={info.source.url} target="_blank" rel="noopener noreferrer" className="underline">{info.source.name}</a> : info.source.name}.</>}
+      </p>
+    </div>
+  );
+}
+
 // ─── Main CompanyProfileModal ─────────────────────────────────────────────────
 interface CompanyProfileModalProps {
   company: Company;
   allJobs: Job[];
   onClose: () => void;
+  /** Opens another organization (a parent health system, a member hospital). */
+  onOpenOrganization?: (id: string) => void;
 }
 
-export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfileModalProps) {
+export function CompanyProfileModal({ company, allJobs, onClose, onOpenOrganization }: CompanyProfileModalProps) {
   const { currentUser, fbUser } = useFirebase();
 
   const [challenges, setChallenges] = useState<any[]>([]);
@@ -1946,7 +1990,16 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
               )}
               <div className="flex-1 min-w-0">
                 <h2 className="font-black text-stone-900 text-xl">{company.name}</h2>
-                <p className="text-stone-600 text-sm">{company.industry}</p>
+                <p className="text-stone-600 text-sm">
+                  {detail && detail.organization.organizationType !== 'business' && <span className="font-semibold text-stone-700">{detail.organization.typeLabel}{company.industry ? ' · ' : ''}</span>}
+                  {company.industry}
+                </p>
+                {detail && locationText(detail.organization.location) && (
+                  <p className="mt-0.5 flex items-center gap-1 text-xs text-stone-500"><MapPin className="w-3 h-3" aria-hidden="true" />{locationText(detail.organization.location)}</p>
+                )}
+                {detail && detail.organization.subindustries.length > 0 && (
+                  <p className="mt-1 text-xs text-stone-500">{detail.organization.subindustries.join(' · ')}</p>
+                )}
                 {company.website && (
                   <a href={company.website} target="_blank" rel="noopener noreferrer"
                     className="text-xs flex items-center gap-1 mt-1 hover:underline" style={{ color: GREEN_MID }}>
@@ -1955,8 +2008,8 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
                 )}
               </div>
             </div>
-            {company.description && (
-              <p className="mt-4 text-sm text-stone-600 leading-relaxed">{company.description}</p>
+            {(detail?.organization.description || company.description) && (
+              <p className="mt-4 text-sm text-stone-600 leading-relaxed">{detail?.organization.description || company.description}</p>
             )}
             {followError && <p role="alert" className="mt-3 text-xs text-red-700">{followError}</p>}
             {detail && (detail.openRoleCount > 0 || detail.liveChallengeCount > 0 || detail.sponsoredArenas.length > 0 || detail.company.followerCount > 0) && (
@@ -1972,7 +2025,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
               <div className="mt-4 border-t pt-4" style={{ borderColor: '#f3f4f6' }}>
                 {!claimOpen && !claimMsg ? (
                   <button type="button" onClick={() => { setClaimOpen(true); setClaimMsg(null); }} className="text-sm font-semibold hover:underline" style={{ color: GREEN }}>
-                    Work at {company.name}? Claim this company
+                    Work at {company.name}? Claim this organization
                   </button>
                 ) : (
                   <div className="rounded-xl bg-stone-50 p-4 text-sm text-stone-700">
@@ -2019,6 +2072,7 @@ export function CompanyProfileModal({ company, allJobs, onClose }: CompanyProfil
           <div className="flex-1 px-4 py-4 pb-24 space-y-4">
             {tab === 'overview' && (
               <>
+                {detail && <OrganizationFacts info={detail.organization} onOpen={onOpenOrganization} />}
                 {detail && (
                   <div className="bg-white rounded-2xl border p-4 space-y-4" style={{ borderColor: '#e7e5e4' }}>
                     <h3 className="font-bold text-stone-900 text-sm">Latest from {company.name}</h3>

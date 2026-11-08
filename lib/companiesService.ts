@@ -11,9 +11,10 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { auth } from './firebase';
+import type { CategoryKey, OrganizationType, OrganizationLocation } from './organizations';
 
 export type CompaniesView = 'for_you' | 'following' | 'all';
-export type CompaniesSort = 'relevance' | 'recent' | 'alpha';
+export type CompaniesSort = 'relevance' | 'recent' | 'followers' | 'alpha';
 
 export interface CompanyFilters { hiring?: boolean; challenges?: boolean; sponsor?: boolean }
 
@@ -21,6 +22,9 @@ export interface CompaniesQuery {
   view: CompaniesView;
   q: string;
   industry: string;          // '' = any (lower-cased industry key)
+  category: CategoryKey | ''; // '' = every category
+  organizationType: OrganizationType | '';
+  country: string;           // '' = anywhere (lower-cased country name)
   filters: CompanyFilters;
   sort: CompaniesSort;
 }
@@ -33,6 +37,12 @@ export interface CompanyItem {
   logoUrl: string;
   domain: string;
   ticker: string;
+  organizationType: OrganizationType;
+  category: CategoryKey;
+  typeLabel: string;
+  subindustries: string[];
+  location: OrganizationLocation;
+  claimStatus: 'claimed' | 'unclaimed';
   verified: boolean;
   followerCount: number;
   following: boolean;
@@ -48,11 +58,28 @@ export interface CompaniesPage {
   total: number;
   nextCursor: string | null;
   facets: { key: string; label: string; count: number }[];
+  categories: { key: CategoryKey; label: string; count: number }[];
+  types: { key: OrganizationType; label: string; count: number }[];
+  countries: { key: string; label: string; count: number }[];
   meta: { view: CompaniesView; sort: CompaniesSort; forYou?: { hasPreferences: boolean; personalisedCount: number; fallback: boolean } };
+}
+
+export interface OrganizationInfo {
+  id: string; name: string; organizationType: OrganizationType; typeLabel: string; category: CategoryKey;
+  industry: string; subindustries: string[]; description: string; website: string; logoUrl: string;
+  location: OrganizationLocation;
+  /** Category-specific facts, from a named source or the organization itself. Absent = unknown, never zero. */
+  profile: Record<string, string | number>;
+  claimStatus: 'claimed' | 'unclaimed';
+  source: { name: string; url: string } | null;
+  parent: { id: string; name: string; typeLabel: string } | null;
+  children: { id: string; name: string; typeLabel: string }[];
+  childCount: number;
 }
 
 export interface CompanyDetail {
   company: { id: string; name: string; industry: string; followerCount: number; verified: boolean };
+  organization: OrganizationInfo;
   following: boolean;
   claim: { available: boolean; isAdmin: boolean };
   openRoleCount: number;
@@ -106,16 +133,16 @@ async function cached<T>(key: string, load: () => Promise<T>, force = false): Pr
 }
 
 export const queryKey = (q: CompaniesQuery, cursor: string | null) =>
-  JSON.stringify([q.view, q.q.trim().toLowerCase(), q.industry, !!q.filters.hiring, !!q.filters.challenges, !!q.filters.sponsor, q.sort, cursor]);
+  JSON.stringify([q.view, q.q.trim().toLowerCase(), q.industry, q.category, q.organizationType, q.country, !!q.filters.hiring, !!q.filters.challenges, !!q.filters.sponsor, q.sort, cursor]);
 
 /** One page of companies (12). Pass the previous page's `nextCursor` to load more. */
 export function queryCompanies(q: CompaniesQuery, cursor: string | null = null, opts: { force?: boolean } = {}): Promise<CompaniesPage> {
   return cached(queryKey(q, cursor), () => companiesApi({
-    action: 'list', view: q.view, q: q.q.trim(), industry: q.industry, filters: q.filters, sort: q.sort, cursor,
+    action: 'list', view: q.view, q: q.q.trim(), industry: q.industry, category: q.category, organizationType: q.organizationType, country: q.country, filters: q.filters, sort: q.sort, cursor,
   }), opts.force);
 }
 
-export function suggestCompanies(text: string): Promise<{ companies: { id: string; name: string; industry: string }[]; industries: string[] }> {
+export function suggestCompanies(text: string): Promise<{ companies: { id: string; name: string; industry: string; typeLabel?: string }[]; industries: string[] }> {
   return cached(`suggest:${text.trim().toLowerCase()}`, () => companiesApi({ action: 'suggest', q: text.trim() }));
 }
 

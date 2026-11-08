@@ -2649,9 +2649,13 @@ export async function getCompanyAuditLog(companyId: string, limit_ = 50): Promis
 
 /** Fetch companies for the admin panel (most recent 500). Paginate for more. */
 export async function getAllCompanies(): Promise<any[]> {
-  const snap = await getDocs(
+  let snap = await getDocs(
     query(collection(db, 'companies'), orderBy('createdAt', 'desc'), limit(500))
   );
+  // Imported organizations have no numericId; keep them from filling the admin list (see fetchCompanies).
+  if (snap.docs.some(d => d.data().directorySource)) {
+    snap = await getDocs(query(collection(db, 'companies'), orderBy('numericId', 'desc'), limit(500)));
+  }
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
@@ -3892,8 +3896,15 @@ export async function fetchCompanies(claimedOnly = false): Promise<Company[]> {
     const q = claimedOnly
       ? query(collection(db, 'companies'), where('claimed', '==', true), orderBy('name'), limit(200))
       : query(collection(db, 'companies'), orderBy('name'), limit(200));
-    const snap = await getDocs(q);
-    return snap.docs.map(mapDoc);
+    let snap = await getDocs(q);
+    // Imported organizations (scripts/import-organizations.mjs) never carry a numericId and are far
+    // more numerous than member companies; if they have crowded into this window, ask for the
+    // member companies only (orderBy skips documents that lack the field). The directory reads
+    // imported organizations through api/companies.ts instead.
+    if (!claimedOnly && snap.docs.some(d => d.data().directorySource)) {
+      snap = await getDocs(query(collection(db, 'companies'), orderBy('numericId'), limit(200)));
+    }
+    return snap.docs.map(mapDoc).sort((x, y) => x.name.localeCompare(y.name));
   } catch (err: any) {
     // Index not built yet — fall back to unordered fetch
     console.warn('fetchCompanies ordered query failed, falling back:', err?.message);

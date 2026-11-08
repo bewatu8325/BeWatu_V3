@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useCallback, useEffect, useRef, Suspense, lazy } from 'react';
 import SparksTray from './components/sparks/SparksTray';
 import ProveView from './components/ProveView';
 import { Header } from './components/Header';
@@ -1166,6 +1166,20 @@ const MainApp: React.FC = () => {
     }
   };
 
+  // Links into the directory: /organizations, /organizations/<id> and the older /companies, /companies/<id>
+  // both open the directory (or that profile) once the member is signed in and the app has loaded.
+  const orgLinkHandled = useRef(false);
+  useEffect(() => {
+    if (orgLinkHandled.current || !data || !currentUser) return;
+    orgLinkHandled.current = true;
+    const m = window.location.pathname.match(/^\/(?:organizations|companies)(?:\/([^/]+))?\/?$/);
+    if (!m) return;
+    window.history.replaceState(null, '', '/');
+    handleSetView(View.Companies);
+    if (m[1]) { try { void handleViewCompany(decodeURIComponent(m[1])); } catch { /* malformed link: stay on the directory */ } }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, currentUser]);
+
   const handleAnalyzeSynergy = async (otherUser: User) => {
     if (!currentUser) return;
     setCoPilotModalTitle(`Synergy Analysis: You & ${otherUser.name}`);
@@ -2206,7 +2220,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             onNavigateToPrivacy={() => setShowPrivacyPage(true)}
             onNavigateToCommunity={() => setShowCommunityPage(true)}
           />
-          {selectedCompany && <CompanyProfileModal company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} />}
+          {selectedCompany && <CompanyProfileModal key={String((selectedCompany as any)._firestoreId ?? selectedCompany.id)} company={selectedCompany} allJobs={data.jobs} onClose={() => setSelectedCompany(null)} onOpenOrganization={handleViewCompany} />}
           {coPilotModalOpen && <CoPilotModal title={coPilotModalTitle} isLoading={isCoPilotLoading} content={coPilotModalContent} onClose={() => { setCoPilotModalOpen(false); setCoPilotModalContent(null); }} />}
           {isSkillsGraphModalOpen && <SkillsGraphModal currentUser={currentUser} onSubmit={handleGenerateSkillsGraph} onSaveUserSkills={handleSaveUserSkills} onRemoveUserSkill={handleRemoveUserSkill} onClose={() => setIsSkillsGraphModalOpen(false)} />}
           {isImportLinkedInOpen && <ImportLinkedInModal user={currentUser} onExtract={handleExtractLinkedInProfile} onSaveProfile={handleSaveCurrentUserProfile} onClose={() => setIsImportLinkedInOpen(false)} />}

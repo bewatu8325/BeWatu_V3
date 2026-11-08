@@ -215,6 +215,8 @@ async function main() {
   await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("companies/unclaimed1").set({ name: "Unclaimed Co", domain: "unclaimed.example.com", followerCount: 3 }); });
   await check("a member cannot make themselves administrator of an unclaimed company from a browser", me.doc("companies/unclaimed1").update({ adminUid: "me", claimed: true }), "DENY");
   await check("a member cannot bump a company's follower count from a browser", me.doc("companies/unclaimed1").update({ followerCount: 4 }), "DENY");
+  await check("directory_snapshot: no client can read or write the server's condensed directory", me.collection("directory_snapshot").doc("meta").get(), "DENY");
+  await check("directory_snapshot: no client can write it either", me.collection("directory_snapshot").doc("meta").set({ gen: "x" }), "DENY");
   await check("company_claim_events: no client can read or write the audit trail", me.collection("company_claim_events").add({ companyId: "x", uid: "me", outcome: "granted" }), "DENY");
   await check("company_claim_rate_limits: no client can reset their own counter", me.doc("company_claim_rate_limits/me").set({ count: 0 }), "DENY");
   console.log("\n== arena sponsorships: written only by api/arena-sponsorship.ts ==");

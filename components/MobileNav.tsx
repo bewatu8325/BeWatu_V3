@@ -22,7 +22,7 @@ const PRIMARY_NAV = [
 const MORE_NAV = [
   { view: View.Prove,            label: 'Showcase',  icon: ShowcaseIcon,  description: 'Prove skills & Arenas' },
   { view: View.Circles,          label: 'Pods',      icon: PodsIcon,      description: 'Team collaboration' },
-  { view: View.Companies,        label: 'Companies', icon: CompaniesIcon, description: 'Explore employers' },
+  { view: View.Companies,        label: 'Organizations', icon: CompaniesIcon, description: 'Companies, colleges, hospitals' },
   { view: View.Bridge,           label: 'Bridge',    icon: BridgeIcon,    description: 'Cross-platform' },
 ];
 

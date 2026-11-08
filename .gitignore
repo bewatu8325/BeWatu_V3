@@ -48,3 +48,6 @@ pnpm-debug.log*
 *.zip
 -H
 -d
+
+# organization import reports (scripts/import-organizations.mjs)
+import-reports/
