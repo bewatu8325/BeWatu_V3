@@ -21,6 +21,7 @@ import {
 import { trackChallengeViewed, trackChallengeInitiated, trackChallengeCompleted } from '../lib/analytics/track';
 import { useFirebase } from '../contexts/FirebaseContext';
 import type { ArenaRubricScores, ArenaSubmissionReview } from '../types';
+import InviteButton from './invite/InviteButton';
 
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -534,6 +535,7 @@ export default function ArenaChallengeDetail({
               Submit solution
             </button>
           )}
+          {challenge.id && <InviteButton variant="text" label="Invite" context={{ purpose: 'arena', targetId: String(challenge.id), targetName: challenge.title }} className="!px-2 flex-shrink-0" />}
           {isRecruiter && (
             <span className="text-xs font-semibold px-3 py-1.5 rounded-full"
               style={{ backgroundColor: GREEN_LT, color: GREEN }}>
