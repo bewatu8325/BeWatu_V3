@@ -1760,6 +1760,11 @@ service cloud.firestore {
 
     // Staff-to-member messaging (api/ops/comms.ts). Campaign records are server-only; a site-wide
     // banner is readable by any signed-in member and written only by the server.
+    // Shared portfolios (api/portfolio.ts): every share, its tallies and its limits are server-only. A visitor never reads
+    // Firestore; the server draws the page from the member's own records and only what they chose.
+    match /portfolio_shares/{id}         { allow read, write: if false; }
+    match /portfolio_rate_limits/{key}   { allow read, write: if false; }
+
     match /comms_campaigns/{campaignId} {
       allow read, write: if false;
     }

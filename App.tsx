@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, Suspense, lazy } from 'react';
 import { SparkCreateHost } from './components/sparks/SparksTray';
+import ShareWorkHost from './components/share/ShareWorkHost';
 import InviteHost from './components/invite/InviteHost';
 import InviteResume from './components/invite/InviteResume';
 import { tokenFromPath } from './lib/invitations';
@@ -2239,6 +2240,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {currentUser && (
           <>
             <SparkCreateHost />
+            <ShareWorkHost myName={currentUser.name} />
             <InviteHost myName={currentUser.name} pods={invitePods} />
             <InviteResume ready={!!data && !showTermsWall && !showCommunityWall && !showAgeWall} steps={inviteSteps} />
             <CreateMenu open={createOpen} onClose={() => setCreateOpen(false)} view={String(currentView)} canPostChallenge={canPostArena} onChoose={handleCreate} />

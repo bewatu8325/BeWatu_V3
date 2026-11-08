@@ -272,6 +272,13 @@ async function main() {
   await check("comms_campaigns: no member can read or write campaigns", me.doc("comms_campaigns/c1").get(), "DENY");
   await check("comms_campaigns: ops staff browsers cannot read them either (the server returns masked history)", ops1.doc("comms_campaigns/c1").get(), "DENY");
   await check("a member cannot write a notification of type 'announcement' to someone else", me.collection("users/victim/notifications").add({ type: "announcement", message: "Click here", isRead: false, createdAt: new Date() }), "DENY");
+  console.log("\n== shared portfolios: shares and their counters are server-only ==");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("portfolio_shares/s1").set({ ownerUid: "me", status: "active" }); });
+  await check("portfolio_shares: not even the owner's browser can read a share (the server lists them)", me.doc("portfolio_shares/s1").get(), "DENY");
+  await check("portfolio_shares: a member cannot write one (so cannot widen what is shared or skip its expiry)", me.doc("portfolio_shares/s2").set({ ownerUid: "me", status: "active" }), "DENY");
+  await check("portfolio_shares: a member cannot switch their own share back on from a browser", me.doc("portfolio_shares/s1").update({ status: "active", expiresAt: null }), "DENY");
+  await check("portfolio_shares: a signed-out visitor cannot read one", testEnv.unauthenticatedContext().firestore().doc("portfolio_shares/s1").get(), "DENY");
+  await check("portfolio_rate_limits: no client can read or write the counters", me.doc("portfolio_rate_limits/k").set({ count: 0 }), "DENY");
   console.log("\n== invitations: the records, addresses and counters are server-only ==");
   await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("invitations/inv1").set({ inviterUid: "me", recipientEmail: "sam@work.test", status: "pending" }); await ctx.firestore().doc("email_suppressions/h1").set({ at: 1 }); });
   for (const c of ["invitations/inv1", "invitation_joins/j1", "invitation_events/e1", "invitation_metrics/2026-01-01", "invitation_rate_limits/k1", "email_suppressions/h1"]) {
