@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Job, User, Company } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { followCompany, unfollowCompany, getSuggestedCompanies } from '../lib/firestoreService';
+import OrganizationsToDiscover from './OrganizationsToDiscover';
 
 interface RecommendationsSidebarProps {
   jobs: Job[];
@@ -10,30 +10,18 @@ interface RecommendationsSidebarProps {
   onViewProfile: (userId: number) => void;
   onViewCompany?: (companyId: number | string) => void;
   onFollow?: (userId: number) => void;
+  /** Opens the Organizations discovery page. */
+  onExploreOrganizations?: () => void;
 }
 
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
 
 const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
-  jobs, users, companies, onViewProfile, onViewCompany, onFollow,
+  jobs, users, companies, onViewProfile, onViewCompany, onFollow, onExploreOrganizations,
 }) => {
   const { currentUser, fbUser } = useFirebase();
   const [followState, setFollowState] = useState<Record<number, 'pending' | 'following'>>({});
-  const [suggestedCompanies, setSuggestedCompanies] = useState<any[]>([]);
-  const [companyFollowState, setCompanyFollowState] = useState<Record<string, 'loading' | 'following'>>({});
-
-  // Pre-populate following state from user's profile
-  useEffect(() => {
-    const following: string[] = (currentUser as any)?.followingCompanies ?? [];
-    const init: Record<string, 'loading' | 'following'> = {};
-    following.forEach(id => { init[id] = 'following'; });
-    setCompanyFollowState(init);
-  }, [currentUser]);
-
-  useEffect(() => {
-    getSuggestedCompanies(4).then(setSuggestedCompanies).catch(() => {});
-  }, []);
 
   const getCompanyName = (companyId: number) =>
     companies.find(c => c.id === companyId)?.name || 'Unknown Company';
@@ -41,23 +29,6 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
   const handleFollow = (userId: number) => {
     setFollowState(prev => ({ ...prev, [userId]: 'pending' }));
     onFollow?.(userId);
-  };
-
-  const handleFollowCompany = async (company: any) => {
-    if (!fbUser || !company.id) return;
-    const alreadyFollowing = companyFollowState[company.id] === 'following';
-    setCompanyFollowState(p => ({ ...p, [company.id]: 'loading' }));
-    try {
-      if (alreadyFollowing) {
-        await unfollowCompany(fbUser.uid, company.id);
-        setCompanyFollowState(p => { const n = { ...p }; delete n[company.id]; return n; });
-      } else {
-        await followCompany(fbUser.uid, company.id);
-        setCompanyFollowState(p => ({ ...p, [company.id]: 'following' }));
-      }
-    } catch {
-      setCompanyFollowState(p => { const n = { ...p }; delete n[company.id]; return n; });
-    }
   };
 
   return (
@@ -125,57 +96,13 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({
         </div>
       </div>
 
-      {/* Companies to Follow */}
-      {suggestedCompanies.length > 0 && (
-        <div className="bg-white p-4 rounded-2xl border shadow-sm" style={{ borderColor: '#e7e5e4' }}>
-          <h3 className="font-bold text-md text-stone-800 mb-1 border-b pb-2" style={{ borderColor: '#e7e5e4' }}>
-            Companies to follow
-          </h3>
-          <p className="text-xs text-stone-600 mb-3">Follow to see their skill challenges in your Prove feed</p>
-          <div className="space-y-3">
-            {suggestedCompanies.map(company => {
-              const state = companyFollowState[company.id];
-              const following = state === 'following';
-              const loading = state === 'loading';
-              return (
-                <div key={company.id} className="flex items-center gap-3">
-                  {/* Logo / initial */}
-                  <button
-                    onClick={() => onViewCompany?.((company as any)._firestoreId ?? company.numericId ?? company.id)}
-                    className="shrink-0"
-                  >
-                    {company.logoUrl ? (
-                      <img src={company.logoUrl} alt={company.name} className="w-10 h-10 rounded-xl object-cover border" style={{ borderColor: '#e7e5e4' }} />
-                    ) : (
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-black" style={{ background: GREEN }}>
-                        {company.name?.[0] ?? 'C'}
-                      </div>
-                    )}
-                  </button>
-
-                  <div className="flex-1 min-w-0">
-                    <button onClick={() => onViewCompany?.((company as any)._firestoreId ?? company.numericId ?? company.id)} className="font-semibold text-sm text-stone-900 hover:underline text-left truncate block w-full">
-                      {company.name}
-                    </button>
-                    <p className="text-xs text-stone-600 truncate">{company.industry}</p>
-                  </div>
-
-                  <button
-                    onClick={() => handleFollowCompany(company)}
-                    disabled={loading}
-                    className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors border disabled:opacity-50"
-                    style={following
-                      ? { backgroundColor: GREEN_LT, borderColor: GREEN, color: GREEN }
-                      : { borderColor: GREEN, color: GREEN }}
-                  >
-                    {loading ? '…' : following ? 'Following' : 'Follow'}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Organizations to discover: follows are saved on the account and shared with every other list (lib/orgFollow.ts) */}
+      <OrganizationsToDiscover
+        uid={fbUser?.uid}
+        accountFollows={(currentUser as any)?.followingCompanies}
+        onViewCompany={onViewCompany}
+        onExplore={() => onExploreOrganizations?.()}
+      />
     </div>
   );
 };

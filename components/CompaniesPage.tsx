@@ -27,6 +27,7 @@ import {
 import CompanyCard, { CompanyCardSkeleton } from './companies/CompanyCard';
 import { parseCategoryParam, categoryParam, BROAD_LABEL, DEFAULT_PILLS, type BroadKey, type OrganizationType } from '../lib/organizations';
 import { fromSearch, toSearch, isDirectoryPath } from '../lib/orgUrlState';
+import { followStore } from '../lib/orgFollowInstance';
 import CategoryPills, { type ActiveFilter } from './organizations/CategoryPills';
 import MoreFiltersSheet from './organizations/MoreFiltersSheet';
 
@@ -197,6 +198,7 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
     try {
       const r = await setFollowing(c.id, next);
       patch(r.following, r.followerCount);
+      followStore.mark(c.id, r.following);          // the sidebar and the end of the feed stop (or start) suggesting it
       if (ui.view === 'following' && !r.following) {            // it no longer belongs in this view
         setItems(prev => prev.filter(x => x.id !== c.id));
         setPage(p => (p ? { ...p, total: Math.max(0, p.total - 1) } : p));

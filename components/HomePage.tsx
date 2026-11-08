@@ -132,6 +132,7 @@ const HomePage: React.FC<HomePageProps> = (props) => {
                     companies={data.companies}
                     onViewCompany={onViewCompany}
                     onViewProfile={onViewProfile}
+                    onExploreOrganizations={() => onNavigate(View.Companies)}
                 />
             </aside>
         </div>

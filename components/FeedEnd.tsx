@@ -13,6 +13,8 @@ import { Circle, User, View } from '../types';
 import { queryCompanies, type CompanyItem } from '../lib/companiesService';
 import { CompanyLogo } from './companies/CompanyCard';
 import { suggestPeople, suggestPods } from '../lib/feedSuggestions';
+import { useOrgFollows } from '../lib/orgFollowInstance';
+import { useFirebase } from '../contexts/FirebaseContext';
 
 const GREEN = 'var(--bw-green)';
 
@@ -57,12 +59,16 @@ const Avatar: React.FC<{ name: string; src?: string }> = ({ name, src }) => src
   : <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: GREEN }}>{name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</span>;
 
 const FeedEnd: React.FC<Props> = ({ postCount, circles, users, currentUser, connectedIds, onSelectCircle, onViewProfile, onViewCompany, onNavigate }) => {
-  const [orgs, setOrgs] = useState<CompanyItem[]>([]);
+  const { fbUser } = useFirebase();
+  const { followed } = useOrgFollows(fbUser?.uid, (currentUser as any)?.followingCompanies);
+  const [allOrgs, setAllOrgs] = useState<CompanyItem[]>([]);
+  // Never someone you follow, including one you just followed in the sidebar.
+  const orgs = allOrgs.filter(o => !followed.has(o.id)).slice(0, 3);
   useEffect(() => {
     let live = true;
     // The directory's own "For You" list: real organizations, chosen from this member's profile when it can.
     queryCompanies({ view: 'for_you', q: '', industry: '', category: '', organizationType: '', country: '', filters: {}, sort: 'relevance' })
-      .then(r => { if (live) setOrgs(r.items.slice(0, 3)); })
+      .then(r => { if (live) setAllOrgs(r.items.slice(0, 8)); })
       .catch(() => { /* suggestions are optional */ });
     return () => { live = false; };
   }, []);
@@ -99,7 +105,7 @@ const FeedEnd: React.FC<Props> = ({ postCount, circles, users, currentUser, conn
             </Section>
           )}
           {orgs.length > 0 && (
-            <Section title="Organizations to follow" actionLabel="See all" onAction={() => onNavigate(View.Companies)}>
+            <Section title="Organizations to discover" actionLabel="See all" onAction={() => onNavigate(View.Companies)}>
               {orgs.map(o => <Item key={o.id} lead={<CompanyLogo name={o.name} logoUrl={o.logoUrl} size={40} />} title={o.name} sub={o.industry || undefined} onClick={() => onViewCompany?.(o.id)} />)}
             </Section>
           )}
