@@ -51,3 +51,16 @@ body {
 /* Bottom sheets and dialogs: never taller than what is visible (dvh follows the browser's collapsing address bar on phones),
    never under the notch. The 90vh line is the fallback for browsers without dvh. */
 .bw-sheet-max { max-height: 90vh; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 0.75rem); }
+
+/* Bridge Talks player: one slider look for seek and volume. --pct is how far along, --buf how much is loaded. */
+.talk-range { -webkit-appearance: none; appearance: none; background: transparent; touch-action: none; }
+.talk-range::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, #fff 0 var(--pct, 0%), rgba(255,255,255,.55) var(--pct, 0%) var(--buf, 0%), rgba(255,255,255,.28) var(--buf, 0%)); }
+.talk-range::-moz-range-track { height: 4px; border-radius: 4px; background: rgba(255,255,255,.28); }
+.talk-range::-moz-range-progress { height: 4px; border-radius: 4px; background: #fff; }
+.talk-range::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.talk-range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 0; }
+.talk-range:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 4px; }
+
+/* A row that scrolls sideways without a visible scrollbar (tabs and filter chips). */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

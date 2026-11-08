@@ -1,0 +1,58 @@
+/* The page a public Bridge Talk is drawn on (api/talks.ts). One file, no web fonts, no third party: a visitor's browser talks only to
+   BeWatu, and the page works under the site's strict content policy (no inline styles or scripts). */
+:root {
+  --green: #1a4a3a; --green-mid: #1a6b52; --green-lt: #e8f4f0;
+  --bg: #f6f4ef; --surface: #ffffff; --line: #e2ddd2;
+  --ink: #1c1917; --ink-2: #44403c; --muted: #57534e;
+  --serif: "Source Serif 4", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body.tk { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+.tk a { color: var(--green); text-underline-offset: 3px; }
+.tk a:focus-visible, .tk button:focus-visible, .tk summary:focus-visible, .tk video:focus-visible { outline: 3px solid var(--green-mid); outline-offset: 2px; }
+.tk-skip { position: absolute; left: -999px; top: 8px; background: var(--green); color: #fff !important; padding: 10px 14px; border-radius: 10px; z-index: 10; }
+.tk-skip:focus { left: 8px; }
+
+.tk-top { display: flex; align-items: center; justify-content: space-between; max-width: 52rem; margin: 0 auto; padding: 16px max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+.tk-brand { font-weight: 800; letter-spacing: -.01em; color: var(--green); font-size: 18px; text-decoration: none; }
+.tk-top-note { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+.tk-main { max-width: 52rem; margin: 0 auto; padding: 4px max(20px, env(safe-area-inset-left)) 28px; padding-right: max(20px, env(safe-area-inset-right)); }
+.tk-main--narrow { max-width: 34rem; padding-top: 56px; }
+.tk-main--narrow .tk-brand { display: block; margin-bottom: 14px; }
+
+.tk-player { aspect-ratio: 16 / 9; width: 100%; overflow: hidden; border-radius: 18px; background: #000; box-shadow: 0 1px 3px rgba(28,25,23,.14); }
+.tk-player video { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; }
+
+.tk-kicker { margin: 22px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--green); }
+.tk-h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(1.7rem, 5.6vw, 2.5rem); line-height: 1.12; letter-spacing: -.012em; margin: 6px 0 0; text-wrap: balance; }
+.tk-h2 { font-family: var(--serif); font-weight: 600; font-size: 1.3rem; margin: 0 0 10px; }
+.tk-speaker { margin: 20px 0 0; display: flex; }
+.tk-speaker-link { display: inline-flex; gap: 12px; align-items: center; text-decoration: none; color: inherit !important; }
+.tk-speaker > .tk-avatar, .tk-speaker > span { align-self: center; }
+.tk-speaker { gap: 12px; align-items: center; }
+.tk-avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: var(--green); }
+.tk-avatar--init { display: flex !important; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+.tk-name { display: block; font-weight: 700; color: var(--ink); }
+.tk-headline { display: block; font-size: .9rem; color: var(--muted); }
+.tk-summary { margin: 22px 0 0; max-width: 40rem; font-size: 1.1rem; line-height: 1.65; color: var(--ink-2); white-space: pre-wrap; }
+.tk-list { margin: 0; padding: 0; list-style: none; max-width: 40rem; }
+.tk-list li { position: relative; padding-left: 26px; margin: 8px 0; color: var(--ink-2); }
+.tk-list li::before { content: ""; position: absolute; left: 3px; top: .55em; width: 10px; height: 6px; border-left: 2px solid var(--green); border-bottom: 2px solid var(--green); transform: rotate(-45deg); }
+.tk-main > section { margin-top: 28px; }
+.tk-details { margin-top: 24px; max-width: 40rem; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.tk-details summary { cursor: pointer; padding: 13px 16px; font-weight: 600; border-radius: 14px; }
+.tk-transcript { margin: 0; padding: 0 16px 16px; max-height: 24rem; overflow-y: auto; white-space: pre-wrap; color: var(--ink-2); }
+
+.tk-join { padding: 22px; border-radius: 18px; background: var(--green-lt); border: 1px solid #cfe7de; }
+.tk-join p { margin: 0 0 14px; max-width: 36rem; color: var(--ink-2); }
+.tk-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 0 !important; }
+.tk-join .tk-actions { margin-top: 4px !important; }
+.tk-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 22px; border-radius: 999px; background: var(--green); color: #fff !important; font-weight: 700; text-decoration: none; }
+.tk-btn--quiet { background: transparent; color: var(--green) !important; border: 1px solid var(--green); }
+.tk-lede { max-width: 30rem; color: var(--ink-2); font-size: 1.05rem; }
+.tk-foot { max-width: 52rem; margin: 0 auto; padding: 8px max(20px, env(safe-area-inset-left)) calc(28px + env(safe-area-inset-bottom)); padding-right: max(20px, env(safe-area-inset-right)); font-size: .85rem; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }

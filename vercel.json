@@ -3,6 +3,7 @@
     { "source": "/be/:username", "destination": "/index.html" },
     { "source": "/be/:username/work", "destination": "/api/portfolio?u=:username" },
     { "source": "/w/:token", "destination": "/api/portfolio?t=:token" },
+    { "source": "/talks/:id", "destination": "/api/talks?id=:id" },
     { "source": "/endorse/:token", "destination": "/index.html" },
     { "source": "/invite/:token", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },

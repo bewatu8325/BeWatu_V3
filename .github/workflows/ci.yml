@@ -123,6 +123,12 @@ jobs:
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/portfolio/run-tests.mjs"
       - name: Share My Work - choices, ordering and wording
         run: tsx test/portfolio/client-tests.mjs
+      - name: Bridge Talks - lifecycle, reviewer decisions, contributor access, files, notifications
+        run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/bridge-talks/run-tests.mjs"
+      - name: Bridge Talks - the public page, previews and privacy
+        run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/bridge-talks/page-tests.mjs"
+      - name: Bridge Talks - form rules, search, ranking, threads, watching and addresses
+        run: tsx test/bridge-talks/client-tests.mjs
       - name: Ops user-data route
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/ops-user-data/run-tests.mjs"
       - name: Legacy PII purge script (unit)

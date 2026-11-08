@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import SponsorshipAdminView from './arenas/SponsorshipAdminView';
+import TalkReviewView from './bridge/TalkReviewView';
 import {
   getAllCompanies,
   adminCreateCompany,
@@ -78,7 +79,8 @@ type AdminView =
   | 'recruiter_apps'
   | 'discount_codes'
   | 'founding_members'
-  | 'arena_sponsorships';
+  | 'arena_sponsorships'
+  | 'bridge_talks';
 
 interface CompanyRecord {
   id: string;
@@ -1362,6 +1364,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
               { key: 'discount_codes' as AdminView, label: 'Discount codes' },
               { key: 'founding_members' as AdminView, label: 'Founding members' },
               { key: 'arena_sponsorships' as AdminView, label: 'Arena sponsors' },
+              { key: 'bridge_talks' as AdminView, label: 'Bridge Talks' },
               { key: 'audit_global' as AdminView, label: 'Audit log' },
             ] as const).map(({ key, label }) => (
               <button key={key} onClick={() => setView(key)}
@@ -1780,6 +1783,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
         )}
 
         {view === 'arena_sponsorships' && <SponsorshipAdminView />}
+        {view === 'bridge_talks' && <TalkReviewView />}
 
         {view === 'audit_global' && (
           <div className="space-y-5">

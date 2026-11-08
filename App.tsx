@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, Suspense, lazy } from 
 import { SparkCreateHost } from './components/sparks/SparksTray';
 import ShareWorkHost from './components/share/ShareWorkHost';
 import InviteHost from './components/invite/InviteHost';
+import TalkHost from './components/bridge/TalkHost';
 import InviteResume from './components/invite/InviteResume';
 import { tokenFromPath } from './lib/invitations';
 import ProveView from './components/ProveView';
@@ -11,7 +12,7 @@ import AccountSheet from './components/mobile/AccountSheet';
 import CommunityTabs from './components/CommunityTabs';
 import SponsorIntentHost from './components/arenas/SponsorIntentHost';
 import CreateMenu from './components/CreateMenu';
-import { pathFor, parsePath, ARENA_INDUSTRY_VIEW, ARENA_CHALLENGE_VIEW } from './lib/routes';
+import { pathFor, parsePath, ARENA_INDUSTRY_VIEW, ARENA_CHALLENGE_VIEW, BRIDGE_TALKS_VIEW, BRIDGE_TALK_VIEW } from './lib/routes';
 import { canPostChallenge, type CreateActionId } from './lib/createActions';
 import { requestIntent } from './lib/uiIntent';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification, LinkPreview } from './types';
@@ -191,6 +192,8 @@ const MainApp: React.FC = () => {
   );
   // Which challenge's page is open (the address names it); the record itself is loaded into selectedChallenge.
   const [activeChallengeId, setActiveChallengeId] = useState<string | null>(() => deepLink?.challengeId ?? null);
+  // Which Bridge Talk is open (the address names it).
+  const [activeTalkId, setActiveTalkId] = useState<string | null>(() => deepLink?.talkId ?? null);
   const [createOpen, setCreateOpen] = useState(false);
   const [postChallengeOpen, setPostChallengeOpen] = useState(false);
   const [data, setData] = useState<AppData | null>(null);
@@ -1212,34 +1215,34 @@ const MainApp: React.FC = () => {
   // so Back and Forward return to exactly the page you left, including pages that have no address of their own.
   const routerReady = authState === 'authenticated' && !!data;
   const scrollMemory = useRef<Map<string, number>>(new Map());
-  const viewKey = (v: string, ind: string | null, ch: string | null) => `${v}|${ind ?? ''}|${ch ?? ''}`;
+  const viewKey = (v: string, ind: string | null, ch: string | null, tk: string | null = null) => `${v}|${ind ?? ''}|${ch ?? ''}|${tk ?? ''}`;
   const lastKey = useRef<string>('');
   useEffect(() => {
     if (!routerReady) return;
-    const loc = { view: String(currentView), industry: activeArenaIndustry ?? undefined, challengeId: activeChallengeId ?? undefined };
+    const loc = { view: String(currentView), industry: activeArenaIndustry ?? undefined, challengeId: activeChallengeId ?? undefined, talkId: activeTalkId ?? undefined };
     const st: any = window.history.state;
-    const same = st?.bwView === loc.view && (st?.industry ?? undefined) === loc.industry && (st?.challengeId ?? undefined) === loc.challengeId;
+    const same = st?.bwView === loc.view && (st?.industry ?? undefined) === loc.industry && (st?.challengeId ?? undefined) === loc.challengeId && (st?.talkId ?? undefined) === loc.talkId;
     const path = pathFor(loc);
-    const state = { bwView: loc.view, industry: loc.industry, challengeId: loc.challengeId };
+    const state = { bwView: loc.view, industry: loc.industry, challengeId: loc.challengeId, talkId: loc.talkId };
     if (!same) {
       const first = st?.bwView === undefined;                       // the entry we arrived on
       const keep = window.location.pathname === path ? window.location.search : '';   // a page's own query (filters, tabs) is kept
       if (first) window.history.replaceState(state, '', path + keep); else window.history.pushState(state, '', path);
     }
-    const key = viewKey(loc.view, activeArenaIndustry, activeChallengeId);
+    const key = viewKey(loc.view, activeArenaIndustry, activeChallengeId, activeTalkId);
     if (key !== lastKey.current) {
       lastKey.current = key;
       const y = scrollMemory.current.get(key) ?? 0;
       requestAnimationFrame(() => window.scrollTo(0, y));
     }
-  }, [routerReady, currentView, activeArenaIndustry, activeChallengeId]);
+  }, [routerReady, currentView, activeArenaIndustry, activeChallengeId, activeTalkId]);
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
-      const st: any = e.state?.bwView ? e.state : parsePath(window.location.pathname) && { bwView: parsePath(window.location.pathname)!.view, industry: parsePath(window.location.pathname)!.industry, challengeId: parsePath(window.location.pathname)!.challengeId };
+      const st: any = e.state?.bwView ? e.state : parsePath(window.location.pathname) && { bwView: parsePath(window.location.pathname)!.view, industry: parsePath(window.location.pathname)!.industry, challengeId: parsePath(window.location.pathname)!.challengeId, talkId: parsePath(window.location.pathname)!.talkId };
       scrollMemory.current.set(lastKey.current, window.scrollY);
       setPublicProfileUserId(null);
-      if (st?.bwView) { setActiveArenaIndustry(st.industry ?? null); setActiveChallengeId(st.challengeId ?? null); setCurrentView(st.bwView as View); sessionStorage.setItem('beWatuView', st.bwView); }
-      else { setActiveArenaIndustry(null); setActiveChallengeId(null); setCurrentView(View.Feed); }
+      if (st?.bwView) { setActiveArenaIndustry(st.industry ?? null); setActiveChallengeId(st.challengeId ?? null); setActiveTalkId(st.talkId ?? null); setCurrentView(st.bwView as View); sessionStorage.setItem('beWatuView', st.bwView); }
+      else { setActiveArenaIndustry(null); setActiveChallengeId(null); setActiveTalkId(null); setCurrentView(View.Feed); }
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -1256,6 +1259,16 @@ const MainApp: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChallengeId, routerReady]);
   const openChallenge = (id: string) => { scrollMemory.current.set(lastKey.current, window.scrollY); setActiveChallengeId(id); setCurrentView(ARENA_CHALLENGE_VIEW as any); sessionStorage.setItem('beWatuView', ARENA_CHALLENGE_VIEW); };
+  // Bridge Talks: the library, and one Talk. A notification ("View Talk") asks for a Talk by id.
+  const openTalks = () => { scrollMemory.current.set(lastKey.current, window.scrollY); setActiveTalkId(null); setCurrentView(BRIDGE_TALKS_VIEW as any); sessionStorage.setItem('beWatuView', BRIDGE_TALKS_VIEW); };
+  const openTalk = (id: string) => { scrollMemory.current.set(lastKey.current, window.scrollY); setActiveTalkId(id); setCurrentView(BRIDGE_TALK_VIEW as any); sessionStorage.setItem('beWatuView', BRIDGE_TALK_VIEW); };
+  useEffect(() => {
+    const open = (e: Event) => { const id = (e as CustomEvent).detail?.id; if (typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id)) openTalk(id); };
+    const share = () => { handleSetView(View.Feed); requestIntent('focus-composer'); };
+    window.addEventListener('bewatu:open-talk', open); window.addEventListener('bewatu:compose-share', share);
+    return () => { window.removeEventListener('bewatu:open-talk', open); window.removeEventListener('bewatu:compose-share', share); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const openArenaIndustry = (slug: string) => { scrollMemory.current.set(lastKey.current, window.scrollY); setActiveChallengeId(null); setActiveArenaIndustry(slug); sessionStorage.setItem('beWatuArenaIndustry', slug); setCurrentView(ARENA_INDUSTRY_VIEW as any); sessionStorage.setItem('beWatuView', ARENA_INDUSTRY_VIEW); };
   // A notification about a challenge ("View challenge") asks for it by id.
   useEffect(() => {
@@ -1285,6 +1298,7 @@ const MainApp: React.FC = () => {
     else if (id === 'project') { handleSetView(View.Circles); requestIntent('create-pod', { podType: 'innovation' }); }
     else if (id === 'challenge') setPostChallengeOpen(true);
     else if (id === 'invite') requestIntent('invite', { invite: { purpose: 'connect' } });
+    else if (id === 'talk') requestIntent('share-talk');
   };
 
   // The steps an invitation offers, done with the same handlers as everywhere else (the server only ever records them).
@@ -1814,6 +1828,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
     }
     scrollMemory.current.set(lastKey.current, window.scrollY);
     if (view !== (ARENA_CHALLENGE_VIEW as any)) setActiveChallengeId(null);
+    if (view !== (BRIDGE_TALK_VIEW as any)) setActiveTalkId(null);
     setCurrentView(view);
     sessionStorage.setItem('beWatuView', view);
     if (view === View.Profile && currentUser) setProfileUserId(currentUser.id);
@@ -2122,8 +2137,11 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         break;
 
       case View.Circles:
+      case (BRIDGE_TALKS_VIEW as any):
+      case (BRIDGE_TALK_VIEW as any):
       case (View.Bridge as any): {
-        const communityTab: 'pods' | 'bridge' = currentView === (View.Bridge as any) ? 'bridge' : 'pods';
+        const inBridge = currentView === (View.Bridge as any) || currentView === (BRIDGE_TALKS_VIEW as any) || currentView === (BRIDGE_TALK_VIEW as any);
+        const communityTab: 'pods' | 'bridge' = inBridge ? 'bridge' : 'pods';
         // ── Community: tabbed Pods + Bridge ───────────────────────────
         if (activeCircleId) {
           // When inside a pod, show CircleDetail directly (no tab strip)
@@ -2135,7 +2153,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           const GREEN = 'var(--bw-green)';
           content = (
             <div className="space-y-0">
-              <CommunityTabs current={communityTab} onNavigate={handleSetView} pendingConnections={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />
+              {currentView !== (BRIDGE_TALK_VIEW as any) && <CommunityTabs current={communityTab} onNavigate={handleSetView} pendingConnections={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />}
 
               {/* ── Tab content ────────────────────────────────────────── */}
               {communityTab === 'pods' ? (
@@ -2161,6 +2179,20 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                     onSelectCircle={(circleId) => {
                       handleSelectCircle(circleId);
                     }}
+                    talksOpen={currentView === (BRIDGE_TALKS_VIEW as any)}
+                    talkId={currentView === (BRIDGE_TALK_VIEW as any) ? activeTalkId : null}
+                    onOpenTalks={openTalks}
+                    onOpenTalk={openTalk}
+                    onLeaveTalks={() => handleSetView(View.Bridge)}
+                    isAdmin={isPlatformAdmin}
+                    followedIds={(data.followRequests ?? []).filter(r => r.fromUserId === currentUser.id && r.status === 'accepted').map(r => r.toUserId)}
+                    followState={(n, _uid) => {
+                      if (n == null) return 'none';
+                      const r = (data.followRequests ?? []).find(x => x.fromUserId === currentUser.id && x.toUserId === n && x.status !== 'declined');
+                      return r ? (r.status === 'accepted' ? 'following' : 'pending') : followedUserIds.has(n) ? 'pending' : 'none';
+                    }}
+                    onFollow={handleFollowUser}
+                    onReport={target => openReport(target, 'content')}
                   />
                 </Suspense>
               )}
@@ -2242,6 +2274,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             <SparkCreateHost />
             <ShareWorkHost myName={currentUser.name} />
             <InviteHost myName={currentUser.name} pods={invitePods} />
+            {fbUser && <TalkHost uid={fbUser.uid} speaker={{ name: currentUser.name, headline: currentUser.headline, avatarUrl: currentUser.avatarUrl }} />}
             <InviteResume ready={!!data && !showTermsWall && !showCommunityWall && !showAgeWall} steps={inviteSteps} />
             <CreateMenu open={createOpen} onClose={() => setCreateOpen(false)} view={String(currentView)} canPostChallenge={canPostArena} onChoose={handleCreate} />
           </>

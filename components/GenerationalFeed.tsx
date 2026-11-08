@@ -5,8 +5,17 @@
  * Accessible from the main nav as a tab or section within the feed.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
+import BridgeForYou from './bridge/BridgeForYou';
+import TalksLibrary from './bridge/TalksLibrary';
+import TalkPage, { type FollowState } from './bridge/TalkPage';
+import BecomeSpeaker from './bridge/BecomeSpeaker';
+import { fetchMe, type Me } from '../lib/bridgeTalksService';
+import { requestIntent } from '../lib/uiIntent';
+import { TalkIcon } from './icons/BridgeIcons';
+import type { ReportTarget } from './ReportModal';
+import type { Talk } from '../lib/bridgeTalks';
 import { PerspectiveIcon, WisdomIcon, PodsNetworkIcon, AllSparkIcon, GenerationalPairIcon } from './icons/PodIcons';
 import { User } from '../types';
 import { PerspectivePostCard, CreatePerspectivePost, PerspectivePostData, GenerationTag } from './PerspectivePost';
@@ -21,7 +30,7 @@ import {
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
 
-type FeedTab = 'all' | 'perspectives' | 'wisdom' | 'pods';
+type FeedTab = 'foryou' | 'talks' | 'perspectives' | 'wisdom' | 'pods';
 
 type FeedItem =
   | { type: 'perspective'; data: PerspectivePostData }
@@ -29,7 +38,8 @@ type FeedItem =
   | { type: 'pod';         data: GenerationalPodData };
 
 const TAB_CONFIG: { id: FeedTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'all',          label: 'All',          icon: <AllSparkIcon size={18} /> },
+  { id: 'foryou',       label: 'For You',      icon: <AllSparkIcon size={18} /> },
+  { id: 'talks',        label: 'Talks',        icon: <TalkIcon className="h-[18px] w-[18px]" /> },
   { id: 'perspectives', label: 'Perspectives', icon: <PerspectiveIcon size={18} /> },
   { id: 'wisdom',       label: 'Wisdom',       icon: <WisdomIcon size={18} /> },
   { id: 'pods',         label: 'Pods',         icon: <PodsNetworkIcon size={18} /> },
@@ -48,12 +58,30 @@ interface GenerationalFeedProps {
   fbUserUid:      string;
   onViewProfile:  (userId: number) => void;
   onSelectCircle?: (circleId: number) => void;
+  /** Bridge Talks: which page of them is open (the address says), and how to move between them. */
+  talksOpen?:     boolean;
+  talkId?:        string | null;
+  onOpenTalks?:   (category?: string) => void;
+  onOpenTalk?:    (id: string) => void;
+  onLeaveTalks?:  () => void;
+  isAdmin?:       boolean;
+  followedIds?:   number[];
+  followState?:   (speakerNumericId: number | null, speakerUid: string) => FollowState;
+  onFollow?:      (speakerNumericId: number) => Promise<void>;
+  onReport?:      (target: ReportTarget) => void;
+  onOpenPodByDoc?: (pod: GenerationalPodData) => void;
 }
 
 const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
   currentUser, fbUserUid, onViewProfile, onSelectCircle,
+  talksOpen = false, talkId = null, onOpenTalks, onOpenTalk, onLeaveTalks, isAdmin = false, followedIds = [], followState, onFollow, onReport, onOpenPodByDoc,
 }) => {
-  const [tab, setTab]                     = useState<FeedTab>('all');
+  const [localTab, setLocalTab]           = useState<FeedTab>('foryou');
+  const tab: FeedTab                      = talksOpen ? 'talks' : localTab;
+  const [me, setMe]                       = useState<Me | null>(null);
+  const [askOpen, setAskOpen]             = useState<'ask' | 'suggest' | null>(null);
+  const [shareMenu, setShareMenu]         = useState(false);
+  const [talksKey, setTalksKey]           = useState(0);
   const [creating, setCreating]           = useState<'perspective' | 'wisdom' | 'pod' | null>(null);
   const [perspectives, setPerspectives]   = useState<PerspectivePostData[]>([]);
   const [wisdomThreads, setWisdomThreads] = useState<WisdomThreadData[]>([]);
@@ -79,21 +107,34 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { fetchMe().then(setMe).catch(() => setMe(null)); }, []);
+  useEffect(() => {
+    const on = () => setTalksKey(k => k + 1);
+    window.addEventListener('bewatu:talks-changed', on);
+    return () => window.removeEventListener('bewatu:talks-changed', on);
+  }, []);
+  useEffect(() => {
+    if (!shareMenu) return;
+    const close = () => setShareMenu(false);
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setShareMenu(false); };
+    document.addEventListener('click', close); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', esc); };
+  }, [shareMenu]);
 
   // ── Build combined feed ──────────────────────────────────────────────────────
   const feedItems: FeedItem[] = [];
-  if (tab === 'all' || tab === 'perspectives') {
+  if (tab === 'foryou' || tab === 'perspectives') {
     perspectives.forEach(p => feedItems.push({ type: 'perspective', data: p }));
   }
-  if (tab === 'all' || tab === 'wisdom') {
+  if (tab === 'foryou' || tab === 'wisdom') {
     wisdomThreads.forEach(w => feedItems.push({ type: 'wisdom', data: w }));
   }
-  if (tab === 'all' || tab === 'pods') {
+  if (tab === 'foryou' || tab === 'pods') {
     pods.forEach(p => feedItems.push({ type: 'pod', data: p }));
   }
 
   // Interleave when showing all
-  if (tab === 'all') {
+  if (tab === 'foryou') {
     feedItems.sort((a, b) => {
       const da = a.data.createdAt instanceof Date ? a.data.createdAt : new Date(a.data.createdAt);
       const db_ = b.data.createdAt instanceof Date ? b.data.createdAt : new Date(b.data.createdAt);
@@ -174,43 +215,62 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
   };
 
   const myStage = inferCareerStage(currentUser);
+  const interests = useMemo(() => [
+    ...(((currentUser as any).skills ?? []) as (string | { name: string })[]).map(x => (typeof x === 'string' ? x : x?.name ?? '')),
+    currentUser.headline ?? '', (currentUser as any).industry ?? '',
+  ].filter(Boolean), [currentUser]);
+  const canShareTalk = !!me?.contributor;
+  const noFollow: (n: number | null, u: string) => FollowState = () => 'none';
+  const GREEN_BTN = { backgroundColor: GREEN, ['--tw-ring-color' as any]: GREEN };
+  const menuItem = 'flex min-h-[44px] w-full items-center gap-3 px-4 text-left text-sm font-semibold text-stone-800 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none';
+
+  // One Talk is open: it has the whole page (the address names it).
+  if (talkId && onOpenTalk && onLeaveTalks) {
+    return (
+      <TalkPage
+        talkId={talkId} origin={typeof window !== 'undefined' ? window.location.origin : ''}
+        me={{ uid: fbUserUid, numericId: currentUser.id, name: currentUser.name, avatarUrl: currentUser.avatarUrl, headline: currentUser.headline }}
+        isAdmin={isAdmin} followState={followState ?? noFollow} onFollow={onFollow ?? (async () => {})}
+        onViewProfile={onViewProfile} onOpenTalk={onOpenTalk} onBack={() => onOpenTalks?.()} onReport={onReport ?? (() => {})}
+        onOpenPod={pod => { if (onOpenPodByDoc) onOpenPodByDoc(pod); else { const n = (pod as any).numericId; if (n && onSelectCircle) onSelectCircle(n); } }}
+        onEdit={(t: Talk) => requestIntent('share-talk', { talkId: t.id })}
+      />
+    );
+  }
+
+  const pickTab = (id: FeedTab) => {
+    if (id === 'talks') { onOpenTalks?.(); return; }
+    setLocalTab(id);
+    if (talksOpen) onLeaveTalks?.();
+  };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-extrabold text-stone-900">Bridge</h1>
-          <p className="text-stone-600 text-sm mt-0.5">
-            Cross-generational perspectives, wisdom, and community
-          </p>
+          <p className="text-stone-600 text-sm mt-0.5">Where experience meets possibility.</p>
         </div>
-        <button onClick={load} className="text-stone-600 hover:text-stone-600 transition-colors p-2">
-          <RefreshCw size={15} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={load} className="text-stone-600 hover:text-stone-800 transition-colors p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-full focus:outline-none focus-visible:ring-2" aria-label="Refresh Bridge"><RefreshCw size={15} /></button>
+          <div className="relative">
+            <button type="button" aria-haspopup="menu" aria-expanded={shareMenu} onClick={e => { e.stopPropagation(); setShareMenu(o => !o); }}
+              className="inline-flex min-h-[44px] items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-bold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={GREEN_BTN}>
+              <WisdomIcon size={18} /> Share Wisdom
+            </button>
+            {shareMenu && (
+              <ul role="menu" aria-label="Share Wisdom" className="absolute right-0 top-12 z-30 w-72 overflow-hidden rounded-2xl border border-stone-200 bg-white py-1 shadow-xl">
+                <li role="none"><button role="menuitem" type="button" className={menuItem} onClick={() => { setShareMenu(false); if (canShareTalk) requestIntent('share-talk'); else setAskOpen('ask'); }}><TalkIcon className="h-5 w-5 flex-shrink-0" /><span><span className="block">Share a Bridge Talk</span><span className="block text-xs font-normal text-stone-600">{canShareTalk ? 'A short video of a lesson you learned' : 'Ask to share a Talk'}</span></span></button></li>
+                <li role="none"><button role="menuitem" type="button" className={menuItem} onClick={() => { setShareMenu(false); setCreating('wisdom'); setLocalTab(t => (t === 'talks' ? 'foryou' : t)); if (talksOpen) onLeaveTalks?.(); }}><WisdomIcon size={20} /><span><span className="block">Write a Wisdom Thread</span><span className="block text-xs font-normal text-stone-600">Pass on a hard-won career lesson</span></span></button></li>
+                <li role="none"><button role="menuitem" type="button" className={menuItem} onClick={() => { setShareMenu(false); setCreating('perspective'); if (talksOpen) onLeaveTalks?.(); }}><PerspectiveIcon size={20} /><span><span className="block">Ask for Perspectives</span><span className="block text-xs font-normal text-stone-600">Hear from different generations</span></span></button></li>
+                <li role="none"><button role="menuitem" type="button" className={menuItem} onClick={() => { setShareMenu(false); setCreating('pod'); if (talksOpen) onLeaveTalks?.(); }}><GenerationalPairIcon size={20} /><span><span className="block">Start a Generational Pod</span><span className="block text-xs font-normal text-stone-600">Learn across career stages</span></span></button></li>
+              </ul>
+            )}
+          </div>
+        </div>
       </div>
-
-      {/* Create buttons */}
-      {!creating && (
-        <div className="flex gap-2 mb-5 flex-wrap">
-          <button onClick={() => setCreating('perspective')}
-            className="flex items-center gap-2 text-sm font-bold rounded-full px-4 py-2.5 border hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: GREEN_LT, color: GREEN, borderColor: '#c7e8d8' }}>
-            <PerspectiveIcon size={20} /> Perspective Post
-          </button>
-          <button onClick={() => setCreating('wisdom')}
-            className="flex items-center gap-2 text-sm font-bold rounded-full px-4 py-2.5 border hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }}>
-            <WisdomIcon size={20} /> Wisdom Thread
-          </button>
-          <button onClick={() => setCreating('pod')}
-            className="flex items-center gap-2 text-sm font-bold rounded-full px-4 py-2.5 border hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: '#ede9fe', color: '#4c1d95', borderColor: '#ddd6fe' }}>
-            <GenerationalPairIcon size={20} /> Generational Pod
-          </button>
-        </div>
-      )}
 
       {/* Create forms */}
       {creating === 'perspective' && (
@@ -235,11 +295,11 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-5 border-b overflow-x-auto" style={{ borderColor: '#e7e5e4' }}>
+      <div role="tablist" aria-label="Bridge" className="flex gap-1 mb-5 border-b overflow-x-auto no-scrollbar" style={{ borderColor: '#e7e5e4' }}>
         {TAB_CONFIG.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap px-3 py-3 text-sm font-bold transition-colors relative sm:px-4"
-            style={{ color: tab === t.id ? GREEN : '#9ca3af' }}>
+          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => pickTab(t.id)}
+            className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap px-3 py-3 min-h-[48px] text-sm font-bold transition-colors relative sm:px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+            style={{ color: tab === t.id ? GREEN : '#57534e', ['--tw-ring-color' as any]: GREEN }}>
             {t.icon}
             {t.label}
             {tab === t.id && (
@@ -250,7 +310,25 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
         ))}
       </div>
 
+      {tab === 'talks' && onOpenTalk && (
+        <TalksLibrary
+          uid={fbUserUid} canContribute={canShareTalk} interests={interests} followedIds={followedIds} refreshKey={talksKey}
+          onOpen={onOpenTalk} onEdit={(t: Talk) => requestIntent('share-talk', { talkId: t.id })} onShare={() => requestIntent('share-talk')}
+          onRequest={() => setAskOpen('ask')} onSuggest={() => setAskOpen('suggest')} onExplorePerspectives={() => pickTab('perspectives')}
+        />
+      )}
+
+      {tab === 'foryou' && onOpenTalk && (
+        <BridgeForYou
+          uid={fbUserUid} canContribute={canShareTalk} interests={interests} followedIds={followedIds} refreshKey={talksKey}
+          onOpen={onOpenTalk} onSeeAll={cat => onOpenTalks?.(cat)} onShare={() => requestIntent('share-talk')}
+          onRequest={() => setAskOpen('ask')} onSuggest={() => setAskOpen('suggest')} onExplorePerspectives={() => pickTab('perspectives')}
+        />
+      )}
+
       {/* Feed */}
+      {tab !== 'talks' && (<>
+      {tab === 'foryou' && feedItems.length > 0 && <h2 className="mb-3 mt-10 font-serif text-[22px] font-semibold text-stone-900">From the community</h2>}
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
@@ -258,10 +336,11 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
           ))}
         </div>
       ) : feedItems.length === 0 ? (
+        tab === 'foryou' ? null : (
         <div className="text-center py-20 border-2 border-dashed border-stone-200 rounded-3xl">
           <p className="font-bold text-stone-600 mb-1">Nothing here yet</p>
           <p className="text-sm text-stone-600">Be the first to share a perspective or wisdom thread.</p>
-        </div>
+        </div>)
       ) : (
         <div className="space-y-4">
           {feedItems.map(item => {
@@ -302,6 +381,9 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
           })}
         </div>
       )}
+      </>)}
+
+      <BecomeSpeaker open={askOpen !== null} onClose={() => setAskOpen(null)} initialTab={askOpen ?? 'ask'} />
     </div>
   );
 };

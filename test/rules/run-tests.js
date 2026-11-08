@@ -293,6 +293,86 @@ async function main() {
   await check("link_previews (cache): ops staff cannot write it either", ops1.doc("link_previews/abc").set({ preview: goodCard }), "DENY");
   await check("link_preview_rate_limits: no client can reset their own counter", me.doc("link_preview_rate_limits/me").set({ count: 0 }), "DENY");
 
+  console.log("\n== Bridge Talks: only published Talks are visible; the lifecycle is server-only; one like and one comment layer a member can write ==");
+  const talkMe = testEnv.authenticatedContext("tme").firestore();
+  const talkSpeaker = testEnv.authenticatedContext("tspk").firestore();
+  const talkAdmin = padminCtx;
+  const talkOut = testEnv.unauthenticatedContext().firestore();
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const q = ctx.firestore();
+    await q.doc("bridge_talks/live").set({ speakerUid: "tspk", status: "published", title: "Live", likedByUids: [], videoUrl: "https://v" });
+    await q.doc("bridge_talks/draft").set({ speakerUid: "tspk", status: "draft", title: "Draft", likedByUids: [], videoUrl: "https://v" });
+    await q.doc("bridge_talks/waiting").set({ speakerUid: "tspk", status: "submitted", title: "Waiting", likedByUids: [] });
+    await q.doc("bridge_talks/live/comments/c1").set({ authorUid: "tspk", content: "hello", depth: 0, parentId: null });
+    await q.doc("bridge_talks/draft/comments/c9").set({ authorUid: "tspk", content: "old", depth: 0, parentId: null });
+    await q.doc("bridge_talk_reviews/draft").set({ speakerUid: "tspk", note: "Fix the audio", history: [] });
+  });
+  await check("bridge_talks: a signed-out visitor cannot read even a published Talk", talkOut.doc("bridge_talks/live").get(), "DENY");
+  await check("bridge_talks: a member can read a published Talk", talkMe.doc("bridge_talks/live").get(), "ALLOW");
+  await check("bridge_talks: a member cannot read someone's draft", talkMe.doc("bridge_talks/draft").get(), "DENY");
+  await check("bridge_talks: a member cannot read a Talk waiting for review", talkMe.doc("bridge_talks/waiting").get(), "DENY");
+  await check("bridge_talks: the speaker can read their own draft", talkSpeaker.doc("bridge_talks/draft").get(), "ALLOW");
+  await check("bridge_talks: a reviewer can read a Talk waiting for review", talkAdmin.doc("bridge_talks/waiting").get(), "ALLOW");
+  await check("bridge_talks: a member can list published Talks", talkMe.collection("bridge_talks").where("status", "==", "published").get(), "ALLOW");
+  await check("bridge_talks: a member cannot list every Talk (that would include drafts)", talkMe.collection("bridge_talks").get(), "DENY");
+  await check("bridge_talks: the speaker can list their own, whatever the status", talkSpeaker.collection("bridge_talks").where("speakerUid", "==", "tspk").get(), "ALLOW");
+  await check("bridge_talks: a reviewer can list what is waiting", talkAdmin.collection("bridge_talks").where("status", "==", "submitted").get(), "ALLOW");
+  await check("bridge_talks: a member cannot create a Talk", talkMe.doc("bridge_talks/new").set({ speakerUid: "tme", status: "published", title: "Mine" }), "DENY");
+  await check("bridge_talks: not even the speaker can create one from a browser", talkSpeaker.doc("bridge_talks/new").set({ speakerUid: "tspk", status: "published" }), "DENY");
+  await check("bridge_talks: the speaker cannot publish their own draft", talkSpeaker.doc("bridge_talks/draft").update({ status: "published" }), "DENY");
+  await check("bridge_talks: the speaker cannot edit a published Talk in place", talkSpeaker.doc("bridge_talks/live").update({ title: "Changed after review" }), "DENY");
+  await check("bridge_talks: not even a reviewer's browser writes a Talk (the server does)", talkAdmin.doc("bridge_talks/waiting").update({ status: "published" }), "DENY");
+  await check("bridge_talks: nobody can delete a Talk from a browser", talkSpeaker.doc("bridge_talks/draft").delete(), "DENY");
+  await check("bridge_talks: a member can like a published Talk (adding their own uid)", talkMe.doc("bridge_talks/live").update({ likedByUids: ["tme"] }), "ALLOW");
+  await check("bridge_talks: a member cannot like as someone else", talkMe.doc("bridge_talks/live").update({ likedByUids: ["tme", "someone-else"] }), "DENY");
+  await check("bridge_talks: a member cannot remove someone else's like, or wipe them all", talkSpeaker.doc("bridge_talks/live").update({ likedByUids: [] }), "DENY");
+  await check("bridge_talks: a like cannot ride along with another change", talkMe.doc("bridge_talks/waiting").update({ likedByUids: ["tme"], status: "published" }), "DENY");
+  await check("bridge_talks: nobody can like a Talk that is not published", talkMe.doc("bridge_talks/draft").update({ likedByUids: ["tme"] }), "DENY");
+
+  await check("comments: a member can read comments on a published Talk", talkMe.doc("bridge_talks/live/comments/c1").get(), "ALLOW");
+  await check("comments: nobody sees comments on a Talk that is not published", talkMe.doc("bridge_talks/draft/comments/c9").get(), "DENY");
+  await check("comments: a signed-out visitor sees no comments", talkOut.doc("bridge_talks/live/comments/c1").get(), "DENY");
+  const cm = (o = {}) => ({ likedByUids: [], authorUid: "tme", authorName: "Me", authorAvatar: null, authorHeadline: "", content: "A question", parentId: null, replyToUid: null, replyToName: null, depth: 0, createdAt: new Date(), updatedAt: new Date(), edited: false, ...o });
+  await check("comments: a member can comment on a published Talk", talkMe.doc("bridge_talks/live/comments/m1").set(cm()), "ALLOW");
+  await check("comments: a member can reply (one level)", talkMe.doc("bridge_talks/live/comments/m2").set(cm({ parentId: "c1", depth: 1 })), "ALLOW");
+  await check("comments: a reply cannot go deeper than one level", talkMe.doc("bridge_talks/live/comments/m3").set(cm({ parentId: "m2", depth: 2 })), "DENY");
+  await check("comments: a top-level comment cannot name a parent", talkMe.doc("bridge_talks/live/comments/m4").set(cm({ parentId: "c1", depth: 0 })), "DENY");
+  await check("comments: nobody can comment on a Talk that is not published", talkMe.doc("bridge_talks/draft/comments/m5").set(cm()), "DENY");
+  await check("comments: a member cannot comment as someone else", talkMe.doc("bridge_talks/live/comments/m6").set(cm({ authorUid: "tspk" })), "DENY");
+  await check("comments: nobody can label themselves the speaker", talkMe.doc("bridge_talks/live/comments/m7").set(cm({ isSpeaker: true })), "DENY");
+  await check("comments: an empty comment is refused", talkMe.doc("bridge_talks/live/comments/m8").set(cm({ content: "" })), "DENY");
+  await check("comments: an over-long comment is refused", talkMe.doc("bridge_talks/live/comments/m9").set(cm({ content: "x".repeat(2001) })), "DENY");
+  await check("comments: the author can edit the text of their own comment", talkMe.doc("bridge_talks/live/comments/m1").update({ content: "A better question", updatedAt: new Date(), edited: true }), "ALLOW");
+  await check("comments: the author cannot move their comment to another author or thread", talkMe.doc("bridge_talks/live/comments/m1").update({ authorUid: "tspk" }), "DENY");
+  await check("comments: any member can appreciate a comment (their own uid only)", talkSpeaker.doc("bridge_talks/live/comments/c1").update({ likedByUids: ["tspk"] }), "ALLOW");
+  await check("comments: nobody can appreciate as someone else", talkMe.doc("bridge_talks/live/comments/c1").update({ likedByUids: ["tspk", "nobody"] }), "DENY");
+  await check("comments: nobody can appreciate a comment on a Talk that is not published", talkMe.doc("bridge_talks/draft/comments/c9").update({ likedByUids: ["tme"] }), "DENY");
+  await check("comments: an appreciation cannot ride along with a change to the text", talkMe.doc("bridge_talks/live/comments/c1").update({ likedByUids: ["tspk", "tme"], content: "rewritten" }), "DENY");
+  await check("comments: another member cannot edit it", talkSpeaker.doc("bridge_talks/live/comments/m1").update({ content: "changed", updatedAt: new Date(), edited: true }), "DENY");
+  await check("comments: the speaker cannot delete a member's comment", talkSpeaker.doc("bridge_talks/live/comments/m1").delete(), "DENY");
+  await check("comments: the author can delete their own", talkMe.doc("bridge_talks/live/comments/m2").delete(), "ALLOW");
+  await check("comments: a reviewer can remove any comment", talkAdmin.doc("bridge_talks/live/comments/m1").delete(), "ALLOW");
+
+  await check("bridge_talk_reviews: the speaker can read the reviewer's note on their Talk", talkSpeaker.doc("bridge_talk_reviews/draft").get(), "ALLOW");
+  await check("bridge_talk_reviews: another member cannot", talkMe.doc("bridge_talk_reviews/draft").get(), "DENY");
+  await check("bridge_talk_reviews: a reviewer can", talkAdmin.doc("bridge_talk_reviews/draft").get(), "ALLOW");
+  await check("bridge_talk_reviews: the speaker cannot rewrite the note", talkSpeaker.doc("bridge_talk_reviews/draft").update({ note: "All good" }), "DENY");
+  for (const c of ["bridge_contributor_requests/tme", "bridge_talk_suggestions/s1", "bridge_rate_limits/k"]) {
+    await check("bridge: a member cannot read " + c.split("/")[0], talkMe.doc(c).get(), "DENY");
+    await check("bridge: a member cannot write " + c.split("/")[0], talkMe.doc(c).set({ x: 1 }), "DENY");
+  }
+  await check("users: a member cannot make themselves a Bridge contributor", talkMe.doc("users/tme").set({ displayName: "Me", bridgeContributor: true, engagementGateApplies: true }), "DENY");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("users/tme").set({ displayName: "Me" }); });
+  await check("users: nor by updating their own profile", talkMe.doc("users/tme").update({ bridgeContributor: true }), "DENY");
+  await check("users: they can still update the rest of their own profile", talkMe.doc("users/tme").update({ headline: "Designer" }), "ALLOW");
+  await check("savedTalks: a member can save a Talk to their own list", talkMe.doc("users/tme/savedTalks/live").set({ talkId: "live", savedAt: new Date() }), "ALLOW");
+  await check("savedTalks: and read and remove it", talkMe.doc("users/tme/savedTalks/live").get(), "ALLOW");
+  await check("savedTalks: nobody else can read someone's saved list", talkSpeaker.doc("users/tme/savedTalks/live").get(), "DENY");
+  await check("savedTalks: nobody can write into someone else's list", talkSpeaker.doc("users/tme/savedTalks/other").set({ talkId: "other", savedAt: new Date() }), "DENY");
+  await check("savedTalks: nothing but the Talk id and the time may be stored", talkMe.doc("users/tme/savedTalks/x").set({ talkId: "x", savedAt: new Date(), note: "extra" }), "DENY");
+  await check("savedTalks: the id must match the document", talkMe.doc("users/tme/savedTalks/x").set({ talkId: "y", savedAt: new Date() }), "DENY");
+  await check("savedTalks: a signed-out visitor cannot read one", talkOut.doc("users/tme/savedTalks/live").get(), "DENY");
+
   console.log(`\n${pass} passed, ${fail} failed (of ${pass + fail})`);
   await testEnv.cleanup();
   process.exit(fail > 0 ? 1 : 0);
