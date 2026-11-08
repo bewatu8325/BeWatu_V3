@@ -272,6 +272,15 @@ async function main() {
   await check("comms_campaigns: no member can read or write campaigns", me.doc("comms_campaigns/c1").get(), "DENY");
   await check("comms_campaigns: ops staff browsers cannot read them either (the server returns masked history)", ops1.doc("comms_campaigns/c1").get(), "DENY");
   await check("a member cannot write a notification of type 'announcement' to someone else", me.collection("users/victim/notifications").add({ type: "announcement", message: "Click here", isRead: false, createdAt: new Date() }), "DENY");
+  console.log("\n== invitations: the records, addresses and counters are server-only ==");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("invitations/inv1").set({ inviterUid: "me", recipientEmail: "sam@work.test", status: "pending" }); await ctx.firestore().doc("email_suppressions/h1").set({ at: 1 }); });
+  for (const c of ["invitations/inv1", "invitation_joins/j1", "invitation_events/e1", "invitation_metrics/2026-01-01", "invitation_rate_limits/k1", "email_suppressions/h1"]) {
+    await check("invitations: a member cannot read " + c.split("/")[0] + " (not even their own)", me.doc(c).get(), "DENY");
+    await check("invitations: a member cannot write " + c.split("/")[0], me.doc(c).set({ x: 1 }), "DENY");
+  }
+  await check("invitations: a member cannot flip their own invitation to joined", me.doc("invitations/inv1").update({ status: "joined" }), "DENY");
+  await check("invitations: a signed-out visitor cannot read one", testEnv.unauthenticatedContext().firestore().doc("invitations/inv1").get(), "DENY");
+  await check("invitations: ops staff browsers cannot read the invitee addresses either", ops1.doc("invitations/inv1").get(), "DENY");
   await check("link_previews (cache): no client can read it", me.doc("link_previews/abc").get(), "DENY");
   await check("link_previews (cache): no client can write it (no poisoning a shared preview)", me.doc("link_previews/abc").set({ preview: goodCard }), "DENY");
   await check("link_previews (cache): ops staff cannot write it either", ops1.doc("link_previews/abc").set({ preview: goodCard }), "DENY");

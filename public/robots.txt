@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /login
 Disallow: /register
+Disallow: /invite/
 
 Sitemap: https://bewatu.com/sitemap.xml

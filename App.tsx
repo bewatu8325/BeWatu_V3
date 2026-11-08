@@ -1,5 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef, Suspense, lazy } from 'react';
 import { SparkCreateHost } from './components/sparks/SparksTray';
+import InviteHost from './components/invite/InviteHost';
+import InviteResume from './components/invite/InviteResume';
+import { tokenFromPath } from './lib/invitations';
 import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav, MOBILE_NAV_CLEARANCE } from './components/MobileNav';
@@ -118,6 +121,7 @@ const SecurityPrivacyPage = lazy(() => import('./components/SecurityPrivacyPage'
 const PublicSharePage = lazy(() => import('./components/PublicSharePage'));
 // EndorseRequestPage: the /endorse/:token unauthenticated endorsement page
 const EndorseRequestPage = lazy(() => import('./components/EndorseRequestPage'));
+const InvitePage = lazy(() => import('./components/invite/InvitePage'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const LoginPage = lazy(() => import('./components/auth/LoginPage'));
@@ -1279,7 +1283,36 @@ const MainApp: React.FC = () => {
     else if (id === 'pod') { handleSetView(View.Circles); requestIntent('create-pod'); }
     else if (id === 'project') { handleSetView(View.Circles); requestIntent('create-pod', { podType: 'innovation' }); }
     else if (id === 'challenge') setPostChallengeOpen(true);
+    else if (id === 'invite') requestIntent('invite', { invite: { purpose: 'connect' } });
   };
+
+  // The steps an invitation offers, done with the same handlers as everywhere else (the server only ever records them).
+  const inviteSteps = {
+    connect: async (inviter: { uid: string; numericId: number | null }) => {
+      if (!currentUser || !fbUser || inviter.numericId == null) throw new Error('That didn\'t go through. Please try again.');
+      const req = await fbSendConnectionRequest(fbUser.uid, currentUser.id, inviter.uid, inviter.numericId);
+      setData(d => d ? { ...d, connectionRequests: d.connectionRequests.some(r => r.id === req.id) ? d.connectionRequests : [...d.connectionRequests, req] } : null);
+    },
+    requestJoin: async (podId: string) => {
+      const circle = data?.circles.find(c => (c as any)._firestoreId === podId);
+      if (circle) { await handleApplyToCircle(circle.id); return; }
+      if (!currentUser || !fbUser) throw new Error('That didn\'t go through. Please try again.');
+      const { requestToJoinCircle } = await import('./lib/firestoreService') as any;
+      await requestToJoinCircle(podId, currentUser.id, fbUser.uid);
+    },
+    open: (r: { destination: { type: string; id: string | null }; inviter: { numericId: number | null } | null }) => {
+      const d = r.destination;
+      if (d.type === 'profile' && r.inviter?.numericId != null) handleViewProfile(r.inviter.numericId);
+      else if (d.type === 'pod' && d.id) { const c = data?.circles.find(x => (x as any)._firestoreId === d.id); if (c) handleSelectCircle(c.id); else handleSetView(View.Circles); }
+      else if (d.type === 'pods') handleSetView(View.Circles);
+      else if (d.type === 'community') handleSetView(View.Connections);
+      else if (d.type === 'challenge' && d.id) window.dispatchEvent(new CustomEvent('bewatu:open-challenge', { detail: { id: d.id } }));
+      else if (d.type === 'arenas') handleSetView(View.Arenas);
+    },
+  };
+  // The Pods this member is in, for the invitation sheet's destination list.
+  const invitePods = (data?.circles ?? []).filter(c => currentUser && c.members.includes(currentUser.id) && (c as any)._firestoreId)
+    .map(c => ({ id: (c as any)._firestoreId as string, name: c.name, podType: c.podType }));
 
   const orgLinkHandled = useRef(false);
   useEffect(() => {
@@ -2206,6 +2239,8 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {currentUser && (
           <>
             <SparkCreateHost />
+            <InviteHost myName={currentUser.name} pods={invitePods} />
+            <InviteResume ready={!!data && !showTermsWall && !showCommunityWall && !showAgeWall} steps={inviteSteps} />
             <CreateMenu open={createOpen} onClose={() => setCreateOpen(false)} view={String(currentView)} canPostChallenge={canPostArena} onChoose={handleCreate} />
           </>
         )}
@@ -2626,9 +2661,12 @@ const beMatch = window.location.pathname.match(/^\/be\/([a-z0-9_-]+)$/i);
 // Same reasoning for /endorse/:token — the colleague leaving an endorsement
 // has no BeWatu account, by design (see components/EndorseRequestPage.tsx).
 const endorseMatch = window.location.pathname.match(/^\/endorse\/([A-Za-z0-9_-]+)$/);
+// And /invite/:token: the invited person has no account yet (components/invite/InvitePage.tsx). The token is remembered
+// across sign-up and sign-in and picked up in the app (InviteResume).
+const inviteToken = tokenFromPath(window.location.pathname);
 
 const App: React.FC = () => {
-  if (beMatch || endorseMatch) {
+  if (beMatch || endorseMatch || inviteToken) {
     const fallback = (
       <div className="min-h-screen" style={{ backgroundColor: '#f5f5f4' }}>
         <nav className="bg-white border-b h-14" style={{ borderColor: '#e7e5e4' }}>
@@ -2646,6 +2684,13 @@ const App: React.FC = () => {
             username={username}
             onSignUp={() => { window.location.href = '/?signup=1'; }}
           />
+        </Suspense>
+      );
+    }
+    if (inviteToken) {
+      return (
+        <Suspense fallback={fallback}>
+          <InvitePage token={inviteToken} />
         </Suspense>
       );
     }

@@ -45,4 +45,7 @@ export const NavDiscoverIcon: React.FC<P> = p => (
 export const NavPlusIcon: React.FC<P> = p => (
   <svg {...base(p)}><path d="M12 5.5v13M5.5 12h13" /></svg>
 );
-
+/** A person with a small plus: "Invite your people". Same grid and stroke as the rest of the set. */
+export const InviteIcon: React.FC<P> = p => (
+  <svg {...base(p)}><circle cx="9.4" cy="8.4" r="3.2" /><path d="M3.6 19.6c.5-3.3 2.7-5.2 5.8-5.2 1.3 0 2.4.3 3.3.9" /><path d="M17.6 11.6v6.4M14.4 14.8h6.4" /></svg>
+);

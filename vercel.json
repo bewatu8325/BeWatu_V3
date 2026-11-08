@@ -2,6 +2,7 @@
   "rewrites": [
     { "source": "/be/:username", "destination": "/index.html" },
     { "source": "/endorse/:token", "destination": "/index.html" },
+    { "source": "/invite/:token", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },
     { "source": "/register", "destination": "/index.html" },
     { "source": "/terms", "destination": "/index.html" },
@@ -25,6 +26,10 @@
     {
       "path": "/api/cron/healthcheck",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/invitations?cron=1",
+      "schedule": "15 7 * * *"
     }
   ],
   "headers": [
@@ -55,6 +60,14 @@
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self' https://js.stripe.com https://apis.google.com; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' blob: https://firebasestorage.googleapis.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebasestorage.googleapis.com https://www.googleapis.com https://api.stripe.com https://m.stripe.network wss://*.firebaseio.com; frame-src https://js.stripe.com https://hooks.stripe.com https://bewatu-2d04e.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';"
         }
+      ]
+    },
+    {
+      "source": "/invite/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "Cache-Control", "value": "no-store" }
       ]
     },
     {

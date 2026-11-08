@@ -7,7 +7,7 @@
  */
 import { navKeyFor } from './routes';
 
-export type CreateActionId = 'post' | 'wisdom' | 'reel' | 'spark' | 'pod' | 'project' | 'challenge';
+export type CreateActionId = 'post' | 'wisdom' | 'reel' | 'spark' | 'pod' | 'project' | 'invite' | 'challenge';
 
 export interface CreateAction { id: CreateActionId; label: string; hint: string; suggested: boolean }
 
@@ -18,6 +18,7 @@ const ALL: Record<CreateActionId, { label: string; hint: string }> = {
   spark:     { label: 'Share a Spark',           hint: 'A win, insight or goal that lasts 48 hours' },
   pod:       { label: 'Start a Pod',             hint: 'Bring people together around a goal' },
   project:   { label: 'Start a Project',         hint: 'Build something with a team, from idea to launch' },
+  invite:    { label: 'Invite your people',      hint: 'Bring colleagues you trust onto BeWatu' },
   challenge: { label: 'Post an Arena Challenge', hint: 'Put a real problem in front of professionals' },
 };
 
@@ -26,7 +27,7 @@ export function canPostChallenge(user: { isRecruiter?: boolean } | null | undefi
 }
 
 export function createActions(ctx: { view: string; canPostChallenge: boolean }): CreateAction[] {
-  const ids: CreateActionId[] = ['post', 'wisdom', 'reel', 'spark', 'pod', 'project', ...(ctx.canPostChallenge ? ['challenge' as const] : [])];
+  const ids: CreateActionId[] = ['post', 'wisdom', 'reel', 'spark', 'pod', 'project', 'invite', ...(ctx.canPostChallenge ? ['challenge' as const] : [])];
   const nav = navKeyFor(ctx.view);
   const fit: CreateActionId =
     nav === 'prove' ? 'reel'

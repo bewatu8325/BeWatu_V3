@@ -18,6 +18,8 @@ import {
   RoleStageBadge,
   type PodChallengeData,
 } from './PodFeatures';
+import InviteButton from './invite/InviteButton';
+import { purposeForPod } from '../lib/invitations';
 
 const ArticleCard: React.FC<{ article: Article, author?: User, onViewProfile: (userId: number) => void }> = ({ article, author, onViewProfile }) => (
     <div className="bg-white p-6 rounded-2xl border shadow-sm" style={{ borderColor:"#e7e5e4" }}>
@@ -628,6 +630,11 @@ Write 2-3 sentences highlighting the most interesting agreements or tensions acr
                 <p className="text-stone-600">{circle.description}</p>
             </div>
         </div>
+        {(circle as any)._firestoreId && (
+          <div className="mb-4">
+            <InviteButton context={{ purpose: purposeForPod((circle as any).podType), targetId: (circle as any)._firestoreId, targetName: circle.name }} label={`Invite people to this ${(circle as any).podType === 'community' || !(circle as any).podType ? 'community' : 'Pod'}`} />
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4 text-stone-600 text-sm">
             <div className="flex items-center space-x-2">

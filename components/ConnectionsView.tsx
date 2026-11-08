@@ -9,6 +9,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { User, ConnectionRequest, FollowRequest } from '../types';
 import { EmptyState } from './EmptyState';
+import InviteButton from './invite/InviteButton';
 
 interface ConnectionsViewProps {
   currentUser: User;
@@ -1232,9 +1233,12 @@ const ConnectionsView: React.FC<ConnectionsViewProps> = ({
   return (
     <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-stone-900">Circles</h1>
-        <p className="text-sm text-stone-600 mt-1">Your professional connections and recommendations</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-stone-900">Circles</h1>
+          <p className="text-sm text-stone-600 mt-1">Your professional connections and recommendations</p>
+        </div>
+        <InviteButton context={{ purpose: 'connect' }} />
       </div>
 
       {/* Tabs */}

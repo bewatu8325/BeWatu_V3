@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { Search, ChevronRight, Lock } from 'lucide-react';
 import { View } from '../types';
 import { BriefcaseIcon, CompaniesIcon, PodsIcon, BridgeIcon, FactoryIcon, UsersIcon } from './IconComponents';
+import InviteButton from './invite/InviteButton';
 
 const GREEN = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -51,6 +52,7 @@ export default function DiscoverPage({ onNavigate, onSearchPeople, factoryGated 
         <input type="search" aria-label="Search people" placeholder="Search people" value={q} onChange={e => setQ(e.target.value)}
           className="min-h-[44px] w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-4 text-base focus:outline-none focus-visible:ring-2 sm:text-sm" style={ring} />
       </form>
+      <InviteButton variant="row" context={{ purpose: 'connect' }} className="mb-6" />
       <div className="space-y-6">
         {groups.map(g => (
           <section key={g.title} aria-label={g.title}>
