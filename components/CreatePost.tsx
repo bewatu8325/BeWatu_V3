@@ -13,6 +13,7 @@ import { firstPreviewableUrl, fetchLinkPreview, removeUrlFromText, appendUrlToTe
 import { LinkPreviewCard, LinkPreviewSkeleton } from './LinkPreviewCard';
 import { CreatePerspectivePost, GenerationTag } from './PerspectivePost';
 import { CreateWisdomThread }                   from './WisdomThread';
+import { useIntent } from '../lib/uiIntent';
 
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -55,6 +56,9 @@ const CreatePost: React.FC<CreatePostProps> = ({
   const [content, setContent]     = useState('');
   const [showTypes, setShowTypes] = useState(false);
   const [focused, setFocused]     = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // "Write a post" from the Create tab lands here with the box ready to type in.
+  useIntent('focus-composer', () => { if (!circleId) textareaRef.current?.focus({ preventScroll: true }); });
 
   // ── Article preview ──────────────────────────────────────────────────────
   // Paste a link and a card appears by itself. `preview` is the card, `loadingUrl`
@@ -170,6 +174,7 @@ const CreatePost: React.FC<CreatePostProps> = ({
           {/* Input */}
           <div className="flex-1 min-w-0">
             <textarea
+              ref={textareaRef}
               value={content}
               onChange={e => setContent(e.target.value)}
               onFocus={() => setFocused(true)}

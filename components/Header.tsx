@@ -11,6 +11,8 @@ import { Factory, Loader2 } from 'lucide-react';
 import { goToFactory } from '../utils/factoryHandoff';
 import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGate';
 import FeedbackModal from './FeedbackModal';
+import AnnouncementBanner from './AnnouncementBanner';
+import { Megaphone } from 'lucide-react';
 
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -26,6 +28,11 @@ interface NotifItem {
   circleFirestoreId?: string;
   isRead:      boolean;
   createdAt?:  any;
+  // Staff messages from the ops console (type 'announcement')
+  title?:      string;
+  link?:       string | null;
+  linkLabel?:  string | null;
+  severity?:   'info' | 'warning' | 'critical';
 }
 
 // ── NotificationsPanel ────────────────────────────────────────────────────────
@@ -190,7 +197,11 @@ function NotificationsPanel({
     return `${Math.floor(diff / 86400)}d ago`;
   }
 
-  function notifIcon(type: string) {
+  function notifIcon(type: string, severity?: string) {
+    if (type === 'announcement') {
+      const tone = severity === 'critical' ? 'bg-red-50 text-red-600' : severity === 'warning' ? 'bg-amber-50 text-amber-600' : '';
+      return <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${tone}`} style={tone ? undefined : { backgroundColor: GREEN_LT, color: GREEN }}><Megaphone size={14} /></div>;
+    }
     if (type === 'circle_invite' || type === 'circle_approved' || type === 'circle_denied' || type === 'circle_post' || type === 'circle_join_request' || type === 'post_comment') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT }}><UsersIcon size={14} style={{ color: GREEN }} /></div>;
     }
@@ -235,10 +246,12 @@ function NotificationsPanel({
                 <div className="flex items-start gap-3">
                   {n.actorAvatar
                     ? <img src={n.actorAvatar} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                    : notifIcon(n.type)
+                    : notifIcon(n.type, n.severity)
                   }
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-stone-800 leading-snug">{n.message}</p>
+                    {n.type === 'announcement' && n.title && <p className="text-sm font-semibold text-stone-900 leading-snug">{n.title}</p>}
+                    <p className="text-sm text-stone-800 leading-snug whitespace-pre-line">{n.message}</p>
+                    {n.type === 'announcement' && (() => { try { const u = new URL(String(n.link)); return u.protocol === 'https:' ? <a href={u.toString()} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm font-semibold underline" style={{ color: GREEN }}>{n.linkLabel || 'Learn more'}</a> : null; } catch { return null; } })()}
                     <p className="text-xs text-stone-600 mt-0.5">{timeAgo(n.createdAt)}</p>
 
                     {/* Circle invite — accept/decline from bell */}
@@ -338,9 +351,11 @@ interface HeaderProps {
    *  View.Profile if not supplied, matching the previous (broken) behavior
    *  rather than crashing on an older call site. */
   onOpenSettings?: () => void;
+  /** Phones: the avatar opens the You menu (a bottom sheet) instead of the dropdown. */
+  onOpenAccountSheet?: () => void;
 }
 
-export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch, onCircleInviteAccepted, onOpenSettings }: HeaderProps) {
+export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch, onCircleInviteAccepted, onOpenSettings, onOpenAccountSheet }: HeaderProps) {
   const { currentUser, fbUser } = useFirebase() as any;
   const [menuOpen,  setMenuOpen]  = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -349,6 +364,13 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
   const [showFeedback, setShowFeedback] = useState(false);
   const menuRef  = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  // The You menu's "Notifications" row asks for the panel to open.
+  useEffect(() => {
+    const open = () => setNotifOpen(true);
+    window.addEventListener('bewatu:open-notifications', open);
+    return () => window.removeEventListener('bewatu:open-notifications', open);
+  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -475,8 +497,12 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
         {/* Profile menu */}
         <div ref={menuRef} className="relative">
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center gap-2 rounded-full hover:bg-stone-100 p-1 pr-2 transition-colors"
+            onClick={() => {
+              if (onOpenAccountSheet && typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) { onOpenAccountSheet(); return; }
+              setMenuOpen(!menuOpen);
+            }}
+            aria-label="Account menu"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-full hover:bg-stone-100 p-1 sm:pr-2 transition-colors"
           >
             {currentUser?.avatarUrl ? (
               <img src={currentUser.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
@@ -553,6 +579,7 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
           )}
         </div>
       </div>
+      <AnnouncementBanner />
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </header>
   );

@@ -1,233 +1,97 @@
+/**
+ * components/MobileNav.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The phone's bottom navigation: Home, Community, Create, Messages, You.
+ *
+ * Nothing was removed. Jobs, Showcase, Pods, Organizations and Bridge (the old "More" drawer) are reached from
+ * the Explore strip at the top of Home and from the Explore section of the You menu, so they stay one tap away from
+ * the place people start. Settings, support and legal links live in the You menu.
+ *
+ * Every tab is at least 44 CSS px wide and tall (they share the width, 64px tall), the bar sits above the bottom
+ * safe area, and the page reserves exactly the bar's height (see `MOBILE_NAV_CLEARANCE`) so content is never
+ * hidden behind it. Hidden from md up, where the header carries navigation.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 import React, { useState } from 'react';
-import {
-  Home, Users2, User, Briefcase, MessageSquare,
-  MoreHorizontal, X,
-} from 'lucide-react';
 import { View } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { ShowcaseIcon, PodsIcon, CompaniesIcon, BridgeIcon } from './IconComponents';
+import { NavHomeIcon, NavCommunityIcon, NavCreateIcon, NavMessagesIcon, NavYouIcon } from './icons/NavIcons';
+import CreateSheet from './mobile/CreateSheet';
 
 const GREEN = 'var(--bw-green)';
 
-// Primary nav — always visible in bottom bar (5 items max for comfortable tapping)
-const PRIMARY_NAV = [
-  { view: View.Feed,        label: 'Home',      icon: Home          },
-  { view: View.Connections, label: 'Community', icon: Users2        },
-  { view: View.Jobs,        label: 'Jobs',      icon: Briefcase     },
-  { view: View.Messaging,   label: 'Messages',  icon: MessageSquare },
-];
-
-// Secondary nav — shown in "More" drawer
-// Grouped logically for easy scanning
-const MORE_NAV = [
-  { view: View.Prove,            label: 'Showcase',  icon: ShowcaseIcon,  description: 'Prove skills & Arenas' },
-  { view: View.Circles,          label: 'Pods',      icon: PodsIcon,      description: 'Team collaboration' },
-  { view: View.Companies,        label: 'Organizations', icon: CompaniesIcon, description: 'Companies, colleges, hospitals' },
-  { view: View.Bridge,           label: 'Bridge',    icon: BridgeIcon,    description: 'Cross-platform' },
-];
+/** Tailwind class for the bottom padding of page content on phones: bar height (64) + hairline + safe area + a little air. */
+export const MOBILE_NAV_CLEARANCE = 'pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-10';
 
 interface MobileNavProps {
   currentView: View;
   onNavigate: (view: View) => void;
   pendingConnectionCount?: number;
+  unreadMessageCount?: number;
+  /** Opens the You menu (profile, settings, support, legal). */
+  onOpenAccount: () => void;
+  accountOpen?: boolean;
 }
 
-export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0 }: MobileNavProps) {
+// Views that belong to the Community tab (people, connections, pods and the Bridge that join them).
+const COMMUNITY_VIEWS = new Set<View>([View.Connections, View.People]);
+
+export function MobileNav({ currentView, onNavigate, pendingConnectionCount = 0, unreadMessageCount = 0, onOpenAccount, accountOpen = false }: MobileNavProps) {
   const { currentUser } = useFirebase();
-  const [showMore, setShowMore] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
-  function navigate(view: View) {
-    onNavigate(view);
-    setShowMore(false);
-  }
-
-  const isMoreActive = MORE_NAV.some(n => n.view === currentView);
+  const tabs: {
+    key: string; label: string; Icon: React.FC<any>; active: boolean; badge?: number; onPress: () => void; ariaLabel?: string; haspopup?: boolean;
+  }[] = [
+    { key: 'home', label: 'Home', Icon: NavHomeIcon, active: currentView === View.Feed && !accountOpen && !createOpen, onPress: () => onNavigate(View.Feed) },
+    { key: 'community', label: 'Community', Icon: NavCommunityIcon, active: COMMUNITY_VIEWS.has(currentView) && !accountOpen && !createOpen, badge: pendingConnectionCount, onPress: () => onNavigate(View.Connections),
+      ariaLabel: pendingConnectionCount > 0 ? `Community, ${pendingConnectionCount} pending` : 'Community' },
+    { key: 'create', label: 'Create', Icon: NavCreateIcon, active: createOpen, onPress: () => setCreateOpen(true), ariaLabel: 'Create', haspopup: true },
+    { key: 'messages', label: 'Messages', Icon: NavMessagesIcon, active: currentView === View.Messaging && !accountOpen && !createOpen, badge: unreadMessageCount, onPress: () => onNavigate(View.Messaging),
+      ariaLabel: unreadMessageCount > 0 ? `Messages, ${unreadMessageCount} unread` : 'Messages' },
+    { key: 'you', label: 'You', Icon: NavYouIcon, active: accountOpen || currentView === View.Profile, onPress: onOpenAccount, ariaLabel: 'You: profile, settings and support', haspopup: true },
+  ];
 
   return (
     <>
-      {/* More drawer overlay — slides up from bottom */}
-      {showMore && (
-        <div
-          className="fixed inset-0 z-40 md:hidden"
-          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setShowMore(false)}
-        >
-          <div
-            className="absolute bottom-16 left-0 right-0 bg-white rounded-t-3xl px-4 pt-3 pb-6 animate-in slide-in-from-bottom duration-200"
-            style={{ 
-              borderTop: '1px solid #e7e5e4',
-              boxShadow: '0 -10px 40px rgba(0,0,0,0.12)',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Drag handle indicator */}
-            <div className="flex justify-center mb-3">
-              <div className="w-10 h-1 rounded-full bg-stone-300" />
-            </div>
-            
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4 px-1">
-              <p className="font-bold text-stone-900 text-base">More</p>
-              <button 
-                onClick={() => setShowMore(false)} 
-                className="p-2 -mr-2 text-stone-600 hover:text-stone-600 active:bg-stone-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {/* Navigation items — list style for better scannability */}
-            <div className="space-y-1">
-              {MORE_NAV.map(({ view, label, icon: Icon, description }) => {
-                const active = currentView === view;
-                return (
-                  <button
-                    key={view}
-                    onClick={() => navigate(view)}
-                    className="flex items-center gap-4 w-full py-3.5 px-4 rounded-2xl transition-all active:scale-[0.98]"
-                    style={{ 
-                      background: active ? 'var(--bw-green-light)' : 'transparent',
-                      color: active ? GREEN : '#44403c',
-                    }}
-                  >
-                    <div 
-                      className="flex items-center justify-center w-10 h-10 rounded-xl"
-                      style={{ 
-                        backgroundColor: active ? GREEN : '#f5f5f4',
-                      }}
-                    >
-                      <Icon
-                        className="w-5 h-5"
-                        style={{ color: active ? 'white' : '#78716c' }}
-                      />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <span className="text-sm font-semibold block">{label}</span>
-                      <span className="text-xs text-stone-600">{description}</span>
-                    </div>
-                    {active && (
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: GREEN }} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom nav bar — clean, spacious design */}
+      <CreateSheet open={createOpen} onClose={() => setCreateOpen(false)} onNavigate={onNavigate} />
       <nav
+        aria-label="Main"
         className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
-        style={{
-          backgroundColor: '#ffffff',
-          borderTop: '1px solid #e7e5e4',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-        }}
+        style={{ backgroundColor: '#ffffff', borderTop: '1px solid #e7e5e4', paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="flex items-stretch justify-around px-2 pt-2 pb-2">
-          {PRIMARY_NAV.map(({ view, label, icon: Icon }) => {
-            const active = currentView === view;
-            const badge = view === View.Connections && pendingConnectionCount > 0 ? pendingConnectionCount : 0;
-            return (
+        <ul className="mx-auto flex max-w-xl items-stretch">
+          {tabs.map(({ key, label, Icon, active, badge = 0, onPress, ariaLabel, haspopup }) => (
+            <li key={key} className="min-w-0 flex-1">
               <button
-                key={view}
-                onClick={() => navigate(view)}
-                className="flex flex-col items-center justify-center gap-1 flex-1 py-1.5 rounded-xl transition-all active:scale-95 active:bg-stone-50"
-                style={{ 
-                  color: active ? GREEN : '#57534e', 
-                  minWidth: 0,
-                  minHeight: '52px', // Minimum 44px touch target + padding
-                }}
+                type="button"
+                onClick={onPress}
+                aria-label={ariaLabel ?? label}
+                aria-current={active && !haspopup ? 'page' : undefined}
+                aria-haspopup={haspopup ? 'dialog' : undefined}
+                aria-expanded={haspopup ? active && (key === 'create' ? createOpen : accountOpen) : undefined}
+                className="relative flex h-16 min-h-[44px] w-full min-w-[44px] flex-col items-center justify-center gap-1 transition-colors active:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                style={{ color: active ? GREEN : '#57534e', ['--tw-ring-color' as any]: GREEN }}
               >
-                <span className="relative flex items-center justify-center">
-                  <Icon 
-                    className="h-6 w-6" 
-                    strokeWidth={active ? 2.5 : 1.8} 
-                  />
+                {/* active indicator: a bar on the tab's top edge */}
+                <span aria-hidden="true" className="absolute left-1/2 top-0 h-[3px] w-8 -translate-x-1/2 rounded-b-full transition-opacity" style={{ backgroundColor: GREEN, opacity: active ? 1 : 0 }} />
+                <span className="relative flex h-6 w-6 items-center justify-center">
+                  {key === 'you' && currentUser?.avatarUrl ? (
+                    <img src={currentUser.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" style={{ outline: `2px solid ${active ? 'var(--bw-green)' : '#d6d3d1'}`, outlineOffset: 1 }} />
+                  ) : (
+                    <Icon />
+                  )}
                   {badge > 0 && (
-                    <span className="absolute -top-1.5 -right-2.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1.5 shadow-sm">
+                    <span aria-hidden="true" className="absolute -right-2.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white">
                       {badge > 9 ? '9+' : badge}
                     </span>
                   )}
                 </span>
-                <span 
-                  className="text-[11px] font-medium leading-none"
-                  style={{ fontWeight: active ? 600 : 500 }}
-                >
-                  {label}
-                </span>
+                <span className="max-w-full truncate text-[11px] leading-none" style={{ fontWeight: active ? 700 : 500 }}>{label}</span>
               </button>
-            );
-          })}
-
-          {/* More button */}
-          <button
-            onClick={() => setShowMore(m => !m)}
-            className="flex flex-col items-center justify-center gap-1 flex-1 py-1.5 rounded-xl transition-all active:scale-95 active:bg-stone-50"
-            style={{ 
-              color: isMoreActive || showMore ? GREEN : '#57534e', 
-              minWidth: 0,
-              minHeight: '52px',
-            }}
-          >
-            <span className="relative flex items-center justify-center">
-              <MoreHorizontal 
-                className="h-6 w-6" 
-                strokeWidth={isMoreActive || showMore ? 2.5 : 1.8} 
-              />
-              {isMoreActive && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ backgroundColor: GREEN }} />
-              )}
-            </span>
-            <span 
-              className="text-[11px] font-medium leading-none"
-              style={{ fontWeight: isMoreActive || showMore ? 600 : 500 }}
-            >
-              More
-            </span>
-          </button>
-
-          {/* Profile */}
-          <button
-            onClick={() => navigate(View.Profile)}
-            className="flex flex-col items-center justify-center gap-1 flex-1 py-1.5 rounded-xl transition-all active:scale-95 active:bg-stone-50"
-            style={{ 
-              color: currentView === View.Profile ? GREEN : '#57534e', 
-              minWidth: 0,
-              minHeight: '52px',
-            }}
-          >
-            <span className="flex items-center justify-center">
-              {currentUser?.avatarUrl ? (
-                <img
-                  src={currentUser.avatarUrl}
-                  alt=""
-                  className="rounded-full object-cover"
-                  style={{
-                    width: 26, 
-                    height: 26,
-                    outline: currentView === View.Profile 
-                      ? `2.5px solid ${GREEN}` 
-                      : '2px solid #e7e5e4',
-                    outlineOffset: 1,
-                  }}
-                />
-              ) : (
-                <User 
-                  className="h-6 w-6" 
-                  strokeWidth={currentView === View.Profile ? 2.5 : 1.8} 
-                />
-              )}
-            </span>
-            <span 
-              className="text-[11px] font-medium leading-none"
-              style={{ fontWeight: currentView === View.Profile ? 600 : 500 }}
-            >
-              Profile
-            </span>
-          </button>
-        </div>
+            </li>
+          ))}
+        </ul>
       </nav>
     </>
   );

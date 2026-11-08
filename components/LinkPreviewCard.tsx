@@ -53,14 +53,14 @@ export const LinkPreviewCard: React.FC<CardProps> = ({ preview, onRemove }) => {
             style={{ aspectRatio: '1.91 / 1' }}
           />
         )}
-        <div className="px-3.5 py-3">
+        <div className="px-3 py-2.5 sm:px-3.5 sm:py-3">
           <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-stone-600 min-w-0">
             <span className="truncate">{source}</span>
             {!showImage && <ExternalLink size={11} className="flex-shrink-0" aria-hidden="true" />}
           </p>
           <p className="mt-1 text-sm font-bold leading-snug text-stone-900 line-clamp-2 break-words">{preview.title}</p>
           {preview.description && (
-            <p className="mt-1 text-xs leading-relaxed text-stone-600 line-clamp-2 break-words">{preview.description}</p>
+            <p className="mt-1 text-xs leading-snug sm:leading-relaxed text-stone-600 line-clamp-2 break-words">{preview.description}</p>
           )}
           {preview.siteName && preview.siteName.toLowerCase() !== preview.hostname.toLowerCase() && (
             <p className="mt-1.5 text-[11px] text-stone-500 truncate">{preview.hostname}</p>

@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect, useRef, Suspense, lazy } from 
 import SparksTray from './components/sparks/SparksTray';
 import ProveView from './components/ProveView';
 import { Header } from './components/Header';
-import { MobileNav } from './components/MobileNav';
+import { MobileNav, MOBILE_NAV_CLEARANCE } from './components/MobileNav';
+import AccountSheet from './components/mobile/AccountSheet';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification, LinkPreview } from './types';
 import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/claudeService';
 import { LoadingIcon } from './constants';
@@ -222,6 +223,10 @@ const MainApp: React.FC = () => {
   const [showSecurityPage, setShowSecurityPage] = useState(false);
   const [showConnectPage, setShowConnectPage] = useState(false);
   const [showAboutPage, setShowAboutPage]   = useState(false);
+  // The phone's You menu (profile, settings, support, legal); opened from the You tab and the header avatar.
+  const [accountOpen, setAccountOpen] = useState(false);
+  // Where the next page of the feed starts. Posts load in pages so a long feed never has to be fetched at once.
+  const postCursor = useRef<{ last: any; done: boolean }>({ last: null, done: true });
   // bewatu-factory (and other external callers) link directly to
   // /terms, /privacy and /community-guidelines expecting real pages --
   // same deep-link gap as /login and /register (see vercel.json rewrites).
@@ -450,6 +455,8 @@ const MainApp: React.FC = () => {
       // subscribeToMessageThreads effect below populates them instead, as
       // soon as `data` exists, and keeps them live for the whole session.
       const firestoreMessages: Message[] = [];
+
+      postCursor.current = { last: firestorePosts.lastDoc ?? null, done: !firestorePosts.lastDoc || firestorePosts.posts.length < 50 };
 
       const currentUid = fbUser?.uid ?? '';
       const otherUsers = firestoreUsers.filter(u =>
@@ -713,6 +720,21 @@ const MainApp: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Next page of the main feed (30 posts). Returns { done: true } when the server has no more.
+  const loadMorePosts = useCallback(async (): Promise<{ done: boolean }> => {
+    const c = postCursor.current;
+    if (c.done || !c.last) return { done: true };
+    const page = await fetchPosts(30, c.last);
+    postCursor.current = { last: page.lastDoc ?? c.last, done: !page.lastDoc || page.posts.length < 30 };
+    const incoming = page.posts.filter((p: any) => !p.circleId);
+    setData(d => {
+      if (!d) return d;
+      const have = new Set(d.posts.map(p => p.id));
+      return { ...d, posts: [...d.posts, ...incoming.filter(p => !have.has(p.id))] };
+    });
+    return { done: postCursor.current.done };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -1779,6 +1801,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               onDeletePost={handleDeletePost}
               onReportContent={(id, preview) => openReport({ content: { type: 'post', id, preview } }, 'content')}
               onViewCompany={handleViewCompany}
+              onLoadMorePosts={loadMorePosts}
             />
           </div>
         );
@@ -2115,7 +2138,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {showSecurityPage && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} />
+              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   <SecurityPrivacyPage
@@ -2130,6 +2153,28 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               </main>
             </div>
           </div>
+        )}
+
+        {/* Phone "You" menu: settings, support, about and legal (what the full footer used to carry) */}
+        {currentUser && (
+          <AccountSheet
+            open={accountOpen}
+            onClose={() => setAccountOpen(false)}
+            onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }}
+            onLogout={handleLogout}
+            onOpenSettings={() => setShowSecurityPage(true)}
+            onReportConcern={() => openReport(undefined, undefined)}
+            onOpenAbout={() => setShowAboutPage(true)}
+            onOpenTerms={() => setShowTermsPage(true)}
+            onOpenPrivacy={() => setShowPrivacyPage(true)}
+            onOpenCommunity={() => setShowCommunityPage(true)}
+            onOpenConnect={handleNavigateToConnect}
+            notificationCount={unreadNotifCount}
+            onSwitchToRecruiter={currentUser.isRecruiter ? handleSwitchProfile : undefined}
+            onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined}
+            onGoToFactory={() => goToFactory(fbUser ?? null)}
+            factoryGated={isEngagementGated(currentUser)}
+          />
         )}
 
         {/* Our story overlay */}
@@ -2148,8 +2193,8 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {publicProfileUserId && data && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} />
-              <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
+              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)} />
+              <main className={`w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 ${MOBILE_NAV_CLEARANCE} overflow-x-hidden`}>
                 <Suspense fallback={<div />}>
                   <ProfileOverlay
                     userId={publicProfileUserId}
@@ -2179,7 +2224,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                   />
                 </Suspense>
               </main>
-              <MobileNav currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} />
+              <MobileNav currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onOpenAccount={() => setAccountOpen(true)} accountOpen={accountOpen} />
             </div>
           </div>
         )}
@@ -2204,9 +2249,9 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               setPeopleSearch(q);
               handleSetView(View.People);
             }}
-            onOpenSettings={() => setShowSecurityPage(true)}
+            onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)}
           />
-          <main className="flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-24 sm:pb-10 overflow-x-hidden">
+          <main className={`flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 ${MOBILE_NAV_CLEARANCE} overflow-x-hidden`}>
             <PullToRefresh onRefresh={async () => { if (currentUser) await loadAppData(currentUser); }}>
               {content}
             </PullToRefresh>
@@ -2255,7 +2300,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               }}
             />
           )}
-          <MobileNav currentView={currentView} onNavigate={handleSetView} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />
+          <MobileNav currentView={currentView} onNavigate={handleSetView} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} onOpenAccount={() => setAccountOpen(true)} accountOpen={accountOpen} />
         </div>
 
         {/* ── Legal page overlays ────────────────────────────────────────── */}

@@ -18,7 +18,7 @@ const Footer: React.FC<FooterProps> = ({
   onNavigateToCommunity,
 }) => {
   return (
-    <footer className="border-t mt-12" style={{ borderColor: '#e7e5e4', backgroundColor: '#ffffff' }}>
+    <footer className="hidden md:block border-t mt-12" aria-label="Site links" style={{ borderColor: '#e7e5e4', backgroundColor: '#ffffff' }}>
       {/* pb-24 clears MobileNav.tsx's fixed bottom-0 bar (md:hidden, ~70px
           tall) -- without it, this footer's later links and the copyright
           line wrap onto lines that render underneath the fixed nav and are

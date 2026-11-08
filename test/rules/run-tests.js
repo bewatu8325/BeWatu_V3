@@ -251,6 +251,17 @@ async function main() {
   await check("nobody can write a banner from a browser", sAdmin.doc("arena_sponsorship_assets/s-ok").set({ banner: "data:image/png;base64,BBBB" }), "DENY");
   await check("arena_sponsorship_rate_limits: no client can read or write the counters", me.doc("arena_sponsorship_rate_limits/me").set({ count: 0 }), "DENY");
 
+  console.log("\n== staff messaging: only the server writes; members can read the banner ==");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("site_announcements/a1").set({ title: "Notice", body: "Hello", active: true, severity: "info", audience: "all" }); await ctx.firestore().doc("comms_campaigns/c1").set({ title: "Secret draft", createdBy: { uid: "x" } }); });
+  await check("a signed-in member can read a site announcement", me.doc("site_announcements/a1").get(), "ALLOW");
+  await check("members can list the active announcements (the banner query)", me.collection("site_announcements").where("active", "==", true).get(), "ALLOW");
+  await check("a signed-out visitor cannot read announcements", testEnv.unauthenticatedContext().firestore().doc("site_announcements/a1").get(), "DENY");
+  await check("a member cannot publish an announcement", me.collection("site_announcements").add({ title: "Fake", body: "Send us your password", active: true, severity: "critical", audience: "all" }), "DENY");
+  await check("a member cannot edit or end an announcement", me.doc("site_announcements/a1").update({ active: false }), "DENY");
+  await check("even a platform admin's browser cannot write an announcement (it goes through the server)", padmin.doc("site_announcements/a2").set({ title: "x", active: true }), "DENY");
+  await check("comms_campaigns: no member can read or write campaigns", me.doc("comms_campaigns/c1").get(), "DENY");
+  await check("comms_campaigns: ops staff browsers cannot read them either (the server returns masked history)", ops1.doc("comms_campaigns/c1").get(), "DENY");
+  await check("a member cannot write a notification of type 'announcement' to someone else", me.collection("users/victim/notifications").add({ type: "announcement", message: "Click here", isRead: false, createdAt: new Date() }), "DENY");
   await check("link_previews (cache): no client can read it", me.doc("link_previews/abc").get(), "DENY");
   await check("link_previews (cache): no client can write it (no poisoning a shared preview)", me.doc("link_previews/abc").set({ preview: goodCard }), "DENY");
   await check("link_previews (cache): ops staff cannot write it either", ops1.doc("link_previews/abc").set({ preview: goodCard }), "DENY");
