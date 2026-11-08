@@ -4,7 +4,7 @@ Audited against BeWatu_V3 (this repo) and `bewatu-factory` on the day the redesi
 
 **Status key.** Built: it exists and does what the label says. Partial: something real exists but it is narrower or different from the label. Not built: nothing behind the label.
 
-**Headline numbers.** Of the 28 features the four plans list (leaving out the "Everything in …" lines): **12 built, 11 partial, 5 not built.**
+**Headline numbers.** Of the 29 features the four plans list (leaving out the "Everything in …" lines): **14 built, 10 partial, 5 not built.**
 
 ## What is actually gated today
 
@@ -22,7 +22,7 @@ So after a purchase, only the tier value changes. That matches your plan not to 
 |---|---|---|---|
 | Full network access | Built | Connections, follows, messaging, communities | Define "full" so it is not a vague promise |
 | Unlimited pod memberships | Built | No cap exists anywhere | Nothing |
-| Browse ideas & arenas | **Partial** | Arenas: built. Ideas live only in Factory (`bewatu-factory/app/ideas`); V3's `IdeaNetwork` component is not routed | Decide: open Factory's Ideas to every signed-in member, show a read-only ideas list in BeWatu, or drop "ideas" from Explorer |
+| Browse arenas | Built | Arenas home, industries and challenges | Nothing. (Ideas used to be listed here too; they live only in Factory, so they moved to the Factory plan.) |
 | Basic profile | Built | Profile, skills, reels, portfolio | Nothing |
 | Follow people & organizations | Built | Person follow requests; organization follows | Nothing |
 
@@ -43,6 +43,7 @@ So after a purchase, only the tier value changes. That matches your plan not to 
 | Feature | Status | What exists | To make it true |
 |---|---|---|---|
 | Factory workspace | Built | `factory.bewatu.com`: ideas, teams, pipeline, arena | Nothing |
+| Browse and submit startup ideas | Built | `/ideas` in Factory: submit, upvote, discuss, trending | Available once a member can reach Factory (today: a week of activity, then the Factory plan) |
 | Idea validation suite | Partial | Idea submission, upvotes, discussion; an "idea validation" score shown to investors | Build validation tools (surveys, waitlist, experiments) or reword to "Idea feedback" |
 | Startup pipeline tools | Built | `/pipeline`: projects, startups, teams, graduate to startup | Nothing |
 | Incubator program access | Built | Programs list and applications | Needs programs created in the data |
@@ -79,12 +80,12 @@ So after a purchase, only the tier value changes. That matches your plan not to 
 ## About the page itself
 
 - **Annual billing is display only.** Checkout has one Stripe price per plan and no billing interval (`api/create-subscription.ts`). A member who picks Annual is still charged monthly. Hide the toggle until annual prices exist in Stripe, or add them.
-- **"Save 17%" is wrong for Pro.** Pro's annual price is $190 against $240 monthly, a 21% saving. Factory and Investor are 16.7%. Pro would be $200 to match.
+- **"Save 17%" now holds for every plan.** Pro's annual price was $190 (a 21% saving); it is now $200, matching Factory and Investor at 16.7%. Display only until annual prices exist in Stripe.
 - **Trials.** Pro gets 30 days and Factory and Investor 14 days (server side). The redesigned cards no longer print this; the upgrade dialog still states it before payment.
 - **Prices.** Pro's $20 is confirmed against Stripe. Factory $49 and Investor $199 are not confirmed in code.
 
 ## Suggested order
 
-1. **Fix what misleads today:** the Investor self-serve conflict, annual billing, the Pro saving figure, and "Browse ideas" for Explorer.
+1. **Fix what misleads today:** the Investor self-serve conflict and annual billing. (The Pro saving figure and "Browse ideas" for Explorer are fixed.)
 2. **Reword the partial ones** where the honest name is smaller (Idea feedback, Startup scoring, Find cofounders).
 3. **Build or cut the five not built:** Expert marketplace, Arena priority access, 3 team members included, Early access to Factory startups, Monthly curated report. Plus API access for Enterprise.

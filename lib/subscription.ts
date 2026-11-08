@@ -31,7 +31,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     features: [
       'Full network access',
       'Unlimited pod memberships',
-      'Browse ideas & arenas',
+      'Browse arenas',
       'Basic profile',
       'Follow people & organizations',
     ],
@@ -47,7 +47,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     // price lookup at all, so this figure may be display-only and stale
     // too. Not touched without the same kind of confirmation.
     price:       20,
-    priceAnnual: 190,
+    priceAnnual: 200,   // $20 x 12 = $240, so $200 is the 17% annual saving the pricing page states
     level:       3,
     color:       'text-blue-500',
     features: [
@@ -72,6 +72,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     features: [
       'Everything in Pro',
       'Factory workspace',
+      'Browse and submit startup ideas',
       'Idea validation suite',
       'Startup pipeline tools',
       'Incubator program access',
