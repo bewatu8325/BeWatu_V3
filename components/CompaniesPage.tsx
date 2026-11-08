@@ -17,17 +17,19 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Search, X, SlidersHorizontal, Building2, AlertTriangle, Loader2, Users, Sparkles, GraduationCap, Stethoscope, Factory, HeartPulse } from 'lucide-react';
+import { Search, X, SlidersHorizontal, Building2, AlertTriangle, Loader2, Users, Sparkles } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import {
   queryCompanies, suggestCompanies, setFollowing, appendUnique, queryKey,
   type CompaniesQuery, type CompaniesPage as PageData, type CompanyItem, type CompaniesView, type CompaniesSort,
 } from '../lib/companiesService';
 import CompanyCard, { CompanyCardSkeleton } from './companies/CompanyCard';
-import { CATEGORIES, type CategoryKey, type OrganizationType } from '../lib/organizations';
+import { categorySelectionLabel, parseCategoryParam, categoryParam, type OrganizationType } from '../lib/organizations';
+import { fromSearch, toSearch, isDirectoryPath } from '../lib/orgUrlState';
+import CategoryExplorer from './organizations/CategoryExplorer';
+import BottomSheet from './mobile/BottomSheet';
 
 const GREEN = 'var(--bw-green)';
-const POPULAR_CHIPS = 6;
 const STORAGE_KEY = 'beWatuCompaniesState';
 const SNAPSHOT_MS = 5 * 60_000;
 
@@ -38,20 +40,12 @@ interface CompaniesPageProps {
 }
 
 interface UiState {
-  view: CompaniesView; q: string; industry: string; category: CategoryKey | ''; orgType: OrganizationType | ''; country: string;
+  view: CompaniesView; q: string; industry: string; category: string; orgType: OrganizationType | ''; country: string;
   hiring: boolean; challenges: boolean; sponsor: boolean; sort: CompaniesSort;
 }
 
-const VIEW_LABEL: Record<CompaniesView, string> = { for_you: 'For You', following: 'Following', all: 'All Organizations' };
+const VIEW_LABEL: Record<CompaniesView, string> = { for_you: 'For You', following: 'Following', all: 'All' };
 const SORT_LABEL: Record<CompaniesSort, string> = { relevance: 'Relevance', recent: 'Recent activity', followers: 'Most followed', alpha: 'A–Z' };
-// The four prominent categories get a quick-filter chip each (in this order); "Other" lives in the dropdown.
-const CHIP_CATEGORIES = CATEGORIES.filter(c => c.key !== 'other');
-const CATEGORY_ICON: Record<CategoryKey, React.ReactNode> = {
-  colleges: <GraduationCap size={15} aria-hidden="true" />, medical: <Stethoscope size={15} aria-hidden="true" />,
-  hospitals: <HeartPulse size={15} aria-hidden="true" />, manufacturing: <Factory size={15} aria-hidden="true" />, other: <Building2 size={15} aria-hidden="true" />,
-};
-const isCategory = (v: unknown): v is CategoryKey => CATEGORIES.some(c => c.key === v);
-
 // ── remembered between visits ────────────────────────────────────────────────
 function readSaved(): Partial<UiState> | null {
   try { const raw = sessionStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
@@ -75,19 +69,21 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
   const { currentUser, fbUser } = useFirebase();
   const hasPrefs = !!((currentUser as any)?.industry || ((currentUser as any)?.professionalGoals?.length ?? 0) > 0);
 
+  // The address wins (a shared or reloaded link), then what this session remembered, then plain defaults.
+  const fromUrl = useMemo(() => (typeof window !== 'undefined' && isDirectoryPath(window.location.pathname) ? fromSearch(window.location.search) : {}), []);
   const [ui, setUi] = useState<UiState>(() => {
-    const s = readSaved();
+    const s = { ...(readSaved() ?? {}), ...fromUrl } as Partial<UiState>;
     return {
       view: (['for_you', 'following', 'all'] as const).includes(s?.view as any) ? s!.view! : hasPrefs ? 'for_you' : 'all',
       q: typeof s?.q === 'string' ? s.q : '', industry: typeof s?.industry === 'string' ? s.industry : '',
-      category: isCategory(s?.category) ? s!.category! : '', orgType: typeof s?.orgType === 'string' ? s.orgType as OrganizationType : '', country: typeof s?.country === 'string' ? s.country : '',
+      category: categoryParam(parseCategoryParam(s?.category)), orgType: typeof s?.orgType === 'string' ? s.orgType as OrganizationType : '', country: typeof s?.country === 'string' ? s.country : '',
       hiring: !!s?.hiring, challenges: !!s?.challenges, sponsor: !!s?.sponsor,
       sort: (['relevance', 'recent', 'followers', 'alpha'] as const).includes(s?.sort as any) ? s!.sort! : 'relevance',
     };
   });
   // The profile can finish loading after this page opens. If the member has never picked a view
   // (nothing remembered, nothing clicked), start them on For You once we know they have interests.
-  const hadSavedView = useRef(!!readSaved()?.view);
+  const hadSavedView = useRef(!!readSaved()?.view || !!fromUrl.view);
   const pickedView = useRef(false);
   useEffect(() => {
     if (hasPrefs && !hadSavedView.current && !pickedView.current) setUi(p => (p.view === 'all' ? { ...p, view: 'for_you' } : p));
@@ -115,6 +111,13 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
   // keep the typed text and the committed query in step, and remember the choices
   useEffect(() => { setUi(p => (p.q === debouncedQ ? p : { ...p, q: debouncedQ })); }, [debouncedQ]);
   useEffect(() => { writeSaved(ui); }, [ui]);
+  // Keep the address in step with the choices (without adding history entries), and leave it clean when the page closes.
+  useEffect(() => {
+    try { window.history.replaceState(window.history.state, '', `/organizations${toSearch(ui)}`); } catch { /* not allowed here */ }
+  }, [ui]);
+  useEffect(() => () => {
+    try { if (isDirectoryPath(window.location.pathname)) window.history.replaceState(window.history.state, '', '/'); } catch { /* ignore */ }
+  }, []);
 
   // ── first page for the current query ──
   const loadFirst = useCallback(async (force = false) => {
@@ -211,26 +214,31 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
   const categoryCounts = page?.categories ?? [];
   const types = page?.types ?? [];
   const countries = page?.countries ?? [];
-  const countOf = (k: CategoryKey) => categoryCounts.find(c => c.key === k)?.count;
-  const moreCount = (ui.hiring ? 1 : 0) + (ui.challenges ? 1 : 0) + (ui.sponsor ? 1 : 0) + (ui.industry ? 1 : 0) + (ui.orgType ? 1 : 0) + (ui.country ? 1 : 0);
-  const anyFilter = !!ui.industry || !!ui.category || !!ui.orgType || !!ui.country || ui.hiring || ui.challenges || ui.sponsor || !!qInput.trim();
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!moreOpen) return;
-    const down = (e: MouseEvent) => { if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false); };
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoreOpen(false); };
-    document.addEventListener('mousedown', down); document.addEventListener('keydown', key);
-    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
-  }, [moreOpen]);
+  const categoryLabel = categorySelectionLabel(ui.category);
+  const typeLabel = ui.orgType ? (types.find(t => t.key === ui.orgType)?.label ?? ui.orgType.replace(/_/g, ' ')) : '';
+  // Until the facets arrive (a shared link), show the saved key tidied up rather than raw lower case.
+  const tidy = (v: string) => v.replace(/\b\w/g, c => c.toUpperCase());
+  const industryLabel = ui.industry ? (facets.find(f => f.key === ui.industry)?.label ?? tidy(ui.industry)) : '';
+  const countryLabel = ui.country ? (countries.find(c => c.key === ui.country)?.label ?? tidy(ui.country)) : '';
+  // Everything chosen beyond search, as removable chips, so what is filtering the list is never hidden.
+  const active: { id: string; label: string; clear: () => void }[] = [
+    ...(categoryLabel ? [{ id: 'category', label: categoryLabel, clear: () => set('category', '') }] : []),
+    ...(ui.orgType ? [{ id: 'type', label: typeLabel, clear: () => set('orgType', '') }] : []),
+    ...(ui.industry ? [{ id: 'industry', label: industryLabel, clear: () => set('industry', '') }] : []),
+    ...(ui.country ? [{ id: 'country', label: countryLabel, clear: () => set('country', '') }] : []),
+    ...(ui.hiring ? [{ id: 'hiring', label: 'Hiring now', clear: () => set('hiring', false) }] : []),
+    ...(ui.challenges ? [{ id: 'challenges', label: 'Has live challenges', clear: () => set('challenges', false) }] : []),
+    ...(ui.sponsor ? [{ id: 'sponsor', label: 'Sponsors an Arena', clear: () => set('sponsor', false) }] : []),
+  ];
+  // The filter sheet holds the advanced ones; the category has its own picker.
+  const sheetCount = active.filter(a => a.id !== 'category').length;
+  const anyFilter = active.length > 0 || !!qInput.trim();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const clearAll = () => { setQInput(''); setUi(p => ({ ...p, q: '', industry: '', category: '', orgType: '', country: '', hiring: false, challenges: false, sponsor: false })); };
-  const activeCategoryLabel = ui.category ? CATEGORIES.find(c => c.key === ui.category)?.label : '';
+  const activeCategoryLabel = categoryLabel;
 
   const total = page?.total ?? 0;
   const forYou = page?.meta.forYou;
-  const chipCls = (on: boolean) => `whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 ${on ? 'text-white' : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'}`;
-  const chipStyle = (on: boolean): React.CSSProperties => ({ ['--tw-ring-color' as any]: GREEN, ...(on ? { backgroundColor: GREEN, borderColor: GREEN } : {}) });
-
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
       <header className="mb-5">
@@ -249,117 +257,104 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
         ))}
       </div>
 
-      {/* Search + sort */}
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" aria-hidden="true" />
-          <input
-            type="text" role="combobox" aria-expanded={showSugg} aria-controls={listId} aria-autocomplete="list"
-            aria-activedescendant={activeIdx >= 0 ? `${listId}-${activeIdx}` : undefined}
-            aria-label="Search organizations" placeholder="Search by name, industry, place or ticker"
-            value={qInput} onChange={e => setQInput(e.target.value)}
-            onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 120)} onKeyDown={onSearchKey}
-            className="w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-10 text-sm focus:outline-none focus-visible:ring-2"
-            style={{ ['--tw-ring-color' as any]: GREEN }}
-          />
-          {qInput && (
-            <button type="button" aria-label="Clear search" onClick={() => setQInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-stone-500 hover:bg-stone-100"><X size={15} /></button>
-          )}
-          {showSugg && (
-            <ul id={listId} role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg">
-              {options.map((o, i) => (
-                <li key={o.type + o.value} id={`${listId}-${i}`} role="option" aria-selected={i === activeIdx}
-                  onMouseDown={e => { e.preventDefault(); choose(o); }}
-                  className={`flex cursor-pointer items-center justify-between gap-3 px-3.5 py-2 text-sm ${i === activeIdx ? 'bg-stone-100' : 'hover:bg-stone-50'}`}>
-                  <span className="truncate text-stone-900">{o.label}</span>
-                  <span className="flex-shrink-0 text-xs text-stone-500">{o.hint}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <label className="flex items-center gap-2 text-sm text-stone-600">
-          <span className="sr-only">Category</span>
-          <select aria-label="Category" value={ui.category} onChange={e => set('category', (e.target.value || '') as CategoryKey | '')}
-            className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus-visible:ring-2 sm:w-auto" style={{ ['--tw-ring-color' as any]: GREEN }}>
-            <option value="">All categories</option>
-            {CATEGORIES.map(c => {
-              const n = countOf(c.key);
-              return <option key={c.key} value={c.key}>{c.label}{n !== undefined ? ` (${n.toLocaleString()})` : ''}</option>;
-            })}
-          </select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-stone-600">
-          <span className="sr-only sm:not-sr-only">Sort</span>
-          <select aria-label="Sort organizations" value={ui.sort} onChange={e => set('sort', e.target.value as CompaniesSort)}
-            className="rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus-visible:ring-2" style={{ ['--tw-ring-color' as any]: GREEN }}>
-            {(Object.keys(SORT_LABEL) as CompaniesSort[]).map(s => <option key={s} value={s}>{SORT_LABEL[s]}</option>)}
-          </select>
-        </label>
+      {/* Search */}
+      <div className="relative mb-3">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" aria-hidden="true" />
+        <input
+          type="text" role="combobox" aria-expanded={showSugg} aria-controls={listId} aria-autocomplete="list"
+          aria-activedescendant={activeIdx >= 0 ? `${listId}-${activeIdx}` : undefined}
+          aria-label="Search organizations" placeholder="Search organizations"
+          value={qInput} onChange={e => setQInput(e.target.value)}
+          onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 120)} onKeyDown={onSearchKey}
+          className="min-h-[44px] w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-11 text-base focus:outline-none focus-visible:ring-2 sm:text-sm"
+          style={{ ['--tw-ring-color' as any]: GREEN }}
+        />
+        {qInput && (
+          <button type="button" aria-label="Clear search" onClick={() => setQInput('')} className="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-stone-500 hover:bg-stone-100"><X size={16} /></button>
+        )}
+        {showSugg && (
+          <ul id={listId} role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg">
+            {options.map((o, i) => (
+              <li key={o.type + o.value} id={`${listId}-${i}`} role="option" aria-selected={i === activeIdx}
+                onMouseDown={e => { e.preventDefault(); choose(o); }}
+                className={`flex min-h-[44px] cursor-pointer items-center justify-between gap-3 px-3.5 py-2 text-sm ${i === activeIdx ? 'bg-stone-100' : 'hover:bg-stone-50'}`}>
+                <span className="text-stone-900">{o.label}</span>
+                <span className="flex-shrink-0 text-xs text-stone-500">{o.hint}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
-      {/* Category quick filters + more filters */}
-      <div className="mb-4 flex items-center gap-2">
-        <div className="-mx-1 flex w-0 min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 py-1" role="group" aria-label="Categories">
-          <button type="button" aria-pressed={!ui.category} onClick={() => set('category', '')} className={chipCls(!ui.category)} style={chipStyle(!ui.category)}>All</button>
-          {CHIP_CATEGORIES.map(c => {
-            const on = ui.category === c.key; const n = countOf(c.key);
-            return (
-              <button key={c.key} type="button" aria-pressed={on} onClick={() => set('category', on ? '' : c.key)} title={c.blurb}
-                className={`${chipCls(on)} inline-flex items-center gap-1.5`} style={chipStyle(on)}>
-                {CATEGORY_ICON[c.key]} {c.label}
-                {n !== undefined && <span className={on ? 'text-white/80' : 'text-stone-500'}>{n.toLocaleString()}</span>}
-              </button>
-            );
-          })}
-          {ui.category === 'other' && (
-            <button type="button" aria-pressed onClick={() => set('category', '')} className={`${chipCls(true)} inline-flex items-center gap-1`} style={chipStyle(true)}>
-              Other organizations <X size={13} aria-label="Remove category filter" />
-            </button>
-          )}
-        </div>
-        <div className="relative flex-shrink-0" ref={moreRef}>
-          <button type="button" aria-expanded={moreOpen} aria-haspopup="dialog" onClick={() => setMoreOpen(o => !o)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 focus:outline-none focus-visible:ring-2" style={{ ['--tw-ring-color' as any]: GREEN }}>
-            <SlidersHorizontal size={14} aria-hidden="true" /> More filters
-            {moreCount > 0 && <span className="rounded-full px-1.5 text-xs font-bold text-white" style={{ backgroundColor: GREEN }}>{moreCount}</span>}
-          </button>
-          {moreOpen && (
-            <div role="dialog" aria-label="More filters" className="absolute right-0 z-20 mt-2 max-h-[70vh] w-72 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-4 shadow-xl">
-              <label className="block text-xs font-semibold text-stone-700" htmlFor={`${listId}-type`}>Organization type</label>
-              <select id={`${listId}-type`} value={ui.orgType} onChange={e => set('orgType', e.target.value as OrganizationType | '')} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm">
-                <option value="">Any type</option>
-                {ui.orgType && !types.some(t => t.key === ui.orgType) && <option value={ui.orgType}>{ui.orgType.replace(/_/g, ' ')} (0)</option>}
-                {types.map(t => <option key={t.key} value={t.key}>{t.label} ({t.count.toLocaleString()})</option>)}
-              </select>
-              <label className="mt-4 block text-xs font-semibold text-stone-700" htmlFor={`${listId}-ind`}>Industry</label>
-              <select id={`${listId}-ind`} value={ui.industry} onChange={e => set('industry', e.target.value)} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm">
-                <option value="">All industries</option>
-                {ui.industry && !facets.some(f => f.key === ui.industry) && <option value={ui.industry}>{ui.industry} (0)</option>}
-                {facets.map(f => <option key={f.key} value={f.key}>{f.label} ({f.count.toLocaleString()})</option>)}
-              </select>
-              <label className="mt-4 block text-xs font-semibold text-stone-700" htmlFor={`${listId}-country`}>Country</label>
-              <select id={`${listId}-country`} value={ui.country} onChange={e => set('country', e.target.value)} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm">
-                <option value="">Anywhere</option>
-                {ui.country && !countries.some(c => c.key === ui.country) && <option value={ui.country}>{ui.country} (0)</option>}
-                {countries.map(c => <option key={c.key} value={c.key}>{c.label} ({c.count.toLocaleString()})</option>)}
-              </select>
-              <fieldset className="mt-4 space-y-2">
-                <legend className="text-xs font-semibold text-stone-700">Activity</legend>
-                {([['hiring', 'Hiring now'], ['challenges', 'Has live challenges'], ['sponsor', 'Sponsors an Arena']] as const).map(([k, label]) => (
-                  <label key={k} className="flex items-center gap-2 text-sm text-stone-800">
-                    <input type="checkbox" checked={ui[k]} onChange={e => set(k, e.target.checked)} className="h-4 w-4 rounded border-stone-300" /> {label}
-                  </label>
-                ))}
-              </fieldset>
-              <div className="mt-4 flex justify-between">
-                <button type="button" onClick={clearAll} className="text-sm font-semibold text-stone-600 hover:underline">Clear all</button>
-                <button type="button" onClick={() => setMoreOpen(false)} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Done</button>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Sort and filters: two compact controls */}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <label className="flex min-w-0 flex-1 items-center gap-2 text-sm text-stone-600 sm:flex-none">
+          <span className="sr-only min-[400px]:not-sr-only">Sort</span>
+          <select aria-label="Sort organizations" value={ui.sort} onChange={e => set('sort', e.target.value as CompaniesSort)}
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 focus:outline-none focus-visible:ring-2 sm:flex-none" style={{ ['--tw-ring-color' as any]: GREEN }}>
+            {(Object.keys(SORT_LABEL) as CompaniesSort[]).map(k => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
+          </select>
+        </label>
+        <button type="button" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog"
+          className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-2 rounded-xl border border-stone-300 bg-white px-3.5 text-sm font-semibold text-stone-800 hover:bg-stone-50 focus:outline-none focus-visible:ring-2" style={{ ['--tw-ring-color' as any]: GREEN }}>
+          <SlidersHorizontal size={16} aria-hidden="true" /> Filters
+          {sheetCount > 0 && <span className="rounded-full px-1.5 text-xs font-bold text-white" style={{ backgroundColor: GREEN }}><span className="sr-only">{sheetCount} active: </span>{sheetCount}</span>}
+        </button>
       </div>
+
+      {/* One clean category picker (replaces the dropdown and the row of chips) */}
+      <CategoryExplorer selected={ui.category} counts={categoryCounts.map(c => ({ key: c.key, count: c.count }))} onSelect={c => set('category', c)} />
+
+      {/* What is filtering the list right now */}
+      {active.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Active filters">
+          {active.map(a => (
+            <button key={a.id} type="button" onClick={a.clear} aria-label={`Remove filter: ${a.label}`}
+              className="relative inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium text-white after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1" style={{ backgroundColor: GREEN, ['--tw-ring-color' as any]: GREEN }}>
+              <span className="text-left leading-tight">{a.label}</span><X size={14} aria-hidden="true" className="flex-shrink-0" />
+            </button>
+          ))}
+          <button type="button" onClick={clearAll} className="min-h-[44px] px-2 text-sm font-semibold text-stone-600 hover:underline">Clear all</button>
+        </div>
+      )}
+
+      {/* Advanced filters */}
+      <BottomSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters" allWidths
+        footer={
+          <div className="flex items-center justify-between gap-3">
+            <button type="button" onClick={clearAll} className="min-h-[44px] px-2 text-sm font-semibold text-stone-600 hover:underline">Clear all</button>
+            <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-[44px] rounded-xl px-5 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>
+              {loading ? 'Show results' : `Show ${total.toLocaleString()} ${total === 1 ? 'organization' : 'organizations'}`}
+            </button>
+          </div>
+        }>
+        <div className="space-y-4 pt-1">
+          {([
+            ['type', 'Organization type', ui.orgType, (v: string) => set('orgType', v as OrganizationType | ''), 'Any type', types.map(t => ({ k: t.key, l: `${t.label} (${t.count.toLocaleString()})` })), ui.orgType && !types.some(t => t.key === ui.orgType) ? { k: ui.orgType, l: `${ui.orgType.replace(/_/g, ' ')} (0)` } : null],
+            ['ind', 'Industry', ui.industry, (v: string) => set('industry', v), 'All industries', facets.map(f => ({ k: f.key, l: `${f.label} (${f.count.toLocaleString()})` })), ui.industry && !facets.some(f => f.key === ui.industry) ? { k: ui.industry, l: `${ui.industry} (0)` } : null],
+            ['country', 'Country', ui.country, (v: string) => set('country', v), 'Anywhere', countries.map(c => ({ k: c.key, l: `${c.label} (${c.count.toLocaleString()})` })), ui.country && !countries.some(c => c.key === ui.country) ? { k: ui.country, l: `${ui.country} (0)` } : null],
+          ] as const).map(([id, label, value, onChange, any, opts, missing]) => (
+            <div key={id}>
+              <label className="block text-sm font-semibold text-stone-800" htmlFor={`${listId}-${id}`}>{label}</label>
+              <select id={`${listId}-${id}`} value={value} onChange={e => onChange(e.target.value)} className="mt-1 min-h-[44px] w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-base sm:text-sm">
+                <option value="">{any}</option>
+                {missing && <option value={missing.k}>{missing.l}</option>}
+                {opts.map(o => <option key={o.k} value={o.k}>{o.l}</option>)}
+              </select>
+            </div>
+          ))}
+          <fieldset>
+            <legend className="text-sm font-semibold text-stone-800">Activity</legend>
+            <div className="mt-1">
+              {([['hiring', 'Hiring now'], ['challenges', 'Has live challenges'], ['sponsor', 'Sponsors an Arena']] as const).map(([k, label]) => (
+                <label key={k} className="flex min-h-[44px] items-center gap-3 text-sm text-stone-800">
+                  <input type="checkbox" checked={ui[k]} onChange={e => set(k, e.target.checked)} className="h-5 w-5 rounded border-stone-300" /> {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+      </BottomSheet>
 
       {/* For You hint: only when the list is the general fallback */}
       {ui.view === 'for_you' && forYou && forYou.fallback && !loading && items.length > 0 && (
