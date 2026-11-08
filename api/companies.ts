@@ -46,7 +46,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp, type Firestore, type DocumentData } from 'firebase-admin/firestore';
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -149,7 +149,7 @@ const httpsOrEmpty = (raw: unknown): string => {
 const LITE_FIELDS = ['name', 'industry', 'description', 'logoUrl', 'website', 'domain', 'ticker', 'verificationStatus', 'followerCount', 'adminUid', 'numericId',
   'organizationType', 'subindustries', 'location', 'parentId'];
 
-function toLite(id: string, x: FirebaseFirestore.DocumentData): Lite | null {
+function toLite(id: string, x: DocumentData): Lite | null {
   const name = clean(x.name, 120);
   if (!name) return null;
   const website = httpsOrEmpty(x.website);
@@ -179,7 +179,7 @@ async function scanCompanies(db: Firestore, limit: number): Promise<Lite[]> {
   return out;
 }
 
-async function readSnapshot(db: Firestore, meta: FirebaseFirestore.DocumentData): Promise<Lite[] | null> {
+async function readSnapshot(db: Firestore, meta: DocumentData): Promise<Lite[] | null> {
   const n = Number(meta.chunks) || 0;
   if (!meta.gen || n < 1 || n > 500) return null;
   const refs = Array.from({ length: n }, (_, i) => db.collection(SNAP).doc(`c_${meta.gen}_${i}`));
