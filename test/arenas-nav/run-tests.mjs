@@ -1,6 +1,7 @@
 // Run: tsx test/arenas-nav/run-tests.mjs
 // Guards the navigation model (addresses, which nav item a view belongs to), the Create menu's permissions and
 // ordering, and the Arenas landing logic (filters, featured pick, relevance, honest prize and deadline text).
+import { readFileSync } from 'node:fs';
 import { View } from '../../types.ts';
 import { pathFor, parsePath, navKeyFor, ARENA_INDUSTRY_VIEW, ARENA_CHALLENGE_VIEW } from '../../lib/routes.ts';
 import { createActions, canPostChallenge } from '../../lib/createActions.ts';
@@ -144,6 +145,21 @@ check('search covers reels, skills and professionals; skill and industry filters
 check('filter options are only values that really occur, most common first', () => {
   assert(optionsFrom(reels, r => r.skills).join() === 'SQL,Go', optionsFrom(reels, r => r.skills).join());
   assert(optionsFrom([], r => r.skills).length === 0, 'no reels, no options');
+});
+
+console.log('== regressions found in production ==');
+check('the Arenas page reads challenges with a query that needs no composite index (it once ordered by date and failed to load)', () => {
+  const src = readFileSync(new URL('../../lib/arenaClient.ts', import.meta.url), 'utf8');
+  const body = src.slice(src.indexOf('export async function loadChallenges'), src.indexOf('export interface ArenaInterests'));
+  assert(body.includes("where('verificationStatus', '==', 'live')"), 'filters to live challenges');
+  assert(!/orderBy\(/.test(body), 'must not order by a field: that needs an index that is not built');
+  assert(!src.includes("from './arenaService'") || !/getAllArenaChallenges/.test(body), 'must not go through getAllArenaChallenges (it orders by createdAt)');
+  const ind = src.slice(src.indexOf('export async function loadIndustries'), src.indexOf('/** A date stored as text'));
+  assert(ind.length > 50 && !/orderBy\(|where\(/.test(ind), 'industries are read without a server-side filter or order, so no index is needed');
+});
+check('the Community tab strip sticks at top-0: a larger offset pushes it down over the page heading inside the page\'s scroll container', () => {
+  const src = readFileSync(new URL('../../components/CommunityTabs.tsx', import.meta.url), 'utf8');
+  assert(/<nav[^>]*sticky top-0/.test(src) && !/<nav[^>]*sticky top-(1[0-9]|[2-9])/.test(src), 'sticky offset');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

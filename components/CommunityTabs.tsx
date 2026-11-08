@@ -16,8 +16,9 @@ const TABS: { id: Tab; label: string; view: View; Icon: React.FC<{ className?: s
   { id: 'bridge', label: 'Bridge', view: View.Bridge, Icon: BridgeIcon },
 ];
 
+// sticky top-0, not a larger offset: the page area is a scroll container (overflow-x-hidden), so an offset like top-14 would push this bar down over the page heading.
 export const CommunityTabs: React.FC<{ current: Tab; onNavigate: (view: View) => void; pendingConnections?: number }> = ({ current, onNavigate, pendingConnections = 0 }) => (
-  <nav aria-label="Community" className="sticky top-14 z-10 -mx-3 mb-4 border-b border-stone-200 bg-white sm:top-16 sm:mx-0 sm:rounded-t-xl">
+  <nav aria-label="Community" className="sticky top-0 z-10 -mx-3 mb-4 border-b border-stone-200 bg-white sm:mx-0 sm:rounded-t-xl">
     <ul className="flex">
       {TABS.map(t => {
         const on = t.id === current;
