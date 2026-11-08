@@ -14,12 +14,12 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, X, SlidersHorizontal, Trophy, Clock, ChevronRight, Bell, Check, Loader2, Plus, Users } from 'lucide-react';
-import { getArenaIndustries, type ArenaIndustry } from '../../lib/arenaService';
+import type { ArenaIndustry } from '../../lib/arenaService';
 import {
   filterChallenges, pickFeatured, relevantFor, skillOptions, prizeText, deadlineText, statusOf, anyFilter, NO_FILTERS,
   type ChallengeFilters, type ChallengeLite,
 } from '../../lib/arenaDiscovery';
-import { loadChallenges, getArenaInterests, followArenaIndustry, setArenaInterests, type ArenaInterests } from '../../lib/arenaClient';
+import { loadChallenges, loadIndustries, getArenaInterests, followArenaIndustry, setArenaInterests, type ArenaInterests } from '../../lib/arenaClient';
 import { ICON_MAP } from './ArenaDiscovery';
 import { SponsoredCardHeader, useActiveSponsorships } from './SponsorBrand';
 import BecomeSponsorModal from './BecomeSponsorModal';
@@ -99,7 +99,7 @@ export default function ArenasHome({ currentUser, canPost, onSelectIndustry, onO
   // and the page says what is missing instead of failing as a whole.
   const load = useCallback(() => {
     setLoading(true); setError(''); setChallengesFailed(false);
-    Promise.allSettled([getArenaIndustries(), loadChallenges()])
+    Promise.allSettled([loadIndustries(), loadChallenges()])
       .then(([inds, chs]) => {
         if (inds.status === 'fulfilled') setIndustries(inds.value.filter(i => i.isActive !== false));
         if (chs.status === 'fulfilled') setChallenges(chs.value); else { setChallenges([]); setChallengesFailed(true); console.error('Arena challenges failed to load:', chs.reason); }

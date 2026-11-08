@@ -154,6 +154,8 @@ check('the Arenas page reads challenges with a query that needs no composite ind
   assert(body.includes("where('verificationStatus', '==', 'live')"), 'filters to live challenges');
   assert(!/orderBy\(/.test(body), 'must not order by a field: that needs an index that is not built');
   assert(!src.includes("from './arenaService'") || !/getAllArenaChallenges/.test(body), 'must not go through getAllArenaChallenges (it orders by createdAt)');
+  const ind = src.slice(src.indexOf('export async function loadIndustries'), src.indexOf('/** A date stored as text'));
+  assert(ind.length > 50 && !/orderBy\(|where\(/.test(ind), 'industries are read without a server-side filter or order, so no index is needed');
 });
 check('the Community tab strip sticks at top-0: a larger offset pushes it down over the page heading inside the page\'s scroll container', () => {
   const src = readFileSync(new URL('../../components/CommunityTabs.tsx', import.meta.url), 'utf8');

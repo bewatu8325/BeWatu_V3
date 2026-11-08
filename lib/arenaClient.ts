@@ -4,6 +4,7 @@
  * (api/arena-interests.ts), and linking a reel to a challenge (api/reel-arena-link.ts).
  */
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
+import type { ArenaIndustry } from './arenaService';
 import { auth, db } from './firebase';
 import type { ChallengeLite } from './arenaDiscovery';
 
@@ -21,6 +22,18 @@ export async function postApi(path: string, body: Record<string, unknown>): Prom
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(data?.error ?? 'Something went wrong. Please try again.', res.status);
   return data;
+}
+
+/**
+ * The active Arena industries, in their display order. Read with no filter or ordering on the server (there are only a few),
+ * then filtered and sorted here, so it needs no composite index. (getArenaIndustries filters and orders, and so depends on
+ * an index being deployed.)
+ */
+export async function loadIndustries(): Promise<ArenaIndustry[]> {
+  const snap = await getDocs(query(collection(db, 'arena_industries'), limit(60)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as ArenaIndustry))
+    .filter(i => (i as any).isActive !== false && i.name)
+    .sort((a, b) => (Number((a as any).sortOrder) || 0) - (Number((b as any).sortOrder) || 0) || a.name.localeCompare(b.name));
 }
 
 /** A date stored as text, a Firestore Timestamp, or {seconds}, as ISO text ('' when there is none). */
