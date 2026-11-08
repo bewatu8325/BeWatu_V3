@@ -11,6 +11,8 @@ import { Factory, Loader2 } from 'lucide-react';
 import { goToFactory } from '../utils/factoryHandoff';
 import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGate';
 import FeedbackModal from './FeedbackModal';
+import { navKeyFor } from '../lib/routes';
+import { NavHomeIcon, NavCommunityIcon, NavArenasIcon, NavProveIcon, NavDiscoverIcon, NavMessagesIcon, NavPlusIcon } from './icons/NavIcons';
 import AnnouncementBanner from './AnnouncementBanner';
 import { Megaphone } from 'lucide-react';
 
@@ -198,6 +200,9 @@ function NotificationsPanel({
   }
 
   function notifIcon(type: string, severity?: string) {
+    if (type === 'arena_challenge') {
+      return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT, color: GREEN }}><Trophy size={14} /></div>;
+    }
     if (type === 'announcement') {
       const tone = severity === 'critical' ? 'bg-red-50 text-red-600' : severity === 'warning' ? 'bg-amber-50 text-amber-600' : '';
       return <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${tone}`} style={tone ? undefined : { backgroundColor: GREEN_LT, color: GREEN }}><Megaphone size={14} /></div>;
@@ -253,6 +258,10 @@ function NotificationsPanel({
                     <p className="text-sm text-stone-800 leading-snug whitespace-pre-line">{n.message}</p>
                     {n.type === 'announcement' && (() => { try { const u = new URL(String(n.link)); return u.protocol === 'https:' ? <a href={u.toString()} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm font-semibold underline" style={{ color: GREEN }}>{n.linkLabel || 'Learn more'}</a> : null; } catch { return null; } })()}
                     <p className="text-xs text-stone-600 mt-0.5">{timeAgo(n.createdAt)}</p>
+                    {n.type === 'arena_challenge' && (n as any).challengeId && (
+                      <button type="button" onClick={() => { window.dispatchEvent(new CustomEvent('bewatu:open-challenge', { detail: { id: (n as any).challengeId } })); onClose(); }}
+                        className="mt-1 min-h-[36px] text-sm font-semibold underline" style={{ color: GREEN }}>View challenge</button>
+                    )}
 
                     {/* Circle invite — accept/decline from bell */}
                     {n.type === 'circle_invite' && !actioned && (
@@ -327,15 +336,17 @@ function NotificationsPanel({
   );
 }
 
+// Six destinations, the same ones (bar the two the phone keeps in its You menu) as the phone's bottom bar. Which one is lit comes
+// from lib/routes.ts navKeyFor, shared with the phone bar. Opportunities, Organizations, People, Pods and Bridge live under
+// Discover and Community.
 const NAV_ITEMS = [
-  { view: View.Feed,        label: 'Home',          icon: Home          },
-  { view: View.Connections, label: 'Circles',        icon: Users2        },
-  { view: View.Circles,     label: 'Community',      icon: Hexagon       },
-  { view: View.Prove,       label: 'Showcase',       icon: Sword         },
-  { view: View.Jobs,        label: 'Opportunities',  icon: Briefcase     },
-  { view: View.Messaging,   label: 'Messages',       icon: MessageSquare },
-  { view: View.Companies,   label: 'Organizations', icon: Building2     },
-];
+  { key: 'home',      view: View.Feed,        label: 'Home',      Icon: NavHomeIcon },
+  { key: 'community', view: View.Connections, label: 'Community', Icon: NavCommunityIcon },
+  { key: 'arenas',    view: View.Arenas,      label: 'Arenas',    Icon: NavArenasIcon },
+  { key: 'prove',     view: View.Prove,       label: 'Prove',     Icon: NavProveIcon },
+  { key: 'discover',  view: View.Discover,    label: 'Discover',  Icon: NavDiscoverIcon },
+  { key: 'messages',  view: View.Messaging,   label: 'Messages',  Icon: NavMessagesIcon },
+] as const;
 
 interface HeaderProps {
   currentView: View;
@@ -353,9 +364,11 @@ interface HeaderProps {
   onOpenSettings?: () => void;
   /** Phones: the avatar opens the You menu (a bottom sheet) instead of the dropdown. */
   onOpenAccountSheet?: () => void;
+  /** Opens the Create menu (post, reel, pod, project, Arena challenge). */
+  onOpenCreate?: () => void;
 }
 
-export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch, onCircleInviteAccepted, onOpenSettings, onOpenAccountSheet }: HeaderProps) {
+export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch, onCircleInviteAccepted, onOpenSettings, onOpenAccountSheet, onOpenCreate }: HeaderProps) {
   const { currentUser, fbUser } = useFirebase() as any;
   const [menuOpen,  setMenuOpen]  = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -443,14 +456,15 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1">
-          {NAV_ITEMS.map(({ view, label, icon: Icon }) => {
-            const active = currentView === view;
-            const badge = view === View.Connections && pendingConnectionCount > 0 ? pendingConnectionCount : 0;
+          {NAV_ITEMS.map(({ key, view, label, Icon }) => {
+            const active = navKeyFor(String(currentView)) === key;
+            const badge = key === 'community' && pendingConnectionCount > 0 ? pendingConnectionCount : 0;
             return (
               <button
                 key={view}
                 onClick={() => onNavigate(view)}
-                className={`relative flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${active ? "font-semibold" : "text-stone-600 hover:text-stone-800"}`}
+                aria-current={active ? 'page' : undefined}
+                className={`relative flex min-h-[44px] flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${active ? "font-semibold" : "text-stone-600 hover:text-stone-800"}`}
                 style={active ? { color: "var(--bw-green)" } : {}}
               >
                 <span className="relative">
@@ -469,13 +483,22 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
 
         <div className="flex-1 md:hidden" />
 
+        {/* Create: one action in the bar, never a floating button. The menu is permission- and page-aware (see CreateMenu). */}
+        {onOpenCreate && (
+          <button type="button" onClick={onOpenCreate} aria-haspopup="dialog" aria-label="Create"
+            className="flex h-11 min-w-[44px] items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+            style={{ backgroundColor: 'var(--bw-green)', ['--tw-ring-color' as any]: 'var(--bw-green)' }}>
+            <NavPlusIcon className="h-5 w-5" /><span className="hidden sm:inline">Create</span>
+          </button>
+        )}
+
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setNotifOpen(o => !o)}
             aria-label={notificationCount > 0 ? `Notifications (${notificationCount} unread)` : 'Notifications'}
             aria-expanded={notifOpen}
-            className="relative flex h-9 w-9 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 hover:text-stone-800 transition-colors"
+            className="relative flex h-11 w-11 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 hover:text-stone-800 transition-colors"
           >
             <Bell className="h-5 w-5" />
             {notificationCount > 0 && (

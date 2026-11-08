@@ -219,6 +219,16 @@ async function main() {
   await check("directory_snapshot: no client can write it either", me.collection("directory_snapshot").doc("meta").set({ gen: "x" }), "DENY");
   await check("company_claim_events: no client can read or write the audit trail", me.collection("company_claim_events").add({ companyId: "x", uid: "me", outcome: "granted" }), "DENY");
   await check("company_claim_rate_limits: no client can reset their own counter", me.doc("company_claim_rate_limits/me").set({ count: 0 }), "DENY");
+  console.log("\n== reels: the Arena link is written only by api/reel-arena-link.ts ==");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("reels/rl-mine").set({ authorUid: "me", pitch: "p", sparks: [], views: 0 }); });
+  await check("a member can still upload a reel (no Arena link)", me.doc("reels/rl-new").set({ authorUid: "me", pitch: "p", skills: ["SQL"], sparks: [], views: 0 }), "ALLOW");
+  await check("a member cannot create a reel that already claims an Arena link", me.doc("reels/rl-forged").set({ authorUid: "me", pitch: "p", arenaLink: { challengeId: "c1", outcome: "winner" } }), "DENY");
+  await check("a member cannot add an Arena link (or a winner outcome) to their own reel", me.doc("reels/rl-mine").update({ arenaLink: { challengeId: "c1", outcome: "winner" } }), "DENY");
+  await check("a member can still edit their reel's other fields", me.doc("reels/rl-mine").update({ pitch: "new pitch" }), "ALLOW");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("reels/rl-linked").set({ authorUid: "me", pitch: "p", sparks: [], arenaLink: { challengeId: "c1", outcome: "submitted" } }); });
+  await check("a member cannot edit or remove the server-written Arena link", me.doc("reels/rl-linked").update({ arenaLink: { challengeId: "c1", outcome: "winner" } }), "DENY");
+  await check("a member cannot delete just the Arena link field", me.doc("reels/rl-linked").update({ arenaLink: require("firebase/firestore").deleteField() }), "DENY");
+  await check("someone else still cannot add an Arena link to a reel", atk.doc("reels/rl-mine").update({ arenaLink: { challengeId: "c1" } }), "DENY");
   console.log("\n== arena sponsorships: written only by api/arena-sponsorship.ts ==");
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const d = ctx.firestore();

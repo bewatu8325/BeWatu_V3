@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useIntent } from '../lib/uiIntent';
+import { useIntent, type IntentPayload } from '../lib/uiIntent';
 import { Circle, PodType, PodStage } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useRecommendations } from '../hooks/useRecommendations';
@@ -420,13 +420,15 @@ function PodCard({ circle, isMember, isOwner, onSelect, onJoin, onApply, onLeave
 
 // ── Create pod modal ──────────────────────────────────────────────────────────
 
-function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
+function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [], initial }: {
   onClose: () => void;
+  /** Where the member came from: a kind of pod to start (Start a Project), or a challenge to team up on. */
+  initial?: IntentPayload;
   onCreate: (name: string, description: string, extra?: Partial<Circle>) => Promise<void>;
   existingChallengePodIds?: string[]; // challengeIds already used by user's pods
 }) {
-  const [step, setStep]                 = useState<'type' | 'details'>('type');
-  const [selectedType, setSelectedType] = useState<PodType | null>(null);
+  const [step, setStep]                 = useState<'type' | 'details'>(initial?.podType ? 'details' : 'type');
+  const [selectedType, setSelectedType] = useState<PodType | null>((initial?.podType as PodType | undefined) ?? null);
   const [name, setName]                 = useState('');
   const [description, setDescription]   = useState('');
   const [visibility, setVisibility]     = useState<'invite' | 'apply' | 'open'>('apply');
@@ -454,7 +456,11 @@ function CreatePodModal({ onClose, onCreate, existingChallengePodIds = [] }: {
         where('verificationStatus', '==', 'live')
       )
     ).then(snap => {
-      setChallenges(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setChallenges(list);
+      // Coming from a challenge's "Team up": that challenge is already chosen.
+      const wanted = initial?.challengeId ? list.find(c => c.id === initial.challengeId) : undefined;
+      if (wanted) setSelectedChallenge((cur: any) => cur ?? wanted);
     }).catch(console.error)
       .finally(() => setChallengesLoading(false));
   }, [selectedType]);
@@ -766,7 +772,8 @@ const Circles: React.FC<CirclesProps> = ({
   const { fbUser } = useFirebase() as any;
   const [isModalOpen, setIsModalOpen]   = useState(false);
   // "Start a pod" from the Create tab opens the dialog as soon as this page is up.
-  useIntent('create-pod', () => setIsModalOpen(true));
+  const [podIntent, setPodIntent] = useState<IntentPayload | undefined>(undefined);
+  useIntent('create-pod', (payload) => { setPodIntent(payload); setIsModalOpen(true); });
   const [activeFilter, setActiveFilter] = useState<PodType | 'all'>('all');
 
   const myPods    = circles.filter(c => currentUserId && c.members.includes(currentUserId));
@@ -953,7 +960,8 @@ const Circles: React.FC<CirclesProps> = ({
 
       {isModalOpen && (
         <CreatePodModal
-          onClose={() => setIsModalOpen(false)}
+          initial={podIntent}
+          onClose={() => { setIsModalOpen(false); setPodIntent(undefined); }}
           existingChallengePodIds={existingChallengePodIds}
           onCreate={async (n, d, extra) => { await onCreateCircle?.(n, d, extra); }}
         />

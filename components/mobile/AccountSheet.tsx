@@ -21,7 +21,8 @@ import {
 import { Factory } from 'lucide-react';
 import { View } from '../../types';
 import { useFirebase } from '../../contexts/FirebaseContext';
-import { BriefcaseIcon, ShowcaseIcon, PodsIcon, CompaniesIcon, BridgeIcon } from '../IconComponents';
+import { BriefcaseIcon, PodsIcon, CompaniesIcon } from '../IconComponents';
+import { NavProveIcon, NavDiscoverIcon } from '../icons/NavIcons';
 import { versionLabel } from '../../lib/appVersion';
 import { ENGAGEMENT_GATE_TOOLTIP } from '../../lib/engagementGate';
 import FeedbackModal from '../FeedbackModal';
@@ -49,12 +50,13 @@ export interface AccountSheetProps {
   factoryGated?: boolean;
 }
 
+// The bottom bar has Home, Community, Arenas, Messages and You. These are the other places, one tap from Home and from here.
 export const EXPLORE_ITEMS: { view: View; label: string; Icon: React.FC<{ className?: string }> }[] = [
+  { view: View.Prove, label: 'Prove', Icon: NavProveIcon },
+  { view: View.Discover, label: 'Discover', Icon: NavDiscoverIcon },
   { view: View.Jobs, label: 'Opportunities', Icon: BriefcaseIcon },
-  { view: View.Prove, label: 'Showcase', Icon: ShowcaseIcon },
-  { view: View.Circles, label: 'Pods', Icon: PodsIcon },
   { view: View.Companies, label: 'Organizations', Icon: CompaniesIcon },
-  { view: View.Bridge, label: 'Bridge', Icon: BridgeIcon },
+  { view: View.Circles, label: 'Pods', Icon: PodsIcon },
 ];
 
 const Row: React.FC<{ icon: React.ReactNode; label: string; onClick?: () => void; href?: string; trailing?: React.ReactNode; tone?: 'default' | 'green' | 'danger'; disabled?: boolean; title?: string; expanded?: boolean }> =

@@ -1,6 +1,7 @@
 import {formatDistanceToNow} from "date-fns";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentUpdated, onDocumentCreated, onDocumentWritten } from "firebase-functions/v2/firestore";
+import { wentLive, alertFor, wantsAlert } from "./arenaAlerts";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
@@ -280,6 +281,36 @@ export const scheduledHardDelete = onSchedule("every 24 hours", async () => {
 // instead of having to build the export themselves. Approval (and the
 // email that was also never built — see api/ops/send-data-ready-email.ts)
 // stays a deliberate human step.
+// A new Arena challenge went live: tell the members who follow its industry AND opted in to hear about it.
+// The decision of who to tell lives in arenaAlerts.ts (pure, and tested from the repo root).
+export const onArenaChallengeWritten = onDocumentWritten("arena_challenges/{challengeId}", async (event) => {
+  const before = event.data?.before?.exists ? event.data.before.data() : undefined;
+  const after = event.data?.after?.exists ? event.data.after.data() : undefined;
+  if (!after || !wentLive(before, after)) return;
+  const challengeId = event.params.challengeId;
+  const note = alertFor(challengeId, after);
+  // array-contains on one field needs no composite index; the opt-in is checked on the document itself.
+  let last: QueryDocumentSnapshot | undefined;
+  for (;;) {
+    let q = db.collection("users").where("arenaFollows", "array-contains", note.industry).orderBy("__name__").limit(400);
+    if (last) q = q.startAfter(last);
+    const page = await q.get();
+    if (page.empty) break;
+    const batch = db.batch();
+    for (const u of page.docs) {
+      if (!wantsAlert(u.data(), note.industry, after.recruiterId, u.id)) continue;
+      // One notification per challenge per member, so a repeated trigger never double-notifies.
+      batch.set(db.collection("users").doc(u.id).collection("notifications").doc("arena_" + challengeId), {
+        type: "arena_challenge", message: note.message, challengeId, arenaIndustry: note.industry,
+        actorName: note.companyName, isRead: false, createdAt: FieldValue.serverTimestamp(),
+      }, { merge: false });
+    }
+    await batch.commit();
+    last = page.docs[page.docs.length - 1];
+    if (page.size < 400) break;
+  }
+});
+
 export const onDataRequestCreated = onDocumentCreated("data_requests/{requestId}", async (event) => {
     const snap = event.data;
     if (!snap) return;

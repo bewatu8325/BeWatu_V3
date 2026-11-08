@@ -128,13 +128,19 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
   // keep the typed text and the committed query in step, and remember the choices
   useEffect(() => { setUi(p => (p.q === debouncedQ ? p : { ...p, q: debouncedQ })); }, [debouncedQ]);
   useEffect(() => { writeSaved(ui); }, [ui]);
-  // Keep the address in step with the choices (without adding history entries), and leave it clean when the page closes.
+  // Keep the address in step with the choices, without adding history entries. The app adds this page's own entry just after
+  // the page mounts, so wait a tick: the query belongs on that entry, not on the page you came from. Each entry keeps its own
+  // address, so Back to the directory restores the same filters.
   useEffect(() => {
-    try { window.history.replaceState(window.history.state, '', `/organizations${toSearch(ui)}`); } catch { /* not allowed here */ }
+    const t = setTimeout(() => {
+      try {
+        const st: any = window.history.state;
+        if (st?.bwView && st.bwView !== 'COMPANIES') return;      // not this page's entry
+        window.history.replaceState(window.history.state, '', `/organizations${toSearch(ui)}`);
+      } catch { /* not allowed here */ }
+    }, 0);
+    return () => clearTimeout(t);
   }, [ui]);
-  useEffect(() => () => {
-    try { if (isDirectoryPath(window.location.pathname)) window.history.replaceState(window.history.state, '', '/'); } catch { /* ignore */ }
-  }, []);
 
   // ── first page for the current query ──
   const loadFirst = useCallback(async (force = false) => {

@@ -28,3 +28,21 @@ export const NavMessagesIcon: React.FC<P> = p => (
 export const NavYouIcon: React.FC<P> = p => (
   <svg {...base(p)}><circle cx="12" cy="8.4" r="3.4" /><path d="M5 20.2c.6-3.8 3.3-6 7-6s6.4 2.2 7 6" /></svg>
 );
+
+/** An arena: a rounded track with a centre mark. Matches the Arena glyph used on challenge cards. */
+export const NavArenasIcon: React.FC<P> = p => (
+  <svg {...base(p)}><rect x="2.8" y="6" width="18.4" height="12" rx="6" /><ellipse cx="12" cy="12" rx="4.6" ry="2.9" /></svg>
+);
+/** A play mark inside a frame: Prove, the professional video showcase. */
+export const NavProveIcon: React.FC<P> = p => (
+  <svg {...base(p)}><rect x="3.5" y="5" width="17" height="14" rx="3.5" /><path d="m10.4 9.4 4.4 2.6-4.4 2.6z" /></svg>
+);
+/** A compass: Discover. */
+export const NavDiscoverIcon: React.FC<P> = p => (
+  <svg {...base(p)}><circle cx="12" cy="12" r="8.6" /><path d="m15.6 8.4-2 5.2-5.2 2 2-5.2z" /></svg>
+);
+/** A plus in a rounded square, smaller: the Create action in the header. */
+export const NavPlusIcon: React.FC<P> = p => (
+  <svg {...base(p)}><path d="M12 5.5v13M5.5 12h13" /></svg>
+);
+

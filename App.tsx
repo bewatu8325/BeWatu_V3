@@ -4,6 +4,11 @@ import ProveView from './components/ProveView';
 import { Header } from './components/Header';
 import { MobileNav, MOBILE_NAV_CLEARANCE } from './components/MobileNav';
 import AccountSheet from './components/mobile/AccountSheet';
+import CommunityTabs from './components/CommunityTabs';
+import CreateMenu from './components/CreateMenu';
+import { pathFor, parsePath, ARENA_INDUSTRY_VIEW, ARENA_CHALLENGE_VIEW } from './lib/routes';
+import { canPostChallenge, type CreateActionId } from './lib/createActions';
+import { requestIntent } from './lib/uiIntent';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification, LinkPreview } from './types';
 import { analyzeSynergy, analyzeJobMatch, generateSkillsGraph } from './services/claudeService';
 import { LoadingIcon } from './constants';
@@ -122,7 +127,9 @@ const RecruiterConsole = lazy(() => import('./components/recruiter/RecruiterCons
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const Footer = lazy(() => import('./components/Footer'));
 const SuccessBanner = lazy(() => import('./components/SuccessBanner'));
-const ArenaDiscovery = lazy(() => import('./components/arenas/ArenaDiscovery'));
+const ArenasHome = lazy(() => import('./components/arenas/ArenasHome'));
+const DiscoverPage = lazy(() => import('./components/DiscoverPage'));
+const PostChallengeFlow = lazy(() => import('./components/arenas/PostChallengeFlow'));
 const ArenaIndustryView = lazy(() => import('./components/arenas/ArenaIndustryView'));
 const RecruiterUpgradeBanner = lazy(() => import('./components/recruiter/RecruiterUpgradeBanner'));
 const GenerationalFeed = lazy(() => import('./components/GenerationalFeed'));
@@ -164,18 +171,22 @@ const MainApp: React.FC = () => {
   // earlier in this review. A wall keyed off the user doc, not the signup
   // path, catches every path uniformly, including future ones.
   const [showAgeWall, setShowAgeWall] = useState(false);
+  // An address like /arenas or /arenas/payments opens that destination. Otherwise the last view this tab had is restored on refresh.
+  const deepLink = useRef(typeof window !== 'undefined' ? parsePath(window.location.pathname) : null).current;
   const [currentView, setCurrentView] = useState<View>(() => {
-    // Restore last view from sessionStorage on refresh
+    if (deepLink) return deepLink.view as View;
     const saved = sessionStorage.getItem('beWatuView');
     return (saved && Object.values(View).includes(saved as View))
       ? saved as View
       : View.Feed;
   });
   const [activeArenaIndustry, setActiveArenaIndustry] = useState<string | null>(
-    () => sessionStorage.getItem('beWatuArenaIndustry') ?? null
+    () => deepLink?.industry ?? sessionStorage.getItem('beWatuArenaIndustry') ?? null
   );
-  const [showcaseTab, setShowcaseTab] = useState<'prove' | 'arenas'>('prove');
-  const [communityTab, setCommunityTab] = useState<'pods' | 'bridge'>('pods');
+  // Which challenge's page is open (the address names it); the record itself is loaded into selectedChallenge.
+  const [activeChallengeId, setActiveChallengeId] = useState<string | null>(() => deepLink?.challengeId ?? null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [postChallengeOpen, setPostChallengeOpen] = useState(false);
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1190,16 +1201,86 @@ const MainApp: React.FC = () => {
 
   // Links into the directory: /organizations, /organizations/<id> and the older /companies, /companies/<id>
   // both open the directory (or that profile) once the member is signed in and the app has loaded.
+  // ── Addresses and the browser's Back button ───────────────────────────────────────────────────────────────────────
+  // Every major destination has an address (lib/routes.ts). A move adds one browser entry that also remembers which view it was,
+  // so Back and Forward return to exactly the page you left, including pages that have no address of their own.
+  const routerReady = authState === 'authenticated' && !!data;
+  const scrollMemory = useRef<Map<string, number>>(new Map());
+  const viewKey = (v: string, ind: string | null, ch: string | null) => `${v}|${ind ?? ''}|${ch ?? ''}`;
+  const lastKey = useRef<string>('');
+  useEffect(() => {
+    if (!routerReady) return;
+    const loc = { view: String(currentView), industry: activeArenaIndustry ?? undefined, challengeId: activeChallengeId ?? undefined };
+    const st: any = window.history.state;
+    const same = st?.bwView === loc.view && (st?.industry ?? undefined) === loc.industry && (st?.challengeId ?? undefined) === loc.challengeId;
+    const path = pathFor(loc);
+    const state = { bwView: loc.view, industry: loc.industry, challengeId: loc.challengeId };
+    if (!same) {
+      const first = st?.bwView === undefined;                       // the entry we arrived on
+      const keep = window.location.pathname === path ? window.location.search : '';   // a page's own query (filters, tabs) is kept
+      if (first) window.history.replaceState(state, '', path + keep); else window.history.pushState(state, '', path);
+    }
+    const key = viewKey(loc.view, activeArenaIndustry, activeChallengeId);
+    if (key !== lastKey.current) {
+      lastKey.current = key;
+      const y = scrollMemory.current.get(key) ?? 0;
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+  }, [routerReady, currentView, activeArenaIndustry, activeChallengeId]);
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      const st: any = e.state?.bwView ? e.state : parsePath(window.location.pathname) && { bwView: parsePath(window.location.pathname)!.view, industry: parsePath(window.location.pathname)!.industry, challengeId: parsePath(window.location.pathname)!.challengeId };
+      scrollMemory.current.set(lastKey.current, window.scrollY);
+      setPublicProfileUserId(null);
+      if (st?.bwView) { setActiveArenaIndustry(st.industry ?? null); setActiveChallengeId(st.challengeId ?? null); setCurrentView(st.bwView as View); sessionStorage.setItem('beWatuView', st.bwView); }
+      else { setActiveArenaIndustry(null); setActiveChallengeId(null); setCurrentView(View.Feed); }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  // Load the challenge the address (or a notification) names.
+  useEffect(() => {
+    if (!activeChallengeId || !routerReady) return;
+    if (selectedChallenge && (selectedChallenge._firestoreId ?? selectedChallenge.id) === activeChallengeId) return;
+    let live = true;
+    import('./lib/firestoreService').then(({ fetchArenaChallengeById }) => fetchArenaChallengeById(activeChallengeId))
+      .then(c => { if (!live) return; if (c) setSelectedChallenge(c); else { setActiveChallengeId(null); setCurrentView(View.Arenas); } })
+      .catch(() => { if (live) { setActiveChallengeId(null); setCurrentView(View.Arenas); } });
+    return () => { live = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChallengeId, routerReady]);
+  const openChallenge = (id: string) => { scrollMemory.current.set(lastKey.current, window.scrollY); setActiveChallengeId(id); setCurrentView(ARENA_CHALLENGE_VIEW as any); sessionStorage.setItem('beWatuView', ARENA_CHALLENGE_VIEW); };
+  const openArenaIndustry = (slug: string) => { scrollMemory.current.set(lastKey.current, window.scrollY); setActiveChallengeId(null); setActiveArenaIndustry(slug); sessionStorage.setItem('beWatuArenaIndustry', slug); setCurrentView(ARENA_INDUSTRY_VIEW as any); sessionStorage.setItem('beWatuView', ARENA_INDUSTRY_VIEW); };
+  // A notification about a challenge ("View challenge") asks for it by id.
+  useEffect(() => {
+    const open = (e: Event) => { const id = (e as CustomEvent).detail?.id; if (typeof id === 'string' && id) openChallenge(id); };
+    window.addEventListener('bewatu:open-challenge', open);
+    return () => window.removeEventListener('bewatu:open-challenge', open);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Who may post an Arena challenge: a recruiter whose organization is verified for at least one Arena industry.
+  const myCompany: any = (data?.companies ?? []).find(c => !!fbUser && ((c as any).adminUid === fbUser.uid || ((c as any).verifiedRecruiters ?? []).includes(fbUser.uid))) ?? null;
+  const canPostArena = canPostChallenge(currentUser as any, myCompany);
+  // Each Create action takes you to the page that does it and opens the right control there.
+  const handleCreate = (id: CreateActionId) => {
+    if (id === 'post') { handleSetView(View.Feed); requestIntent('focus-composer'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    else if (id === 'reel') { handleSetView(View.Prove); requestIntent('upload-reel'); }
+    else if (id === 'pod') { handleSetView(View.Circles); requestIntent('create-pod'); }
+    else if (id === 'project') { handleSetView(View.Circles); requestIntent('create-pod', { podType: 'innovation' }); }
+    else if (id === 'challenge') setPostChallengeOpen(true);
+  };
+
   const orgLinkHandled = useRef(false);
   useEffect(() => {
     if (orgLinkHandled.current || !data || !currentUser) return;
     orgLinkHandled.current = true;
-    const m = window.location.pathname.match(/^\/(?:organizations|companies)(?:\/([^/]+))?\/?$/);
+    // The directory itself is an ordinary route now (lib/routes.ts); only a link to ONE organization is handled here.
+    const m = window.location.pathname.match(/^\/(?:organizations|companies)\/([^/]+)\/?$/);
     if (!m) return;
-    // A link to one organization is opened and the address tidied; a link to the directory keeps its query, which the page reads.
-    if (m[1]) window.history.replaceState(null, '', '/');
+    window.history.replaceState(null, '', '/organizations');
     handleSetView(View.Companies);
-    if (m[1]) { try { void handleViewCompany(decodeURIComponent(m[1])); } catch { /* malformed link: stay on the directory */ } }
+    try { void handleViewCompany(decodeURIComponent(m[1])); } catch { /* malformed link: stay on the directory */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, currentUser]);
 
@@ -1687,6 +1768,8 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
       goToFactory(fbUser ?? null);
       return;
     }
+    scrollMemory.current.set(lastKey.current, window.scrollY);
+    if (view !== (ARENA_CHALLENGE_VIEW as any)) setActiveChallengeId(null);
     setCurrentView(view);
     sessionStorage.setItem('beWatuView', view);
     if (view === View.Profile && currentUser) setProfileUserId(currentUser.id);
@@ -1831,6 +1914,8 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
 
       case View.Connections:
         content = (
+          <div className="space-y-0">
+          <CommunityTabs current="connections" onNavigate={handleSetView} />
           <ConnectionsView
             currentUser={currentUser}
             allUsers={data.users}
@@ -1845,6 +1930,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             onCancel={handleCancelConnection}
             onRefresh={handleRefreshConnection}
           />
+          </div>
         );
         break;
 
@@ -1923,63 +2009,34 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               .forEach(u => { if ((u as any)._firestoreUid) connectedUids.add((u as any)._firestoreUid); });
           });
 
-        const GREEN = 'var(--bw-green)';
         content = (
-          <div className="space-y-0">
-            {/* ── Showcase tab strip ──────────────────────────────────────── */}
-            <div className="flex border-b border-stone-200 bg-white sticky top-0 z-10">
-              {(['prove', 'arenas'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setShowcaseTab(tab)}
-                  className="flex items-center gap-2 px-6 py-3.5 text-sm font-semibold transition-colors capitalize"
-                  style={{
-                    color: showcaseTab === tab ? GREEN : '#78716c',
-                    borderBottom: showcaseTab === tab ? `2px solid ${GREEN}` : '2px solid transparent',
-                    marginBottom: -1,
-                  }}>
-                  {tab === 'prove'
-                    ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-                  }
-                  {tab === 'prove' ? 'Prove' : 'Arenas'}
-                </button>
-              ))}
-            </div>
-
-            {/* ── Tab content ─────────────────────────────────────────────── */}
-            {showcaseTab === 'prove' ? (
-              <ProveView
-                currentUser={currentUser}
-                onViewProfile={handleViewProfile}
-                onStartMessage={startMessage}
-                onConnect={handleSendConnection}
-                allJobs={data.jobs}
-                socialGraphUids={connectedUids}
-              />
-            ) : (
-              <Suspense fallback={<div />}>
-                <ArenaDiscovery
-                  onSelectIndustry={(slug: string) => {
-                    setActiveArenaIndustry(slug);
-                    sessionStorage.setItem('beWatuArenaIndustry', slug);
-                    setCurrentView('ARENA_INDUSTRY' as any);
-                    sessionStorage.setItem('beWatuView', 'ARENA_INDUSTRY');
-                  }}
-                  onPostChallenge={() => {}}
-                  currentUserCompany={selectedCompany}
-                />
-              </Suspense>
-            )}
-          </div>
+          <ProveView
+            currentUser={currentUser}
+            onViewProfile={handleViewProfile}
+            onStartMessage={startMessage}
+            onConnect={handleSendConnection}
+            allJobs={data.jobs}
+            socialGraphUids={connectedUids}
+            onOpenChallenge={openChallenge}
+            onExploreArenas={() => handleSetView(View.Arenas)}
+          />
         );
         break;
       }
 
       case View.Arenas as any:
-        // Redirect into the Showcase with the Arenas tab active
-        setShowcaseTab('arenas');
-        setCurrentView(View.Prove);
+        content = (
+          <Suspense fallback={<div />}>
+            <ArenasHome
+              currentUser={currentUser}
+              canPost={canPostArena}
+              onSelectIndustry={openArenaIndustry}
+              onOpenChallenge={openChallenge}
+              onStartPod={(c) => { requestIntent('create-pod', { podType: 'challenge', challengeId: c.id, challengeTitle: c.title }); handleSetView(View.Circles); }}
+              onPostChallenge={() => setPostChallengeOpen(true)}
+            />
+          </Suspense>
+        );
         break;
 
       case 'ARENA_INDUSTRY' as any:
@@ -1987,18 +2044,9 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           <Suspense fallback={<div />}>
             <ArenaIndustryView
               industry={activeArenaIndustry as any}
-              onBack={() => { setShowcaseTab('arenas'); setCurrentView(View.Prove); }}
-              onSelectChallenge={async (id: string) => {
-                try {
-                  const { fetchArenaChallengeById } = await import('./lib/firestoreService');
-                  const challenge = await fetchArenaChallengeById(id);
-                  if (challenge) {
-                    setSelectedChallenge(challenge);
-                    setCurrentView('ARENA_CHALLENGE' as any);
-                  }
-                } catch(e) { console.error('Failed to load challenge:', e); }
-              }}
-              onPostChallenge={() => {}}
+              onBack={() => handleSetView(View.Arenas)}
+              onSelectChallenge={(id: string) => openChallenge(id)}
+              onPostChallenge={canPostArena ? () => setPostChallengeOpen(true) : undefined}
               onViewCompany={handleViewCompany}
               currentUserCompany={selectedCompany}
             />
@@ -2007,14 +2055,14 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         break;
 
       case 'ARENA_CHALLENGE' as any:
-        content = selectedChallenge && currentUser && fbUser ? (
+        content = selectedChallenge && currentUser && fbUser && (selectedChallenge._firestoreId ?? selectedChallenge.id) === activeChallengeId ? (
           <Suspense fallback={<div />}>
             <ArenaChallengeDetail
               challenge={selectedChallenge}
               currentUser={currentUser}
               fbUser={fbUser}
               allUsers={data?.users ?? []}
-              onBack={() => setCurrentView('ARENA_INDUSTRY' as any)}
+              onBack={() => (activeArenaIndustry ? (setActiveChallengeId(null), setCurrentView('ARENA_INDUSTRY' as any)) : handleSetView(View.Arenas))}
               onCreatePod={async (name, description) => {
                 const { createCircle } = await import('./lib/firestoreService');
                 const pod = await createCircle(
@@ -2026,10 +2074,12 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               }}
             />
           </Suspense>
-        ) : null;
+        ) : <div className="mx-auto max-w-3xl space-y-3 px-1 py-6" aria-busy="true"><div className="h-8 w-2/3 animate-pulse rounded bg-stone-100" /><div className="h-40 animate-pulse rounded-2xl bg-stone-100" /></div>;
         break;
 
-      case View.Circles: {
+      case View.Circles:
+      case (View.Bridge as any): {
+        const communityTab: 'pods' | 'bridge' = currentView === (View.Bridge as any) ? 'bridge' : 'pods';
         // ── Community: tabbed Pods + Bridge ───────────────────────────
         if (activeCircleId) {
           // When inside a pod, show CircleDetail directly (no tab strip)
@@ -2041,26 +2091,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
           const GREEN = 'var(--bw-green)';
           content = (
             <div className="space-y-0">
-              {/* ── Community tab strip ──────────────────────────────── */}
-              <div className="flex border-b border-stone-200 bg-white sticky top-0 z-10">
-                {(['pods', 'bridge'] as const).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setCommunityTab(tab)}
-                    className="flex items-center gap-2 px-6 py-3.5 text-sm font-semibold transition-colors capitalize"
-                    style={{
-                      color: communityTab === tab ? GREEN : '#78716c',
-                      borderBottom: communityTab === tab ? `2px solid ${GREEN}` : '2px solid transparent',
-                      marginBottom: -1,
-                    }}>
-                    {tab === 'pods'
-                      ? <PodsIcon className="w-4 h-4" />
-                      : <BridgeIcon className="w-4 h-4" />
-                    }
-                    {tab === 'pods' ? 'Pods' : 'Bridge'}
-                  </button>
-                ))}
-              </div>
+              <CommunityTabs current={communityTab} onNavigate={handleSetView} pendingConnections={data.connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending').length} />
 
               {/* ── Tab content ────────────────────────────────────────── */}
               {communityTab === 'pods' ? (
@@ -2085,7 +2116,6 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
                     onViewProfile={setPublicProfileUserId}
                     onSelectCircle={(circleId) => {
                       handleSelectCircle(circleId);
-                      setCommunityTab('pods');
                     }}
                   />
                 </Suspense>
@@ -2096,10 +2126,16 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         break;
       }
 
-      case (View.Bridge as any):
-        // Redirect into Community with Bridge tab active
-        setCommunityTab('bridge');
-        setCurrentView(View.Circles);
+      case View.Discover:
+        content = (
+          <Suspense fallback={<div />}>
+            <DiscoverPage
+              onNavigate={handleSetView}
+              onSearchPeople={(q) => { setPeopleSearch(q); handleSetView(View.People); }}
+              factoryGated={!!(currentUser && isEngagementGated(currentUser))}
+            />
+          </Suspense>
+        );
         break;
 
       case View.Pricing:
@@ -2139,7 +2175,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {showSecurityPage && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)} />
+              <Header currentView={currentView} onNavigate={handleSetView} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={0} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)} onOpenCreate={() => setCreateOpen(true)} />
               <main className="w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 pb-10 overflow-x-hidden">
                 <Suspense fallback={<div />}>
                   <SecurityPrivacyPage
@@ -2154,6 +2190,22 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               </main>
             </div>
           </div>
+        )}
+
+        {/* Create: the menu is permission- and page-aware; the Arena challenge flow opens over whatever page you are on */}
+        {currentUser && (
+          <CreateMenu open={createOpen} onClose={() => setCreateOpen(false)} view={String(currentView)} canPostChallenge={canPostArena} onChoose={handleCreate} />
+        )}
+        {postChallengeOpen && canPostArena && myCompany && fbUser && (
+          <Suspense fallback={null}>
+            <PostChallengeFlow
+              company={{ id: (myCompany as any)._firestoreId ?? String(myCompany.id), name: myCompany.name, logoUrl: myCompany.logoUrl, domain: (myCompany as any).domain, _firestoreId: (myCompany as any)._firestoreId }}
+              recruiterUid={fbUser.uid}
+              recruiterEmail={fbUser.email ?? ''}
+              isRegulated={false}
+              onClose={() => setPostChallengeOpen(false)}
+            />
+          </Suspense>
         )}
 
         {/* Phone "You" menu: settings, support, about and legal (what the full footer used to carry) */}
@@ -2194,7 +2246,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         {publicProfileUserId && data && currentUser && (
           <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: '#f5f5f4' }}>
             <div className="min-h-screen">
-              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)} />
+              <Header currentView={currentView} onNavigate={v => { setPublicProfileUserId(null); handleSetView(v); }} onLogout={handleLogout} onSwitchToRecruiter={currentUser?.isRecruiter ? handleSwitchProfile : undefined} onEnterAdminPanel={isPlatformAdmin ? handleEnterAdminPanel : undefined} notificationCount={unreadNotifCount} pendingConnectionCount={data.connectionRequests.filter(r => r.toUserId === currentUser!.id && r.status === 'pending').length} onCircleInviteAccepted={handleCircleInviteAccepted} onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)} onOpenCreate={() => setCreateOpen(true)} />
               <main className={`w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 ${MOBILE_NAV_CLEARANCE} overflow-x-hidden`}>
                 <Suspense fallback={<div />}>
                   <ProfileOverlay
@@ -2250,7 +2302,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
               setPeopleSearch(q);
               handleSetView(View.People);
             }}
-            onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)}
+            onOpenSettings={() => setShowSecurityPage(true)} onOpenAccountSheet={() => setAccountOpen(true)} onOpenCreate={() => setCreateOpen(true)}
           />
           <main className={`flex-grow w-full max-w-screen-xl mx-auto px-3 sm:px-6 pt-16 sm:pt-20 ${MOBILE_NAV_CLEARANCE} overflow-x-hidden`}>
             <PullToRefresh onRefresh={async () => { if (currentUser) await loadAppData(currentUser); }}>

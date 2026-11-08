@@ -1265,8 +1265,12 @@ service cloud.firestore {
     }
     match /reels/{reelId} {
       allow read: if isAuth();
+      // `arenaLink` (which Arena challenge a reel is about, and what the reviewer recorded) is written only by
+      // api/reel-arena-link.ts after it has checked the member really submitted to that challenge. A client can neither
+      // create a reel with one nor change or remove it.
       allow create: if isAuth()
-        && request.resource.data.authorUid == request.auth.uid;
+        && request.resource.data.authorUid == request.auth.uid
+        && !('arenaLink' in request.resource.data);
       // P1 fix: sparks/views was a blanket onlyFields() escape hatch
       // reachable by any raw client. Closed defensively to a plain +1 bump
       // each, same as other counters in this pass.
@@ -1281,7 +1285,8 @@ service cloud.firestore {
       // FeedReelsStrip/ProfileReelsStrip widgets that read from it are
       // effectively frozen on whatever legacy documents already exist there.
       allow update: if isAuth() && (
-        resource.data.authorUid == request.auth.uid
+        (resource.data.authorUid == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['arenaLink']))
         || (onlyFields(['sparks', 'updatedAt'])
             && isCounterBump(resource.data.sparks, request.resource.data.sparks))
         || (onlyFields(['views', 'updatedAt'])
