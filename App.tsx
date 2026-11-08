@@ -1196,7 +1196,8 @@ const MainApp: React.FC = () => {
     orgLinkHandled.current = true;
     const m = window.location.pathname.match(/^\/(?:organizations|companies)(?:\/([^/]+))?\/?$/);
     if (!m) return;
-    window.history.replaceState(null, '', '/');
+    // A link to one organization is opened and the address tidied; a link to the directory keeps its query, which the page reads.
+    if (m[1]) window.history.replaceState(null, '', '/');
     handleSetView(View.Companies);
     if (m[1]) { try { void handleViewCompany(decodeURIComponent(m[1])); } catch { /* malformed link: stay on the directory */ } }
   // eslint-disable-next-line react-hooks/exhaustive-deps

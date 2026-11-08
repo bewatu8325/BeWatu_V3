@@ -22,7 +22,7 @@ export interface CompaniesQuery {
   view: CompaniesView;
   q: string;
   industry: string;          // '' = any (lower-cased industry key)
-  category: CategoryKey | ''; // '' = every category
+  category: string;          // '' = every category; or category keys separated by commas ("medical,hospitals")
   organizationType: OrganizationType | '';
   country: string;           // '' = anywhere (lower-cased country name)
   filters: CompanyFilters;

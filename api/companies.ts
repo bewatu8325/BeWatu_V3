@@ -68,10 +68,10 @@ const SUPPORT_EMAIL = 'support@bewatu.com';
 // ── The organization model (a small copy of lib/organizations.ts; test/organizations checks they agree) ──
 export type OrgType = 'business' | 'college_university' | 'hospital' | 'health_system' | 'research_institute' | 'nonprofit' | 'government' | 'other';
 const ORG_TYPES: OrgType[] = ['business', 'college_university', 'hospital', 'health_system', 'research_institute', 'nonprofit', 'government', 'other'];
-export type CategoryKey = 'colleges' | 'medical' | 'hospitals' | 'manufacturing' | 'other';
+export type CategoryKey = 'colleges' | 'medical' | 'hospitals' | 'manufacturing' | 'finance' | 'other';
 const CATEGORY_KEYS: { key: CategoryKey; label: string }[] = [
   { key: 'colleges', label: 'Colleges & Universities' }, { key: 'medical', label: 'Medical & Healthcare Companies' },
-  { key: 'hospitals', label: 'Hospitals & Health Systems' }, { key: 'manufacturing', label: 'Manufacturing' }, { key: 'other', label: 'Other organizations' },
+  { key: 'hospitals', label: 'Hospitals & Health Systems' }, { key: 'manufacturing', label: 'Manufacturing' }, { key: 'finance', label: 'Finance' }, { key: 'other', label: 'Other organizations' },
 ];
 const TYPE_LABEL: Record<OrgType, string> = {
   business: 'Business', college_university: 'College or university', hospital: 'Hospital', health_system: 'Health system',
@@ -83,6 +83,7 @@ export function normalizeType(raw: unknown): OrgType {
 }
 const HEALTH_INDUSTRY_RE = /(health|medical|medicine|biotech|pharma|life.?science|clinical|diagnostic|therapeut)/i;
 const MANUFACTURING_INDUSTRY_RE = /manufactur/i;
+const FINANCE_INDUSTRY_RE = /(financ|bank|insur|invest|wealth|asset management|capital markets|fintech|payments|lending|credit)/i;
 export function categoryOf(o: { organizationType?: unknown; industry?: unknown }): CategoryKey {
   const type = normalizeType(o.organizationType);
   if (type === 'college_university') return 'colleges';
@@ -91,6 +92,7 @@ export function categoryOf(o: { organizationType?: unknown; industry?: unknown }
   if (type === 'business') {
     if (HEALTH_INDUSTRY_RE.test(industry)) return 'medical';
     if (MANUFACTURING_INDUSTRY_RE.test(industry)) return 'manufacturing';
+    if (FINANCE_INDUSTRY_RE.test(industry)) return 'finance';
   }
   return 'other';
 }
@@ -451,7 +453,8 @@ async function list(db: Firestore, caller: Caller, body: any, now: number) {
   const sort: Sort = (['relevance', 'recent', 'followers', 'alpha'] as const).includes(body.sort) ? body.sort : 'relevance';
   const q = clean(body.q, 80);
   const industry = clean(body.industry, 60).toLowerCase();
-  const category = CATEGORY_KEYS.some(c => c.key === body.category) ? (body.category as CategoryKey) : '';
+  // One category or a comma-separated list (the Healthcare choice is healthcare companies + hospitals/health systems).
+  const wantCategories = new Set<CategoryKey>(typeof body.category === 'string' ? body.category.split(',').slice(0, 8).map((s: string) => s.trim()).filter((k: string): k is CategoryKey => CATEGORY_KEYS.some(c => c.key === k)) : []);
   const orgType = (ORG_TYPES as string[]).includes(body.organizationType) ? (body.organizationType as OrgType) : '';
   const country = clean(body.country, 60).toLowerCase();
   const f = body.filters && typeof body.filters === 'object' ? body.filters : {};
@@ -488,7 +491,7 @@ async function list(db: Firestore, caller: Caller, body: any, now: number) {
   // 2. facets: for each filter, the counts you would get by choosing it now, given every OTHER filter
   type F = 'category' | 'orgType' | 'industry' | 'country';
   const passes = (c: Lite, skip?: F) =>
-    (skip === 'category' || !category || c.category === category) &&
+    (skip === 'category' || wantCategories.size === 0 || wantCategories.has(c.category)) &&
     (skip === 'orgType' || !orgType || c.orgType === orgType) &&
     (skip === 'industry' || !industry || c.industryKey === industry) &&
     (skip === 'country' || !country || c.countryKey === country);

@@ -27,7 +27,7 @@ await check('lib/ and api/ agree on type and category for a spread of inputs', (
     [undefined, ''], ['business', 'Manufacturing'], ['business', 'Healthcare'], ['business', 'Medical Devices'], ['business', 'Biotechnology'],
     ['business', 'Pharmaceuticals'], ['college_university', 'Education'], ['hospital', 'Healthcare'], ['health_system', ''], ['nonprofit', 'Healthcare'],
     ['nonprofit', 'Manufacturing'], ['government', 'Manufacturing'], ['College University', 'x'], ['HOSPITAL', 'x'], ['nonsense', 'Finance'], [42, 7], [null, null],
-    ['research_institute', 'Life Sciences'], ['business', 'Finance'], ['business', 'Industrial Manufacturing'],
+    ['research_institute', 'Life Sciences'], ['business', 'Finance'], ['business', 'Industrial Manufacturing'], ['business', 'Banking'], ['business', 'Health Insurance'], ['nonprofit', 'Finance'], ['hospital', 'Insurance'],
   ];
   for (const [t, i] of inputs) {
     const o = { organizationType: t, industry: i };
@@ -37,7 +37,7 @@ await check('lib/ and api/ agree on type and category for a spread of inputs', (
 });
 await check('a record with no organizationType is a business, so existing companies keep working', () => {
   assert(normalizeType(undefined) === 'business' && normalizeType('') === 'business' && normalizeType('weird') === 'business', 'default');
-  assert(categoryOf({ industry: 'Finance' }) === 'other', 'finance business');
+  assert(categoryOf({ industry: 'Finance' }) === 'finance' && categoryOf({ industry: 'Retail' }) === 'other', 'finance business');
   assert(categoryOf({ industry: 'Healthcare' }) === 'medical' && categoryOf({ industry: 'Manufacturing' }) === 'manufacturing', 'industry placement');
 });
 await check('type decides before industry: a hospital is a hospital, a nonprofit in healthcare is not a medical company', () => {
@@ -76,7 +76,7 @@ await check('every existing company is still listed, with no record altered', as
   const ids = r.items.map(i => i.id);
   assert(ids.includes('legacy-corp') && ids.includes('legacy-med'), 'legacy records');
   const lc = r.items.find(i => i.id === 'legacy-corp');
-  assert(lc.organizationType === 'business' && lc.category === 'other', JSON.stringify(lc));
+  assert(lc.organizationType === 'business' && lc.category === 'finance', JSON.stringify(lc));
   const doc = (await db.collection('companies').doc('legacy-corp').get()).data();
   assert(!('organizationType' in doc), 'must not rewrite existing records');
 });
@@ -87,8 +87,9 @@ await check('the four categories and their counts are exact', async () => {
   assert(c.hospitals === 2, 'hospitals ' + c.hospitals);
   assert(c.medical === 2, 'medical ' + c.medical); // legacy-med and biotech; the charity is a nonprofit, the hospitals are hospitals
   assert(c.manufacturing === 2, 'manufacturing ' + c.manufacturing);
+  assert(c.finance === 1, 'finance ' + c.finance);
   assert(Object.values(c).reduce((a, b) => a + b, 0) === r.total, 'categories must sum to the total');
-  assert(r.categories.length === 5, 'all categories are always listed');
+  assert(r.categories.length === 6, 'all categories are always listed');
 });
 await check('choosing a category returns exactly its members and the total matches', async () => {
   const r = await list({ category: 'colleges', limit: 24 });
@@ -148,6 +149,22 @@ await check('activity filter combines with a category (hiring manufacturers)', a
 await check('an unknown category or type is ignored, not an error', async () => {
   const r = await list({ category: 'nope', organizationType: 'nope' });
   assert(r.total === 22 || r.total > 20, 'total ' + r.total);
+});
+
+await check('a category filter can be several categories (Healthcare = healthcare companies + hospitals and health systems)', async () => {
+  const r = await list({ category: 'medical,hospitals', limit: 24 });
+  assert(r.total === 4 && r.items.every(i => ['medical', 'hospitals'].includes(i.category)), 'healthcare group ' + r.total);
+  const withJunk = await list({ category: ' hospitals , bogus,,hospitals', limit: 24 });
+  assert(withJunk.total === 2, 'unknown keys are ignored: ' + withJunk.total);
+  const none = await list({ category: 'bogus' });
+  assert(none.total === r.total + 0 || none.total > 0, 'only-unknown means no category filter');
+  const f = await list({ category: 'finance' });
+  assert(f.total === 1 && f.items[0].id === 'legacy-corp', 'finance');
+});
+await check('with a multi-category filter the category facet still shows every category (it ignores its own filter)', async () => {
+  const r = await list({ category: 'medical,hospitals' });
+  const c = Object.fromEntries(r.categories.map(x => [x.key, x.count]));
+  assert(c.colleges === 15 && c.manufacturing === 2 && c.medical === 2 && c.hospitals === 2, JSON.stringify(c));
 });
 
 console.log('== profiles ==');

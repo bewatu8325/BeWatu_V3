@@ -35,7 +35,7 @@ export const ORG_TYPE_LABEL: Record<OrganizationType, string> = {
   other: 'Organization',
 };
 
-export type CategoryKey = 'colleges' | 'medical' | 'hospitals' | 'manufacturing' | 'other';
+export type CategoryKey = 'colleges' | 'medical' | 'hospitals' | 'manufacturing' | 'finance' | 'other';
 
 export interface CategoryInfo { key: CategoryKey; label: string; short: string; blurb: string }
 
@@ -45,6 +45,7 @@ export const CATEGORIES: CategoryInfo[] = [
   { key: 'medical',       label: 'Medical & Healthcare Companies', short: 'Medical',       blurb: 'Healthcare, medical, biotech and pharma companies' },
   { key: 'hospitals',     label: 'Hospitals & Health Systems',     short: 'Hospitals',     blurb: 'Hospitals and the health systems they belong to' },
   { key: 'manufacturing', label: 'Manufacturing',                  short: 'Manufacturing', blurb: 'Companies that make things' },
+  { key: 'finance',       label: 'Finance',                        short: 'Finance',       blurb: 'Banks, insurers, investment and fintech companies' },
   { key: 'other',         label: 'Other organizations',            short: 'Other',         blurb: 'Everything else' },
 ];
 export const CATEGORY_LABEL: Record<CategoryKey, string> = Object.fromEntries(CATEGORIES.map(c => [c.key, c.label])) as any;
@@ -57,6 +58,7 @@ export function normalizeType(raw: unknown): OrganizationType {
 // Industries that make a *business* a "Medical & Healthcare Company".
 export const HEALTH_INDUSTRY_RE = /(health|medical|medicine|biotech|pharma|life.?science|clinical|diagnostic|therapeut)/i;
 export const MANUFACTURING_INDUSTRY_RE = /manufactur/i;
+export const FINANCE_INDUSTRY_RE = /(financ|bank|insur|invest|wealth|asset management|capital markets|fintech|payments|lending|credit)/i;
 
 /**
  * Which directory category an organization falls in.
@@ -72,6 +74,7 @@ export function categoryOf(o: { organizationType?: unknown; industry?: unknown }
   if (type === 'business') {
     if (HEALTH_INDUSTRY_RE.test(industry)) return 'medical';
     if (MANUFACTURING_INDUSTRY_RE.test(industry)) return 'manufacturing';
+    if (FINANCE_INDUSTRY_RE.test(industry)) return 'finance';
   }
   return 'other';
 }
@@ -98,6 +101,9 @@ export const PROFILE_SECTIONS: Record<CategoryKey, ProfileSectionSpec> = {
   manufacturing: { category: 'manufacturing', title: 'About this manufacturer', fields: [
     { key: 'established', label: 'Founded', kind: 'year' }, { key: 'employeeRange', label: 'Employees', kind: 'text' },
     { key: 'sicDescription', label: 'Industry classification', kind: 'text' }, { key: 'exchange', label: 'Listed on', kind: 'text' } ] },
+  finance: { category: 'finance', title: 'About this company', fields: [
+    { key: 'established', label: 'Founded', kind: 'year' }, { key: 'employeeRange', label: 'Employees', kind: 'text' },
+    { key: 'regulatoryStatus', label: 'Regulatory status', kind: 'text' }, { key: 'exchange', label: 'Listed on', kind: 'text' } ] },
   other: { category: 'other', title: 'About this organization', fields: [
     { key: 'established', label: 'Founded', kind: 'year' }, { key: 'employeeRange', label: 'Employees', kind: 'text' } ] },
 };
@@ -137,4 +143,40 @@ export interface OrganizationLocation { city?: string; region?: string; country?
 export function locationText(l: OrganizationLocation | null | undefined): string {
   if (!l) return '';
   return [l.city, l.region && l.region !== l.city ? l.region : '', l.country].filter(Boolean).join(', ');
+}
+
+// ── Category groups: what the Organizations page offers as "popular" choices ──
+// A group is one choice in the picker that can stand for more than one category (Healthcare = healthcare companies
+// AND hospitals/health systems). The server takes a category filter as a comma-separated list of keys.
+export interface CategoryGroup { id: string; label: string; keys: CategoryKey[] }
+
+export const POPULAR_GROUPS: CategoryGroup[] = [
+  { id: 'universities',  label: 'Universities',  keys: ['colleges'] },
+  { id: 'healthcare',    label: 'Healthcare',    keys: ['medical', 'hospitals'] },
+  { id: 'manufacturing', label: 'Manufacturing', keys: ['manufacturing'] },
+  { id: 'finance',       label: 'Finance',       keys: ['finance'] },
+];
+
+/** "medical,hospitals" -> ['medical','hospitals']; unknown keys and duplicates are dropped. */
+export function parseCategoryParam(raw: unknown): CategoryKey[] {
+  if (typeof raw !== 'string') return [];
+  const out: CategoryKey[] = [];
+  for (const part of raw.split(',')) {
+    const k = part.trim() as CategoryKey;
+    if (CATEGORIES.some(c => c.key === k) && !out.includes(k)) out.push(k);
+  }
+  return out;
+}
+/** The canonical string for a set of categories (CATEGORIES order), so the same choice is always the same value. */
+export function categoryParam(keys: CategoryKey[]): string {
+  return CATEGORIES.filter(c => keys.includes(c.key)).map(c => c.key).join(',');
+}
+/** The label for a selected set: a popular group's own name when it matches exactly, else the category names. */
+export function categorySelectionLabel(param: string): string {
+  const keys = parseCategoryParam(param);
+  if (keys.length === 0) return '';
+  const canon = categoryParam(keys);
+  const group = POPULAR_GROUPS.find(g => categoryParam(g.keys) === canon);
+  if (group) return group.label;
+  return CATEGORIES.filter(c => keys.includes(c.key)).map(c => c.label).join(' and ');
 }
