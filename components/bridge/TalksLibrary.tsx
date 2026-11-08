@@ -38,7 +38,7 @@ export const IntroEmpty: React.FC<{ canContribute: boolean; onShare: () => void;
       {canContribute
         ? <button type="button" onClick={onShare} className={'min-h-[48px] rounded-full px-6 text-sm font-bold text-white ' + FOCUS} style={{ backgroundColor: GREEN, ...ring }}>Share your first Talk</button>
         : <>
-            <button type="button" onClick={onExplore} className={'min-h-[48px] rounded-full px-6 text-sm font-bold text-white ' + FOCUS} style={{ backgroundColor: GREEN, ...ring }}>Explore Perspectives</button>
+            <button type="button" onClick={onExplore} className={'min-h-[48px] rounded-full px-6 text-sm font-bold text-white ' + FOCUS} style={{ backgroundColor: GREEN, ...ring }}>Explore Conversations</button>
             <button type="button" onClick={onSuggest} className={'min-h-[48px] rounded-full border border-stone-300 bg-white px-6 text-sm font-semibold text-stone-800 hover:bg-stone-50 ' + FOCUS} style={ring}>Suggest a Speaker</button>
             <button type="button" onClick={onRequest} className={'min-h-[48px] rounded-full px-5 text-sm font-semibold underline ' + FOCUS} style={{ color: GREEN, ...ring }}>Ask to share a Talk</button>
           </>}
