@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Company, Job, User } from '../types';
 import { fetchCompanyDetail, claimCompanyRequest, type CompanyDetail } from '../lib/companiesService';
+import { followStore } from '../lib/orgFollowInstance';
 import { PROFILE_SECTIONS, sanitizeProfile, formatProfileValue, locationText } from '../lib/organizations';
 import SponsorshipManager from './arenas/SponsorshipManager';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -1870,7 +1871,7 @@ export function CompanyProfileModal({ company, allJobs, onClose, onOpenOrganizat
     if (!company._firestoreId || !fbUser) return;
     let live = true;
     fetchCompanyDetail(company._firestoreId)
-      .then(d => { if (live) { setDetail(d); setIsFollowing(d.following); } })
+      .then(d => { if (live) { setDetail(d); setIsFollowing(d.following); followStore.mark(company._firestoreId, d.following); } })
       .catch(() => { /* the profile still works without the activity panel */ });
     return () => { live = false; };
   }, [company._firestoreId, fbUser]);
@@ -1931,9 +1932,11 @@ export function CompanyProfileModal({ company, allJobs, onClose, onOpenOrganizat
       if (isFollowing) {
         await unfollowCompany(fbUser.uid, company._firestoreId);
         setIsFollowing(false);
+        followStore.mark(company._firestoreId, false);
       } else {
         await followCompany(fbUser.uid, company._firestoreId);
         setIsFollowing(true);
+        followStore.mark(company._firestoreId, true);
         // Fire CoSentiment signal — fire-and-forget
         const domain = (company.website ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
         if (domain) {

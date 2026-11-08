@@ -136,5 +136,7 @@ jobs:
         run: npm install -g firebase-tools tsx
       - name: Navigation, Create menu, Arena discovery and Prove gallery logic
         run: tsx test/arenas-nav/run-tests.mjs
+      - name: Follow state and Organizations-to-discover list
+        run: tsx test/org-follow/run-tests.mjs
       - name: Reel to challenge links, Arena follows and alerts
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/arena-prove/run-tests.mjs"
