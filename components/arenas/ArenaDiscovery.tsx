@@ -30,7 +30,7 @@ import BecomeSponsorModal from "./BecomeSponsorModal";
 
 // ─── Icon map ─────────────────────────────────────────────────────────────────
 
-const ICON_MAP: Record<string, React.FC<{ size?: number; color?: string }>> = {
+export const ICON_MAP: Record<string, React.FC<{ size?: number; color?: string }>> = {
   CreditCard: ({ size = 20, color }) => <CreditCard size={size} color={color} />,
   Building2:  ({ size = 20, color }) => <Building2  size={size} color={color} />,
   Shield:     ({ size = 20, color }) => <Shield     size={size} color={color} />,

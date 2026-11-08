@@ -1,24 +1,27 @@
 /**
  * lib/uiIntent.ts
  * A tiny way for one part of the app to ask another to do something once it is on screen:
- * "open the post composer", "open the create-a-pod dialog". The request is remembered until the
- * target mounts (the page may need to open first) and is consumed exactly once.
+ * "open the post composer", "open the create-a-pod dialog", "open the reel uploader". The request is remembered until
+ * the target mounts (the page may need to open first) and is consumed exactly once. It can carry a small payload
+ * (for example which kind of pod to start, or which Arena challenge a pod is for).
  */
 import { useEffect } from 'react';
 
-export type UiIntent = 'focus-composer' | 'create-pod';
-const EVENT = 'bewatu:intent';
-let pending: UiIntent | null = null;
+export type UiIntent = 'focus-composer' | 'create-pod' | 'upload-reel' | 'post-challenge';
+export interface IntentPayload { podType?: 'community' | 'innovation' | 'challenge' | 'generational'; challengeId?: string; challengeTitle?: string }
 
-export function requestIntent(intent: UiIntent) {
-  pending = intent;
+const EVENT = 'bewatu:intent';
+let pending: { intent: UiIntent; payload?: IntentPayload } | null = null;
+
+export function requestIntent(intent: UiIntent, payload?: IntentPayload) {
+  pending = { intent, payload };
   try { window.dispatchEvent(new CustomEvent(EVENT, { detail: intent })); } catch { /* non-browser */ }
 }
 
 /** Runs `handler` when `intent` is requested, including a request made just before this mounted. */
-export function useIntent(intent: UiIntent, handler: () => void) {
+export function useIntent(intent: UiIntent, handler: (payload?: IntentPayload) => void) {
   useEffect(() => {
-    const take = () => { if (pending === intent) { pending = null; handler(); } };
+    const take = () => { if (pending && pending.intent === intent) { const p = pending.payload; pending = null; handler(p); } };
     take();
     const on = () => take();
     window.addEventListener(EVENT, on);

@@ -1,9 +1,10 @@
 /**
  * components/ProveView.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * The "Prove" page — a reel-based skill showcase.
- * Users upload 30–90s video reels with a written pitch, skill tags,
- * and industry tags. Others can browse, react, and get matched.
+ * The "Prove" page: a professional video showcase, independent of Arenas.
+ * Members upload 30–90s reels with a written pitch, skill tags and industry tags.
+ * Others browse a gallery (Discover, Following, My Reels), watch, spark, connect and message.
+ * A reel can be linked to an Arena challenge its author has submitted to (components/prove/ArenaLink.tsx).
  *
  * Features:
  *   - Upload reel with pitch + skill/industry tags
@@ -13,12 +14,12 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Play, Pause, Upload, X, Plus, Zap, MessageSquare,
   UserPlus, Briefcase, Filter, Search, CheckCircle2,
   Video, ChevronRight, Star, Clock, Tag, Building2,
-  Flame, Eye, Heart, MoreHorizontal, Sparkles, Trash2,
+  Flame, Eye, Heart, MoreHorizontal, Sparkles, Trash2, Trophy, ChevronDown,
 } from 'lucide-react';
 import {
   collection, addDoc, query, orderBy, onSnapshot,
@@ -29,6 +30,14 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebas
 import { db, storage } from '../lib/firebase';
 import { compressVideo } from '../lib/compressVideo';
 import { useFirebase } from '../contexts/FirebaseContext';
+import { useIntent } from '../lib/uiIntent';
+import { refreshReelLink, unlinkReel, type ArenaLink } from '../lib/arenaClient';
+import {
+  defaultTab, reelsFor, optionsFrom, followingReels, anyProveFilter, NO_PROVE_FILTERS,
+  type ProveTab, type ProveSort, type ProveFilters, type ProveContext, type ReelLite,
+} from '../lib/proveDiscovery';
+import { ArenaLinkNote, ArenaLinkModal } from './prove/ArenaLink';
+import BottomSheet from './mobile/BottomSheet';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +56,8 @@ interface Reel {
   sparks:       string[];
   views:        number;
   createdAt:    any;
+  /** Written only by api/reel-arena-link.ts, after it has checked the author submitted to that challenge. */
+  arenaLink?:   ArenaLink;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -74,6 +85,7 @@ function ReelPlayer({
   onDelete,
   currentUid,
   compact = false,
+  onOpenChallenge,
 }: {
   reel:       Reel;
   onSpark:    (id: string) => void;
@@ -82,6 +94,7 @@ function ReelPlayer({
   onDelete?:  (reel: Reel) => void;
   currentUid: string;
   compact?:   boolean;
+  onOpenChallenge?: (challengeId: string) => void;
 }) {
   const videoRef    = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying]   = useState(false);
@@ -190,6 +203,8 @@ function ReelPlayer({
             ))}
           </div>
         )}
+
+        {reel.arenaLink && <div className="mb-4"><ArenaLinkNote link={reel.arenaLink} onOpenChallenge={onOpenChallenge} /></div>}
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-3 border-t border-stone-100">
@@ -378,6 +393,18 @@ function UploadReelModal({
               <input ref={inputRef} type="file" accept="video/*" className="hidden"
                 onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
               {error && <p className="text-xs text-red-600 mt-2 text-center">{error}</p>}
+              {/* Guidance lives where it is useful: while making the reel, and only if you want it */}
+              <details className="mt-4 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">
+                <summary className="flex min-h-[32px] cursor-pointer list-none items-center gap-2 text-sm font-semibold text-stone-800">
+                  <Star size={14} style={{ color: 'var(--bw-green)' }} aria-hidden="true" /> Tips for a great reel
+                  <ChevronDown size={14} className="ml-auto text-stone-500" aria-hidden="true" />
+                </summary>
+                <ul className="mt-2 space-y-1.5">
+                  {['Show your work, not just your face', 'Mention a specific problem you solved', 'Keep it under 60s: shorter is sharper', 'Tag the skills you want to be known for'].map(tip => (
+                    <li key={tip} className="flex items-start gap-1.5 text-sm text-stone-700"><ChevronRight size={13} className="mt-1 flex-shrink-0 text-stone-400" aria-hidden="true" />{tip}</li>
+                  ))}
+                </ul>
+              </details>
             </div>
           )}
 
@@ -556,6 +583,57 @@ interface ProveViewProps {
   onConnect:      (id: number) => void;
   allJobs?:       any[];
   socialGraphUids?: Set<string>;
+  /** Opens an Arena challenge's page (from a reel's challenge link). */
+  onOpenChallenge?: (challengeId: string) => void;
+  /** Goes to the Arenas landing page. */
+  onExploreArenas?: () => void;
+}
+
+const GREEN = 'var(--bw-green)';
+const GREEN_LT = 'var(--bw-green-light)';
+const ring = { ['--tw-ring-color' as any]: GREEN } as React.CSSProperties;
+const STORAGE_KEY = 'beWatuProveState';
+const TAB_LABEL: Record<ProveTab, string> = { discover: 'Discover', following: 'Following', mine: 'My Reels' };
+
+const toLite = (r: Reel): ReelLite => ({ id: r.id, authorUid: r.authorUid, authorName: r.authorName, authorTitle: r.authorTitle, pitch: r.pitch, skills: r.skills, industries: r.industries, createdAtMs: r.createdAt?.toMillis?.() ?? 0, sparks: r.sparks });
+
+/** One reel in the gallery: a real preview (the uploaded thumbnail, or the video's own first frame), who, what, and the skills. */
+function ReelCard({ reel, onOpen, children }: { reel: Reel; onOpen: () => void; children?: React.ReactNode }) {
+  const mins = Math.floor((reel.duration ?? 0) / 60); const secs = String(Math.floor((reel.duration ?? 0) % 60)).padStart(2, '0');
+  return (
+    <article className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm" aria-label={`Reel by ${reel.authorName}`}>
+      <button type="button" onClick={onOpen} aria-label={`Play reel by ${reel.authorName}: ${reel.pitch ?? ''}`.slice(0, 160)}
+        className="group relative block aspect-[3/4] w-full overflow-hidden bg-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset" style={ring}>
+        {reel.thumbnailUrl
+          ? <img src={reel.thumbnailUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+          : <video src={`${reel.videoUrl}#t=0.1`} preload="metadata" muted playsInline tabIndex={-1} aria-hidden="true" className="h-full w-full object-cover" />}
+        <span className="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors group-hover:bg-black/25">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg"><Play size={20} className="ml-0.5 text-stone-900" fill="currentColor" aria-hidden="true" /></span>
+        </span>
+        {(reel.duration ?? 0) > 0 && <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-semibold text-white">{mins}:{secs}</span>}
+        {reel.arenaLink && <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[11px] font-semibold" style={{ color: GREEN }}><Trophy size={11} aria-hidden="true" /> Arena</span>}
+      </button>
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <div className="flex items-center gap-2">
+          {reel.authorAvatar
+            ? <img src={reel.authorAvatar} alt="" loading="lazy" className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
+            : <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: GREEN }}>{(reel.authorName ?? '?').slice(0, 1).toUpperCase()}</span>}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight text-stone-900 line-clamp-1">{reel.authorName}</p>
+            {reel.authorTitle && <p className="text-xs leading-tight text-stone-600 line-clamp-1">{reel.authorTitle}</p>}
+          </div>
+        </div>
+        {reel.pitch && <p className="text-sm leading-snug text-stone-700 line-clamp-2">{reel.pitch}</p>}
+        {(reel.skills?.length ?? 0) > 0 && (
+          <ul className="flex flex-wrap gap-1" aria-label="Skills">
+            {reel.skills.slice(0, 2).map(s => <li key={s} className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700">{s}</li>)}
+            {reel.skills.length > 2 && <li className="px-1 py-0.5 text-xs text-stone-500">+{reel.skills.length - 2}</li>}
+          </ul>
+        )}
+        {children}
+      </div>
+    </article>
+  );
 }
 
 export default function ProveView({
@@ -565,413 +643,306 @@ export default function ProveView({
   onConnect,
   allJobs = [],
   socialGraphUids,
+  onOpenChallenge,
+  onExploreArenas,
 }: ProveViewProps) {
   const { fbUser } = useFirebase();
   const [reels, setReels]         = useState<Reel[]>([]);
   const [myReels, setMyReels]     = useState<Reel[]>([]);
   const [loading, setLoading]     = useState(true);
   const [showUpload, setShowUpload] = useState(false);
-  const [search, setSearch]       = useState('');
-  const [filterSkill, setFilterSkill] = useState<string | null>(null);
-  const [filterIndustry, setFilterIndustry] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'network' | 'mine' | 'discover'>('network');
+  const [filters, setFilters]     = useState<ProveFilters>(NO_PROVE_FILTERS);
+  const [sort, setSort]           = useState<ProveSort>('match');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [playing, setPlaying]     = useState<Reel | null>(null);
+  const [linking, setLinking]     = useState<Reel | null>(null);
+  const [busyLink, setBusyLink]   = useState<string | null>(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
   const [undoToast, setUndoToast] = useState<{ reel: Reel } | null>(null);
   const deleteTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const currentUid = fbUser?.uid ?? String(currentUser?.id ?? '');
+  // "Upload a Reel" from the Create menu lands here with the uploader open.
+  useIntent('upload-reel', () => setShowUpload(true));
 
-  // Clear any still-pending delete timers on unmount so a real delete can't
-  // fire against a torn-down view's stale closures.
+  // The tab: the address (?tab=), else what this tab of the browser last had, else Discover, or Following once it holds enough.
+  const initialTab = useMemo<ProveTab | null>(() => {
+    try {
+      const fromUrl = new URLSearchParams(window.location.search).get('tab');
+      if (window.location.pathname === '/prove' && (fromUrl === 'discover' || fromUrl === 'following' || fromUrl === 'mine')) return fromUrl;
+      const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? 'null');
+      if (saved && (saved.tab === 'discover' || saved.tab === 'following' || saved.tab === 'mine')) return saved.tab;
+    } catch { /* storage may be unavailable */ }
+    return null;
+  }, []);
+  const [chosenTab, setChosenTab] = useState<ProveTab | null>(initialTab);
   useEffect(() => {
-    return () => { deleteTimers.current.forEach(t => clearTimeout(t)); };
+    try {
+      const s = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? 'null');
+      if (s?.filters) setFilters({ ...NO_PROVE_FILTERS, q: String(s.filters.q ?? '').slice(0, 80), skill: String(s.filters.skill ?? ''), industry: String(s.filters.industry ?? '') });
+      if (s?.sort === 'newest') setSort('newest');
+    } catch { /* ignore */ }
   }, []);
 
+  useEffect(() => { return () => { deleteTimers.current.forEach(t => clearTimeout(t)); }; }, []);
   const visibleMyReels = myReels.filter(r => !pendingDeleteIds.has(r.id));
 
   useEffect(() => {
-    // Recent-across-everyone feed, for the network/discover tabs. Capped at
-    // 50 -- fine for a feed, but NOT a source of truth for "my reels": once
-    // 50 reels exist platform-wide, an older reel of yours falls out of this
-    // window and would silently vanish from your own management view (see
-    // the dedicated myReels query below).
-    const q = query(
-      collection(db, 'reels'),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
-    const unsub = onSnapshot(q, snap => {
-      setReels(snap.docs.map(d => ({ id: d.id, ...d.data() } as Reel)));
-      setLoading(false);
-    });
-    return unsub;
+    // Recent-across-everyone, capped at 50: fine for a gallery, but NOT a source of truth for "my reels" (see the query below).
+    const q = query(collection(db, 'reels'), orderBy('createdAt', 'desc'), limit(50));
+    return onSnapshot(q, snap => { setReels(snap.docs.map(d => ({ id: d.id, ...d.data() } as Reel))); setLoading(false); });
   }, []);
-
   useEffect(() => {
     if (!currentUid) return;
-    // Scoped to this user, independent of the global recent-feed window
-    // above, so "My Reels" (and the sidebar stats / skills-from-my-reels
-    // matching below) always shows everything you've posted, however old.
-    const q = query(
-      collection(db, 'reels'),
-      where('authorUid', '==', currentUid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsub = onSnapshot(q, snap => {
-      setMyReels(snap.docs.map(d => ({ id: d.id, ...d.data() } as Reel)));
-    });
-    return unsub;
+    // Scoped to this user so "My Reels" always shows everything you've posted, however old.
+    const q = query(collection(db, 'reels'), where('authorUid', '==', currentUid), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap => setMyReels(snap.docs.map(d => ({ id: d.id, ...d.data() } as Reel))));
   }, [currentUid]);
 
+  const userSkills: string[] = (currentUser?.skills ?? []).map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean);
+  const pctx: ProveContext = { uid: currentUid, following: socialGraphUids, mySkills: userSkills, myIndustry: String(currentUser?.industry ?? '') };
+  const liteAll = useMemo(() => reels.map(toLite), [reels]);
+  const tab: ProveTab = chosenTab ?? defaultTab(liteAll, pctx);
+  const byId = useMemo(() => new Map([...reels, ...visibleMyReels].map(r => [r.id, r] as const)), [reels, visibleMyReels]);
+
+  const shown = useMemo(() => reelsFor(tab, liteAll, visibleMyReels.map(toLite), pctx, filters, sort).map(l => byId.get(l.id)!).filter(Boolean),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tab, liteAll, visibleMyReels, filters, sort, byId, socialGraphUids, currentUid, userSkills.join('|')]);
+  const skillOpts = useMemo(() => optionsFrom(liteAll, r => r.skills), [liteAll]);
+  const industryOpts = useMemo(() => optionsFrom(liteAll, r => r.industries), [liteAll]);
+  const followingCount = followingReels(liteAll, pctx).length;
+  const filtering = anyProveFilter(filters);
+
+  const choose = (t: ProveTab) => {
+    setChosenTab(t);
+    try { window.history.replaceState(window.history.state, '', `/prove?tab=${t}`); } catch { /* ignore */ }
+  };
+  useEffect(() => { try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ tab: chosenTab, filters, sort })); } catch { /* ignore */ } }, [chosenTab, filters, sort]);
+
   const handleSpark = async (reelId: string) => {
-    const reel = reels.find(r => r.id === reelId) ?? myReels.find(r => r.id === reelId);
-    if (!reel) return;
+    const reel = byId.get(reelId); if (!reel) return;
     const hasSparked = reel.sparks?.includes(currentUid);
-    await updateDoc(doc(db, 'reels', reelId), {
-      sparks: hasSparked ? arrayRemove(currentUid) : arrayUnion(currentUid),
-    });
+    await updateDoc(doc(db, 'reels', reelId), { sparks: hasSparked ? arrayRemove(currentUid) : arrayUnion(currentUid) });
   };
 
-  // Real delete doesn't happen until the undo window passes -- deleting the
-  // Storage video/thumbnail can't be cleanly reversed, so "undo" has to mean
-  // "never actually called it," not "delete then try to restore."
+  // Real delete doesn't happen until the undo window passes: deleting the Storage video can't be cleanly reversed.
   const commitDeleteReel = async (reel: Reel) => {
     await deleteDoc(doc(db, 'reels', reel.id));
     await deleteObject(ref(storage, reel.videoUrl)).catch(() => {});
-    if (reel.thumbnailUrl) {
-      await deleteObject(ref(storage, reel.thumbnailUrl)).catch(() => {});
-    }
+    if (reel.thumbnailUrl) await deleteObject(ref(storage, reel.thumbnailUrl)).catch(() => {});
     deleteTimers.current.delete(reel.id);
-    setPendingDeleteIds(prev => {
-      const next = new Set(prev);
-      next.delete(reel.id);
-      return next;
-    });
+    setPendingDeleteIds(prev => { const next = new Set(prev); next.delete(reel.id); return next; });
     setUndoToast(current => (current?.reel.id === reel.id ? null : current));
   };
-
   const handleDeleteReel = (reel: Reel) => {
     if (reel.authorUid !== currentUid) return;
+    setPlaying(null);
     setPendingDeleteIds(prev => new Set(prev).add(reel.id));
     setUndoToast({ reel });
-    const timer = setTimeout(() => commitDeleteReel(reel), 5000);
-    deleteTimers.current.set(reel.id, timer);
+    deleteTimers.current.set(reel.id, setTimeout(() => commitDeleteReel(reel), 5000));
   };
-
   const handleUndoDelete = (reelId: string) => {
     const timer = deleteTimers.current.get(reelId);
     if (timer) clearTimeout(timer);
     deleteTimers.current.delete(reelId);
-    setPendingDeleteIds(prev => {
-      const next = new Set(prev);
-      next.delete(reelId);
-      return next;
-    });
+    setPendingDeleteIds(prev => { const next = new Set(prev); next.delete(reelId); return next; });
     setUndoToast(current => (current?.reel.id === reelId ? null : current));
   };
 
-  // Match reels against user's skills from their profile
-  const userSkills = (currentUser?.skills ?? []).map((s: any) =>
-    typeof s === 'string' ? s.toLowerCase() : s.name?.toLowerCase()
-  );
-  const userIndustry = (currentUser?.industry ?? '').toLowerCase();
+  const refreshLink = async (reel: Reel) => { setBusyLink(reel.id); try { await refreshReelLink(reel.id); } catch { /* the note keeps its last known status and date */ } finally { setBusyLink(null); } };
+  const removeLink = async (reel: Reel) => { setBusyLink(reel.id); try { await unlinkReel(reel.id); } catch { /* still linked */ } finally { setBusyLink(null); } };
 
-  // Score a reel by skills/industry match — used for Discover ranking
-  function matchScore(reel: Reel): number {
-    const reelSkills = (reel.skills ?? []).map((s: string) => s.toLowerCase());
-    const reelIndustries = (reel.industries ?? []).map((i: string) => i.toLowerCase());
-    const skillOverlap    = reelSkills.filter(s => userSkills.includes(s)).length;
-    const industryMatch   = userIndustry && reelIndustries.includes(userIndustry) ? 2 : 0;
-    return skillOverlap + industryMatch;
-  }
-
-  const filtered = (() => {
-    let results = reels;
-
-    if (activeTab === 'mine') {
-      return visibleMyReels;
-    }
-
-    if (activeTab === 'network') {
-      // Show reels from social graph (connections + circle members)
-      results = results.filter(r =>
-        r.authorUid !== currentUid &&
-        (socialGraphUids?.has(r.authorUid))
-      );
-      // Apply search/filter on top
-      if (filterSkill)    results = results.filter(r => r.skills?.some(s => s.toLowerCase().includes(filterSkill.toLowerCase())));
-      if (filterIndustry) results = results.filter(r => r.industries?.includes(filterIndustry));
-      if (search) {
-        const q = search.toLowerCase();
-        results = results.filter(r =>
-          r.authorName?.toLowerCase().includes(q) ||
-          r.pitch?.toLowerCase().includes(q) ||
-          r.skills?.some(s => s.toLowerCase().includes(q))
-        );
-      }
-      // Network: sort by recency (you want to see what your network is doing recently)
-      return results.sort((a, b) => {
-        const aTime = a.createdAt?.toMillis?.() ?? 0;
-        const bTime = b.createdAt?.toMillis?.() ?? 0;
-        return bTime - aTime;
-      });
-    }
-
-    if (activeTab === 'discover') {
-      // Show reels OUTSIDE network — ranked by skills/industry match, NOT recency
-      results = results.filter(r =>
-        r.authorUid !== currentUid &&
-        !socialGraphUids?.has(r.authorUid)
-      );
-      if (filterSkill)    results = results.filter(r => r.skills?.some(s => s.toLowerCase().includes(filterSkill.toLowerCase())));
-      if (filterIndustry) results = results.filter(r => r.industries?.includes(filterIndustry));
-      if (search) {
-        const q = search.toLowerCase();
-        results = results.filter(r =>
-          r.authorName?.toLowerCase().includes(q) ||
-          r.pitch?.toLowerCase().includes(q) ||
-          r.skills?.some(s => s.toLowerCase().includes(q))
-        );
-      }
-      // Rank by skills/industry match — this is the key liability protection
-      return results.sort((a, b) => matchScore(b) - matchScore(a));
-    }
-
-    return results;
-  })();
-
-  // Jobs that match reel skills in user's reels
-  const mySkills = visibleMyReels
-    .flatMap(r => r.skills ?? [])
-    .map(s => s.toLowerCase());
-
+  // Jobs that match reel skills in the member's reels
+  const mySkills = visibleMyReels.flatMap(r => r.skills ?? []).map(s => s.toLowerCase());
   const matchedJobs = allJobs
     .map(job => {
       const jobSkills = (job.requiredSkills ?? job.skills ?? []).map((s: string) => s.toLowerCase());
       const overlap   = mySkills.filter(s => jobSkills.includes(s));
       return { ...job, matchScore: Math.round((overlap.length / Math.max(jobSkills.length, 1)) * 100) };
     })
-    .filter(j => j.matchScore > 0)
-    .sort((a, b) => b.matchScore - a.matchScore)
-    .slice(0, 5);
+    .filter(j => j.matchScore > 0).sort((a, b) => b.matchScore - a.matchScore).slice(0, 5);
+
+  const filterCount = (filters.skill ? 1 : 0) + (filters.industry ? 1 : 0);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-
+    <div className="mx-auto max-w-6xl px-1 py-4 sm:py-6">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-stone-900 mb-1">Prove</h1>
-          <p className="text-stone-600 text-sm">
-            Show what you can do. Upload a 30–90s reel and let your skills speak.
-          </p>
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-stone-900 sm:text-3xl">Prove</h1>
+          <p className="mt-1 text-sm text-stone-600 sm:text-base">Let your work speak for you. Short videos from professionals showing a skill, a project or a problem they solved.</p>
         </div>
-        <button
-          onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-        >
-          <Video size={14} /> Upload reel
+        <button type="button" onClick={() => setShowUpload(true)} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white focus:outline-none focus-visible:ring-2" style={{ backgroundColor: GREEN, ...ring }}>
+          <Video size={15} aria-hidden="true" /> Upload a reel
         </button>
+      </header>
+
+      {/* Tabs */}
+      <div role="tablist" aria-label="Reels" className="mb-4 inline-flex rounded-xl bg-stone-100 p-1">
+        {(['discover', 'following', 'mine'] as ProveTab[]).map(t => (
+          <button key={t} role="tab" aria-selected={tab === t} onClick={() => choose(t)}
+            className={`min-h-[40px] rounded-lg px-3 text-sm font-semibold focus:outline-none focus-visible:ring-2 sm:px-5 ${tab === t ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600 hover:text-stone-900'}`} style={ring}>
+            {TAB_LABEL[t]}
+          </button>
+        ))}
       </div>
 
-      <div className="flex gap-6">
-        {/* Main column */}
-        <div className="flex-1 min-w-0">
-
-          {/* Tabs */}
-          <div className="flex items-center gap-1 mb-5 bg-stone-100 rounded-xl p-1">
-            {([
-              { id: 'network', label: 'Network' },
-              { id: 'discover', label: 'Discover' },
-              { id: 'mine',    label: 'My reels' },
-            ] as const).map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-white text-stone-900 shadow-sm'
-                    : 'text-stone-600 hover:text-stone-700'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+      {/* Search, filters, sort */}
+      {tab !== 'mine' && (
+        <div className="mb-4 flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" aria-hidden="true" />
+            <input type="text" aria-label="Search reels, skills and professionals" placeholder="Search reels" value={filters.q}
+              onChange={e => setFilters(f => ({ ...f, q: e.target.value.slice(0, 80) }))}
+              className="min-h-[44px] w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-10 text-base focus:outline-none focus-visible:ring-2 sm:text-sm" style={ring} />
+            {filters.q && <button type="button" aria-label="Clear search" onClick={() => setFilters(f => ({ ...f, q: '' }))} className="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-stone-500 hover:bg-stone-100"><X size={16} /></button>}
           </div>
+          <button type="button" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-2 rounded-xl border border-stone-300 bg-white px-3.5 text-sm font-semibold text-stone-800 hover:bg-stone-50 focus:outline-none focus-visible:ring-2" style={ring}>
+            <Filter size={15} aria-hidden="true" /> Filter
+            {filterCount > 0 && <span className="rounded-full px-1.5 text-xs font-bold text-white" style={{ backgroundColor: GREEN }}><span className="sr-only">{filterCount} active: </span>{filterCount}</span>}
+          </button>
+        </div>
+      )}
+      {tab !== 'mine' && (filters.skill || filters.industry) && (
+        <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Active filters">
+          {filters.skill && <button type="button" onClick={() => setFilters(f => ({ ...f, skill: '' }))} aria-label={`Remove filter: ${filters.skill}`} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-3 text-sm font-medium text-white" style={{ backgroundColor: GREEN }}>{filters.skill}<X size={14} aria-hidden="true" /></button>}
+          {filters.industry && <button type="button" onClick={() => setFilters(f => ({ ...f, industry: '' }))} aria-label={`Remove filter: ${filters.industry}`} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-3 text-sm font-medium text-white" style={{ backgroundColor: GREEN }}>{filters.industry}<X size={14} aria-hidden="true" /></button>}
+        </div>
+      )}
+      {tab === 'discover' && (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="min-w-0 text-xs text-stone-600">{sort === 'match' ? 'Ordered by how closely their skills and industry match yours, not by popularity.' : 'Newest first.'}</p>
+          <label className="flex flex-shrink-0 items-center gap-2 text-sm text-stone-600">
+            <span className="sr-only">Sort</span>
+            <select aria-label="Sort reels" value={sort} onChange={e => setSort(e.target.value as ProveSort)} className="min-h-[44px] rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 focus:outline-none focus-visible:ring-2" style={ring}>
+              <option value="match">Best match</option>
+              <option value="newest">Newest</option>
+            </select>
+          </label>
+        </div>
+      )}
 
-          {/* Search + filters */}
-          {activeTab !== 'mine' && (
-            <div className="flex gap-2 mb-5 flex-wrap">
-              <div className="relative flex-1 min-w-40">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-600" />
-                <input
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setFilterSkill(null); setFilterIndustry(null); }}
-                  placeholder="Search reels, skills, people..."
-                  className="w-full pl-8 pr-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:border-stone-400 bg-white"
-                />
-              </div>
-              <select
-                value={filterSkill ?? ''}
-                onChange={e => { setFilterSkill(e.target.value || null); setSearch(''); }}
-                className="text-xs border border-stone-200 rounded-xl px-3 py-2 bg-white text-stone-600 focus:outline-none"
-              >
-                <option value="">All skills</option>
-                {SKILL_SUGGESTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <select
-                value={filterIndustry ?? ''}
-                onChange={e => { setFilterIndustry(e.target.value || null); setSearch(''); }}
-                className="text-xs border border-stone-200 rounded-xl px-3 py-2 bg-white text-stone-600 focus:outline-none"
-              >
-                <option value="">All industries</option>
-                {INDUSTRY_OPTIONS.map(i => <option key={i} value={i}>{i}</option>)}
-              </select>
-            </div>
-          )}
-
-          {/* Discover tab notice */}
-          {activeTab === 'discover' && (
-            <div className="mb-4 px-3 py-2 rounded-xl bg-[var(--bw-green-light)] border border-[#c7e8d8]">
-              <p className="text-xs text-[var(--bw-green)]">
-                Ranked by skills and industry match — not engagement or recency.
-              </p>
-            </div>
-          )}
-
-          {/* Reel grid */}
-          {loading ? (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-2xl bg-stone-100 animate-pulse aspect-[9/16]" />
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-20 border border-dashed border-stone-200 rounded-2xl">
-              <Video size={28} className="text-stone-200 mx-auto mb-3" />
-              <p className="text-stone-600 text-sm mb-1">
-                {activeTab === 'mine'
-                  ? "You haven't uploaded a reel yet."
-                  // Bug fix: this checked a tab id ('matches') that was
-                  // never a real value of activeTab — dead code, so this
-                  // more specific message (which is what 'discover', the
-                  // actual skill-matching tab, wants) never showed.
-                  : activeTab === 'discover'
-                  ? "No matching reels found. Update your profile skills to improve matches."
-                  : "No reels match your search."}
-              </p>
-              {activeTab === 'mine' && (
-                <button onClick={() => setShowUpload(true)}
-                  className="mt-3 text-xs font-semibold text-emerald-600 hover:text-emerald-500 transition-colors">
-                  Upload your first reel →
-                </button>
-              )}
-            </div>
+      {/* Gallery */}
+      {loading && tab !== 'mine' ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4" aria-busy="true">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="aspect-[3/4] animate-pulse rounded-2xl bg-stone-100" />)}
+        </div>
+      ) : shown.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-stone-300 px-6 py-14 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: GREEN_LT, color: GREEN }}><Video size={22} aria-hidden="true" /></span>
+          {tab === 'mine' ? (
+            <>
+              <h2 className="text-base font-semibold text-stone-900">Your work deserves to be seen</h2>
+              <p className="max-w-md text-sm text-stone-600">Share a short video showing a skill, a project you contributed to, or a problem you solved.</p>
+              <button type="button" onClick={() => setShowUpload(true)} className="min-h-[44px] rounded-xl px-5 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Upload your first reel</button>
+            </>
+          ) : filtering ? (
+            <>
+              <h2 className="text-base font-semibold text-stone-900">No reels match</h2>
+              <p className="max-w-md text-sm text-stone-600">Try fewer filters or a shorter search.</p>
+              <button type="button" onClick={() => setFilters(NO_PROVE_FILTERS)} className="min-h-[44px] rounded-xl border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-800 hover:bg-stone-50">Clear search and filters</button>
+            </>
+          ) : tab === 'following' ? (
+            <>
+              <h2 className="text-base font-semibold text-stone-900">No reels from your network yet</h2>
+              <p className="max-w-md text-sm text-stone-600">Reels from your connections and the people in your pods appear here. Browse everyone's reels to find people worth following.</p>
+              <button type="button" onClick={() => choose('discover')} className="min-h-[44px] rounded-xl px-5 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Discover reels</button>
+            </>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {filtered.map(reel => (
-                <ReelPlayer
-                  key={reel.id}
-                  reel={reel}
-                  onSpark={handleSpark}
-                  onConnect={(uid) => {
-                    const user = undefined; // connect by uid
-                    onConnect(0);
-                  }}
-                  onMessage={(uid) => onStartMessage(0)}
-                  onDelete={handleDeleteReel}
-                  currentUid={currentUid}
-                />
-              ))}
-            </div>
+            <>
+              <h2 className="text-base font-semibold text-stone-900">No reels to discover yet</h2>
+              <p className="max-w-md text-sm text-stone-600">When other members share reels they will appear here. You can be the first to show your work.</p>
+              <button type="button" onClick={() => setShowUpload(true)} className="min-h-[44px] rounded-xl px-5 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Upload a reel</button>
+            </>
           )}
         </div>
-
-        {/* Sidebar — opportunity matches */}
-        <div className="hidden lg:block w-72 flex-shrink-0">
-          <div className="sticky top-24 space-y-4">
-
-            {/* My reel stats */}
-            {visibleMyReels.length > 0 && (
-              <div className="bg-white border border-stone-200 rounded-2xl p-4">
-                <p className="text-xs font-semibold text-stone-600 uppercase tracking-widest mb-3">Your reels</p>
-                {visibleMyReels.slice(0, 5).map(r => (
-                  <div key={r.id} className="flex items-center gap-2 mb-2 last:mb-0">
-                    <div className="w-8 h-8 rounded-lg bg-stone-900 flex items-center justify-center flex-shrink-0">
-                      <Play size={10} className="text-white" fill="currentColor" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-stone-700 truncate">{r.pitch?.slice(0, 40)}...</p>
-                      <div className="flex items-center gap-2 text-xs text-stone-600 mt-0.5">
-                        <span className="flex items-center gap-0.5"><Zap size={9} />{r.sparks?.length ?? 0}</span>
-                        <span className="flex items-center gap-0.5"><Eye size={9} />{r.views ?? 0}</span>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          {shown.map(reel => (
+            <ReelCard key={reel.id} reel={reel} onOpen={() => setPlaying(reel)}>
+              {tab === 'mine' && (
+                <div className="mt-1 space-y-2 border-t border-stone-100 pt-2">
+                  {reel.arenaLink ? (
+                    <>
+                      <ArenaLinkNote link={reel.arenaLink} onOpenChallenge={onOpenChallenge} compact />
+                      <div className="flex flex-wrap gap-x-3">
+                        <button type="button" disabled={busyLink === reel.id} onClick={() => refreshLink(reel)} className="min-h-[36px] text-xs font-semibold hover:underline disabled:opacity-60" style={{ color: GREEN }}>Update status</button>
+                        <button type="button" disabled={busyLink === reel.id} onClick={() => removeLink(reel)} className="min-h-[36px] text-xs font-semibold text-stone-600 hover:underline disabled:opacity-60">Unlink</button>
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => setLinking(reel)} className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold hover:underline" style={{ color: GREEN }}><Trophy size={13} aria-hidden="true" /> Link to an Arena challenge</button>
+                  )}
+                </div>
+              )}
+            </ReelCard>
+          ))}
+        </div>
+      )}
 
-            {/* Matched opportunities */}
-            {matchedJobs.length > 0 && (
-              <div className="bg-white border border-stone-200 rounded-2xl p-4">
-                <div className="flex items-center gap-1.5 mb-3">
-                  <Sparkles size={13} className="text-emerald-600" />
-                  <p className="text-xs font-semibold text-stone-700">Matched opportunities</p>
-                </div>
-                <div className="space-y-2">
-                  {matchedJobs.map(job => (
-                    <OpportunityMatch key={job.id} job={job} onView={() => {}} />
-                  ))}
-                </div>
-                <p className="text-xs text-stone-600 mt-3 text-center">
-                  Based on skills in your reels
-                </p>
-              </div>
-            )}
+      {tab === 'mine' && matchedJobs.length > 0 && (
+        <section className="mt-6 rounded-2xl border border-stone-200 bg-white p-4" aria-label="Matched opportunities">
+          <div className="mb-3 flex items-center gap-1.5"><Sparkles size={14} style={{ color: GREEN }} aria-hidden="true" /><h2 className="text-sm font-semibold text-stone-800">Opportunities that match skills in your reels</h2></div>
+          <div className="space-y-2">{matchedJobs.map(job => <OpportunityMatch key={job.id} job={job} onView={() => {}} />)}</div>
+        </section>
+      )}
 
-            {/* Tips */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-              <p className="text-xs font-semibold text-emerald-800 mb-2 flex items-center gap-1.5">
-                <Star size={12} className="text-emerald-600" /> Tips for a great reel
-              </p>
-              {[
-                'Show your work, not just your face',
-                'Mention a specific problem you solved',
-                'Keep it under 60s — shorter is sharper',
-                'Tag skills you want to be hired for',
-              ].map(tip => (
-                <div key={tip} className="flex items-start gap-1.5 mb-1.5 last:mb-0">
-                  <ChevronRight size={11} className="text-emerald-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-emerald-700">{tip}</p>
-                </div>
-              ))}
+      {/* Arenas, as the next step rather than a tab */}
+      {onExploreArenas && (
+        <aside className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-stone-900">Want something real to show?</p>
+            <p className="text-sm text-stone-600">Take on a challenge in an Arena, then link a reel to it so people can see the work behind it.</p>
+          </div>
+          <button type="button" onClick={onExploreArenas} className="min-h-[44px] rounded-xl border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-800 hover:bg-stone-50 focus:outline-none focus-visible:ring-2" style={ring}>Explore Arenas</button>
+        </aside>
+      )}
+
+      {/* Filters */}
+      <BottomSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filter reels" allWidths
+        footer={<div className="flex items-center justify-between gap-3">
+          <button type="button" onClick={() => setFilters(f => ({ ...f, skill: '', industry: '' }))} className="min-h-[44px] whitespace-nowrap px-2 text-sm font-semibold text-stone-600 hover:underline">Clear filters</button>
+          <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-[44px] whitespace-nowrap rounded-xl px-5 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Show {shown.length} {shown.length === 1 ? 'reel' : 'reels'}</button>
+        </div>}>
+        <div className="space-y-4 pt-1">
+          {([['skill', 'Skill', filters.skill, 'Any skill', skillOpts], ['industry', 'Industry', filters.industry, 'Any industry', industryOpts]] as const).map(([key, label, value, any, opts]) => (
+            <div key={key}>
+              <label className="block text-sm font-semibold text-stone-800" htmlFor={'prove-f-' + key}>{label}</label>
+              <select id={'prove-f-' + key} value={value} onChange={e => setFilters(f => ({ ...f, [key]: e.target.value }))} className="mt-1 min-h-[44px] w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-base sm:text-sm">
+                <option value="">{any}</option>
+                {value && !opts.includes(value) && <option value={value}>{value}</option>}
+                {opts.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
             </div>
+          ))}
+          {skillOpts.length === 0 && industryOpts.length === 0 && <p className="text-sm text-stone-600">Skills and industries will appear here once reels have been shared.</p>}
+        </div>
+      </BottomSheet>
+
+      {/* Watch a reel */}
+      {playing && (
+        <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/60 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={`Reel by ${playing.authorName}`} onClick={() => setPlaying(null)}>
+          <div className="relative my-auto w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <button type="button" onClick={() => setPlaying(null)} aria-label="Close reel" className="absolute -top-1 right-0 z-10 flex h-11 w-11 -translate-y-full items-center justify-center rounded-full text-white hover:bg-white/10 sm:translate-y-0 sm:-right-12"><X size={22} /></button>
+            <ReelPlayer reel={(byId.get(playing.id) ?? playing)} onSpark={handleSpark} onConnect={() => onConnect(0)} onMessage={() => onStartMessage(0)} onDelete={handleDeleteReel} currentUid={currentUid} onOpenChallenge={onOpenChallenge} />
           </div>
         </div>
-      </div>
+      )}
+
+      {linking && (
+        <ArenaLinkModal open reelId={linking.id} reelSkills={linking.skills ?? []} onClose={() => setLinking(null)} onLinked={() => { /* the reel updates through the live query */ }} onExploreArenas={() => onExploreArenas?.()} />
+      )}
 
       {/* Upload modal */}
       {showUpload && (
-        <UploadReelModal
-          currentUser={currentUser}
-          fbUid={fbUser?.uid ?? ''}
-          onClose={() => setShowUpload(false)}
-          onUploaded={() => setShowUpload(false)}
-        />
+        <UploadReelModal currentUser={currentUser} fbUid={fbUser?.uid ?? ''} onClose={() => setShowUpload(false)} onUploaded={() => { setShowUpload(false); choose('mine'); }} />
       )}
 
-      {/* Delete undo toast -- the reel is only actually deleted once this
-          times out; clicking Undo means the delete call never happens. */}
+      {/* Delete undo toast -- the reel is only actually deleted once this times out; Undo means the delete never happens. */}
       {undoToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-stone-900 text-white text-sm rounded-xl px-4 py-3 shadow-lg">
+        <div className="fixed bottom-24 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-3 rounded-xl bg-stone-900 px-4 py-3 text-sm text-white shadow-lg md:bottom-6" role="status">
           <span>Reel deleted</span>
-          <button
-            onClick={() => handleUndoDelete(undoToast.reel.id)}
-            className="font-semibold text-emerald-400 hover:text-emerald-300"
-          >
-            Undo
-          </button>
+          <button onClick={() => handleUndoDelete(undoToast.reel.id)} className="min-h-[44px] px-1 font-semibold text-emerald-400 hover:text-emerald-300">Undo</button>
         </div>
       )}
     </div>

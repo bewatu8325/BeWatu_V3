@@ -7,9 +7,15 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
-interface Props { open: boolean; onClose: () => void; title: string; children: React.ReactNode }
+interface Props {
+  open: boolean; onClose: () => void; title: string; children: React.ReactNode;
+  /** Also show on wide screens, as a centred dialog (the default is phones only). */
+  allWidths?: boolean;
+  /** Pinned under the scrolling content (for a Done / Apply button). */
+  footer?: React.ReactNode;
+}
 
-export const BottomSheet: React.FC<Props> = ({ open, onClose, title, children }) => {
+export const BottomSheet: React.FC<Props> = ({ open, onClose, title, children, allWidths = false, footer }) => {
   const closeRef = useRef<HTMLButtonElement>(null);
   const opener = useRef<Element | null>(null);
 
@@ -30,10 +36,10 @@ export const BottomSheet: React.FC<Props> = ({ open, onClose, title, children })
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] md:hidden" role="presentation">
+    <div className={`fixed inset-0 z-[60] ${allWidths ? '' : 'md:hidden'}`} role="presentation">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div role="dialog" aria-modal="true" aria-label={title}
-        className="absolute inset-x-0 bottom-0 flex max-h-[90dvh] flex-col rounded-t-3xl bg-white shadow-2xl"
+        className={`absolute inset-x-0 bottom-0 flex max-h-[90dvh] flex-col rounded-t-3xl bg-white shadow-2xl ${allWidths ? 'md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[80vh] md:w-[30rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl' : ''}`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-center justify-between px-4 pb-1 pt-3">
           <div className="mx-auto h-1 w-10 rounded-full bg-stone-300" aria-hidden="true" />
@@ -47,6 +53,7 @@ export const BottomSheet: React.FC<Props> = ({ open, onClose, title, children })
           </button>
         </div>
         <div className="overflow-y-auto overscroll-contain px-4 pb-4">{children}</div>
+        {footer && <div className="border-t border-stone-100 px-4 pb-3 pt-3">{footer}</div>}
       </div>
     </div>
   );

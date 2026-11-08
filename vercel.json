@@ -10,7 +10,16 @@
     { "source": "/companies", "destination": "/index.html" },
     { "source": "/companies/:id", "destination": "/index.html" },
     { "source": "/organizations", "destination": "/index.html" },
-    { "source": "/organizations/:id", "destination": "/index.html" }
+    { "source": "/organizations/:id", "destination": "/index.html" },
+    { "source": "/arenas", "destination": "/index.html" },
+    { "source": "/arenas/:path*", "destination": "/index.html" },
+    { "source": "/prove", "destination": "/index.html" },
+    { "source": "/discover", "destination": "/index.html" },
+    { "source": "/discover/:path*", "destination": "/index.html" },
+    { "source": "/community", "destination": "/index.html" },
+    { "source": "/community/:path*", "destination": "/index.html" },
+    { "source": "/messages", "destination": "/index.html" },
+    { "source": "/jobs", "destination": "/index.html" }
   ],
   "crons": [
     {
