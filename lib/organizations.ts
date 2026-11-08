@@ -55,26 +55,73 @@ export function normalizeType(raw: unknown): OrganizationType {
   return (ORGANIZATION_TYPES as string[]).includes(v) ? (v as OrganizationType) : 'business';
 }
 
-// Industries that make a *business* a "Medical & Healthcare Company".
-export const HEALTH_INDUSTRY_RE = /(health|medical|medicine|biotech|pharma|life.?science|clinical|diagnostic|therapeut)/i;
-export const MANUFACTURING_INDUSTRY_RE = /manufactur/i;
-export const FINANCE_INDUSTRY_RE = /(financ|bank|insur|invest|wealth|asset management|capital markets|fintech|payments|lending|credit)/i;
+// ── Classification ───────────────────────────────────────────────────────────
+// Filtering by category never guesses from keywords. An organization belongs to a category when its recorded
+// classification says so:
+//   - its organization TYPE (a college or university is Education; a hospital or health system is Healthcare), or
+//   - its INDUSTRY or any of its SUBINDUSTRIES is exactly (ignoring case, punctuation and "&" vs "and") one of the
+//     category's own labels: the category name, its listed subcategories, or an explicit alias below.
+// Anything else is "Other". The tables are data: adding a subcategory or alias is one line, and test/organizations
+// checks this copy and api/companies.ts's copy are identical.
+
+export type BroadKey = 'finance' | 'healthcare' | 'technology' | 'education' | 'manufacturing' | 'other';
+
+export interface BroadCategory { key: BroadKey; label: string; subcategories: string[]; aliases: string[] }
+
+export const BROAD_CATEGORIES: BroadCategory[] = [
+  { key: 'finance', label: 'Finance',
+    subcategories: ['Banking', 'Fintech', 'Financial Services', 'Insurance'],
+    aliases: ['Finance', 'Financial', 'Banks', 'Financial Technology', 'Investment Banking', 'Asset Management', 'Wealth Management', 'Payments', 'Capital Markets', 'Lending', 'Credit Unions'] },
+  { key: 'healthcare', label: 'Healthcare',
+    subcategories: ['Hospitals', 'Health Systems', 'Pharmaceuticals', 'Biotechnology', 'Medical Devices'],
+    aliases: ['Healthcare', 'Health Care', 'Health', 'Medical', 'Medicine', 'Life Sciences', 'Pharma', 'Biotech', 'Medical Device', 'Hospital', 'Health System', 'Diagnostics', 'Clinical Research', 'Health Services'] },
+  { key: 'technology', label: 'Technology',
+    subcategories: ['Software', 'Hardware', 'AI', 'IT Services'],
+    aliases: ['Technology', 'Tech', 'Information Technology', 'IT', 'Artificial Intelligence', 'SaaS', 'Cloud Computing', 'Cybersecurity', 'Semiconductors', 'Computer Hardware', 'Internet', 'Software Development'] },
+  { key: 'education', label: 'Education',
+    subcategories: ['Colleges', 'Universities', 'Technical Institutions', 'Education Technology'],
+    aliases: ['Education', 'Higher Education', 'College', 'University', 'Technical Institute', 'Vocational Education', 'Edtech', 'E-Learning'] },
+  { key: 'manufacturing', label: 'Manufacturing',
+    subcategories: [],
+    aliases: ['Manufacturing', 'Industrial Manufacturing', 'Industrial', 'Machinery', 'Automotive Manufacturing', 'Electronics Manufacturing', 'Aerospace and Defense'] },
+  { key: 'other', label: 'Other organizations', subcategories: [], aliases: [] },
+];
+
+/** The five shortcuts a first-time visitor sees, in this order: All, then these. They are suggestions, never applied filters. */
+export const DEFAULT_PILLS: BroadKey[] = ['finance', 'healthcare', 'technology', 'education'];
+export const BROAD_LABEL: Record<BroadKey, string> = Object.fromEntries(BROAD_CATEGORIES.map(c => [c.key, c.label])) as Record<BroadKey, string>;
+
+/** "Financial & Services" and "financial and services" are the same label. */
+export const normLabel = (v: unknown): string =>
+  (typeof v === 'string' ? v : '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
+
+const LABEL_TO_BROAD = new Map<string, BroadKey>();
+for (const c of BROAD_CATEGORIES) for (const l of [c.label, ...c.subcategories, ...c.aliases]) if (c.key !== 'other') LABEL_TO_BROAD.set(normLabel(l), c.key);
+
+/** Every category an organization belongs to (never empty: "other" when none apply). */
+export function classify(o: { organizationType?: unknown; industry?: unknown; subindustries?: unknown }): BroadKey[] {
+  const out = new Set<BroadKey>();
+  const type = normalizeType(o.organizationType);
+  if (type === 'college_university') out.add('education');
+  if (type === 'hospital' || type === 'health_system') out.add('healthcare');
+  const labels = [o.industry, ...(Array.isArray(o.subindustries) ? o.subindustries : [])];
+  for (const l of labels) { const k = LABEL_TO_BROAD.get(normLabel(l)); if (k) out.add(k); }
+  return out.size ? BROAD_CATEGORIES.map(c => c.key).filter(k => out.has(k)) : ['other'];
+}
 
 /**
- * Which directory category an organization falls in.
- * Type decides first (a hospital is a hospital whatever its industry says); a business is then
- * placed by its industry. Records with no type are businesses, so every existing company keeps
- * working and lands where its industry puts it.
+ * Which kind of profile an organization gets (the "About this ..." facts it can show). Type first, then what
+ * classify() says for a business.
  */
-export function categoryOf(o: { organizationType?: unknown; industry?: unknown }): CategoryKey {
+export function categoryOf(o: { organizationType?: unknown; industry?: unknown; subindustries?: unknown }): CategoryKey {
   const type = normalizeType(o.organizationType);
   if (type === 'college_university') return 'colleges';
   if (type === 'hospital' || type === 'health_system') return 'hospitals';
-  const industry = typeof o.industry === 'string' ? o.industry : '';
   if (type === 'business') {
-    if (HEALTH_INDUSTRY_RE.test(industry)) return 'medical';
-    if (MANUFACTURING_INDUSTRY_RE.test(industry)) return 'manufacturing';
-    if (FINANCE_INDUSTRY_RE.test(industry)) return 'finance';
+    const c = classify(o);
+    if (c.includes('healthcare')) return 'medical';
+    if (c.includes('manufacturing')) return 'manufacturing';
+    if (c.includes('finance')) return 'finance';
   }
   return 'other';
 }
@@ -145,38 +192,13 @@ export function locationText(l: OrganizationLocation | null | undefined): string
   return [l.city, l.region && l.region !== l.city ? l.region : '', l.country].filter(Boolean).join(', ');
 }
 
-// ── Category groups: what the Organizations page offers as "popular" choices ──
-// A group is one choice in the picker that can stand for more than one category (Healthcare = healthcare companies
-// AND hospitals/health systems). The server takes a category filter as a comma-separated list of keys.
-export interface CategoryGroup { id: string; label: string; keys: CategoryKey[] }
+// ── Category selections in links and saved preferences ──
+// A selection is a set of categories joined with commas, always in BROAD_CATEGORIES order, so the same choice is always
+// the same string. Unknown keys and duplicates are dropped; "other" is allowed.
 
-export const POPULAR_GROUPS: CategoryGroup[] = [
-  { id: 'universities',  label: 'Universities',  keys: ['colleges'] },
-  { id: 'healthcare',    label: 'Healthcare',    keys: ['medical', 'hospitals'] },
-  { id: 'manufacturing', label: 'Manufacturing', keys: ['manufacturing'] },
-  { id: 'finance',       label: 'Finance',       keys: ['finance'] },
-];
-
-/** "medical,hospitals" -> ['medical','hospitals']; unknown keys and duplicates are dropped. */
-export function parseCategoryParam(raw: unknown): CategoryKey[] {
-  if (typeof raw !== 'string') return [];
-  const out: CategoryKey[] = [];
-  for (const part of raw.split(',')) {
-    const k = part.trim() as CategoryKey;
-    if (CATEGORIES.some(c => c.key === k) && !out.includes(k)) out.push(k);
-  }
-  return out;
+/** "healthcare,finance" -> ['finance','healthcare'] (canonical order). */
+export function parseCategoryParam(raw: unknown): BroadKey[] {
+  const wanted = new Set(typeof raw === 'string' ? raw.split(',').map(s => s.trim()) : Array.isArray(raw) ? raw.map(String) : []);
+  return BROAD_CATEGORIES.map(c => c.key).filter(k => wanted.has(k));
 }
-/** The canonical string for a set of categories (CATEGORIES order), so the same choice is always the same value. */
-export function categoryParam(keys: CategoryKey[]): string {
-  return CATEGORIES.filter(c => keys.includes(c.key)).map(c => c.key).join(',');
-}
-/** The label for a selected set: a popular group's own name when it matches exactly, else the category names. */
-export function categorySelectionLabel(param: string): string {
-  const keys = parseCategoryParam(param);
-  if (keys.length === 0) return '';
-  const canon = categoryParam(keys);
-  const group = POPULAR_GROUPS.find(g => categoryParam(g.keys) === canon);
-  if (group) return group.label;
-  return CATEGORIES.filter(c => keys.includes(c.key)).map(c => c.label).join(' and ');
-}
+export const categoryParam = (keys: BroadKey[]): string => parseCategoryParam(keys).join(',');
