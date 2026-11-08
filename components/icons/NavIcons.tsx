@@ -49,3 +49,8 @@ export const NavPlusIcon: React.FC<P> = p => (
 export const ShareWorkIcon: React.FC<P> = p => (
   <svg {...base(p)}><path d="M13.5 4.5H7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4.5" /><path d="M8.6 15.4h4.2M8.6 12.2h2.6" /><path d="M14.2 9.8 19.5 4.5M15.6 4.5h3.9v3.9" /></svg>
 );
+
+/** A person with a small plus: "Invite your people". Same grid and stroke as the rest of the set. */
+export const InviteIcon: React.FC<P> = p => (
+  <svg {...base(p)}><circle cx="9.4" cy="8.4" r="3.2" /><path d="M3.6 19.6c.5-3.3 2.7-5.2 5.8-5.2 1.3 0 2.4.3 3.3.9" /><path d="M17.6 11.6v6.4M14.4 14.8h6.4" /></svg>
+);

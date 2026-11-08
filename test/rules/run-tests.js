@@ -279,6 +279,15 @@ async function main() {
   await check("portfolio_shares: a member cannot switch their own share back on from a browser", me.doc("portfolio_shares/s1").update({ status: "active", expiresAt: null }), "DENY");
   await check("portfolio_shares: a signed-out visitor cannot read one", testEnv.unauthenticatedContext().firestore().doc("portfolio_shares/s1").get(), "DENY");
   await check("portfolio_rate_limits: no client can read or write the counters", me.doc("portfolio_rate_limits/k").set({ count: 0 }), "DENY");
+  console.log("\n== invitations: the records, addresses and counters are server-only ==");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("invitations/inv1").set({ inviterUid: "me", recipientEmail: "sam@work.test", status: "pending" }); await ctx.firestore().doc("email_suppressions/h1").set({ at: 1 }); });
+  for (const c of ["invitations/inv1", "invitation_joins/j1", "invitation_events/e1", "invitation_metrics/2026-01-01", "invitation_rate_limits/k1", "email_suppressions/h1"]) {
+    await check("invitations: a member cannot read " + c.split("/")[0] + " (not even their own)", me.doc(c).get(), "DENY");
+    await check("invitations: a member cannot write " + c.split("/")[0], me.doc(c).set({ x: 1 }), "DENY");
+  }
+  await check("invitations: a member cannot flip their own invitation to joined", me.doc("invitations/inv1").update({ status: "joined" }), "DENY");
+  await check("invitations: a signed-out visitor cannot read one", testEnv.unauthenticatedContext().firestore().doc("invitations/inv1").get(), "DENY");
+  await check("invitations: ops staff browsers cannot read the invitee addresses either", ops1.doc("invitations/inv1").get(), "DENY");
   await check("link_previews (cache): no client can read it", me.doc("link_previews/abc").get(), "DENY");
   await check("link_previews (cache): no client can write it (no poisoning a shared preview)", me.doc("link_previews/abc").set({ preview: goodCard }), "DENY");
   await check("link_previews (cache): ops staff cannot write it either", ops1.doc("link_previews/abc").set({ preview: goodCard }), "DENY");

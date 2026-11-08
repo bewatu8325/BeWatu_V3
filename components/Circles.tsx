@@ -14,6 +14,7 @@ import {
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { POD_TYPE_ICON, AllSparkIcon } from './icons/PodIcons';
 import { db } from '../lib/firebase';
+import InviteButton from './invite/InviteButton';
 
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
@@ -840,13 +841,16 @@ const Circles: React.FC<CirclesProps> = ({
             Small, intentional groups built to create, collaborate, and connect across generations.
           </p>
         </div>
-        {onCreateCircle && (
-          <button onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 text-white font-bold rounded-xl text-sm hover:opacity-90 shadow-sm"
-            style={{ backgroundColor: GREEN }}>
-            <Plus size={15} /> Start a pod
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <InviteButton context={{ purpose: 'pod' }} label="Invite your people" />
+          {onCreateCircle && (
+            <button onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 text-white font-bold rounded-xl text-sm hover:opacity-90 shadow-sm"
+              style={{ backgroundColor: GREEN }}>
+              <Plus size={15} /> Start a pod
+            </button>
+          )}
+        </div>
       </div>
 
       {circles.length === 0 ? (

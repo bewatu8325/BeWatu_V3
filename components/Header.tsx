@@ -12,7 +12,7 @@ import { goToFactory } from '../utils/factoryHandoff';
 import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGate';
 import FeedbackModal from './FeedbackModal';
 import { navKeyFor } from '../lib/routes';
-import { NavHomeIcon, NavCommunityIcon, NavArenasIcon, NavProveIcon, NavDiscoverIcon, NavMessagesIcon, NavPlusIcon } from './icons/NavIcons';
+import { NavHomeIcon, NavCommunityIcon, NavArenasIcon, NavProveIcon, NavDiscoverIcon, NavMessagesIcon, NavPlusIcon, InviteIcon } from './icons/NavIcons';
 import AnnouncementBanner from './AnnouncementBanner';
 import { Megaphone } from 'lucide-react';
 
@@ -212,6 +212,9 @@ function NotificationsPanel({
     }
     if (type === 'connection_request' || type === 'follow_request' || type === 'follow_accepted') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-50"><Users size={14} className="text-blue-500" /></div>;
+    }
+    if (type === 'invitation_joined') {
+      return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT, color: GREEN }}><InviteIcon className="h-4 w-4" /></div>;
     }
     if (type === 'endorsement_fulfilled') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-cyan-50"><CheckCircle size={14} className="text-cyan-600" /></div>;

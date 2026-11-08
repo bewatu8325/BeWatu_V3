@@ -4,6 +4,7 @@
  */
 import React, { useState } from 'react';
 import { LogoIcon } from '../../constants';
+import InviteNotice from '../invite/InviteNotice';
 
 type UserType = 'user' | 'recruiter';
 
@@ -126,6 +127,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             </p>
           </div>
 
+          <InviteNotice />
           {displayedError && (
             <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
               {displayedError}

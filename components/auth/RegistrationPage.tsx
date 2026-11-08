@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AuthLayout from '../AuthLayout';
+import InviteNotice from '../invite/InviteNotice';
 import PaymentForm from '../PaymentForm';
 import BillingPolicyModal from '../BillingPolicyModal';
 import { LoadingIcon } from '../../constants';
@@ -253,6 +254,7 @@ const RegistrationPage: React.FC<RegistrationPageProps> = ({
       onNavigateToCommunity={onNavigateToCommunity}
     >
       {isPolicyVisible && <BillingPolicyModal onClose={() => setIsPolicyVisible(false)} />}
+      <InviteNotice />
       <p className="text-sm text-center text-stone-600 -mt-3 mb-6 text-pretty">{t('registerSubtitle')}</p>
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {error && <p className="text-red-600 text-sm text-center bg-red-50 border border-red-200 p-3 rounded-xl">{error}</p>}

@@ -1773,6 +1773,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Invitations (api/invitations.ts). All of it is server-only: the invited person's email address, who invited whom, the
+    // opt-out list and the funnel counters are never readable or writable from a browser. Members see their own invitations
+    // through the API, which masks addresses.
+    match /invitations/{id}              { allow read, write: if false; }
+    match /invitation_joins/{id}         { allow read, write: if false; }
+    match /invitation_events/{id}        { allow read, write: if false; }
+    match /invitation_metrics/{day}      { allow read, write: if false; }
+    match /invitation_rate_limits/{key}  { allow read, write: if false; }
+    match /email_suppressions/{hash}     { allow read, write: if false; }
+
     match /industry_verifications/{verificationId} {
       allow read:           if isAuth()
                               && resource.data.recruiterUid == request.auth.uid;
