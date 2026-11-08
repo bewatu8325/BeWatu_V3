@@ -34,7 +34,8 @@ body {
 }
 .animate-fade-in-up { animation: fade-in-up 0.4s ease-out forwards; }
 .pb-safe { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
-.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none, .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hide::-webkit-scrollbar, .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 * { -webkit-tap-highlight-color: transparent; }
 

@@ -338,9 +338,11 @@ interface HeaderProps {
    *  View.Profile if not supplied, matching the previous (broken) behavior
    *  rather than crashing on an older call site. */
   onOpenSettings?: () => void;
+  /** Phones: the avatar opens the You menu (a bottom sheet) instead of the dropdown. */
+  onOpenAccountSheet?: () => void;
 }
 
-export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch, onCircleInviteAccepted, onOpenSettings }: HeaderProps) {
+export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter, onEnterAdminPanel, notificationCount = 0, pendingConnectionCount = 0, onSearch, onCircleInviteAccepted, onOpenSettings, onOpenAccountSheet }: HeaderProps) {
   const { currentUser, fbUser } = useFirebase() as any;
   const [menuOpen,  setMenuOpen]  = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -349,6 +351,13 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
   const [showFeedback, setShowFeedback] = useState(false);
   const menuRef  = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  // The You menu's "Notifications" row asks for the panel to open.
+  useEffect(() => {
+    const open = () => setNotifOpen(true);
+    window.addEventListener('bewatu:open-notifications', open);
+    return () => window.removeEventListener('bewatu:open-notifications', open);
+  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -475,8 +484,12 @@ export function Header({ currentView, onNavigate, onLogout, onSwitchToRecruiter,
         {/* Profile menu */}
         <div ref={menuRef} className="relative">
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center gap-2 rounded-full hover:bg-stone-100 p-1 pr-2 transition-colors"
+            onClick={() => {
+              if (onOpenAccountSheet && typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) { onOpenAccountSheet(); return; }
+              setMenuOpen(!menuOpen);
+            }}
+            aria-label="Account menu"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-full hover:bg-stone-100 p-1 sm:pr-2 transition-colors"
           >
             {currentUser?.avatarUrl ? (
               <img src={currentUser.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />

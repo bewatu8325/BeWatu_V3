@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useIntent } from '../lib/uiIntent';
 import { Circle, PodType, PodStage } from '../types';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useRecommendations } from '../hooks/useRecommendations';
@@ -764,6 +765,8 @@ const Circles: React.FC<CirclesProps> = ({
 }) => {
   const { fbUser } = useFirebase() as any;
   const [isModalOpen, setIsModalOpen]   = useState(false);
+  // "Start a pod" from the Create tab opens the dialog as soon as this page is up.
+  useIntent('create-pod', () => setIsModalOpen(true));
   const [activeFilter, setActiveFilter] = useState<PodType | 'all'>('all');
 
   const myPods    = circles.filter(c => currentUserId && c.members.includes(currentUserId));

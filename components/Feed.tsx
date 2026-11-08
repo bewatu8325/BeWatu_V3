@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Post, User, AppreciationType } from '../types';
 import PostCard from './PostCard';
 import { EmptyState } from './EmptyState';
@@ -14,7 +15,13 @@ interface FeedProps {
   onEditPost?: (post: Post, content: string) => Promise<void>;
   onDeletePost?: (post: Post) => Promise<void>;
   onReportContent?: (contentId: string, preview: string) => void;
+  /** Fetches the next page of posts from the server. Resolves { done: true } when there are no more. */
+  onLoadMore?: () => Promise<{ done: boolean }>;
+  /** What to show once everything has loaded (see FeedEnd). */
+  endSlot?: React.ReactNode;
 }
+
+const STEP = 10; // posts drawn at a time
 
 /**
  * Parses a relative timestamp string into hours ago.
@@ -52,8 +59,8 @@ const calculatePostScore = (post: Post): number => {
 };
 
 
-const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onViewProfile, currentUserId, currentUserUid, onEditPost, onDeletePost, onReportContent }) => {
-  const sortedPosts = useMemo(() => {
+const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onViewProfile, currentUserId, currentUserUid, onEditPost, onDeletePost, onReportContent, onLoadMore, endSlot }) => {
+  const ranked = useMemo(() => {
     // Filter for global posts only (no circleId)
     const globalPosts = posts.filter(post => !post.circleId);
 
@@ -74,6 +81,62 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
     });
   }, [posts]);
 
+  // Posts keep the place they were first shown in: loading another page or reacting to a post never makes what you
+  // are reading jump. New pages are ranked among themselves and added after; a post you just wrote goes on top.
+  const orderRef = useRef<number[]>([]);
+  const sortedPosts = useMemo(() => {
+    const byId = new Map(ranked.map(p => [p.id, p] as const));
+    const known = new Set(orderRef.current);
+    const fresh = ranked.filter(p => !known.has(p.id));
+    const mine = fresh.filter(p => (currentUserId !== undefined && p.authorId === currentUserId));
+    const rest = fresh.filter(p => !mine.includes(p));
+    const kept = orderRef.current.filter(id => byId.has(id));
+    // First draw: pure ranking. Later: own new posts first, then what was there, then the next page.
+    orderRef.current = orderRef.current.length === 0 ? ranked.map(p => p.id) : [...mine.map(p => p.id), ...kept, ...rest.map(p => p.id)];
+    return orderRef.current.map(id => byId.get(id)!).filter(Boolean);
+  }, [ranked, currentUserId]);
+
+  // ── progressive rendering and fetching ──
+  const [visible, setVisible] = useState(STEP);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [exhausted, setExhausted] = useState(!onLoadMore);
+  const [loadError, setLoadError] = useState(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const busy = useRef(false);
+  // Pages fetched in a row that added nothing to THIS feed (posts by people outside your network are filtered out).
+  // After a few, stop looking rather than read the whole archive.
+  const emptyPages = useRef(0);
+  useEffect(() => { emptyPages.current = 0; }, [sortedPosts.length]);
+
+  const hasHidden = visible < sortedPosts.length;
+  const more = useCallback(async () => {
+    if (hasHidden) { setVisible(v => v + STEP); return; }
+    if (exhausted || busy.current || !onLoadMore) return;
+    busy.current = true; setLoadingMore(true); setLoadError(false);
+    try {
+      const r = await onLoadMore();
+      if (r.done || ++emptyPages.current >= 6) setExhausted(true);
+      setVisible(v => v + STEP);
+    }
+    catch { setLoadError(true); }
+    finally { busy.current = false; setLoadingMore(false); }
+  }, [hasHidden, exhausted, onLoadMore]);
+
+  // Load when the end of the list comes near the screen, and keep going while it is still near (a short page may
+  // not push it away).
+  const nearEnd = () => { const r = sentinel.current?.getBoundingClientRect(); return !!r && r.top < window.innerHeight + 600; };
+  useEffect(() => {
+    const el = sentinel.current; if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) more(); }, { rootMargin: '600px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [more]);
+  useEffect(() => { if (!loadError && nearEnd() && (hasHidden || (!exhausted && !loadingMore))) more(); }, [sortedPosts.length, visible, exhausted, loadingMore, loadError, hasHidden, more]);
+
+  const finished = !hasHidden && exhausted;
+  const shown = sortedPosts.slice(0, visible);
+
   // The author's uid is the reliable signal; the numeric id is only a fallback for older posts.
   // (firestore.rules decides who may actually edit or delete: the author, nobody else.)
   const isOwn = (post: Post) => {
@@ -83,36 +146,57 @@ const Feed: React.FC<FeedProps> = ({ posts, findAuthor, onAppreciatePost, onView
   };
 
   return (
-    <div className="space-y-6">
-      {sortedPosts.length === 0 ? (
-        <EmptyState
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10l6 6v10a2 2 0 0 1-2 2z"/>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20v-8H7v8M7 4v4h8"/>
-            </svg>
-          }
-          title="Your feed is empty"
-          description="Connect with people to see their posts here, or share something yourself."
-        />
+    <div className="space-y-3 sm:space-y-5">
+      {sortedPosts.length === 0 && finished ? (
+        <>
+          {endSlot ?? (
+            <EmptyState
+              compact
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10l6 6v10a2 2 0 0 1-2 2z"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20v-8H7v8M7 4v4h8"/>
+                </svg>
+              }
+              title="Your feed is empty"
+              description="Connect with people to see their posts here, or share something yourself."
+            />
+          )}
+        </>
       ) : (
-        sortedPosts.map(post => {
-          const author = findAuthor(post.authorId);
-          return author ? (
-            <div key={post.id} className="min-w-0 w-full overflow-x-clip">
-              <PostCard
-                post={post}
-                author={author}
-                onAppreciatePost={onAppreciatePost}
-                onViewProfile={onViewProfile}
-                isOwnPost={isOwn(post)}
-                onEditPost={onEditPost}
-                onDeletePost={onDeletePost}
-                onReportContent={onReportContent}
-              />
+        <>
+          {shown.map(post => {
+            const author = findAuthor(post.authorId);
+            return author ? (
+              <div key={post.id} className="min-w-0 w-full overflow-x-clip">
+                <PostCard
+                  post={post}
+                  author={author}
+                  onAppreciatePost={onAppreciatePost}
+                  onViewProfile={onViewProfile}
+                  isOwnPost={isOwn(post)}
+                  onEditPost={onEditPost}
+                  onDeletePost={onDeletePost}
+                  onReportContent={onReportContent}
+                />
+              </div>
+            ) : null;
+          })}
+          <div ref={sentinel} aria-hidden="true" />
+          {!finished && (
+            <div className="flex min-h-[44px] items-center justify-center" role="status" aria-live="polite">
+              {loadError ? (
+                <button type="button" onClick={() => { setLoadError(false); more(); }} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-50">Could not load more posts. Try again</button>
+              ) : (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin text-stone-500" aria-hidden="true" />
+                  <span className="sr-only">Loading more posts</span>
+                </>
+              )}
             </div>
-          ) : null;
-        })
+          )}
+          {finished && endSlot}
+        </>
       )}
     </div>
   );
