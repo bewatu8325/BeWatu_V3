@@ -6,6 +6,10 @@
 //         scanner that merely fetches the link must not unsubscribe anyone)
 //   POST  does it. This is also what a mail app's built-in "Unsubscribe" button
 //         calls (RFC 8058 one-click, via the List-Unsubscribe-Post header).
+//   POST ...&a=resubscribe   undoes it, from the "Changed your mind?" button on the confirmation
+//         page. Like unsubscribing it needs the signed link and a POST, so a link scanner
+//         cannot resubscribe (or unsubscribe) anyone by fetching it. Members can also change
+//         this at any time in Settings (api/email-preferences.ts).
 //
 // The link carries the member id and an HMAC of it (COMMS_UNSUBSCRIBE_SECRET), so
 // it can't be forged for someone else. Unsubscribing only stops *product update*
@@ -29,6 +33,13 @@ export function tokenIsValid(secret: string | undefined, uid: unknown, token: un
 export async function unsubscribe(db: Firestore, secret: string | undefined, uid: unknown, token: unknown): Promise<boolean> {
   if (!tokenIsValid(secret, uid, token)) return false;
   await db.collection('users').doc(uid as string).set({ commsOptOut: true, commsOptOutAt: FieldValue.serverTimestamp() }, { merge: true });
+  return true;
+}
+
+/** Turns product-update email back on. Returns false when the link is not valid. */
+export async function resubscribe(db: Firestore, secret: string | undefined, uid: unknown, token: unknown): Promise<boolean> {
+  if (!tokenIsValid(secret, uid, token)) return false;
+  await db.collection('users').doc(uid as string).set({ commsOptOut: false, commsResubscribedAt: FieldValue.serverTimestamp() }, { merge: true });
   return true;
 }
 
@@ -57,10 +68,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === 'POST') {
+    const resub = q('a') === 'resubscribe';
+    const link = `/api/unsubscribe?u=${encodeURIComponent(String(uid))}&t=${encodeURIComponent(String(token))}`;
+    const btn = (label: string, filled: boolean) => `<button type="submit" style="${filled ? 'background:#1a4a3a;color:#fff;border:0' : 'background:#fff;color:#1a4a3a;border:1px solid #1a4a3a'};border-radius:10px;padding:11px 20px;font-weight:600;font-size:14px;cursor:pointer">${label}</button>`;
     try {
-      const ok = await unsubscribe(getFirestore(getAdminApp()), secret, uid, token);
+      const db = getFirestore(getAdminApp());
+      const ok = resub ? await resubscribe(db, secret, uid, token) : await unsubscribe(db, secret, uid, token);
       if (!ok) return res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8').send(page('Link not valid', '<h1 style="margin:0;font-size:20px">This link isn\'t valid</h1>'));
-      return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(page('Unsubscribed', '<h1 style="margin:0 0 10px;font-size:20px">You\'re unsubscribed</h1><p style="margin:0;line-height:1.6;color:#57534e">You won\'t get product update emails from BeWatu any more. Important account and security messages will still arrive.</p>'));
+      if (resub) {
+        return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(page('Subscribed', '<h1 style="margin:0 0 10px;font-size:20px">Welcome back</h1><p style="margin:0;line-height:1.6;color:#57534e">You\'ll get BeWatu product updates again. You can change this any time in Settings, or with the unsubscribe link in any update email.</p>'));
+      }
+      return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(page('Unsubscribed', `<h1 style="margin:0 0 10px;font-size:20px">You're unsubscribed</h1><p style="margin:0 0 18px;line-height:1.6;color:#57534e">You won't get product update emails from BeWatu any more. Important account and security messages will still arrive.</p><p style="margin:0 0 10px;font-size:14px;color:#57534e">Changed your mind?</p><form method="POST" action="${esc(link)}&amp;a=resubscribe">${btn('Resubscribe', false)}</form>`));
     } catch (e: any) {
       console.error('unsubscribe error:', e?.code ?? e?.message);
       return res.status(500).setHeader('Content-Type', 'text/html; charset=utf-8').send(page('Something went wrong', '<h1 style="margin:0;font-size:20px">Something went wrong</h1><p style="color:#57534e">Please try again in a moment.</p>'));
