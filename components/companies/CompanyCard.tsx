@@ -10,8 +10,9 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useState } from 'react';
-import { BadgeCheck, Briefcase, Trophy, Award, Sparkles, Loader2 } from 'lucide-react';
+import { BadgeCheck, Briefcase, Trophy, Award, Sparkles, Loader2, MapPin } from 'lucide-react';
 import type { CompanyItem } from '../../lib/companiesService';
+import { locationText } from '../../lib/organizations';
 
 const GREEN = 'var(--bw-green)';
 
@@ -69,10 +70,16 @@ const CompanyCard: React.FC<Props> = ({ company: c, onView, onToggleFollow, canF
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <h2 className="truncate text-[15px] font-semibold leading-snug text-stone-900">{c.name}</h2>
-            {c.verified && <BadgeCheck size={15} className="flex-shrink-0 text-emerald-600" aria-label="Verified company" />}
+            {c.verified && <BadgeCheck size={15} className="flex-shrink-0 text-emerald-600" aria-label="Verified organization" />}
             {c.ticker && <span className="flex-shrink-0 font-mono text-[11px] text-stone-500">{c.ticker}</span>}
           </div>
-          <p className="truncate text-xs text-stone-600">{c.industry || 'Company'}</p>
+          <p className="truncate text-xs text-stone-600">
+            {c.organizationType !== 'business' && <span className="font-semibold text-stone-700">{c.typeLabel}{c.industry ? ' · ' : ''}</span>}
+            {c.industry || (c.organizationType === 'business' ? 'Company' : '')}
+          </p>
+          {locationText(c.location) && (
+            <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-stone-500"><MapPin size={11} className="flex-shrink-0" aria-hidden="true" /><span className="truncate">{locationText(c.location)}</span></p>
+          )}
         </div>
       </div>
 

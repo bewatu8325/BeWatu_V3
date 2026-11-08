@@ -334,7 +334,7 @@ const NAV_ITEMS = [
   { view: View.Prove,       label: 'Showcase',       icon: Sword         },
   { view: View.Jobs,        label: 'Opportunities',  icon: Briefcase     },
   { view: View.Messaging,   label: 'Messages',       icon: MessageSquare },
-  { view: View.Companies,   label: 'Companies',      icon: Building2     },
+  { view: View.Companies,   label: 'Organizations', icon: Building2     },
 ];
 
 interface HeaderProps {

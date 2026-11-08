@@ -61,7 +61,7 @@ const FeedEnd: React.FC<Props> = ({ postCount, circles, users, currentUser, conn
   useEffect(() => {
     let live = true;
     // The directory's own "For You" list: real organizations, chosen from this member's profile when it can.
-    queryCompanies({ view: 'for_you', q: '', industry: '', filters: {}, sort: 'relevance' } as Parameters<typeof queryCompanies>[0])
+    queryCompanies({ view: 'for_you', q: '', industry: '', category: '', organizationType: '', country: '', filters: {}, sort: 'relevance' })
       .then(r => { if (live) setOrgs(r.items.slice(0, 3)); })
       .catch(() => { /* suggestions are optional */ });
     return () => { live = false; };

@@ -1070,6 +1070,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // api/companies.ts: condensed copy of the organizations directory used when it is large.
+    // Written and read only by the server.
+    match /directory_snapshot/{docId} {
+      allow read, write: if false;
+    }
+
     match /companyAdmins/{docId} {
       allow read:   if isAuth();
       allow create: if isAuth();

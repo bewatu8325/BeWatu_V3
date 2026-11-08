@@ -1,9 +1,11 @@
 /**
  * components/CompaniesPage.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Discover companies, the way you'd explore a professional network: 12 at a time,
- * with For You / Following / All views, search with suggestions, a few popular
- * industry chips plus "More filters", three sorts, and "Load more".
+ * Discover organizations (companies, colleges and universities, hospitals and health
+ * systems, and more), the way you'd explore a professional network: 12 at a time,
+ * with For You / Following / All views, search with suggestions, a compact category
+ * dropdown plus quick-filter chips for the four main categories, "More filters"
+ * (organization type, industry, country, activity), four sorts, and "Load more".
  *
  * Everything is fetched from api/companies.ts one page at a time; the browser
  * never holds the whole directory. Search, filters, sort and paging are one query
@@ -11,17 +13,18 @@
  * search, filters, sort) and the list you had loaded survive leaving the page and
  * coming back.
  *
- * Claiming a company lives on the company's profile, not on these cards.
+ * Claiming an organization lives on its profile, not on these cards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Search, X, SlidersHorizontal, Building2, AlertTriangle, Loader2, Users, Sparkles } from 'lucide-react';
+import { Search, X, SlidersHorizontal, Building2, AlertTriangle, Loader2, Users, Sparkles, GraduationCap, Stethoscope, Factory, HeartPulse } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import {
   queryCompanies, suggestCompanies, setFollowing, appendUnique, queryKey,
   type CompaniesQuery, type CompaniesPage as PageData, type CompanyItem, type CompaniesView, type CompaniesSort,
 } from '../lib/companiesService';
 import CompanyCard, { CompanyCardSkeleton } from './companies/CompanyCard';
+import { CATEGORIES, type CategoryKey, type OrganizationType } from '../lib/organizations';
 
 const GREEN = 'var(--bw-green)';
 const POPULAR_CHIPS = 6;
@@ -34,10 +37,20 @@ interface CompaniesPageProps {
   onEditProfile?: () => void;
 }
 
-interface UiState { view: CompaniesView; q: string; industry: string; hiring: boolean; challenges: boolean; sponsor: boolean; sort: CompaniesSort }
+interface UiState {
+  view: CompaniesView; q: string; industry: string; category: CategoryKey | ''; orgType: OrganizationType | ''; country: string;
+  hiring: boolean; challenges: boolean; sponsor: boolean; sort: CompaniesSort;
+}
 
-const VIEW_LABEL: Record<CompaniesView, string> = { for_you: 'For You', following: 'Following', all: 'All Companies' };
-const SORT_LABEL: Record<CompaniesSort, string> = { relevance: 'Relevance', recent: 'Recent activity', alpha: 'A–Z' };
+const VIEW_LABEL: Record<CompaniesView, string> = { for_you: 'For You', following: 'Following', all: 'All Organizations' };
+const SORT_LABEL: Record<CompaniesSort, string> = { relevance: 'Relevance', recent: 'Recent activity', followers: 'Most followed', alpha: 'A–Z' };
+// The four prominent categories get a quick-filter chip each (in this order); "Other" lives in the dropdown.
+const CHIP_CATEGORIES = CATEGORIES.filter(c => c.key !== 'other');
+const CATEGORY_ICON: Record<CategoryKey, React.ReactNode> = {
+  colleges: <GraduationCap size={15} aria-hidden="true" />, medical: <Stethoscope size={15} aria-hidden="true" />,
+  hospitals: <HeartPulse size={15} aria-hidden="true" />, manufacturing: <Factory size={15} aria-hidden="true" />, other: <Building2 size={15} aria-hidden="true" />,
+};
+const isCategory = (v: unknown): v is CategoryKey => CATEGORIES.some(c => c.key === v);
 
 // ── remembered between visits ────────────────────────────────────────────────
 function readSaved(): Partial<UiState> | null {
@@ -49,7 +62,7 @@ function writeSaved(s: UiState) { try { sessionStorage.setItem(STORAGE_KEY, JSON
 let snapshot: { key: string; page: PageData; items: CompanyItem[]; nextCursor: string | null; scrollY: number; at: number } | null = null;
 
 const toQuery = (s: UiState, q: string): CompaniesQuery => ({
-  view: s.view, q, industry: s.industry, filters: { hiring: s.hiring, challenges: s.challenges, sponsor: s.sponsor }, sort: s.sort,
+  view: s.view, q, industry: s.industry, category: s.category, organizationType: s.orgType, country: s.country, filters: { hiring: s.hiring, challenges: s.challenges, sponsor: s.sponsor }, sort: s.sort,
 });
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -67,8 +80,9 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
     return {
       view: (['for_you', 'following', 'all'] as const).includes(s?.view as any) ? s!.view! : hasPrefs ? 'for_you' : 'all',
       q: typeof s?.q === 'string' ? s.q : '', industry: typeof s?.industry === 'string' ? s.industry : '',
+      category: isCategory(s?.category) ? s!.category! : '', orgType: typeof s?.orgType === 'string' ? s.orgType as OrganizationType : '', country: typeof s?.country === 'string' ? s.country : '',
       hiring: !!s?.hiring, challenges: !!s?.challenges, sponsor: !!s?.sponsor,
-      sort: (['relevance', 'recent', 'alpha'] as const).includes(s?.sort as any) ? s!.sort! : 'relevance',
+      sort: (['relevance', 'recent', 'followers', 'alpha'] as const).includes(s?.sort as any) ? s!.sort! : 'relevance',
     };
   });
   // The profile can finish loading after this page opens. If the member has never picked a view
@@ -112,7 +126,7 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
       setPage(data); setItems(appendUnique([], data.items)); setNextCursor(data.nextCursor);
     } catch (e: any) {
       if (id !== reqId.current || e?.name === 'AbortError') return;
-      setError(e?.message ?? 'Could not load companies.');
+      setError(e?.message ?? 'Could not load organizations.');
     } finally { if (id === reqId.current) setLoading(false); }
   }, [query]);
 
@@ -166,7 +180,7 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
   // ── search suggestions ──
   const listId = useId();
   const [focused, setFocused] = useState(false);
-  const [sugg, setSugg] = useState<{ companies: { id: string; name: string; industry: string }[]; industries: string[] }>({ companies: [], industries: [] });
+  const [sugg, setSugg] = useState<{ companies: { id: string; name: string; industry: string; typeLabel?: string }[]; industries: string[] }>({ companies: [], industries: [] });
   const [activeIdx, setActiveIdx] = useState(-1);
   const suggText = useDebounced(qInput, 200);
   useEffect(() => {
@@ -176,7 +190,7 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
     return () => { live = false; };
   }, [suggText, focused]);
   const options = [
-    ...sugg.companies.map(c => ({ type: 'company' as const, label: c.name, hint: c.industry, value: c.name })),
+    ...sugg.companies.map(c => ({ type: 'company' as const, label: c.name, hint: c.typeLabel && c.typeLabel !== 'Business' ? c.typeLabel : c.industry, value: c.name })),
     ...sugg.industries.map(i => ({ type: 'industry' as const, label: i, hint: 'Industry', value: i })),
   ];
   const showSugg = focused && options.length > 0;
@@ -194,11 +208,12 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
 
   // ── filters ──
   const facets = page?.facets ?? [];
-  const chips = facets.slice(0, POPULAR_CHIPS);
-  const selectedFacet = facets.find(f => f.key === ui.industry);
-  const extraChip = ui.industry && !chips.some(c => c.key === ui.industry) ? (selectedFacet ?? { key: ui.industry, label: ui.industry, count: 0 }) : null;
-  const moreCount = (ui.hiring ? 1 : 0) + (ui.challenges ? 1 : 0) + (ui.sponsor ? 1 : 0) + (ui.industry && !chips.some(c => c.key === ui.industry) ? 1 : 0);
-  const anyFilter = !!ui.industry || ui.hiring || ui.challenges || ui.sponsor || !!qInput.trim();
+  const categoryCounts = page?.categories ?? [];
+  const types = page?.types ?? [];
+  const countries = page?.countries ?? [];
+  const countOf = (k: CategoryKey) => categoryCounts.find(c => c.key === k)?.count;
+  const moreCount = (ui.hiring ? 1 : 0) + (ui.challenges ? 1 : 0) + (ui.sponsor ? 1 : 0) + (ui.industry ? 1 : 0) + (ui.orgType ? 1 : 0) + (ui.country ? 1 : 0);
+  const anyFilter = !!ui.industry || !!ui.category || !!ui.orgType || !!ui.country || ui.hiring || ui.challenges || ui.sponsor || !!qInput.trim();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -208,7 +223,8 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
     document.addEventListener('mousedown', down); document.addEventListener('keydown', key);
     return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
   }, [moreOpen]);
-  const clearAll = () => { setQInput(''); setUi(p => ({ ...p, q: '', industry: '', hiring: false, challenges: false, sponsor: false })); };
+  const clearAll = () => { setQInput(''); setUi(p => ({ ...p, q: '', industry: '', category: '', orgType: '', country: '', hiring: false, challenges: false, sponsor: false })); };
+  const activeCategoryLabel = ui.category ? CATEGORIES.find(c => c.key === ui.category)?.label : '';
 
   const total = page?.total ?? 0;
   const forYou = page?.meta.forYou;
@@ -218,12 +234,12 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
       <header className="mb-5">
-        <h1 className="text-2xl font-bold text-stone-900 sm:text-3xl">Companies</h1>
-        <p className="mt-1 text-sm text-stone-600 sm:text-base">Find companies worth following, see who is hiring and what they are building.</p>
+        <h1 className="text-2xl font-bold text-stone-900 sm:text-3xl">Organizations</h1>
+        <p className="mt-1 text-sm text-stone-600 sm:text-base">Companies, universities and hospitals worth following. See who is hiring and what they are building.</p>
       </header>
 
       {/* Views */}
-      <div role="tablist" aria-label="Company views" className="mb-4 inline-flex rounded-xl bg-stone-100 p-1">
+      <div role="tablist" aria-label="Organization views" className="mb-4 inline-flex rounded-xl bg-stone-100 p-1">
         {(Object.keys(VIEW_LABEL) as CompaniesView[]).map(v => (
           <button key={v} role="tab" aria-selected={ui.view === v} onClick={() => set('view', v)}
             className={`rounded-lg px-3 py-1.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 sm:px-4 ${ui.view === v ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600 hover:text-stone-900'}`}
@@ -240,7 +256,7 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
           <input
             type="text" role="combobox" aria-expanded={showSugg} aria-controls={listId} aria-autocomplete="list"
             aria-activedescendant={activeIdx >= 0 ? `${listId}-${activeIdx}` : undefined}
-            aria-label="Search companies" placeholder="Search by name, industry or ticker"
+            aria-label="Search organizations" placeholder="Search by name, industry, place or ticker"
             value={qInput} onChange={e => setQInput(e.target.value)}
             onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 120)} onKeyDown={onSearchKey}
             className="w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-10 text-sm focus:outline-none focus-visible:ring-2"
@@ -263,26 +279,42 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
           )}
         </div>
         <label className="flex items-center gap-2 text-sm text-stone-600">
+          <span className="sr-only">Category</span>
+          <select aria-label="Category" value={ui.category} onChange={e => set('category', (e.target.value || '') as CategoryKey | '')}
+            className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus-visible:ring-2 sm:w-auto" style={{ ['--tw-ring-color' as any]: GREEN }}>
+            <option value="">All categories</option>
+            {CATEGORIES.map(c => {
+              const n = countOf(c.key);
+              return <option key={c.key} value={c.key}>{c.label}{n !== undefined ? ` (${n.toLocaleString()})` : ''}</option>;
+            })}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-stone-600">
           <span className="sr-only sm:not-sr-only">Sort</span>
-          <select aria-label="Sort companies" value={ui.sort} onChange={e => set('sort', e.target.value as CompaniesSort)}
+          <select aria-label="Sort organizations" value={ui.sort} onChange={e => set('sort', e.target.value as CompaniesSort)}
             className="rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus-visible:ring-2" style={{ ['--tw-ring-color' as any]: GREEN }}>
             {(Object.keys(SORT_LABEL) as CompaniesSort[]).map(s => <option key={s} value={s}>{SORT_LABEL[s]}</option>)}
           </select>
         </label>
       </div>
 
-      {/* Industry chips + more filters */}
+      {/* Category quick filters + more filters */}
       <div className="mb-4 flex items-center gap-2">
-        <div className="-mx-1 flex w-0 min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 py-1" role="group" aria-label="Industries">
-          <button type="button" aria-pressed={!ui.industry} onClick={() => set('industry', '')} className={chipCls(!ui.industry)} style={chipStyle(!ui.industry)}>All industries</button>
-          {chips.map(f => (
-            <button key={f.key} type="button" aria-pressed={ui.industry === f.key} onClick={() => set('industry', ui.industry === f.key ? '' : f.key)} className={chipCls(ui.industry === f.key)} style={chipStyle(ui.industry === f.key)}>
-              {f.label} <span className={ui.industry === f.key ? 'text-white/80' : 'text-stone-500'}>{f.count}</span>
-            </button>
-          ))}
-          {extraChip && (
-            <button type="button" aria-pressed onClick={() => set('industry', '')} className={`${chipCls(true)} inline-flex items-center gap-1`} style={chipStyle(true)}>
-              {extraChip.label} <X size={13} aria-label="Remove industry filter" />
+        <div className="-mx-1 flex w-0 min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 py-1" role="group" aria-label="Categories">
+          <button type="button" aria-pressed={!ui.category} onClick={() => set('category', '')} className={chipCls(!ui.category)} style={chipStyle(!ui.category)}>All</button>
+          {CHIP_CATEGORIES.map(c => {
+            const on = ui.category === c.key; const n = countOf(c.key);
+            return (
+              <button key={c.key} type="button" aria-pressed={on} onClick={() => set('category', on ? '' : c.key)} title={c.blurb}
+                className={`${chipCls(on)} inline-flex items-center gap-1.5`} style={chipStyle(on)}>
+                {CATEGORY_ICON[c.key]} {c.label}
+                {n !== undefined && <span className={on ? 'text-white/80' : 'text-stone-500'}>{n.toLocaleString()}</span>}
+              </button>
+            );
+          })}
+          {ui.category === 'other' && (
+            <button type="button" aria-pressed onClick={() => set('category', '')} className={`${chipCls(true)} inline-flex items-center gap-1`} style={chipStyle(true)}>
+              Other organizations <X size={13} aria-label="Remove category filter" />
             </button>
           )}
         </div>
@@ -293,11 +325,24 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
             {moreCount > 0 && <span className="rounded-full px-1.5 text-xs font-bold text-white" style={{ backgroundColor: GREEN }}>{moreCount}</span>}
           </button>
           {moreOpen && (
-            <div role="dialog" aria-label="More filters" className="absolute right-0 z-20 mt-2 w-72 rounded-2xl border border-stone-200 bg-white p-4 shadow-xl">
-              <label className="block text-xs font-semibold text-stone-700" htmlFor={`${listId}-ind`}>Industry</label>
+            <div role="dialog" aria-label="More filters" className="absolute right-0 z-20 mt-2 max-h-[70vh] w-72 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-4 shadow-xl">
+              <label className="block text-xs font-semibold text-stone-700" htmlFor={`${listId}-type`}>Organization type</label>
+              <select id={`${listId}-type`} value={ui.orgType} onChange={e => set('orgType', e.target.value as OrganizationType | '')} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm">
+                <option value="">Any type</option>
+                {ui.orgType && !types.some(t => t.key === ui.orgType) && <option value={ui.orgType}>{ui.orgType.replace(/_/g, ' ')} (0)</option>}
+                {types.map(t => <option key={t.key} value={t.key}>{t.label} ({t.count.toLocaleString()})</option>)}
+              </select>
+              <label className="mt-4 block text-xs font-semibold text-stone-700" htmlFor={`${listId}-ind`}>Industry</label>
               <select id={`${listId}-ind`} value={ui.industry} onChange={e => set('industry', e.target.value)} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm">
                 <option value="">All industries</option>
-                {facets.map(f => <option key={f.key} value={f.key}>{f.label} ({f.count})</option>)}
+                {ui.industry && !facets.some(f => f.key === ui.industry) && <option value={ui.industry}>{ui.industry} (0)</option>}
+                {facets.map(f => <option key={f.key} value={f.key}>{f.label} ({f.count.toLocaleString()})</option>)}
+              </select>
+              <label className="mt-4 block text-xs font-semibold text-stone-700" htmlFor={`${listId}-country`}>Country</label>
+              <select id={`${listId}-country`} value={ui.country} onChange={e => set('country', e.target.value)} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm">
+                <option value="">Anywhere</option>
+                {ui.country && !countries.some(c => c.key === ui.country) && <option value={ui.country}>{ui.country} (0)</option>}
+                {countries.map(c => <option key={c.key} value={c.key}>{c.label} ({c.count.toLocaleString()})</option>)}
               </select>
               <fieldset className="mt-4 space-y-2">
                 <legend className="text-xs font-semibold text-stone-700">Activity</legend>
@@ -322,8 +367,8 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
           <Sparkles size={16} className="mt-0.5 flex-shrink-0" style={{ color: GREEN }} aria-hidden="true" />
           <p>
             {forYou.hasPreferences
-              ? 'Nothing matches your profile yet, so these are companies with open roles and live challenges.'
-              : 'Showing companies with open roles and live challenges. Add your industry and goals to your profile to get recommendations that fit you.'}
+              ? 'Nothing matches your profile yet, so these are organizations with open roles and live challenges.'
+              : 'Showing organizations with open roles and live challenges. Add your industry and goals to your profile to get recommendations that fit you.'}
             {onEditProfile && !forYou.hasPreferences && <> <button type="button" onClick={onEditProfile} className="font-semibold underline" style={{ color: GREEN }}>Update your profile</button></>}
           </p>
         </div>
@@ -331,7 +376,7 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
 
       {/* Count */}
       <p className="mb-3 text-sm text-stone-600" aria-live="polite">
-        {loading ? 'Loading companies…' : error ? '' : `${total.toLocaleString()} ${total === 1 ? 'company' : 'companies'}${debouncedQ.trim() ? ` matching “${debouncedQ.trim()}”` : ''}`}
+        {loading ? 'Loading organizations…' : error ? '' : `${total.toLocaleString()} ${total === 1 ? 'organization' : 'organizations'}${activeCategoryLabel ? ` in ${activeCategoryLabel}` : ''}${debouncedQ.trim() ? ` matching “${debouncedQ.trim()}”` : ''}`}
       </p>
 
       {/* Results */}
@@ -358,7 +403,7 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
             {nextCursor ? (
               <button type="button" onClick={loadMore} disabled={loadingMore}
                 className="inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-6 py-2.5 text-sm font-semibold text-stone-800 hover:bg-stone-50 focus:outline-none focus-visible:ring-2 disabled:opacity-60" style={{ ['--tw-ring-color' as any]: GREEN }}>
-                {loadingMore && <Loader2 size={15} className="animate-spin" aria-hidden="true" />} Load more companies
+                {loadingMore && <Loader2 size={15} className="animate-spin" aria-hidden="true" />} Load more organizations
               </button>
             ) : (
               <p className="text-sm text-stone-500">{items.length === total ? `That's all ${total.toLocaleString()}.` : ''}</p>
@@ -373,18 +418,18 @@ export default function CompaniesPage({ onViewCompany, onEditProfile }: Companie
 }
 
 function EmptyResults({ view, anyFilter, query, onClear, onBrowse }: { view: CompaniesView; anyFilter: boolean; query: string; onClear: () => void; onBrowse: () => void }) {
-  let title = 'No companies found', body = 'Try a different search.', action: React.ReactNode = null;
+  let title = 'No organizations found', body = 'Try a different search.', action: React.ReactNode = null;
   if (anyFilter) {
-    title = query ? `No companies match “${query}”` : 'No companies match these filters';
+    title = query ? `No organizations match “${query}”` : 'No organizations match these filters';
     body = 'Try a shorter search, or remove a filter.';
     action = <button type="button" onClick={onClear} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-50">Clear search and filters</button>;
   } else if (view === 'following') {
-    title = 'You are not following any companies yet';
-    body = 'Follow companies to see them here, and to hear about their roles and challenges.';
-    action = <button type="button" onClick={onBrowse} className="rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Browse all companies</button>;
+    title = 'You are not following any organizations yet';
+    body = 'Follow organizations to see them here, and to hear about their roles and challenges.';
+    action = <button type="button" onClick={onBrowse} className="rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Browse all organizations</button>;
   } else if (view === 'for_you') {
-    title = 'Nothing to recommend yet'; body = 'Browse all companies to find some to follow.';
-    action = <button type="button" onClick={onBrowse} className="rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Browse all companies</button>;
+    title = 'Nothing to recommend yet'; body = 'Browse all organizations to find some to follow.';
+    action = <button type="button" onClick={onBrowse} className="rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: GREEN }}>Browse all organizations</button>;
   }
   return (
     <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-stone-300 px-6 py-14 text-center">

@@ -1,13 +1,18 @@
 // api/companies.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Everything the Companies page needs from the server:
+// Everything the Organizations directory (formerly "Companies") needs from the server.
+// Every record is an organization: a business (the default for every existing company),
+// a college or university, a hospital, a health system, or another kind. See lib/organizations.ts.
 //
-//   list      12 companies at a time, with search, an industry filter, activity
-//             filters (hiring / live challenges / Arena sponsor), three sorts
-//             (relevance, recent activity, A–Z) and three views (For You,
-//             Following, All). Paged by a keyset cursor, so a company can never
-//             appear twice or be skipped, and `total` always reflects the
-//             current search and filters.
+//   list      12 organizations at a time, with search (name, industry, location), a category
+//             (Colleges & Universities, Medical & Healthcare Companies, Hospitals & Health
+//             Systems, Manufacturing, Other), an organization type, an industry, a country,
+//             activity filters (hiring / live challenges / Arena sponsor), four sorts
+//             (relevance, recent activity, most followed, A–Z) and three views (For You,
+//             Following, All). Paged by a keyset cursor, so a record can never appear twice
+//             or be skipped, and `total` always reflects the current search and filters.
+//             Facet counts for each filter are what you would get by choosing it now,
+//             given every OTHER filter.
 //   suggest   search suggestions as someone types.
 //   detail    a company's real activity: open roles, live challenges, Arena
 //             sponsorship, and related challenges in the same Arenas.
@@ -23,10 +28,16 @@
 //
 // Why a route and not browser queries: Firestore cannot do case-insensitive
 // search, relevance ranking or filtered counts, and a browser should not read
-// every company to do it. The directory (a few hundred small documents) is read
-// once a minute per server instance and filtered in memory; the browser only
-// ever receives the page it asked for. If the directory grows past a few
-// thousand companies, move this to a search index.
+// every record to do it. The directory is held in memory per server instance and
+// filtered there; the browser only ever receives the page it asked for.
+//
+// Scale: up to SNAPSHOT_THRESHOLD records, the companies collection is read directly
+// (at most once a minute per instance). Beyond that, one instance at a time (guarded
+// by a lease) condenses it into a few hundred-record chunks in `directory_snapshot`
+// every SNAPSHOT_MS, and every instance reads those chunks (about one read per 400
+// records) instead of the whole collection. The 12 records on the page are always
+// re-read live, so follower counts and ownership on screen are current; a brand new
+// record can take up to SNAPSHOT_MS to appear in a large directory.
 //
 // POST /api/companies   Authorization: Bearer <idToken>   { action, ... }
 // Self-contained on purpose: api/ routes cannot import from lib/ on Vercel.
@@ -35,7 +46,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp, type Firestore, type DocumentData } from 'firebase-admin/firestore';
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -46,8 +57,45 @@ export interface Caller { uid: string; email?: string; emailVerified?: boolean }
 const PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 24;
 const CACHE_MS = 60_000;
-const MAX_COMPANIES = 3000;
+const SNAPSHOT_THRESHOLD = 1500;     // above this many records, read the condensed snapshot instead
+const SNAPSHOT_MS = 10 * 60_000;     // how long a snapshot is trusted
+const SNAPSHOT_LEASE_MS = 3 * 60_000;
+const SNAPSHOT_CHUNK = 400;
+const MAX_ORGS = 60_000;
+const SNAP = 'directory_snapshot';
 const SUPPORT_EMAIL = 'support@bewatu.com';
+
+// ── The organization model (a small copy of lib/organizations.ts; test/organizations checks they agree) ──
+export type OrgType = 'business' | 'college_university' | 'hospital' | 'health_system' | 'research_institute' | 'nonprofit' | 'government' | 'other';
+const ORG_TYPES: OrgType[] = ['business', 'college_university', 'hospital', 'health_system', 'research_institute', 'nonprofit', 'government', 'other'];
+export type CategoryKey = 'colleges' | 'medical' | 'hospitals' | 'manufacturing' | 'other';
+const CATEGORY_KEYS: { key: CategoryKey; label: string }[] = [
+  { key: 'colleges', label: 'Colleges & Universities' }, { key: 'medical', label: 'Medical & Healthcare Companies' },
+  { key: 'hospitals', label: 'Hospitals & Health Systems' }, { key: 'manufacturing', label: 'Manufacturing' }, { key: 'other', label: 'Other organizations' },
+];
+const TYPE_LABEL: Record<OrgType, string> = {
+  business: 'Business', college_university: 'College or university', hospital: 'Hospital', health_system: 'Health system',
+  research_institute: 'Research institute', nonprofit: 'Nonprofit', government: 'Government', other: 'Organization',
+};
+export function normalizeType(raw: unknown): OrgType {
+  const v = typeof raw === 'string' ? raw.trim().toLowerCase().replace(/[\s-]+/g, '_') : '';
+  return (ORG_TYPES as string[]).includes(v) ? (v as OrgType) : 'business';
+}
+const HEALTH_INDUSTRY_RE = /(health|medical|medicine|biotech|pharma|life.?science|clinical|diagnostic|therapeut)/i;
+const MANUFACTURING_INDUSTRY_RE = /manufactur/i;
+export function categoryOf(o: { organizationType?: unknown; industry?: unknown }): CategoryKey {
+  const type = normalizeType(o.organizationType);
+  if (type === 'college_university') return 'colleges';
+  if (type === 'hospital' || type === 'health_system') return 'hospitals';
+  const industry = typeof o.industry === 'string' ? o.industry : '';
+  if (type === 'business') {
+    if (HEALTH_INDUSTRY_RE.test(industry)) return 'medical';
+    if (MANUFACTURING_INDUSTRY_RE.test(industry)) return 'manufacturing';
+  }
+  return 'other';
+}
+// Every key a category-specific profile may carry (see PROFILE_SECTIONS in lib/organizations.ts).
+const PROFILE_KEYS = new Set(['control', 'established', 'enrollment', 'campusSetting', 'accreditation', 'facilityType', 'ownership', 'beds', 'emergencyServices', 'starRating', 'employeeRange', 'regulatoryStatus', 'sicDescription', 'exchange']);
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Lite {
@@ -55,10 +103,14 @@ interface Lite {
   industry: string; industryKey: string; description: string; logoUrl: string;
   website: string; domain: string; ticker: string; tickerLower: string;
   verified: boolean; followerCount: number; hasAdmin: boolean;
+  orgType: OrgType; category: CategoryKey;
+  subindustries: string[]; subLower: string;
+  city: string; region: string; country: string; countryKey: string; locationLower: string;
+  parentId: string;
 }
 interface Activity { openJobs: number; liveChallenges: number; sponsoredArenas: string[]; lastActivityMs: number | null }
 interface Directory {
-  at: number; version: number;
+  at: number; version: number; fromSnapshot: boolean;
   companies: Lite[]; byId: Map<string, Lite>;
   activity: Map<string, Activity>;
   jobs: Map<string, { title: string; location: string; type: string; atMs: number | null }[]>;
@@ -94,11 +146,113 @@ const httpsOrEmpty = (raw: unknown): string => {
 };
 
 // ── Loading the directory ────────────────────────────────────────────────────
+const LITE_FIELDS = ['name', 'industry', 'description', 'logoUrl', 'website', 'domain', 'ticker', 'verificationStatus', 'followerCount', 'adminUid', 'numericId',
+  'organizationType', 'subindustries', 'location', 'parentId'];
+
+function toLite(id: string, x: DocumentData): Lite | null {
+  const name = clean(x.name, 120);
+  if (!name) return null;
+  const website = httpsOrEmpty(x.website);
+  const domain = (clean(x.domain, 120) || hostOf(website)).toLowerCase().replace(/^www\./, '');
+  const industry = clean(x.industry, 60);
+  const orgType = normalizeType(x.organizationType);
+  const subindustries: string[] = Array.isArray(x.subindustries) ? x.subindustries.map((v: unknown) => clean(v, 50)).filter(Boolean).slice(0, 8) : [];
+  const loc = x.location && typeof x.location === 'object' ? x.location : typeof x.location === 'string' ? { city: x.location } : {};
+  const city = clean(loc.city, 60), region = clean(loc.region, 60), country = clean(loc.country, 60);
+  return {
+    id, numericId: typeof x.numericId === 'number' && x.numericId > 0 ? x.numericId : null,
+    name, nameLower: name.toLowerCase(), industry, industryKey: industry.toLowerCase(),
+    description: clean(x.description, 220), logoUrl: httpsOrEmpty(x.logoUrl), website, domain,
+    ticker: clean(x.ticker, 12), tickerLower: clean(x.ticker, 12).toLowerCase(),
+    verified: x.verificationStatus === 'verified', followerCount: Math.max(0, Number(x.followerCount) || 0), hasAdmin: !!x.adminUid,
+    orgType, category: categoryOf({ organizationType: orgType, industry }),
+    subindustries, subLower: subindustries.join(' ').toLowerCase(),
+    city, region, country, countryKey: country.toLowerCase(), locationLower: [city, region, country].join(' ').toLowerCase().trim(),
+    parentId: typeof x.parentId === 'string' && x.parentId.length <= 128 && !x.parentId.includes('/') ? x.parentId : '',
+  };
+}
+
+async function scanCompanies(db: Firestore, limit: number): Promise<Lite[]> {
+  const snap = await db.collection('companies').select(...LITE_FIELDS).limit(limit).get();
+  const out: Lite[] = [];
+  for (const d of snap.docs) { const l = toLite(d.id, d.data()); if (l) out.push(l); }
+  return out;
+}
+
+async function readSnapshot(db: Firestore, meta: DocumentData): Promise<Lite[] | null> {
+  const n = Number(meta.chunks) || 0;
+  if (!meta.gen || n < 1 || n > 500) return null;
+  const refs = Array.from({ length: n }, (_, i) => db.collection(SNAP).doc(`c_${meta.gen}_${i}`));
+  const docs = await db.getAll(...refs);
+  const out: Lite[] = [];
+  for (const d of docs) {
+    if (!d.exists) return null; // a half-replaced snapshot: let the caller fall back
+    const items = d.data()?.items;
+    if (Array.isArray(items)) out.push(...(items as Lite[]));
+  }
+  return out;
+}
+
+async function takeLease(db: Firestore, now: number): Promise<boolean> {
+  const ref = db.collection(SNAP).doc('lease');
+  return db.runTransaction(async tx => {
+    const cur = (await tx.get(ref)).data() as { until?: number } | undefined;
+    if (cur?.until && cur.until > now) return false;
+    tx.set(ref, { until: now + SNAPSHOT_LEASE_MS });
+    return true;
+  });
+}
+
+async function buildSnapshot(db: Firestore, now: number): Promise<Lite[]> {
+  const rows = await scanCompanies(db, MAX_ORGS);
+  const gen = String(now);
+  const chunks = Math.ceil(rows.length / SNAPSHOT_CHUNK);
+  for (let i = 0; i < chunks; i += 100) {
+    const batch = db.batch();
+    for (let j = i; j < Math.min(chunks, i + 100); j++) {
+      batch.set(db.collection(SNAP).doc(`c_${gen}_${j}`), { items: rows.slice(j * SNAPSHOT_CHUNK, (j + 1) * SNAPSHOT_CHUNK) });
+    }
+    await batch.commit();
+  }
+  const metaRef = db.collection(SNAP).doc('meta');
+  const old = (await metaRef.get()).data();
+  await metaRef.set({ gen, chunks, count: rows.length, builtAtMs: now });
+  // Tidy up the previous generation (best effort; readers of the old one fall back safely).
+  if (old?.gen && old.gen !== gen) {
+    try {
+      const b = db.batch();
+      for (let j = 0; j < (Number(old.chunks) || 0) && j < 500; j++) b.delete(db.collection(SNAP).doc(`c_${old.gen}_${j}`));
+      await b.commit();
+    } catch { /* leftovers are harmless */ }
+  }
+  return rows;
+}
+
+async function loadRows(db: Firestore, now: number): Promise<{ rows: Lite[]; fromSnapshot: boolean }> {
+  const meta = (await db.collection(SNAP).doc('meta').get()).data();
+  const fresh = !!meta && typeof meta.builtAtMs === 'number' && now >= meta.builtAtMs && now - meta.builtAtMs < SNAPSHOT_MS;
+  if (meta && fresh) {
+    const rows = await readSnapshot(db, meta);
+    if (rows) return { rows, fromSnapshot: true };
+  }
+  if (meta) {
+    // Stale: one instance rebuilds; everyone else keeps serving the last good snapshot.
+    if (await takeLease(db, now)) { try { return { rows: await buildSnapshot(db, now), fromSnapshot: true }; } catch (e: any) { console.error('snapshot build failed:', e?.code ?? e?.message); } }
+    const rows = await readSnapshot(db, meta);
+    if (rows) return { rows, fromSnapshot: true };
+  }
+  // No snapshot (yet). A small directory is simply read; a large one builds its first snapshot.
+  const first = await scanCompanies(db, SNAPSHOT_THRESHOLD + 1);
+  if (first.length <= SNAPSHOT_THRESHOLD) return { rows: first, fromSnapshot: false };
+  if (await takeLease(db, now)) { try { return { rows: await buildSnapshot(db, now), fromSnapshot: true }; } catch (e: any) { console.error('snapshot build failed:', e?.code ?? e?.message); } }
+  return { rows: await scanCompanies(db, MAX_ORGS), fromSnapshot: false };
+}
+
 async function loadDirectory(db: Firestore, now: number): Promise<Directory> {
   if (cache && now - cache.at < CACHE_MS && now >= cache.at) return cache;
 
-  const [companySnap, jobSnap, challengeSnap, sponsorSnap, arenaSnap] = await Promise.all([
-    db.collection('companies').limit(MAX_COMPANIES).get(),
+  const [{ rows: loaded, fromSnapshot }, jobSnap, challengeSnap, sponsorSnap, arenaSnap] = await Promise.all([
+    loadRows(db, now),
     db.collection('jobs').where('status', '==', 'Active').limit(1000).get(),
     db.collection('arena_challenges').where('verificationStatus', '==', 'live').limit(600).get(),
     db.collection('arena_sponsorships').where('status', '==', 'approved').limit(300).get(),
@@ -111,19 +265,8 @@ async function loadDirectory(db: Firestore, now: number): Promise<Directory> {
   const companies: Lite[] = [];
   const byId = new Map<string, Lite>();
   const byNumeric = new Map<number, string>();
-  for (const d of companySnap.docs) {
-    const x = d.data();
-    const name = clean(x.name, 120);
-    if (!name) continue;
-    const website = httpsOrEmpty(x.website);
-    const domain = (clean(x.domain, 120) || hostOf(website)).toLowerCase().replace(/^www\./, '');
-    const c: Lite = {
-      id: d.id, numericId: typeof x.numericId === 'number' && x.numericId > 0 ? x.numericId : null,
-      name, nameLower: name.toLowerCase(), industry: clean(x.industry, 60), industryKey: clean(x.industry, 60).toLowerCase(),
-      description: clean(x.description, 220), logoUrl: httpsOrEmpty(x.logoUrl), website, domain,
-      ticker: clean(x.ticker, 12), tickerLower: clean(x.ticker, 12).toLowerCase(),
-      verified: x.verificationStatus === 'verified', followerCount: Math.max(0, Number(x.followerCount) || 0), hasAdmin: !!x.adminUid,
-    };
+  for (const c of loaded) {
+    if (byId.has(c.id)) continue;
     companies.push(c); byId.set(c.id, c);
     if (c.numericId != null) byNumeric.set(c.numericId, c.id);
   }
@@ -178,7 +321,7 @@ async function loadDirectory(db: Firestore, now: number): Promise<Directory> {
     e.count++; industries.set(c.industryKey, e);
   }
 
-  cache = { at: now, version: ++versionCounter, companies, byId, activity, jobs, challenges, sponsorships, industries };
+  cache = { at: now, version: ++versionCounter, fromSnapshot, companies, byId, activity, jobs, challenges, sponsorships, industries };
   return cache;
 }
 
@@ -188,7 +331,7 @@ const activityOf = (d: Directory, id: string) => d.activity.get(id) ?? NO_ACTIVI
 // ── Scoring ──────────────────────────────────────────────────────────────────
 
 /** How well a company matches typed text. null = does not match (every word must match somewhere). */
-export function textScore(c: Pick<Lite, 'nameLower' | 'industryKey' | 'tickerLower' | 'domain' | 'description'>, q: string): number | null {
+export function textScore(c: Pick<Lite, 'nameLower' | 'industryKey' | 'tickerLower' | 'domain' | 'description'> & { subLower?: string; locationLower?: string }, q: string): number | null {
   const full = q.trim().toLowerCase();
   if (!full) return 0;
   const words = full.split(/\s+/).filter(Boolean);
@@ -204,6 +347,8 @@ export function textScore(c: Pick<Lite, 'nameLower' | 'industryKey' | 'tickerLow
     else if (nameWords.some(nw => nw.startsWith(w))) s = 450;
     else if (c.nameLower.includes(w)) s = 300;
     else if (c.industryKey.includes(w)) s = 200;
+    else if (c.subLower && c.subLower.includes(w)) s = 180;
+    else if (c.locationLower && c.locationLower.includes(w)) s = 160;
     else if (c.domain.includes(w)) s = 150;
     else if (desc.includes(w)) s = 60;
     if (s === 0) return null;
@@ -269,7 +414,7 @@ const cmpKey = (a: Key, ai: string, b: Key, bi: string): number => {
 
 // ── list ─────────────────────────────────────────────────────────────────────
 type View = 'for_you' | 'following' | 'all';
-type Sort = 'relevance' | 'recent' | 'alpha';
+type Sort = 'relevance' | 'recent' | 'followers' | 'alpha';
 
 interface Row { c: Lite; a: Activity; key: Key; reasons: string[]; personalised: boolean }
 
@@ -288,17 +433,27 @@ function toItem(r: Row, following: Set<string>) {
   const { c, a } = r;
   return {
     id: c.id, name: c.name, industry: c.industry, description: c.description, logoUrl: c.logoUrl, domain: c.domain, ticker: c.ticker,
+    organizationType: c.orgType, category: c.category, typeLabel: TYPE_LABEL[c.orgType],
+    subindustries: c.subindustries, location: { city: c.city, region: c.region, country: c.country },
+    claimStatus: c.hasAdmin ? 'claimed' : 'unclaimed',
     verified: c.verified, followerCount: c.followerCount, following: following.has(c.id),
     openJobs: a.openJobs, liveChallenges: a.liveChallenges, sponsoredArenas: a.sponsoredArenas, lastActivityMs: a.lastActivityMs,
     ...(r.reasons.length ? { reasons: r.reasons } : {}),
   };
 }
 
+const facetList = (m: Map<string, { label: string; count: number }>, cap: number) =>
+  [...m.entries()].map(([key, v]) => ({ key, label: v.label, count: v.count }))
+    .sort((x, y) => y.count - x.count || x.label.localeCompare(y.label)).slice(0, cap);
+
 async function list(db: Firestore, caller: Caller, body: any, now: number) {
   const view: View = (['for_you', 'following', 'all'] as const).includes(body.view) ? body.view : 'all';
-  const sort: Sort = (['relevance', 'recent', 'alpha'] as const).includes(body.sort) ? body.sort : 'relevance';
+  const sort: Sort = (['relevance', 'recent', 'followers', 'alpha'] as const).includes(body.sort) ? body.sort : 'relevance';
   const q = clean(body.q, 80);
   const industry = clean(body.industry, 60).toLowerCase();
+  const category = CATEGORY_KEYS.some(c => c.key === body.category) ? (body.category as CategoryKey) : '';
+  const orgType = (ORG_TYPES as string[]).includes(body.organizationType) ? (body.organizationType as OrgType) : '';
+  const country = clean(body.country, 60).toLowerCase();
   const f = body.filters && typeof body.filters === 'object' ? body.filters : {};
   const need = { hiring: f.hiring === true, challenges: f.challenges === true, sponsor: f.sponsor === true };
   const limit = Math.max(1, Math.min(MAX_PAGE_SIZE, Number.isInteger(body.limit) ? body.limit : PAGE_SIZE));
@@ -307,7 +462,7 @@ async function list(db: Firestore, caller: Caller, body: any, now: number) {
   const dir = await loadDirectory(db, now);
   const profile = await loadProfile(db, caller.uid, dir);
 
-  // 1. rows that match the view, the search and the activity filters (industry applied after, for facet counts)
+  // 1. rows that match the view, the search and the activity filters (the facet filters are applied after, so each facet can ignore its own)
   const base: Row[] = [];
   for (const c of dir.companies) {
     if (view === 'following' && !profile.following.has(c.id)) continue;
@@ -324,32 +479,63 @@ async function list(db: Firestore, caller: Caller, body: any, now: number) {
     let key: Key;
     if (sort === 'alpha') key = [c.nameLower];
     else if (sort === 'recent') key = [-(a.lastActivityMs ?? 0), c.nameLower];
+    else if (sort === 'followers') key = [-c.followerCount, c.nameLower];
     else if (view === 'for_you') key = [-ts, personalised ? 0 : 1, -personalScore, -act, c.nameLower];
     else key = [-ts, -act, c.nameLower];
     base.push({ c, a, key, reasons, personalised });
   }
 
-  // 2. facets: industries with the counts you would get by choosing them now
-  const facetCounts = new Map<string, number>();
-  for (const r of base) if (r.c.industryKey) facetCounts.set(r.c.industryKey, (facetCounts.get(r.c.industryKey) ?? 0) + 1);
-  const facets = [...facetCounts.entries()]
-    .map(([k, count]) => ({ key: k, label: dir.industries.get(k)?.label ?? k, count }))
-    .sort((x, y) => y.count - x.count || x.label.localeCompare(y.label));
+  // 2. facets: for each filter, the counts you would get by choosing it now, given every OTHER filter
+  type F = 'category' | 'orgType' | 'industry' | 'country';
+  const passes = (c: Lite, skip?: F) =>
+    (skip === 'category' || !category || c.category === category) &&
+    (skip === 'orgType' || !orgType || c.orgType === orgType) &&
+    (skip === 'industry' || !industry || c.industryKey === industry) &&
+    (skip === 'country' || !country || c.countryKey === country);
+  const catCounts = new Map<CategoryKey, number>();
+  const typeCounts = new Map<string, { label: string; count: number }>();
+  const industryCounts = new Map<string, { label: string; count: number }>();
+  const countryCounts = new Map<string, { label: string; count: number }>();
+  for (const { c } of base) {
+    if (passes(c, 'category')) catCounts.set(c.category, (catCounts.get(c.category) ?? 0) + 1);
+    if (passes(c, 'orgType')) { const e = typeCounts.get(c.orgType) ?? { label: TYPE_LABEL[c.orgType], count: 0 }; e.count++; typeCounts.set(c.orgType, e); }
+    if (c.industryKey && passes(c, 'industry')) { const e = industryCounts.get(c.industryKey) ?? { label: dir.industries.get(c.industryKey)?.label ?? c.industry, count: 0 }; e.count++; industryCounts.set(c.industryKey, e); }
+    if (c.countryKey && passes(c, 'country')) { const e = countryCounts.get(c.countryKey) ?? { label: c.country, count: 0 }; e.count++; countryCounts.set(c.countryKey, e); }
+  }
+  const facets = facetList(industryCounts, 60);
+  const categories = CATEGORY_KEYS.map(c => ({ key: c.key, label: c.label, count: catCounts.get(c.key) ?? 0 }));
 
-  // 3. industry filter, then total order, then the page after the cursor
-  const rows = industry ? base.filter(r => r.c.industryKey === industry) : base;
+  // 3. all filters, then total order, then the page after the cursor
+  const rows = base.filter(r => passes(r.c));
   rows.sort((x, y) => cmpKey(x.key, x.c.id, y.key, y.c.id));
   const start = after ? rows.findIndex(r => cmpKey(r.key, r.c.id, after.k, after.i) > 0) : 0;
   const page = start < 0 ? [] : rows.slice(start, start + limit);
   const hasMore = start >= 0 && start + limit < rows.length;
   const last = page[page.length - 1];
 
+  // A snapshot may be minutes old: show the page's records as they are right now.
+  const items = page.map(r => toItem(r, profile.following));
+  if (dir.fromSnapshot && page.length > 0) {
+    try {
+      const live = await db.getAll(...page.map(r => db.collection('companies').doc(r.c.id)), { fieldMask: ['followerCount', 'verificationStatus', 'adminUid'] });
+      live.forEach((d, i) => {
+        const x = d.data(); if (!x) return;
+        items[i].followerCount = Math.max(0, Number(x.followerCount) || 0);
+        items[i].verified = x.verificationStatus === 'verified';
+        items[i].claimStatus = x.adminUid ? 'claimed' : 'unclaimed';
+      });
+    } catch { /* the snapshot values are still sensible */ }
+  }
+
   const personalisedCount = view === 'for_you' ? rows.filter(r => r.personalised).length : 0;
   return {
-    items: page.map(r => toItem(r, profile.following)),
+    items,
     total: rows.length,
     nextCursor: hasMore && last ? encodeCursor(last.key, last.c.id, dir.version) : null,
     facets,
+    categories,
+    types: facetList(typeCounts, 10),
+    countries: facetList(countryCounts, 60),
     meta: {
       view, sort,
       // For You: were these chosen from the member's own profile, or is this the general fallback?
@@ -364,11 +550,11 @@ async function suggest(db: Firestore, body: any, now: number) {
   if (q.length < 2) return { companies: [], industries: [] };
   const dir = await loadDirectory(db, now);
   const scored: { c: Lite; s: number }[] = [];
-  for (const c of dir.companies) { const s = textScore({ ...c, industryKey: '', domain: '', description: '' }, q); if (s !== null) scored.push({ c, s }); }
+  for (const c of dir.companies) { const s = textScore({ ...c, industryKey: '', domain: '', description: '', subLower: '', locationLower: '' }, q); if (s !== null) scored.push({ c, s }); }
   scored.sort((a, b) => b.s - a.s || a.c.nameLower.localeCompare(b.c.nameLower));
   const ql = q.toLowerCase();
   return {
-    companies: scored.slice(0, 6).map(({ c }) => ({ id: c.id, name: c.name, industry: c.industry })),
+    companies: scored.slice(0, 6).map(({ c }) => ({ id: c.id, name: c.name, industry: c.industry, typeLabel: TYPE_LABEL[c.orgType] })),
     industries: [...dir.industries.values()].filter(i => i.label.toLowerCase().includes(ql)).sort((a, b) => b.count - a.count).slice(0, 2).map(i => i.label),
   };
 }
@@ -378,7 +564,7 @@ async function detail(db: Firestore, caller: Caller, body: any, now: number) {
   const dir = await loadDirectory(db, now);
   const id = typeof body.companyId === 'string' ? body.companyId : '';
   const c = dir.byId.get(id);
-  if (!c) throw new HttpError(404, 'Company not found.');
+  if (!c) throw new HttpError(404, 'Organization not found.');
   const a = activityOf(dir, id);
   const profile = await loadProfile(db, caller.uid, dir);
 
@@ -398,9 +584,34 @@ async function detail(db: Firestore, caller: Caller, body: any, now: number) {
   updates.sort((x, y) => y.atMs - x.atMs);
 
   const doc = await db.collection('companies').doc(id).get();
-  const adminUid = doc.data()?.adminUid as string | undefined;
+  const live = doc.data() ?? {};
+  const adminUid = live.adminUid as string | undefined;
+  // Category-specific facts: only keys the model defines, only plain strings/numbers.
+  const profileFacts: Record<string, string | number> = {};
+  if (live.profile && typeof live.profile === 'object') {
+    for (const [k, v] of Object.entries(live.profile as Record<string, unknown>)) {
+      if (!PROFILE_KEYS.has(k)) continue;
+      if (typeof v === 'number' && Number.isFinite(v)) profileFacts[k] = v;
+      else if (typeof v === 'string' && v.trim()) profileFacts[k] = clean(v, 120);
+    }
+  }
+  const src = live.directorySource && typeof live.directorySource === 'object' ? live.directorySource : null;
+  const parent = c.parentId ? dir.byId.get(c.parentId) : undefined;
+  const children = dir.companies.filter(o => o.parentId === id).sort((x, y) => x.nameLower.localeCompare(y.nameLower));
   return {
-    company: { id: c.id, name: c.name, industry: c.industry, followerCount: c.followerCount, verified: c.verified },
+    company: { id: c.id, name: c.name, industry: c.industry, followerCount: Math.max(0, Number(live.followerCount) || 0), verified: live.verificationStatus === 'verified' },
+    organization: {
+      id: c.id, name: c.name, organizationType: c.orgType, typeLabel: TYPE_LABEL[c.orgType], category: c.category,
+      industry: c.industry, subindustries: c.subindustries,
+      description: clean(live.description, 1500), website: httpsOrEmpty(live.website), logoUrl: httpsOrEmpty(live.logoUrl),
+      location: { city: c.city, region: c.region, country: c.country },
+      profile: profileFacts,
+      claimStatus: adminUid ? 'claimed' : 'unclaimed',
+      source: src ? { name: clean(src.name, 60), url: httpsOrEmpty(src.url) } : null,
+      parent: parent ? { id: parent.id, name: parent.name, typeLabel: TYPE_LABEL[parent.orgType] } : null,
+      children: children.slice(0, 12).map(o => ({ id: o.id, name: o.name, typeLabel: TYPE_LABEL[o.orgType] })),
+      childCount: children.length,
+    },
     following: profile.following.has(id),
     // Whether the "Claim this company" action should be offered to this person.
     claim: { available: !adminUid, isAdmin: adminUid === caller.uid },
@@ -415,12 +626,12 @@ async function detail(db: Firestore, caller: Caller, body: any, now: number) {
 // ── follow / unfollow ────────────────────────────────────────────────────────
 async function setFollow(db: Firestore, uid: string, body: any, follow: boolean) {
   const id = typeof body.companyId === 'string' && body.companyId && body.companyId.length <= 128 && !body.companyId.includes('/') ? body.companyId : '';
-  if (!id) throw new HttpError(400, 'A company is required.');
+  if (!id) throw new HttpError(400, 'An organization is required.');
   const userRef = db.collection('users').doc(uid);
   const companyRef = db.collection('companies').doc(id);
   return db.runTransaction(async tx => {
     const [u, c] = await Promise.all([tx.get(userRef), tx.get(companyRef)]);
-    if (!c.exists) throw new HttpError(404, 'Company not found.');
+    if (!c.exists) throw new HttpError(404, 'Organization not found.');
     const list: string[] = Array.isArray(u.data()?.followingCompanies) ? u.data()!.followingCompanies : [];
     const already = list.includes(id);
     let count = Math.max(0, Number(c.data()?.followerCount) || 0);
@@ -453,7 +664,7 @@ export function emailBelongsToDomain(email: string, companyDomain: string): bool
 
 async function claim(db: Firestore, caller: Caller, body: any, now: number) {
   const id = typeof body.companyId === 'string' && body.companyId && body.companyId.length <= 128 && !body.companyId.includes('/') ? body.companyId : '';
-  if (!id) throw new HttpError(400, 'A company is required.');
+  if (!id) throw new HttpError(400, 'An organization is required.');
   const email = (caller.email ?? '').toLowerCase();
   const emailDomain = email.includes('@') ? email.slice(email.lastIndexOf('@') + 1) : '';
 
@@ -472,7 +683,7 @@ async function claim(db: Firestore, caller: Caller, body: any, now: number) {
 
   const ref = db.collection('companies').doc(id);
   const snap = await ref.get();
-  if (!snap.exists) throw new HttpError(404, 'Company not found.');
+  if (!snap.exists) throw new HttpError(404, 'Organization not found.');
   const x = snap.data()!;
   if (x.adminUid === caller.uid) return { ok: true, status: 'already_admin' };
   if (x.adminUid || x.claimed === true) throw new HttpError(409, `This company already has an administrator. If that is wrong, write to ${SUPPORT_EMAIL}.`);
