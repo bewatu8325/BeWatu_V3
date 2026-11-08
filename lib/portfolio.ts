@@ -15,7 +15,7 @@ export const SECTION_HINT: Record<SectionKey, string> = {
   summary: 'A short introduction in your own words',
   skills: 'Each shows whether it is self-reported, confirmed by colleagues or reviewed',
   projects: 'Work you have submitted to your profile, with the link as evidence',
-  arena: 'Challenges you took part in; any outcome shown is the reviewer\'s',
+  arena: 'Challenges you took part in. Shared pages show the field and the reviewer\'s outcome, never the challenge name',
   reels: 'Your Prove videos, with captions',
   achievements: 'Outcomes a named person has confirmed',
 };

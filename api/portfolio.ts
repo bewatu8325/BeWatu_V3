@@ -159,6 +159,12 @@ export interface Sources { owner: Record<string, any>; skills: SkillItem[]; proj
 export const arenaLevel = (outcome: unknown): { outcome: ArenaItem['outcome']; level: Level } =>
   outcome === 'winner' ? { outcome: 'winner', level: 'verified' } : outcome === 'shortlisted' ? { outcome: 'shortlisted', level: 'reviewed' } : { outcome: 'submitted', level: 'submitted' };
 
+/** What a shared page calls an Arena contribution: the field, never the challenge or its sponsor. */
+export const arenaPublicTitle = (industry: string) => {
+  const i = clean(industry, 40).replace(/[-_]+/g, ' ');
+  return i ? `${i.charAt(0).toUpperCase()}${i.slice(1)} Arena challenge` : 'Arena challenge';
+};
+
 export async function loadSources(db: Firestore, uid: string): Promise<Sources | null> {
   const us = await db.collection('users').doc(uid).get();
   if (!us.exists) return null;
@@ -228,7 +234,9 @@ export function buildModel(src: Sources, cfg: ShareConfig, now: number): Model {
     let items: any[] = [];
     if (key === 'skills') items = pick(src.skills as any, cfg.selection.skills, 'name');
     else if (key === 'projects') items = pick(src.projects, cfg.selection.projects);
-    else if (key === 'arena') items = pick(src.arena, cfg.selection.arena);
+    // Arenas are for signed-in members. A sponsor's challenge name never goes onto a page anyone can open: the page shows the member's own
+    // words, the industry and the outcome a reviewer recorded, and nothing that identifies the challenge or its sponsor.
+    else if (key === 'arena') items = pick(src.arena, cfg.selection.arena).map(a => ({ ...a, title: arenaPublicTitle(a.industry) }));
     else if (key === 'reels') items = pick(src.reels, cfg.selection.reels);
     else if (key === 'achievements') items = pick(src.achievements, cfg.selection.achievements);
     if (key === 'summary') { if (cfg.intro) sections.push({ key, title: SECTION_TITLES[key], items: [] }); continue; }
@@ -519,7 +527,7 @@ function sectionHtml(s: Section, m: Model): string {
     case 'projects': return `<section class="pf-section" aria-labelledby="s-projects"><h2 class="pf-h2" id="s-projects">${esc(s.title)}</h2><div class="pf-cards">${s.items.map((p: ProjectItem) =>
       `<article class="pf-card"><div class="pf-card-top">${badge(p.level)}</div><h3 class="pf-h3">${esc(p.title)}</h3>${p.description ? `<p class="pf-p">${esc(p.description).replace(/\n/g, '<br>')}</p>` : ''}${p.outcome ? `<p class="pf-outcome"><span>Outcome, as stated by the member</span>${esc(p.outcome)}</p>` : ''}${chips(p.tech)}${p.url ? `<p class="pf-link"><a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer nofollow">View the work · ${esc(hostOf(p.url))}<span class="pf-ext" aria-hidden="true"> ↗</span></a></p>` : ''}</article>`).join('')}</div></section>`;
     case 'arena': return `<section class="pf-section" aria-labelledby="s-arena"><h2 class="pf-h2" id="s-arena">${esc(s.title)}</h2><div class="pf-cards">${s.items.map((a: ArenaItem) =>
-      `<article class="pf-card"><div class="pf-card-top">${badge(a.level)}<span class="pf-meta">${a.outcome === 'winner' ? 'Selected as a winner' : a.outcome === 'shortlisted' ? 'Shortlisted' : 'Submitted'}${a.industry ? ' · ' + esc(a.industry) : ''}</span></div><h3 class="pf-h3">${esc(a.title)}</h3>${a.contribution ? `<p class="pf-p">${esc(a.contribution)}</p>` : ''}${chips(a.skills)}<p class="pf-fine">${a.outcome === 'submitted' ? 'BeWatu confirmed this member submitted to the challenge.' : 'Outcome recorded by the challenge reviewer'}${a.checkedAt ? ', last checked ' + esc(new Date(a.checkedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })) : ''}.</p></article>`).join('')}</div></section>`;
+      `<article class="pf-card"><div class="pf-card-top">${badge(a.level)}<span class="pf-meta">${a.outcome === 'winner' ? 'Selected as a winner' : a.outcome === 'shortlisted' ? 'Shortlisted' : 'Submitted'}${a.industry ? ' · ' + esc(a.industry) : ''}</span></div><h3 class="pf-h3">${esc(a.title)}</h3>${a.contribution ? `<p class="pf-p">${esc(a.contribution)}</p>` : ''}${chips(a.skills)}<p class="pf-fine">${a.outcome === 'submitted' ? 'BeWatu confirmed this member submitted to an Arena challenge. Challenge details are visible to BeWatu members only.' : 'Outcome recorded by the challenge reviewer. Challenge details are visible to BeWatu members only'}${a.checkedAt ? ', last checked ' + esc(new Date(a.checkedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })) : ''}.</p></article>`).join('')}</div></section>`;
     case 'reels': return `<section class="pf-section" aria-labelledby="s-reels"><h2 class="pf-h2" id="s-reels">${esc(s.title)}</h2><div class="pf-reels">${s.items.map((r: ReelItem) =>
       `<figure class="pf-reel"><video class="pf-video" controls preload="none" playsinline controlsList="nodownload"${r.poster ? ` poster="${esc(r.poster)}"` : ''} src="${esc(r.videoUrl)}" aria-label="${esc(r.caption || 'Prove reel')}"></video><figcaption>${badge(r.level)}${r.duration ? `<span class="pf-meta">${esc(mins(r.duration))}</span>` : ''}${r.caption ? `<span class="pf-cap">${esc(r.caption)}</span>` : ''}${chips(r.skills)}</figcaption></figure>`).join('')}</div></section>`;
     case 'achievements': return `<section class="pf-section" aria-labelledby="s-ach"><h2 class="pf-h2" id="s-ach">${esc(s.title)}</h2><ul class="pf-ach">${s.items.map((a: AchievementItem) =>

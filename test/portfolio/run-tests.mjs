@@ -167,6 +167,18 @@ await check('it opens with no login, in the chosen order, with a label on everyt
   assert(p.html.includes('<video') && p.html.includes('preload="none"') && p.html.includes('poster="https://img.test/t1.jpg"') && p.html.includes('How I run discovery'), 'a reel with its caption');
   assert(p.html.includes('Download résumé') && p.html.includes('Contact Ann'), 'résumé and contact');
 });
+await check('Arenas are for members: a shared page never names the challenge or its sponsor, only the field and the recorded outcome', async () => {
+  await wipe();
+  const s = await save(FULL({ kind: 'public' }));
+  for (const h of [(await page(tokenOfShare(await save(FULL({ label: 'u' }))))).html, (await servePage(deps(), { u: 'ann' }, HUMAN)).html, (await runAction(deps(), 'ann', { action: 'preview', config: FULL() })).html]) {
+    assert(!/Rethink payments|Claims triage|Third/.test(h), 'no challenge name');
+    assert(h.includes('Payments Arena challenge') && h.includes('Insurance Arena challenge') && h.includes('Selected as a winner') && h.includes('Shortlisted') && h.includes('I led pricing.'), 'field, outcome and the member\'s own words');
+    assert(h.includes('visible to BeWatu members only'), 'says why');
+  }
+  const own = await runAction(deps(), 'ann', { action: 'sources' });
+  assert(own.arena.some(a => a.title === 'Rethink payments'), 'the member still sees the real name when choosing');
+  void s;
+});
 await check('nothing else leaks: no feed, no settings, no navigation, no email address, no raw file address for the résumé', async () => {
   await wipe();
   const s = await save(FULL());
