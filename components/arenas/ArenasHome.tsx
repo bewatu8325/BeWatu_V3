@@ -94,11 +94,17 @@ export default function ArenasHome({ currentUser, canPost, onSelectIndustry, onO
 
   useEffect(() => { try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filters)); } catch { /* storage may be unavailable */ } }, [filters]);
 
+  const [challengesFailed, setChallengesFailed] = useState(false);
+  // The industries and the challenges load separately: if the challenges cannot be read, the industries (and following them) still work,
+  // and the page says what is missing instead of failing as a whole.
   const load = useCallback(() => {
-    setLoading(true); setError('');
-    Promise.all([getArenaIndustries(), loadChallenges()])
-      .then(([inds, chs]) => { setIndustries(inds.filter(i => i.isActive !== false)); setChallenges(chs); })
-      .catch(() => setError('Could not load Arenas. Check your connection and try again.'))
+    setLoading(true); setError(''); setChallengesFailed(false);
+    Promise.allSettled([getArenaIndustries(), loadChallenges()])
+      .then(([inds, chs]) => {
+        if (inds.status === 'fulfilled') setIndustries(inds.value.filter(i => i.isActive !== false));
+        if (chs.status === 'fulfilled') setChallenges(chs.value); else { setChallenges([]); setChallengesFailed(true); console.error('Arena challenges failed to load:', chs.reason); }
+        if (inds.status === 'rejected') { setError('Could not load Arenas. Check your connection and try again.'); console.error('Arena industries failed to load:', inds.reason); }
+      })
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -225,6 +231,13 @@ export default function ArenasHome({ currentUser, canPost, onSelectIndustry, onO
         </section>
       )}
 
+      {challengesFailed && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span>Challenges could not be loaded right now. You can still explore and follow industries.</span>
+          <button type="button" onClick={load} className="min-h-[44px] rounded-xl border border-amber-300 bg-white px-4 font-semibold hover:bg-amber-100">Try again</button>
+        </div>
+      )}
+
       {/* Search + filters, and the open challenges */}
       {open.length > 0 ? (
         <section aria-label="Open challenges">
@@ -263,7 +276,7 @@ export default function ArenasHome({ currentUser, canPost, onSelectIndustry, onO
             </div>
           )}
         </section>
-      ) : (
+      ) : challengesFailed ? null : (
         /* Nothing open: say so, and give a real next step */
         <section aria-label="No open challenges" className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
           <h2 className="text-lg font-bold text-stone-900">No open challenges right now</h2>
