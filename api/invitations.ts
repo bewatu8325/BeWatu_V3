@@ -36,7 +36,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue, type Firestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, type Firestore, type DocumentReference } from 'firebase-admin/firestore';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export class HttpError extends Error {
@@ -312,7 +312,7 @@ async function mayEmail(d: Deps, email: string): Promise<boolean> {
   return true;
 }
 
-async function sendInvitationEmail(d: Deps, ref: FirebaseFirestore.DocumentReference, inv: InvitationDoc & { id: string }, inviterName: string, reminder = false): Promise<boolean> {
+async function sendInvitationEmail(d: Deps, ref: DocumentReference, inv: InvitationDoc & { id: string }, inviterName: string, reminder = false): Promise<boolean> {
   let ok = false;
   try { ok = await d.mail(buildEmail(d, inv, inviterName, reminder)); } catch (e: any) { console.error('invitation mail failed:', e?.message); }
   await ref.update(reminder
