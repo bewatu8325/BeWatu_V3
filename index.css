@@ -47,3 +47,7 @@ body {
 /* Moved from components/ReportModal.tsx's inline <style>, same reason. */
 @keyframes bwReportIn { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
 @keyframes bwSpin { to { transform:rotate(360deg) } }
+
+/* Bottom sheets and dialogs: never taller than what is visible (dvh follows the browser's collapsing address bar on phones),
+   never under the notch. The 90vh line is the fallback for browsers without dvh. */
+.bw-sheet-max { max-height: 90vh; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 0.75rem); }

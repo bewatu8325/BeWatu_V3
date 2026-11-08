@@ -128,3 +128,12 @@ export async function prepareSponsorImage(file: File, kind: 'logo' | 'banner'): 
   }
   throw new SponsorshipError('That image is too detailed to shrink enough. Try a simpler or smaller one.');
 }
+
+// ── What this member may do for an Arena (decided by the server) ──────────────
+export interface SponsorOrg { id: string; name: string; logoUrl: string; state: 'eligible' | 'pending_verification' | 'ineligible'; reason: string; next: string; existing: 'pending_review' | 'approved' | null }
+export interface SponsorEligibility {
+  arena: { id: string; name: string; open: boolean; sponsoredUntil: number | null; sponsorName: string | null };
+  organizations: SponsorOrg[];
+  pendingClaims: { companyId: string; name: string }[];
+}
+export const fetchSponsorEligibility = (arenaId: string): Promise<SponsorEligibility> => sponsorshipApi({ action: 'eligibility', arenaId });

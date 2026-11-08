@@ -1884,6 +1884,7 @@ export function CompanyProfileModal({ company, allJobs, onClose, onOpenOrganizat
         setClaimMsg({ kind: 'info', text: "We couldn't confirm that your email belongs to this company, so our team will review your request. We haven't made you an administrator yet." });
       } else {
         setClaimMsg({ kind: 'ok', text: r.status === 'already_admin' ? 'You already administer this company.' : "You're now this company's administrator. BeWatu will verify the company shortly." });
+        window.dispatchEvent(new CustomEvent('bewatu:org-authorized'));     // lets a sponsorship you started pick up where it left off
         const d = await fetchCompanyDetail(company._firestoreId, true).catch(() => null); if (d) setDetail(d);
       }
     } catch (e: any) { setClaimMsg({ kind: 'error', text: e?.message ?? 'Could not submit your claim.' }); }
