@@ -1,12 +1,16 @@
 /**
  * components/PricingPage.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Full pricing page showing all BeWatu tiers with upgrade CTAs.
+ * Plans & pricing: the four plans side by side, a monthly / annual switch, and the Enterprise contact. What each plan lists comes
+ * from lib/subscription.ts (TIERS), the same list the upgrade dialog shows, so the two cannot disagree.
+ *
+ * Factory and Investor stay disabled, with the reason, while a new account is still inside its first week of activity
+ * (lib/engagementGate.ts). docs/pricing-tier-audit.md records which listed features are built today.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useState } from 'react';
-import { Check, Zap, Star, Factory, TrendingUp } from 'lucide-react';
-import { TIERS, SubscriptionTier, hasAccess } from '../lib/subscription';
+import { Check, ArrowRight, Building2, X } from 'lucide-react';
+import { TIERS, SubscriptionTier } from '../lib/subscription';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGate';
 
@@ -15,19 +19,15 @@ interface PricingPageProps {
   onClose?:  () => void;
 }
 
-const TIER_ICONS = {
-  free:     <Star className="h-6 w-6" />,
-  pro:      <Zap className="h-6 w-6" />,
-  factory:  <Factory className="h-6 w-6" />,
-  investor: <TrendingUp className="h-6 w-6" />,
-};
+const GREEN = 'var(--bw-green)';
+const TIER_ORDER: SubscriptionTier[] = ['free', 'pro', 'factory', 'investor'];
+const ring = { ['--tw-ring-color' as any]: GREEN };
+const FOCUS = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
 
-const TIER_COLORS = {
-  free:     { bg: 'bg-stone-50',   border: 'border-stone-200',  btn: 'bg-stone-800 hover:bg-stone-700',       icon: 'text-stone-600'  },
-  pro:      { bg: 'bg-blue-50',    border: 'border-blue-200',   btn: 'bg-blue-600 hover:bg-blue-500',          icon: 'text-blue-500'   },
-  factory:  { bg: 'bg-emerald-50', border: 'border-emerald-300',btn: 'bg-emerald-600 hover:bg-emerald-500',    icon: 'text-emerald-600'},
-  investor: { bg: 'bg-amber-50',   border: 'border-amber-200',  btn: 'bg-amber-600 hover:bg-amber-500',        icon: 'text-amber-500'  },
-};
+/** The whole dollars a month a plan costs when billed monthly or annually. */
+export function monthlyPrice(price: number, priceAnnual: number, annual: boolean): number {
+  return annual ? Math.round(priceAnnual / 12) : price;
+}
 
 export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
   const { currentUser } = useFirebase();
@@ -36,146 +36,97 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
   const userTier = (currentUser?.subscriptionTier ?? 'free') as SubscriptionTier;
   const gated = !!currentUser && isEngagementGated(currentUser);
 
-  const tiers: SubscriptionTier[] = ['free', 'pro', 'factory', 'investor'];
-
   return (
-    <div className="min-h-screen bg-white py-16 px-4">
+    <div className="relative min-h-screen px-4 pb-20 pt-12 sm:pt-16" style={{ backgroundColor: '#fdfcfa' }}>
       {onClose && (
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-stone-600 hover:text-stone-600">
-          ✕
+        <button onClick={onClose} aria-label="Close pricing" className={'absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full text-stone-600 hover:bg-stone-100 ' + FOCUS} style={ring}>
+          <X className="h-5 w-5" aria-hidden="true" />
         </button>
       )}
 
       {/* Header */}
-      <div className="text-center max-w-2xl mx-auto mb-12">
-        <h1 className="text-4xl font-bold text-stone-900 mb-4">
-          Build your future on BeWatu
-        </h1>
-        <p className="text-lg text-stone-600 mb-8">
-          Start free. Upgrade when you're ready to level up.
+      <header className="mx-auto max-w-3xl text-center">
+        <p className="flex items-center justify-center gap-4 text-[12px] font-semibold uppercase tracking-[0.14em] text-stone-600">
+          <span className="h-px w-12 bg-stone-400/70" aria-hidden="true" />Plans &amp; pricing<span className="h-px w-12 bg-stone-400/70" aria-hidden="true" />
         </p>
+        <h1 className="mt-5 text-balance font-serif text-[2.4rem] font-semibold leading-[1.08] tracking-tight text-stone-900 sm:text-[3.4rem]">Build your future on BeWatu</h1>
+        <p className="mx-auto mt-4 max-w-xl text-[17px] leading-relaxed text-stone-600">Connect, create, and unlock opportunities at every stage of your journey.</p>
 
-        {/* Annual toggle */}
-        <div className="inline-flex items-center gap-3 bg-stone-100 rounded-full px-4 py-2">
-          <button
-            onClick={() => setAnnual(false)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${!annual ? 'bg-white shadow text-stone-900' : 'text-stone-600'}`}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setAnnual(true)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${annual ? 'bg-white shadow text-stone-900' : 'text-stone-600'}`}
-          >
-            Annual
-            <span className="ml-1.5 text-xs text-emerald-600 font-semibold">Save 17%</span>
+        <div role="group" aria-label="Billing period" className="mt-8 inline-flex rounded-full border border-stone-300 bg-white p-1">
+          <button type="button" aria-pressed={!annual} onClick={() => setAnnual(false)}
+            className={'min-h-[44px] rounded-full px-6 text-sm font-semibold transition-colors ' + FOCUS + (!annual ? ' text-white' : ' text-stone-700 hover:text-stone-900')}
+            style={{ backgroundColor: !annual ? GREEN : undefined, ...ring }}>Monthly</button>
+          <button type="button" aria-pressed={annual} onClick={() => setAnnual(true)}
+            className={'min-h-[44px] rounded-full px-6 text-sm font-semibold transition-colors ' + FOCUS + (annual ? ' text-white' : ' text-stone-700 hover:text-stone-900')}
+            style={{ backgroundColor: annual ? GREEN : undefined, ...ring }}>
+            Annual <span className={'ml-1.5 ' + (annual ? 'text-white/90' : 'text-emerald-800')}>Save 17%</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Pricing cards */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {tiers.map((tierId) => {
-          const tier    = TIERS[tierId];
-          const colors  = TIER_COLORS[tierId];
-          const price   = annual ? tier.priceAnnual : tier.price;
+      {/* Plans */}
+      <ul className="mx-auto mt-12 grid max-w-[1180px] grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {TIER_ORDER.map(tierId => {
+          const tier = TIERS[tierId];
+          const featured = tierId === 'factory';
           const isCurrent = userTier === tierId;
-          const isPopular = tierId === 'factory';
           const isGatedTier = gated && (tierId === 'factory' || tierId === 'investor');
-
+          const perMonth = monthlyPrice(tier.price, tier.priceAnnual, annual);
+          const cta = tierId === 'factory' ? 'Unlock Factory' : tierId === 'investor' ? 'Join as Investor' : `Upgrade to ${tier.label}`;
+          const priceBlock = tier.price === 0
+            ? <p className="font-sans text-[2rem] font-semibold leading-none tracking-tight">Free</p>
+            : (
+              <div>
+                <p className="leading-none"><span className="text-[2rem] font-semibold tracking-tight tabular-nums">${perMonth}</span><span className={'ml-1.5 text-[15px] ' + (featured ? 'text-white/80' : 'text-stone-600')}>/ month</span></p>
+                {annual && <p className={'mt-1.5 text-xs ' + (featured ? 'text-white/75' : 'text-stone-600')}>${tier.priceAnnual} billed yearly</p>}
+              </div>
+            );
           return (
-            <div
-              key={tierId}
-              className={`relative rounded-2xl border-2 p-6 flex flex-col ${colors.bg} ${colors.border} ${isPopular ? 'shadow-xl scale-105' : 'shadow-sm'}`}
-            >
-              {isPopular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  MOST POPULAR
+            <li key={tierId} className="flex">
+              <section aria-labelledby={`plan-${tierId}`} className={'flex w-full flex-col overflow-hidden rounded-[22px] border bg-white ' + (featured ? 'border-2 shadow-[0_8px_30px_rgba(26,74,58,0.14)]' : 'border-stone-200')} style={featured ? { borderColor: GREEN, backgroundColor: '#f2f8f5' } : undefined}>
+                <div className={featured ? 'px-6 pb-6 pt-5 text-white' : 'px-6 pb-0 pt-6'} style={featured ? { backgroundColor: GREEN } : undefined}>
+                  {featured && <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">Most popular</p>}
+                  <h2 id={`plan-${tierId}`} className={'font-serif text-[1.6rem] font-semibold leading-tight ' + (featured ? 'mt-1' : 'text-stone-900')}>{tier.label}</h2>
+                  <p className={'mt-1 min-h-[2.9rem] text-[14px] leading-snug ' + (featured ? 'text-white/85' : 'text-stone-600')}>{tier.tagline}</p>
+                  <div className={'mt-3 ' + (featured ? '' : 'border-b border-stone-200 pb-6 text-stone-900')}>{priceBlock}</div>
                 </div>
-              )}
 
-              {/* Icon + name */}
-              <div className={`${colors.icon} mb-3`}>
-                {TIER_ICONS[tierId]}
-              </div>
-              <h2 className="text-xl font-bold text-stone-900 mb-1">{tier.label}</h2>
+                <ul className="flex-1 space-y-2.5 px-6 pb-6 pt-5 text-[14px] text-stone-800">
+                  {tier.features.map(f => (
+                    <li key={f} className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: GREEN }} strokeWidth={2.2} aria-hidden="true" /><span>{f}</span></li>
+                  ))}
+                </ul>
 
-              {/* Price */}
-              <div className="mb-6">
-                {tier.price === 0 ? (
-                  <span className="text-3xl font-bold text-stone-900">Free</span>
-                ) : (
-                  <div>
-                    <span className="text-3xl font-bold text-stone-900">
-                      ${annual ? Math.round(price / 12) : price}
-                    </span>
-                    <span className="text-stone-600 text-sm">/month</span>
-                    {annual && (
-                      <p className="text-xs text-stone-600 mt-0.5">
-                        ${price}/year
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Features */}
-              <ul className="space-y-2.5 flex-1 mb-6">
-                {tier.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-stone-700">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA */}
-              {isCurrent ? (
-                <div className="text-center py-2.5 text-sm font-medium text-stone-600 border border-stone-200 rounded-xl">
-                  Current plan
-                </div>
-              ) : tier.price === 0 ? (
-                <div className="text-center py-2.5 text-sm font-medium text-stone-600">
-                  Always free
-                </div>
-              ) : (
-                <button
-                  onClick={() => onUpgrade(tierId)}
-                  disabled={isGatedTier}
-                  title={isGatedTier ? ENGAGEMENT_GATE_TOOLTIP : undefined}
-                  className={`w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${colors.btn} disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {tierId === 'factory'
-                    ? 'Unlock Factory'
-                    : tierId === 'investor'
-                    ? 'Join as Investor'
-                    : `Upgrade to ${tier.label}`}
-                  {tier.price > 0 && (
-                    <span className="ml-1 opacity-75 text-xs">
-                      — {tierId === 'pro' ? '30' : '14'}-day free trial
-                    </span>
+                <div className="px-6 pb-6">
+                  {isCurrent ? (
+                    <p className="flex min-h-[48px] items-center justify-center rounded-xl border border-stone-300 bg-white text-sm font-medium text-stone-600" aria-label={`${tier.label} is your current plan`}>Current plan</p>
+                  ) : tier.price === 0 ? (
+                    <p className="flex min-h-[48px] items-center justify-center text-sm font-medium text-stone-600">Always free</p>
+                  ) : (
+                    <button type="button" onClick={() => onUpgrade(tierId)} disabled={isGatedTier} title={isGatedTier ? ENGAGEMENT_GATE_TOOLTIP : undefined} aria-describedby={isGatedTier ? `gate-${tierId}` : undefined}
+                      className={'min-h-[48px] w-full rounded-xl border-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ' + FOCUS + (featured ? ' text-white hover:opacity-95' : ' bg-white hover:bg-emerald-50')}
+                      style={{ borderColor: GREEN, backgroundColor: featured ? GREEN : undefined, color: featured ? undefined : GREEN, ...ring }}>
+                      {cta}
+                    </button>
                   )}
-                </button>
-              )}
-            </div>
+                  {isGatedTier && !isCurrent && <p id={`gate-${tierId}`} className="mt-2 text-center text-xs text-stone-600">{ENGAGEMENT_GATE_TOOLTIP}</p>}
+                </div>
+              </section>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
-      {/* Enterprise CTA */}
-      <div className="max-w-2xl mx-auto mt-12 text-center p-8 bg-stone-900 rounded-2xl text-white">
-        <h3 className="text-xl font-bold mb-2">Enterprise</h3>
-        <p className="text-stone-600 mb-4 text-sm">
-          Arena sponsorship, talent scouting, startup pipeline, API access, and dedicated support.
-          Custom contracts and invoicing available.
-        </p>
-        <a
-          href="mailto:enterprise@bewatu.com"
-          className="inline-block bg-white text-stone-900 px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-stone-100 transition-colors"
-        >
-          Contact us
-        </a>
-      </div>
+      {/* Enterprise */}
+      <section aria-labelledby="plan-enterprise" className="mx-auto mt-14 max-w-3xl text-center">
+        <div className="flex items-center gap-5">
+          <span className="h-px flex-1 bg-stone-300" aria-hidden="true" />
+          <h2 id="plan-enterprise" className="flex items-center gap-2.5 font-serif text-[1.5rem] font-semibold text-stone-900"><Building2 className="h-6 w-6" strokeWidth={1.6} aria-hidden="true" />Enterprise</h2>
+          <span className="h-px flex-1 bg-stone-300" aria-hidden="true" />
+        </div>
+        <p className="mt-3 text-[15px] text-stone-600">Arena sponsorship, talent scouting, startup pipeline, API access, and dedicated support.</p>
+        <a href="mailto:enterprise@bewatu.com" className={'mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 text-[16px] font-semibold ' + FOCUS} style={{ color: GREEN, ...ring }}>Contact us<ArrowRight className="h-4 w-4" aria-hidden="true" /></a>
+      </section>
     </div>
   );
 }
