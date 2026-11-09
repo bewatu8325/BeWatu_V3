@@ -11,6 +11,8 @@ export type AccessLevel = 1 | 2 | 3 | 4 | 5;
 export interface TierConfig {
   id:          SubscriptionTier;
   label:       string;
+  /** One line under the plan name on the pricing page. */
+  tagline:     string;
   price:       number;       // monthly price in USD
   priceAnnual: number;       // annual price in USD
   level:       AccessLevel;
@@ -21,6 +23,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   free: {
     id:          'free',
     label:       'Explorer',
+    tagline:     'For individuals starting their journey.',
     price:       0,
     priceAnnual: 0,
     level:       1,
@@ -28,14 +31,15 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     features: [
       'Full network access',
       'Unlimited pod memberships',
-      'Browse ideas & arenas',
+      'Browse arenas',
       'Basic profile',
-      'Follow people & companies',
+      'Follow people & organizations',
     ],
   },
   pro: {
     id:          'pro',
     label:       'Pro',
+    tagline:     'For professionals who want more visibility and opportunity.',
     // Was 19 — stale. Confirmed against the real Stripe price
     // (STRIPE_PRO_PRICE_ID) this tier actually charges: $20/mo.
     // priceAnnual below is NOT independently confirmed against a real
@@ -43,7 +47,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     // price lookup at all, so this figure may be display-only and stale
     // too. Not touched without the same kind of confirmation.
     price:       20,
-    priceAnnual: 190,
+    priceAnnual: 200,   // $20 x 12 = $240, so $200 is the 17% annual saving the pricing page states
     level:       3,
     color:       'text-blue-500',
     features: [
@@ -60,6 +64,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   factory: {
     id:          'factory',
     label:       'Factory',
+    tagline:     'For builders, founders, and startups ready to grow.',
     price:       49,
     priceAnnual: 490,
     level:       5,
@@ -67,6 +72,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     features: [
       'Everything in Pro',
       'Factory workspace',
+      'Browse and submit startup ideas',
       'Idea validation suite',
       'Startup pipeline tools',
       'Incubator program access',
@@ -79,6 +85,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   investor: {
     id:          'investor',
     label:       'Investor',
+    tagline:     'For investors who want curated access to high-potential opportunities.',
     price:       199,
     priceAnnual: 1990,
     level:       5,
