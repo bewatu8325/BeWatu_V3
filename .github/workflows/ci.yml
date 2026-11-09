@@ -133,6 +133,8 @@ jobs:
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/investor-membership/run-tests.mjs"
       - name: Investor membership - application rules, statuses, entitlement and wording
         run: tsx test/investor-membership/client-tests.mjs
+      - name: Plans - the member's plan is written by Stripe and the server only
+        run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/plan-subscriptions/run-tests.mjs"
       - name: Ops user-data route
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/ops-user-data/run-tests.mjs"
       - name: Legacy PII purge script (unit)

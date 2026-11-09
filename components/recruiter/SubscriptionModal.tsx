@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import { LogoIcon } from '../../constants';
-import { setStripeCustomerId, updateUserInFirestore } from '../../lib/firebaseAuth';
 import { useFirebase } from '../../contexts/FirebaseContext';
 import PaymentForm from '../PaymentForm';
 
@@ -71,15 +70,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Subscription failed');
 
-      await setStripeCustomerId(fbUser.uid, data.customerId);
-      await updateUserInFirestore(fbUser.uid, {
-        subscriptionTier: 'pro',
-        subscriptionStatus: 'trialing',
-        subscriptionId: data.subscriptionId,
-        subscriptionPriceId: data.subscriptionPriceId,
-        trialEndsAt: data.trialEnd ? new Date(data.trialEnd * 1000).toISOString() : null,
-      } as any);
-
+      // The server has already recorded the plan on the member's profile; the browser cannot write those fields.
       refreshUser({
         ...currentUser,
         stripeCustomerId: data.customerId,
