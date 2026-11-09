@@ -1355,7 +1355,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
           </div>
 
           {/* Nav */}
-          <div className="flex gap-1 ml-2">
+          <div className="flex min-w-0 gap-1 ml-2 overflow-x-auto no-scrollbar" role="tablist" aria-label="Admin sections">
             {([
               { key: 'list' as AdminView,         label: 'Companies' },
               { key: 'verify_queue' as AdminView, label: `Queue${pendingVerif.length ? ` (${pendingVerif.length})` : ''}` },
@@ -1368,7 +1368,7 @@ const AdminPanel: React.FC<Props> = ({ onExit }) => {
               { key: 'audit_global' as AdminView, label: 'Audit log' },
             ] as const).map(({ key, label }) => (
               <button key={key} onClick={() => setView(key)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+                className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
                   view === key || (view === 'detail' && key === 'list')
                     ? 'bg-stone-100 text-stone-900'
                     : 'text-stone-600 hover:text-stone-700'
