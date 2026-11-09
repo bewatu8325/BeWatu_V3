@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Home, Users, Users2, Hexagon, Briefcase, MessageSquare, Building2,
   Bell, LogOut, User, ChevronDown, Settings, Sword, Search, Shield, Zap, CreditCard, Trophy, GitMerge,
-  CheckCircle, X, Loader2 as Loader, Users as UsersIcon,
-} from 'lucide-react';
+  CheckCircle, X, Loader2 as Loader, Users as UsersIcon, ShieldCheck } from 'lucide-react';
 import { LogoIcon } from '../constants';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { View } from '../types';
@@ -214,6 +213,9 @@ function NotificationsPanel({
     if (type === 'connection_request' || type === 'follow_request' || type === 'follow_accepted') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-50"><Users size={14} className="text-blue-500" /></div>;
     }
+    if (type === 'investor_application' || type === 'investor_billing') {
+      return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT, color: GREEN }}><ShieldCheck size={14} /></div>;
+    }
     if (type === 'talk_reply' || type === 'talk_speaker_reply' || type === 'talk_review') {
       return <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: GREEN_LT, color: GREEN }}><TalkIcon className="h-4 w-4" /></div>;
     }
@@ -265,6 +267,10 @@ function NotificationsPanel({
                     <p className="text-sm text-stone-800 leading-snug whitespace-pre-line">{n.message}</p>
                     {n.type === 'announcement' && (() => { try { const u = new URL(String(n.link)); return u.protocol === 'https:' ? <a href={u.toString()} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm font-semibold underline" style={{ color: GREEN }}>{n.linkLabel || 'Learn more'}</a> : null; } catch { return null; } })()}
                     <p className="text-xs text-stone-600 mt-0.5">{timeAgo(n.createdAt)}</p>
+                    {(n.type === 'investor_application' || n.type === 'investor_billing') && (
+                      <button type="button" onClick={() => { window.dispatchEvent(new CustomEvent('bewatu:open-investor')); onClose(); }}
+                        className="mt-1 min-h-[36px] text-sm font-semibold underline" style={{ color: GREEN }}>{n.type === 'investor_billing' ? 'Manage billing' : 'View your application'}</button>
+                    )}
                     {(n.type === 'talk_reply' || n.type === 'talk_speaker_reply' || n.type === 'talk_review') && (n as any).talkId && (
                       <button type="button" onClick={() => { window.dispatchEvent(new CustomEvent('bewatu:open-talk', { detail: { id: (n as any).talkId } })); onClose(); }}
                         className="mt-1 min-h-[36px] text-sm font-semibold underline" style={{ color: GREEN }}>View Talk</button>

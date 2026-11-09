@@ -41,9 +41,11 @@ async function main() {
     },
   });
 
-  // isFactoryInvestor() requires a factory_investors/{uid} doc to exist.
+  // isFactoryInvestor() requires a factory_investors/{uid} doc AND the server-written entitlement (approval plus a live
+  // subscription) on the member's own profile.
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await ctx.firestore().doc("factory_investors/investor-uid").set({ uid: "investor-uid" });
+    await ctx.firestore().doc("users/investor-uid").set({ displayName: "Investor", investorEntitled: true });
   });
 
   const investor = testEnv.authenticatedContext("investor-uid").firestore();

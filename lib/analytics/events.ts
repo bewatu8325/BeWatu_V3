@@ -24,7 +24,8 @@ export type Surface =
   | 'jobs'
   | 'companies'
   | 'discover'
-  | 'bridge';
+  | 'bridge'
+  | 'investor';
 
 export type EventType =
   // ── Tier 1: initiation vs participation (the agency signal) ──
@@ -65,7 +66,12 @@ export type EventType =
   | 'talk_discussion_started'
   | 'talk_comment_submitted'
   | 'talk_speaker_followed'
-  | 'talk_related_pod_explored';
+  | 'talk_related_pod_explored'
+  // ── Investor membership: the browser side of the funnel (approvals, activation and billing are counted by the server) ──
+  | 'investor_pricing_viewed'
+  | 'investor_apply_clicked'
+  | 'investor_application_started'
+  | 'investor_first_feature_used';
 
 export type Role = 'builder' | 'strategist' | 'connector' | 'operator';
 export type Outcome = 'completed' | 'abandoned' | 'pending' | 'started';

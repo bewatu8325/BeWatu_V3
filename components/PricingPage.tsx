@@ -8,15 +8,20 @@
  * (lib/engagementGate.ts). docs/pricing-tier-audit.md records which listed features are built today.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, ArrowRight, Building2, X } from 'lucide-react';
 import { TIERS, SubscriptionTier } from '../lib/subscription';
+import { APPLY_SUPPORT, TRIAL_DISCLOSURE } from '../lib/investorMembership';
+import { auth } from '../lib/firebase';
+import { trackInvestorApplyClicked, trackInvestorPricingViewed } from '../lib/analytics/track';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { isEngagementGated, ENGAGEMENT_GATE_TOOLTIP } from '../lib/engagementGate';
 
 interface PricingPageProps {
   onUpgrade: (tier: SubscriptionTier) => void;
   onClose?:  () => void;
+  /** Investor is not bought here: this starts the application. */
+  onApplyInvestor?: () => void;
 }
 
 const GREEN = 'var(--bw-green)';
@@ -29,12 +34,13 @@ export function monthlyPrice(price: number, priceAnnual: number, annual: boolean
   return annual ? Math.round(priceAnnual / 12) : price;
 }
 
-export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
+export default function PricingPage({ onUpgrade, onClose, onApplyInvestor }: PricingPageProps) {
   const { currentUser } = useFirebase();
   const [annual, setAnnual] = useState(false);
 
   const userTier = (currentUser?.subscriptionTier ?? 'free') as SubscriptionTier;
   const gated = !!currentUser && isEngagementGated(currentUser);
+  useEffect(() => { const uid = auth.currentUser?.uid; if (uid) trackInvestorPricingViewed(uid); }, []);
 
   return (
     <div className="relative min-h-screen px-4 pb-20 pt-12 sm:pt-16" style={{ backgroundColor: '#fdfcfa' }}>
@@ -70,9 +76,12 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
           const tier = TIERS[tierId];
           const featured = tierId === 'factory';
           const isCurrent = userTier === tierId;
-          const isGatedTier = gated && (tierId === 'factory' || tierId === 'investor');
+          const isInvestor = tierId === 'investor';
+          // Investor is applied for, never bought: the new-account week does not delay an application, only Factory.
+          const isGatedTier = gated && tierId === 'factory';
           const perMonth = monthlyPrice(tier.price, tier.priceAnnual, annual);
-          const cta = tierId === 'factory' ? 'Unlock Factory' : tierId === 'investor' ? 'Join as Investor' : `Upgrade to ${tier.label}`;
+          const cta = tierId === 'factory' ? 'Unlock Factory' : isInvestor ? 'Apply for Investor Access' : `Upgrade to ${tier.label}`;
+          const apply = () => { const uid = auth.currentUser?.uid; if (uid) trackInvestorApplyClicked(uid, 'pricing'); (onApplyInvestor ?? (() => onUpgrade(tierId)))(); };
           const priceBlock = tier.price === 0
             ? <p className="font-sans text-[2rem] font-semibold leading-none tracking-tight">Free</p>
             : (
@@ -88,6 +97,7 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
                   {featured && <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">Most popular</p>}
                   <h2 id={`plan-${tierId}`} className={'font-serif text-[1.6rem] font-semibold leading-tight ' + (featured ? 'mt-1' : 'text-stone-900')}>{tier.label}</h2>
                   <p className={'mt-1 min-h-[2.9rem] text-[14px] leading-snug ' + (featured ? 'text-white/85' : 'text-stone-600')}>{tier.tagline}</p>
+                  {isInvestor && <p className="mt-2 inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-amber-900">Approval required</p>}
                   <div className={'mt-3 ' + (featured ? '' : 'border-b border-stone-200 pb-6 text-stone-900')}>{priceBlock}</div>
                 </div>
 
@@ -103,12 +113,13 @@ export default function PricingPage({ onUpgrade, onClose }: PricingPageProps) {
                   ) : tier.price === 0 ? (
                     <p className="flex min-h-[48px] items-center justify-center text-sm font-medium text-stone-600">Always free</p>
                   ) : (
-                    <button type="button" onClick={() => onUpgrade(tierId)} disabled={isGatedTier} title={isGatedTier ? ENGAGEMENT_GATE_TOOLTIP : undefined} aria-describedby={isGatedTier ? `gate-${tierId}` : undefined}
+                    <button type="button" onClick={isInvestor ? apply : () => onUpgrade(tierId)} disabled={isGatedTier} title={isGatedTier ? ENGAGEMENT_GATE_TOOLTIP : undefined} aria-describedby={isGatedTier ? `gate-${tierId}` : undefined}
                       className={'min-h-[48px] w-full rounded-xl border-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ' + FOCUS + (featured ? ' text-white hover:opacity-95' : ' bg-white hover:bg-emerald-50')}
                       style={{ borderColor: GREEN, backgroundColor: featured ? GREEN : undefined, color: featured ? undefined : GREEN, ...ring }}>
                       {cta}
                     </button>
                   )}
+                  {isInvestor && !isCurrent && <p className="mt-3 text-center text-xs leading-relaxed text-stone-600">{APPLY_SUPPORT} <span className="block pt-1.5">{TRIAL_DISCLOSURE}</span></p>}
                   {isGatedTier && !isCurrent && <p id={`gate-${tierId}`} className="mt-2 text-center text-xs text-stone-600">{ENGAGEMENT_GATE_TOOLTIP}</p>}
                 </div>
               </section>

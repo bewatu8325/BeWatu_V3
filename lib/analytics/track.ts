@@ -121,3 +121,10 @@ export const trackTalkSpeakerFollowed = (uid: string, talkId: string, speakerUid
   logEvent(makeEvent(uid, 'talk_speaker_followed', 'bridge', { targetId: speakerUid, targetType: 'person', parentId: talkId }));
 export const trackTalkRelatedPod = (uid: string, talkId: string, podId: string) =>
   logEvent(makeEvent(uid, 'talk_related_pod_explored', 'bridge', { targetId: podId, targetType: 'pod', parentId: talkId }));
+
+// ── Investor membership ───────────────────────────────────────────────────────
+// Only the steps that happen in the browser are logged here. The server counts what must be exact: submitted, approved, declined,
+// withdrawn, activation started, trial activated, subscription activated and cancelled (api/investor-membership.ts, investor_metrics).
+export const trackInvestorPricingViewed = (uid: string) => logEvent(makeEvent(uid, 'investor_pricing_viewed', 'investor', {}));
+export const trackInvestorApplyClicked = (uid: string, from: string) => logEvent(makeEvent(uid, 'investor_apply_clicked', 'investor', { tags: { from } }));
+export const trackInvestorApplicationStarted = (uid: string) => logEvent(makeEvent(uid, 'investor_application_started', 'investor', { outcome: 'started' }));

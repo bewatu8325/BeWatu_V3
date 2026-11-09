@@ -76,8 +76,8 @@ async function main() {
     }));
   });
 
-  await check("investor_applications: own application with status 'pending' can be created", async () => {
-    await assertSucceeds(addDoc(collection(investor, "investor_applications"), {
+  await check("investor_applications: the old direct-create path is retired, even for a valid pending application", async () => {
+    await assertFails(addDoc(collection(investor, "investor_applications"), {
       uid: "investor-uid", firm: "Acme Capital", status: "pending", submittedAt: serverTimestamp(),
     }));
   });
@@ -112,8 +112,8 @@ async function main() {
   await check("cooldown: applicant inside their 14-day cooldown can't re-apply", async () => {
     await assertFails(addDoc(collection(cooling, "investor_applications"), app("cooling-uid")));
   });
-  await check("cooldown: applicant whose cooldown has ended can re-apply", async () => {
-    await assertSucceeds(addDoc(collection(expired, "investor_applications"), app("expired-uid")));
+  await check("cooldown: the old path stays closed after a cooldown ends (re-applying goes through the server)", async () => {
+    await assertFails(addDoc(collection(expired, "investor_applications"), app("expired-uid")));
   });
   await check("cooldown: applicant can read their own cooldown doc", async () => {
     await assertSucceeds(getDoc(doc(cooling, "investor_application_cooldowns", "cooling-uid")));
