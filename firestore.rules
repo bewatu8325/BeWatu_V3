@@ -140,8 +140,15 @@ service cloud.firestore {
     // A Factory-only investor account: a Firebase Auth user with a
     // factory_investors doc but NO users/{uid} BeWatu profile.
     function isFactoryInvestor() {
-      return isAuth() &&
+      return isEntitledInvestor() &&
         exists(/databases/$(database)/documents/factory_investors/$(request.auth.uid));
+    }
+    // Investor access needs an approval AND a live subscription (trial, paid, or paid-through). api/investor-membership.ts alone
+    // writes users.investorEntitled, and the rule above that freezes it means a browser cannot grant it to itself.
+    function isEntitledInvestor() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('investorEntitled', false) == true;
     }
     // A BeWatu member whose project has been promoted into Factory.
     function isFactoryMember() {
@@ -670,6 +677,8 @@ service cloud.firestore {
       allow create: if isAuth() && request.auth.uid == uid
         && request.resource.data.get('isPlatformAdmin', false) == false
         && request.resource.data.get('bridgeContributor', false) == false
+        && !('investorApproval' in request.resource.data) && request.resource.data.get('investorEntitled', false) == false
+        && !('investorEntitlementState' in request.resource.data)
         && request.resource.data.get('engagementGateApplies', false) == true;
       // foundingMember (the Founding Members beta badge) is frozen too, so a
       // later update can't self-grant it. It's only ever written at account
@@ -688,7 +697,7 @@ service cloud.firestore {
       allow update: if isAuth() && (
         request.auth.uid == uid || isPlatformAdmin() || isOpsStaff()
       ) && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['isPlatformAdmin', 'isRecruiter', 'engagementGateApplies', 'foundingMember', 'bridgeContributor'])
+             .hasAny(['isPlatformAdmin', 'isRecruiter', 'engagementGateApplies', 'foundingMember', 'bridgeContributor', 'investorApproval', 'investorEntitled', 'investorEntitlementState', 'investorFirstFeatureAt'])
         && (
           isPlatformAdmin() || isOpsStaff()
           || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['recruiterTrialEndDate'])
@@ -1825,6 +1834,16 @@ service cloud.firestore {
     match /bridge_talk_suggestions/{id}      { allow read, write: if false; }
     match /bridge_rate_limits/{key}          { allow read, write: if false; }
 
+    // ── INVESTOR MEMBERSHIP: applications, approvals and billing state are server-only (api/investor-membership.ts) ──
+    match /investor_membership_applications/{id} { allow read, write: if false; }
+    match /investor_application_drafts/{id}      { allow read, write: if false; }
+    match /investor_memberships/{id}             { allow read, write: if false; }
+    match /investor_cooldowns/{id}               { allow read, write: if false; }
+    match /investor_events/{id}                  { allow read, write: if false; }
+    match /investor_metrics/{id}                 { allow read, write: if false; }
+    match /investor_rate_limits/{id}             { allow read, write: if false; }
+    match /stripe_events/{id}                    { allow read, write: if false; }
+
     match /portfolio_shares/{id}         { allow read, write: if false; }
     match /portfolio_rate_limits/{key}   { allow read, write: if false; }
 
@@ -2205,13 +2224,9 @@ service cloud.firestore {
       // A rejected applicant can't re-apply until their cooldown ends. The
       // cooldown doc is written server-side (syncInvestorApplicationDecision)
       // because rules can't count or query prior applications.
-      allow create: if isAuth()
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.status == 'pending'
-        && !(
-          exists(/databases/$(database)/documents/investor_application_cooldowns/$(request.auth.uid))
-          && get(/databases/$(database)/documents/investor_application_cooldowns/$(request.auth.uid)).data.until > request.time
-        );
+      // RETIRED: new Investor applications go through api/investor-membership.ts (apply, approval and payment are separate there).
+      // Approving an old-style application here would grant the investor role with no subscription.
+      allow create: if false;
       allow update: if isOpsStaff() || isPlatformAdmin();
       allow delete: if false;
     }

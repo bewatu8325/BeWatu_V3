@@ -79,6 +79,12 @@ export default async function handler(req: Request): Promise<Response> {
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) throw new Error('Server configuration error: missing Stripe key');
 
+    // Investor membership is never bought directly: it starts with an application and is activated only after approval, through
+    // api/investor-membership.ts. Without this, anyone could skip the approval by calling this route with tier: 'investor'.
+    if (tier === 'investor') {
+      return new Response(JSON.stringify({ error: 'Investor membership starts with an application.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+    }
+
     const priceId = PRICE_IDS[tier];
     if (!priceId) {
       return new Response(JSON.stringify({ error: `Invalid tier: ${tier}` }), {

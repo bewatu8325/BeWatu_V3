@@ -12,7 +12,8 @@ import AccountSheet from './components/mobile/AccountSheet';
 import CommunityTabs from './components/CommunityTabs';
 import SponsorIntentHost from './components/arenas/SponsorIntentHost';
 import CreateMenu from './components/CreateMenu';
-import { pathFor, parsePath, ARENA_INDUSTRY_VIEW, ARENA_CHALLENGE_VIEW, BRIDGE_TALKS_VIEW, BRIDGE_TALK_VIEW } from './lib/routes';
+import { pathFor, parsePath, ARENA_INDUSTRY_VIEW, ARENA_CHALLENGE_VIEW, BRIDGE_TALKS_VIEW, BRIDGE_TALK_VIEW, INVESTOR_VIEW } from './lib/routes';
+import InvestorPage from './components/investor/InvestorPage';
 import { canPostChallenge, type CreateActionId } from './lib/createActions';
 import { requestIntent } from './lib/uiIntent';
 import { AppData, Post, User, Job, View, Message, Company, AppreciationType, Circle, Notification, LinkPreview } from './types';
@@ -1269,6 +1270,14 @@ const MainApp: React.FC = () => {
     return () => { window.removeEventListener('bewatu:open-talk', open); window.removeEventListener('bewatu:compose-share', share); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Investor membership (apply, status, activate, billing). Pricing and notifications send people here.
+  const openInvestor = () => { scrollMemory.current.set(lastKey.current, window.scrollY); setActiveTalkId(null); setCurrentView(INVESTOR_VIEW as any); sessionStorage.setItem('beWatuView', INVESTOR_VIEW); };
+  useEffect(() => {
+    const open = () => openInvestor();
+    window.addEventListener('bewatu:open-investor', open);
+    return () => window.removeEventListener('bewatu:open-investor', open);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const openArenaIndustry = (slug: string) => { scrollMemory.current.set(lastKey.current, window.scrollY); setActiveChallengeId(null); setActiveArenaIndustry(slug); sessionStorage.setItem('beWatuArenaIndustry', slug); setCurrentView(ARENA_INDUSTRY_VIEW as any); sessionStorage.setItem('beWatuView', ARENA_INDUSTRY_VIEW); };
   // A notification about a challenge ("View challenge") asks for it by id.
   useEffect(() => {
@@ -2214,10 +2223,18 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
         );
         break;
 
+      case (INVESTOR_VIEW as any):
+        content = fbUser ? (
+          <InvestorPage uid={fbUser.uid} onBack={() => handleSetView(View.Pricing)} onOpenInvestorTools={() => goToFactory(fbUser ?? null)} />
+        ) : <div />;
+        break;
+
       case View.Pricing:
         content = (
           <PricingPage
-            onUpgrade={(tier) => setShowUpgradeModal(tier as SubscriptionTier)}
+            // Investor is never bought from here: it starts with an application, and payment comes only after approval.
+            onUpgrade={(tier) => (tier === 'investor' ? openInvestor() : setShowUpgradeModal(tier as SubscriptionTier))}
+            onApplyInvestor={openInvestor}
             onClose={() => setCurrentView(View.Feed)}
           />
         );
@@ -2423,7 +2440,7 @@ ${logContext ? `Learning Log:\n${logContext}` : ''}`;
             />
           )}
           {/* Upgrade Modal */}
-          {showUpgradeModal && (
+          {showUpgradeModal && showUpgradeModal !== 'investor' && (
             <UpgradeModal
               tier={showUpgradeModal}
               onClose={() => setShowUpgradeModal(null)}

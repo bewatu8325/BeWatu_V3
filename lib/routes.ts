@@ -6,6 +6,7 @@
  *
  *   /                          Home
  *   /community                 Community: connections       /community/pods   Pods       /community/bridge  Bridge
+ *   /investor                  Investor membership: apply, follow your application, activate, manage billing
  *   /community/bridge/talks    Bridge Talks library          /community/bridge/talks/<id>  one Talk
  *   /arenas                    Arenas landing               /arenas/<industry>            one industry's Arena
  *   /arenas/challenge/<id>     one challenge
@@ -25,6 +26,8 @@ export const ARENA_CHALLENGE_VIEW = 'ARENA_CHALLENGE';
 /** The Talks tab of Bridge, and one Talk's own page. Both are shown inside Bridge. */
 export const BRIDGE_TALKS_VIEW = 'BRIDGE_TALKS';
 export const BRIDGE_TALK_VIEW = 'BRIDGE_TALK';
+/** Investor membership: applying, the status of an application, activating, and managing the subscription. */
+export const INVESTOR_VIEW = 'INVESTOR';
 
 export interface AppLocation {
   /** A View value, or ARENA_INDUSTRY / ARENA_CHALLENGE. */
@@ -58,6 +61,7 @@ export function pathFor(loc: AppLocation): string {
   if (loc.view === ARENA_CHALLENGE_VIEW && loc.challengeId && SAFE_ID.test(loc.challengeId)) return '/arenas/challenge/' + loc.challengeId;
   if (loc.view === BRIDGE_TALK_VIEW && loc.talkId && SAFE_ID.test(loc.talkId)) return '/community/bridge/talks/' + loc.talkId;
   if (loc.view === BRIDGE_TALKS_VIEW) return '/community/bridge/talks';
+  if (loc.view === INVESTOR_VIEW) return '/investor';
   if (loc.view === ARENA_INDUSTRY_VIEW && loc.industry && SAFE_ID.test(loc.industry)) return '/arenas/' + loc.industry;
   return STATIC[loc.view] ?? '/';
 }
@@ -69,6 +73,7 @@ export function parsePath(pathname: string): AppLocation | null {
   const direct = BY_PATH.get(path);
   if (direct) return { view: direct };
   if (path === '/community/bridge/talks') return { view: BRIDGE_TALKS_VIEW };
+  if (path === '/investor') return { view: INVESTOR_VIEW };
   let m = path.match(/^\/community\/bridge\/talks\/([^/]+)$/);
   if (m && SAFE_ID.test(m[1])) return { view: BRIDGE_TALK_VIEW, talkId: m[1] };
   m = path.match(/^\/arenas\/challenge\/([^/]+)$/);

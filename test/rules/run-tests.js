@@ -49,6 +49,9 @@ async function main() {
     await db.doc("factory_projects/pr1").set({ createdBy: "f1", teamId: "t1" });
     await db.doc("startups/su1").set({ createdBy: "f1" });
     await db.doc("factory_investors/inv1").set({ user: { id: "inv1" }, firm: "Acme" });
+    await db.doc("users/inv1").set({ displayName: "Inv One", investorEntitled: true });
+    await db.doc("factory_investors/inv2").set({ user: { id: "inv2" }, firm: "Lapsed" });
+    await db.doc("users/inv2").set({ displayName: "Inv Two", investorEntitled: false });
     await db.doc("circles/c1").set({ adminId: "owner", members: ["owner"] });
     await db.doc("circles/c1/members/owner").set({ notifyOnPost: true });
     await db.doc("circles/c1/challenges/ch1").set({ question: "q", postedBy: "F1", postedByUid: "f1", responses: [], status: "open" });
@@ -93,12 +96,14 @@ async function main() {
   // factory_investors.create is superseded below — Decision 4 went with
   // reviewed onboarding, so client create is always denied, self or not.
   await check("funding_offers: non-investor CANNOT create an offer", atk.collection("funding_offers").add({ investorUid: "atk", founderUids: ["f1"], status: "pending" }), "DENY");
-  await check("funding_offers: real investor CAN create an offer",   inv1.collection("funding_offers").add({ investorUid: "inv1", founderUids: ["f1"], status: "pending" }), "ALLOW");
+  await check("funding_offers: an entitled investor (approved and subscribed) CAN create an offer",   inv1.collection("funding_offers").add({ investorUid: "inv1", founderUids: ["f1"], status: "pending" }), "ALLOW");
+  await check("funding_offers: an investor with a profile but no active entitlement CANNOT (approval alone is not access)", testEnv.authenticatedContext("inv2").firestore().collection("funding_offers").add({ investorUid: "inv2", founderUids: ["f1"], status: "pending" }), "DENY");
+  await check("demo_sessions: nor can they book a demo", testEnv.authenticatedContext("inv2").firestore().collection("demo_sessions").add({ investorUid: "inv2", founderUids: ["f1"], status: "pending" }), "DENY");
 
   console.log("\n== Decision 4: reviewed investor onboarding (this pass) ==");
   await check("factory_investors: client create is now always denied, even self", inv1.doc("factory_investors/inv9").set({ user: { id: "inv1" } }), "DENY");
   await check("factory_investors: client create is denied even spoofing another uid", atk.doc("factory_investors/inv10").set({ user: { id: "victim" } }), "DENY");
-  await check("investor_applications: applicant CAN create with the real 'uid' field", inv1.collection("investor_applications").add({ uid: "inv1", status: "pending" }), "ALLOW");
+  await check("investor_applications: the old direct-create path is retired (applications go through the server, which keeps approval and payment apart)", inv1.collection("investor_applications").add({ uid: "inv1", status: "pending" }), "DENY");
   await check("investor_applications: applicant CAN read their own",   inv1.collection("investor_applications").where("uid", "==", "inv1").get(), "ALLOW");
 
   console.log("\n== circles fix (this pass, P0 3) ==");
@@ -372,6 +377,22 @@ async function main() {
   await check("savedTalks: nothing but the Talk id and the time may be stored", talkMe.doc("users/tme/savedTalks/x").set({ talkId: "x", savedAt: new Date(), note: "extra" }), "DENY");
   await check("savedTalks: the id must match the document", talkMe.doc("users/tme/savedTalks/x").set({ talkId: "y", savedAt: new Date() }), "DENY");
   await check("savedTalks: a signed-out visitor cannot read one", talkOut.doc("users/tme/savedTalks/live").get(), "DENY");
+
+  console.log("\n== Investor membership: approval, subscription and entitlement are server-only ==");
+  const invMe = testEnv.authenticatedContext("invme").firestore();
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("users/invme").set({ displayName: "Me" }); await ctx.firestore().doc("investor_memberships/invme").set({ status: "active", stripeCustomerId: "cus_x" }); await ctx.firestore().doc("investor_membership_applications/a1").set({ uid: "invme", status: "approved", internalNote: "private" }); });
+  await check("users: a member cannot mark themselves approved as an investor", invMe.doc("users/invme").update({ investorApproval: { status: "approved" } }), "DENY");
+  await check("users: nor entitled", invMe.doc("users/invme").update({ investorEntitled: true }), "DENY");
+  await check("users: nor set an entitlement state", invMe.doc("users/invme").update({ investorEntitlementState: "active" }), "DENY");
+  await check("users: they cannot create their own account already entitled", testEnv.authenticatedContext("newbie").firestore().doc("users/newbie").set({ displayName: "N", engagementGateApplies: true, investorEntitled: true }), "DENY");
+  await check("users: nor already approved", testEnv.authenticatedContext("newbie2").firestore().doc("users/newbie2").set({ displayName: "N", engagementGateApplies: true, investorApproval: { status: "approved" } }), "DENY");
+  await check("users: they can still update the rest of their profile", invMe.doc("users/invme").update({ headline: "Angel investor" }), "ALLOW");
+  for (const c of ["investor_membership_applications/a1", "investor_application_drafts/invme", "investor_memberships/invme", "investor_cooldowns/invme", "investor_events/e1", "investor_metrics/d1", "investor_rate_limits/k", "stripe_events/evt_1"]) {
+    await check("investor: a member cannot read " + c.split("/")[0] + " (the status page comes from the server)", invMe.doc(c).get(), "DENY");
+    await check("investor: a member cannot write " + c.split("/")[0], invMe.doc(c).set({ x: 1 }), "DENY");
+  }
+  await check("investor: not even ops staff browsers read an applicant's notes or billing ids", ops1.doc("investor_membership_applications/a1").get(), "DENY");
+  await check("investor: a member cannot flip their own application to approved", invMe.doc("investor_membership_applications/a1").update({ status: "approved" }), "DENY");
 
   console.log(`\n${pass} passed, ${fail} failed (of ${pass + fail})`);
   await testEnv.cleanup();
