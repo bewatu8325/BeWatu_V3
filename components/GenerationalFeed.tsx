@@ -30,7 +30,7 @@ import {
 const GREEN    = 'var(--bw-green)';
 const GREEN_LT = 'var(--bw-green-light)';
 
-type FeedTab = 'foryou' | 'talks' | 'perspectives' | 'wisdom' | 'pods';
+type FeedTab = 'foryou' | 'talks' | 'conversations' | 'pods';
 
 type FeedItem =
   | { type: 'perspective'; data: PerspectivePostData }
@@ -40,8 +40,7 @@ type FeedItem =
 const TAB_CONFIG: { id: FeedTab; label: string; icon: React.ReactNode }[] = [
   { id: 'foryou',       label: 'For You',      icon: <AllSparkIcon size={18} /> },
   { id: 'talks',        label: 'Talks',        icon: <TalkIcon className="h-[18px] w-[18px]" /> },
-  { id: 'perspectives', label: 'Perspectives', icon: <PerspectiveIcon size={18} /> },
-  { id: 'wisdom',       label: 'Wisdom',       icon: <WisdomIcon size={18} /> },
+  { id: 'conversations', label: 'Conversations', icon: <PerspectiveIcon size={18} /> },
   { id: 'pods',         label: 'Pods',         icon: <PodsNetworkIcon size={18} /> },
 ];
 
@@ -123,18 +122,18 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
 
   // ── Build combined feed ──────────────────────────────────────────────────────
   const feedItems: FeedItem[] = [];
-  if (tab === 'foryou' || tab === 'perspectives') {
+  if (tab === 'foryou' || tab === 'conversations') {
     perspectives.forEach(p => feedItems.push({ type: 'perspective', data: p }));
   }
-  if (tab === 'foryou' || tab === 'wisdom') {
+  if (tab === 'foryou' || tab === 'conversations') {
     wisdomThreads.forEach(w => feedItems.push({ type: 'wisdom', data: w }));
   }
   if (tab === 'foryou' || tab === 'pods') {
     pods.forEach(p => feedItems.push({ type: 'pod', data: p }));
   }
 
-  // Interleave when showing all
-  if (tab === 'foryou') {
+  // Perspectives and Wisdom Threads read as one stream of conversations, newest first
+  if (tab === 'foryou' || tab === 'conversations') {
     feedItems.sort((a, b) => {
       const da = a.data.createdAt instanceof Date ? a.data.createdAt : new Date(a.data.createdAt);
       const db_ = b.data.createdAt instanceof Date ? b.data.createdAt : new Date(b.data.createdAt);
@@ -314,7 +313,7 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
         <TalksLibrary
           uid={fbUserUid} canContribute={canShareTalk} interests={interests} followedIds={followedIds} refreshKey={talksKey}
           onOpen={onOpenTalk} onEdit={(t: Talk) => requestIntent('share-talk', { talkId: t.id })} onShare={() => requestIntent('share-talk')}
-          onRequest={() => setAskOpen('ask')} onSuggest={() => setAskOpen('suggest')} onExplorePerspectives={() => pickTab('perspectives')}
+          onRequest={() => setAskOpen('ask')} onSuggest={() => setAskOpen('suggest')} onExplorePerspectives={() => pickTab('conversations')}
         />
       )}
 
@@ -322,8 +321,20 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
         <BridgeForYou
           uid={fbUserUid} canContribute={canShareTalk} interests={interests} followedIds={followedIds} refreshKey={talksKey}
           onOpen={onOpenTalk} onSeeAll={cat => onOpenTalks?.(cat)} onShare={() => requestIntent('share-talk')}
-          onRequest={() => setAskOpen('ask')} onSuggest={() => setAskOpen('suggest')} onExplorePerspectives={() => pickTab('perspectives')}
+          onRequest={() => setAskOpen('ask')} onSuggest={() => setAskOpen('suggest')} onExplorePerspectives={() => pickTab('conversations')}
         />
+      )}
+
+      {tab === 'conversations' && (
+        <section aria-labelledby="bridge-conversations" className="mb-5 rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+          <h2 id="bridge-conversations" className="font-serif text-[22px] font-semibold text-stone-900">Bridge Conversations</h2>
+          <p className="mt-1.5 max-w-prose text-[15px] leading-relaxed text-stone-600">Questions, lessons and exchanges between experienced and emerging professionals.</p>
+          <p className="mt-2 text-sm text-stone-600"><span className="font-semibold text-stone-800">Try: </span>&ldquo;Ask a CFO&rdquo; or &ldquo;Three generations discuss the future of work.&rdquo;</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="button" onClick={() => setCreating('perspective')} className="inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 text-sm font-bold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={GREEN_BTN}><PerspectiveIcon size={18} />Ask for Perspectives</button>
+            <button type="button" onClick={() => setCreating('wisdom')} className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-800 hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ ['--tw-ring-color' as any]: GREEN }}><WisdomIcon size={18} />Write a Wisdom Thread</button>
+          </div>
+        </section>
       )}
 
       {/* Feed */}
@@ -338,8 +349,8 @@ const GenerationalFeed: React.FC<GenerationalFeedProps> = ({
       ) : feedItems.length === 0 ? (
         tab === 'foryou' ? null : (
         <div className="text-center py-20 border-2 border-dashed border-stone-200 rounded-3xl">
-          <p className="font-bold text-stone-600 mb-1">Nothing here yet</p>
-          <p className="text-sm text-stone-600">Be the first to share a perspective or wisdom thread.</p>
+          <p className="font-bold text-stone-600 mb-1">{tab === 'conversations' ? 'No conversations yet' : 'Nothing here yet'}</p>
+          <p className="text-sm text-stone-600">{tab === 'conversations' ? 'Ask a question or share a lesson to start one.' : 'Be the first to share a Generational Pod.'}</p>
         </div>)
       ) : (
         <div className="space-y-4">
