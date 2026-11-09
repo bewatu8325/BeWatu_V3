@@ -5,7 +5,7 @@
  * 1. Shows tier summary + price
  * 2. Collects card details via Stripe Elements
  * 3. Calls /api/create-subscription
- * 4. Updates Firestore via setStripeCustomerId
+ * 4. (the server has already recorded the plan on the profile; the browser cannot)
  * 5. Shows success state
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -13,7 +13,6 @@ import React, { useCallback, useRef, useState } from 'react';
 import { X, Check, Loader2, Shield } from 'lucide-react';
 import { useModalA11y } from '../hooks/useModalA11y';
 import { TIERS, SubscriptionTier } from '../lib/subscription';
-import { setStripeCustomerId, updateUserInFirestore } from '../lib/firebaseAuth';
 import { useFirebase } from '../contexts/FirebaseContext';
 import PaymentForm from './PaymentForm';
 
@@ -80,17 +79,8 @@ export default function UpgradeModal({ tier, onClose, onSuccess }: UpgradeModalP
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Subscription failed');
 
-      // 3. Save Stripe customer ID to Firestore
-      await setStripeCustomerId(fbUser.uid, data.customerId);
-      await updateUserInFirestore(fbUser.uid, {
-        subscriptionTier: tier,
-        subscriptionStatus: 'trialing',
-        subscriptionId: data.subscriptionId,
-        subscriptionPriceId: data.subscriptionPriceId,
-        trialEndsAt: data.trialEnd ? new Date(data.trialEnd * 1000).toISOString() : null,
-      } as any);
-
-      // 4. Update local user context
+      // 3. The server has already recorded the plan on the member's profile (the browser cannot: those fields are frozen),
+      //    so all that is left is to update what this tab shows.
       refreshUser({
         ...currentUser,
         stripeCustomerId:  data.customerId,

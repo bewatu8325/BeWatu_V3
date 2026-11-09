@@ -394,6 +394,23 @@ async function main() {
   await check("investor: not even ops staff browsers read an applicant's notes or billing ids", ops1.doc("investor_membership_applications/a1").get(), "DENY");
   await check("investor: a member cannot flip their own application to approved", invMe.doc("investor_membership_applications/a1").update({ status: "approved" }), "DENY");
 
+  console.log("\n== Plans: a member cannot write their own plan; only Stripe and the server do ==");
+  const planMe = testEnv.authenticatedContext("planme").firestore();
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc("users/planme").set({ displayName: "Plan Me", subscriptionTier: "free" }); await ctx.firestore().doc("users/planpro").set({ displayName: "Pro", subscriptionTier: "pro", subscriptionStatus: "active", subscriptionId: "sub_1" }); });
+  for (const [k, v] of [["subscriptionTier", "factory"], ["subscriptionTier", "investor"], ["subscriptionStatus", "active"], ["subscriptionId", "sub_x"], ["subscriptionPriceId", "price_x"], ["trialEndsAt", "2030-01-01"], ["currentPeriodEnd", "2030-01-01"], ["trialEndingSoon", true], ["factoryUnlocked", true], ["factoryUnlockedAt", "2030-01-01"], ["factoryUnlockReason", "I said so"]]) {
+    await check("users: a member cannot set their own " + k, planMe.doc("users/planme").update({ [k]: v }), "DENY");
+  }
+  await check("users: nor several plan fields at once alongside a normal change", planMe.doc("users/planme").update({ headline: "Hi", subscriptionTier: "factory", factoryUnlocked: true }), "DENY");
+  await check("users: a paid member cannot downgrade-and-upgrade their own record either", testEnv.authenticatedContext("planpro").firestore().doc("users/planpro").update({ subscriptionTier: "factory" }), "DENY");
+  await check("users: they can still change everything else about their profile", planMe.doc("users/planme").update({ headline: "Designer", bio: "Hello" }), "ALLOW");
+  await check("users: and leave their plan fields alone in a full-profile save", testEnv.authenticatedContext("planpro").firestore().doc("users/planpro").update({ headline: "Pro designer", subscriptionTier: "pro", subscriptionId: "sub_1" }), "ALLOW");
+  for (const [k, v] of [["subscriptionTier", "pro"], ["factoryUnlocked", true], ["subscriptionId", "sub_x"], ["trialEndsAt", "2030-01-01"], ["subscriptionStatus", "trialing"]]) {
+    await check("users: an account cannot be created with " + k + " already " + JSON.stringify(v), testEnv.authenticatedContext("plan-new-" + k).firestore().doc("users/plan-new-" + k).set({ displayName: "N", engagementGateApplies: true, [k]: v }), "DENY");
+  }
+  await check("users: a new account on the Free plan is fine", testEnv.authenticatedContext("plan-ok").firestore().doc("users/plan-ok").set({ displayName: "N", engagementGateApplies: true, subscriptionTier: "free" }), "ALLOW");
+  await check("users: BeWatu's platform admin can correct someone's plan", padminCtx.doc("users/planme").update({ subscriptionTier: "pro" }), "ALLOW");
+  await check("users: so can ops staff", ops1.doc("users/planme").update({ subscriptionTier: "free" }), "ALLOW");
+
   console.log(`\n${pass} passed, ${fail} failed (of ${pass + fail})`);
   await testEnv.cleanup();
   process.exit(fail > 0 ? 1 : 0);

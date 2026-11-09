@@ -679,6 +679,13 @@ service cloud.firestore {
         && request.resource.data.get('bridgeContributor', false) == false
         && !('investorApproval' in request.resource.data) && request.resource.data.get('investorEntitled', false) == false
         && !('investorEntitlementState' in request.resource.data)
+        // A new account starts on the Free plan. Plans are written only by the server (api/create-subscription.ts and
+        // api/stripe-webhook.ts), so an account cannot be created already on a paid plan or with Factory unlocked.
+        && request.resource.data.get('subscriptionTier', 'free') == 'free'
+        && request.resource.data.get('subscriptionStatus', 'active') == 'active'
+        && !('subscriptionId' in request.resource.data) && !('subscriptionPriceId' in request.resource.data)
+        && !('trialEndsAt' in request.resource.data) && !('currentPeriodEnd' in request.resource.data)
+        && request.resource.data.get('factoryUnlocked', false) == false
         && request.resource.data.get('engagementGateApplies', false) == true;
       // foundingMember (the Founding Members beta badge) is frozen too, so a
       // later update can't self-grant it. It's only ever written at account
@@ -702,6 +709,12 @@ service cloud.firestore {
           isPlatformAdmin() || isOpsStaff()
           || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['recruiterTrialEndDate'])
           || isFirstTimeTrialDateSet(resource.data, request.resource.data)
+        )
+        // The member's plan is set by Stripe and our server, never by the member: without this, anyone could write
+        // subscriptionTier: 'factory' or factoryUnlocked: true on their own profile. BeWatu staff may still correct a plan.
+        && (
+          isPlatformAdmin() || isOpsStaff()
+          || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscriptionTier', 'subscriptionStatus', 'subscriptionId', 'subscriptionPriceId', 'trialEndsAt', 'trialEndingSoon', 'currentPeriodEnd', 'factoryUnlocked', 'factoryUnlockedAt', 'factoryUnlockReason'])
         );
       allow delete: if false;
 

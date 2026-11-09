@@ -718,7 +718,7 @@ const MainApp: React.FC = () => {
   const handleRegisterSuccess = async (name: string, email: string, isRecruiter: boolean, stripeCustomerId?: string) => {
     try {
       setLoading(true);
-      if (stripeCustomerId && fbUser) await setStripeCustomerId(fbUser.uid, stripeCustomerId);
+      // A Stripe customer id is linked by the server when the subscription is created (api/create-subscription.ts), never by the browser.
       setActiveProfile(isRecruiter ? 'recruiter' : 'user');
       setAuthState('authenticated');
       const userToLoad = currentUser ?? {
