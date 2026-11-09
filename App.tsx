@@ -125,6 +125,8 @@ const PublicSharePage = lazy(() => import('./components/PublicSharePage'));
 // EndorseRequestPage: the /endorse/:token unauthenticated endorsement page
 const EndorseRequestPage = lazy(() => import('./components/EndorseRequestPage'));
 const InvitePage = lazy(() => import('./components/invite/InvitePage'));
+// /auth/action: where the links in BeWatu's verification and password-reset emails land.
+const AuthActionPage = lazy(() => import('./components/auth/AuthActionPage'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const LoginPage = lazy(() => import('./components/auth/LoginPage'));
@@ -2716,9 +2718,11 @@ const endorseMatch = window.location.pathname.match(/^\/endorse\/([A-Za-z0-9_-]+
 // And /invite/:token: the invited person has no account yet (components/invite/InvitePage.tsx). The token is remembered
 // across sign-up and sign-in and picked up in the app (InviteResume).
 const inviteToken = tokenFromPath(window.location.pathname);
+// And /auth/action: someone opening a password-reset link is not signed in.
+const authAction = window.location.pathname === '/auth/action';
 
 const App: React.FC = () => {
-  if (beMatch || endorseMatch || inviteToken) {
+  if (beMatch || endorseMatch || inviteToken || authAction) {
     const fallback = (
       <div className="min-h-screen" style={{ backgroundColor: '#f5f5f4' }}>
         <nav className="bg-white border-b h-14" style={{ borderColor: '#e7e5e4' }}>
@@ -2736,6 +2740,13 @@ const App: React.FC = () => {
             username={username}
             onSignUp={() => { window.location.href = '/?signup=1'; }}
           />
+        </Suspense>
+      );
+    }
+    if (authAction) {
+      return (
+        <Suspense fallback={fallback}>
+          <AuthActionPage />
         </Suspense>
       );
     }

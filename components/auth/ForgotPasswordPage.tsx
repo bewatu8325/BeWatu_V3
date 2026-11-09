@@ -1,7 +1,7 @@
 /**
  * ForgotPasswordPage.tsx
  * Handles both "forgot password" (email reset) and username recovery.
- * Firebase Auth sends a reset link — no passwords are stored client-side.
+ * BeWatu emails the reset link itself (api/auth-email.ts); the link opens components/auth/AuthActionPage.tsx. No passwords are stored client-side.
  * Path in App: authState === 'forgot_password'
  */
 import React, { useState } from 'react';
@@ -63,9 +63,11 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onResetRequest,
       await onResetRequest(email.trim().toLowerCase());
       setStep('sent');
     } catch (err: any) {
-      // Intentionally vague — don't reveal whether the account exists (account enumeration protection)
-      setError('If an account with that email exists, we\'ve sent a reset link. Check your inbox.');
-      setStep('sent'); // show sent screen regardless to prevent enumeration
+      // The server answers the same way whether or not the address belongs to a member (account enumeration protection), so
+      // "sent" is right for anything that is not a real failure. When the email could not be sent at all (outage, no connection,
+      // too many requests) say so, instead of telling someone to check an inbox that will stay empty.
+      if (err?.status === 429 || err?.status >= 500 || err?.code === 'auth/network-request-failed') { setError(err.message); }
+      else { setError(''); setStep('sent'); }
     } finally {
       setLoading(false);
     }

@@ -6,6 +6,7 @@
     { "source": "/talks/:id", "destination": "/api/talks?id=:id" },
     { "source": "/endorse/:token", "destination": "/index.html" },
     { "source": "/invite/:token", "destination": "/index.html" },
+    { "source": "/auth/action", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },
     { "source": "/register", "destination": "/index.html" },
     { "source": "/terms", "destination": "/index.html" },

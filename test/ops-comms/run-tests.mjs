@@ -169,7 +169,8 @@ await check('message text is escaped in the HTML, including a hostile member nam
   sent = [];
   const r = await run(admin, { action: 'send', audience: { kind: 'specific', uids: ['m44'] }, channels: ['email'], message: msg({ title: 'Hi <b>{{firstName}}</b>', body: '<script>alert(1)</script> & "quotes"\n\nSecond paragraph' }), expectedCount: 1 });
   if (!r.done) await finishAll(admin, r.campaignId);
-  const html = sent[0].html; assert(!/<script|<img|<b>/.test(html), 'unescaped markup in the email'); assert(html.includes('&lt;script&gt;') && html.includes('&lt;img'), 'text was dropped instead of escaped');
+  const html = sent[0].html; const own = html.replace('<img src="https://www.bewatu.com/email/logo-white.png"', '<logo');   // the layout's own logo is the one <img> that belongs there
+  assert(!/<script|<img|<b>/.test(own), 'unescaped markup in the email'); assert(html.includes('&lt;script&gt;') && html.includes('&lt;img'), 'text was dropped instead of escaped');
 });
 await check('a failing email provider is counted and shown, not hidden', async () => {
   failNext = 1; sent = [];

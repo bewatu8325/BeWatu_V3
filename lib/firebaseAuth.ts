@@ -24,8 +24,6 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   signOut,
-  sendEmailVerification,
-  sendPasswordResetEmail,
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
@@ -40,6 +38,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { requestVerificationEmail, requestPasswordReset } from './authEmail';
 import { User } from '../types';
 
 const googleProvider = new GoogleAuthProvider();
@@ -279,10 +278,12 @@ export async function registerWithEmail(
   name: string, email: string, password: string, isRecruiter: boolean
 ): Promise<User> {
   const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password);
-  await sendEmailVerification(fbUser);
   const newDoc = await buildNewUserDoc(fbUser.uid, name, email, isRecruiter);
   await setDoc(doc(db, 'users', fbUser.uid), newDoc);
   await setPrivateContact(fbUser.uid, { email, location: '' });
+  // BeWatu sends this itself (api/auth-email.ts). A failure here must not undo a sign-up that has worked: the account page and
+  // the banner offer to send it again, and say so when it fails.
+  await requestVerificationEmail().catch(e => console.warn('Could not send the verification email:', e?.message));
   return docToUser(newDoc);
 }
 
@@ -356,9 +357,7 @@ export async function logout(): Promise<void> {
 }
 
 export async function forgotPassword(email: string): Promise<void> {
-  await sendPasswordResetEmail(auth, email, {
-    url: `${window.location.origin}/`, handleCodeInApp: false,
-  });
+  await requestPasswordReset(email);
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -600,7 +599,7 @@ export async function revokeOtherSessions(uid: string): Promise<void> {
 export async function sendVerificationEmail(): Promise<void> {
   const user = auth.currentUser;
   if (!user) throw new Error('Not signed in');
-  await sendEmailVerification(user);
+  await requestVerificationEmail();
 }
 
 export function isEmailVerified(): boolean {
@@ -613,5 +612,5 @@ export async function changeEmail(currentPassword: string, newEmail: string): Pr
   await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
   const { updateEmail } = await import('firebase/auth');
   await updateEmail(user, newEmail);
-  await sendEmailVerification(user);
+  await requestVerificationEmail();   // the server reads the new address from the account, so no token refresh is needed to send it there
 }
