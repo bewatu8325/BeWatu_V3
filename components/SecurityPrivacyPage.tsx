@@ -24,19 +24,26 @@ async function safeRevokeOtherSessions(uid: string): Promise<void> {
     }
   } catch {}
 }
-async function safeSendVerificationEmail(): Promise<void> {
-  try {
-    const mod = await import('../lib/firebaseAuth');
-    if (typeof (mod as any).sendVerificationEmail === 'function') {
-      await (mod as any).sendVerificationEmail();
-    }
-  } catch {}
+/** Sends the verification email. Throws when Firebase refuses, so the page can say so (it used to report success regardless). */
+async function sendVerification(): Promise<void> {
+  const mod = await import('../lib/firebaseAuth');
+  await mod.sendVerificationEmail();
 }
-function safeIsEmailVerified(): boolean {
+/** What Firebase says now. Reloads the account first: a link opened in another tab or on a phone does not update this tab on its own. */
+async function readEmailVerified(): Promise<boolean> {
   try {
-    const { auth } = require('../lib/firebase');
-    return auth?.currentUser?.emailVerified ?? false;
+    const { auth } = await import('../lib/firebase');
+    await auth.currentUser?.reload();
+    return auth.currentUser?.emailVerified ?? false;
   } catch { return false; }
+}
+function verifyErrorText(e: any): string {
+  switch (e?.code) {
+    case 'auth/too-many-requests': return 'Too many emails were requested. Wait a few minutes and try again.';
+    case 'auth/network-request-failed': return 'No connection. Check your internet and try again.';
+    case 'auth/requires-recent-login': return 'For your security, sign out and back in, then try again.';
+    default: return 'We could not send the email. Try again in a few minutes.';
+  }
 }
 async function safeChangePassword(current: string, next: string): Promise<void> {
   const mod = await import('../lib/firebaseAuth');
@@ -115,6 +122,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
   const [emailVerified, setEmailVerified] = useState(false);
   const [sendingVerify, setSendingVerify] = useState(false);
   const [verifySent, setVerifySent] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
   const [exportDone, setExportDone] = useState(false);
 
@@ -123,7 +131,7 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
   const userCircles = (circles ?? []).filter(c => c.members.includes(user.id));
 
   useEffect(() => {
-    setEmailVerified(safeIsEmailVerified());
+    readEmailVerified().then(setEmailVerified);
     if (fbUser) {
       setLoadingEvents(true);
       safeGetSecurityEvents(fbUser.uid, 10).then(setSecurityEvents).catch(() => {}).finally(() => setLoadingEvents(false));
@@ -178,9 +186,16 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
   }
 
   async function handleSendVerification() {
-    setSendingVerify(true);
-    try { await safeSendVerificationEmail(); setVerifySent(true); setTimeout(() => setVerifySent(false), 5000); }
+    setSendingVerify(true); setVerifyError('');
+    try { await sendVerification(); setVerifySent(true); setTimeout(() => setVerifySent(false), 60_000); }
+    catch (e: any) { setVerifyError(verifyErrorText(e)); }
     finally { setSendingVerify(false); }
+  }
+  async function handleCheckVerified() {
+    setSendingVerify(true); setVerifyError('');
+    const ok = await readEmailVerified(); setEmailVerified(ok);
+    if (!ok) setVerifyError('Not verified yet. Open the link in the email, then check again.');
+    setSendingVerify(false);
   }
 
   async function handleExport() {
@@ -231,8 +246,11 @@ const SecurityPrivacyPage: React.FC<SecurityPrivacyPageProps> = ({ user, onBack,
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-amber-800">Email not verified</p>
               <p className="text-xs text-amber-700 mt-0.5">Verify your email to enable password recovery.</p>
-              {verifySent ? <p className="text-xs font-semibold mt-2" style={{ color: GREEN }}>✓ Verification email sent</p>
-                : <button onClick={handleSendVerification} disabled={sendingVerify} className="mt-2 text-xs font-bold underline disabled:opacity-50" style={{ color: '#b45309' }}>{sendingVerify ? 'Sending…' : 'Send verification email'}</button>}
+              {verifySent
+                ? <p className="text-xs text-stone-700 mt-2" role="status"><span className="font-semibold" style={{ color: GREEN }}>✓ Sent.</span> It can take a few minutes. Check your spam or junk folder too; it comes from noreply@bewatu-2d04e.firebaseapp.com.</p>
+                : <button onClick={handleSendVerification} disabled={sendingVerify} className="mt-2 text-xs font-bold underline disabled:opacity-50" style={{ color: '#b45309' }}>{sendingVerify ? 'Working…' : 'Send verification email'}</button>}
+              <button onClick={handleCheckVerified} disabled={sendingVerify} className="mt-2 ml-3 text-xs font-bold underline disabled:opacity-50 text-stone-700">I have verified it</button>
+              {verifyError && <p className="text-xs text-red-700 mt-2" role="alert">{verifyError}</p>}
             </div>
           </div>
         )}
