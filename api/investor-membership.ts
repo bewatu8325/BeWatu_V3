@@ -492,7 +492,7 @@ async function applyOnce(d: Deps, event: { type: string; created: number; data: 
 }
 
 // ── HTTP ─────────────────────────────────────────────────────────────────────
-const ALLOWED_ORIGINS = ['https://www.bewatu.com', 'https://bewatu.com', 'https://ops.bewatu.com'];
+const ALLOWED_ORIGINS = ['https://www.bewatu.com', 'https://bewatu.com', 'https://ops.bewatu.com', 'https://factory.bewatu.com'];   // the console and Factory call this too
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0];
   const sa = process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER ?? process.env.FIREBASE_SERVICE_ACCOUNT!;
@@ -535,7 +535,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   res.setHeader('Cache-Control', 'no-store');
-  const origin = ALLOWED_ORIGINS.includes(requested) && requested !== 'https://ops.bewatu.com' ? requested : 'https://www.bewatu.com';
+  const origin = ALLOWED_ORIGINS.includes(requested) && !requested.includes('ops.') && !requested.includes('factory.') ? requested : 'https://www.bewatu.com';   // Stripe returns members to the app, never to the console
 
   try {
     const app = getAdminApp();
