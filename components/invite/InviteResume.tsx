@@ -1,20 +1,25 @@
 /**
  * components/invite/InviteResume.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Runs in the signed-in app. If this device remembers an invitation (the person opened a link, then signed up or signed in), the
- * server is asked to record the arrival, and a short welcome offers the one step the invitation was for: send a connection
- * request, ask to join a Pod, or open the challenge. Nothing is done for them. A private Pod only ever gets a REQUEST, which its
- * admin approves; a connection is a request the other person accepts.
+ * Runs in the signed-in app. If this device remembers an invitation (the person opened a link, then signed up or signed in):
+ *   - A CONNECT invitation continues on the invitation page itself, over the app (components/invite/InvitePage.tsx). If the person
+ *     pressed "Accept invitation" before signing up or in (and did so within a day), it is finished now without a second tap and
+ *     the page says "You're connected" only once the server has said so. If they did not, they are shown the invitation and choose.
+ *     Nothing is ever accepted just because they arrived.
+ *   - A Pod, community or Arena invitation keeps its short welcome: the server records the arrival and the sheet offers the one step
+ *     (ask to join, open the challenge). A private Pod only ever gets a REQUEST, which its admin approves.
  *
- * The step itself is performed by the app (the same handlers as everywhere else) and reported back here, so "completed" is
- * checked by the server against the real records.
+ * Those steps are performed by the app (the same handlers as everywhere else) and reported back here, so "completed" is checked
+ * by the server against the real records.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import BottomSheet from '../mobile/BottomSheet';
 import { InviteIcon } from '../icons/NavIcons';
 import { Loader2 } from 'lucide-react';
-import { clearPending, deviceStore, invite, loadPending, type AcceptResult } from '../../lib/invitations';
+import { clearPending, deviceStore, fetchPreview, invite, loadPendingIntent, type AcceptResult } from '../../lib/invitations';
+
+const InvitePage = lazy(() => import('./InvitePage'));
 
 const GREEN = 'var(--bw-green)';
 
@@ -24,8 +29,11 @@ export interface InviteSteps {
   /** Ask to join a Pod (resolves when the request is made). */
   requestJoin: (podId: string) => Promise<void>;
   /** Move to the invited place without doing anything there. */
-  open: (r: AcceptResult) => void;
+  open: (r: OpenTarget) => void;
+  /** Reload the member's data (so a connection the server just made shows up). */
+  refresh?: () => Promise<void> | void;
 }
+export interface OpenTarget { destination: { type: string; id: string | null }; inviter: { numericId: number | null } | null }
 
 export const InviteResume: React.FC<{ ready: boolean; steps: InviteSteps }> = ({ ready, steps }) => {
   const [res, setRes] = useState<AcceptResult | null>(null);
@@ -34,22 +42,31 @@ export const InviteResume: React.FC<{ ready: boolean; steps: InviteSteps }> = ({
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState('');
   const [actionError, setActionError] = useState('');
+  const [page, setPage] = useState<{ token: string; autoAccept: boolean } | null>(null);
   const token = useRef<string | null>(null);
   const ran = useRef(false);
 
   useEffect(() => {
     if (!ready || ran.current) return;
-    const t = loadPending(deviceStore());
-    if (!t) return;
-    ran.current = true; token.current = t;
-    invite<AcceptResult>({ action: 'accept', token: t })
-      .then(r => { clearPending(deviceStore()); setRes(r); setOpen(true); })
-      .catch((e: any) => {
-        // A network problem keeps the invitation for next time; anything the server refused is final.
-        if (!e.status || e.status === 429 || e.status >= 500) { ran.current = false; return; }
-        clearPending(deviceStore()); setError(e.message); setOpen(true);
-      });
+    const pending = loadPendingIntent(deviceStore());
+    if (!pending) return;
+    ran.current = true; token.current = pending.token;
+    const t = pending.token;
+    // A quiet look first: it tells us which kind of invitation this is without counting a second view.
+    fetchPreview(t, true).then(pv => {
+      if (pv.state === 'busy') { ran.current = false; return; }                // no connection: keep it for next time
+      if (pv.state !== 'ok' || pv.purpose === 'connect') { setPage({ token: t, autoAccept: pending.accepted }); return; }
+      invite<AcceptResult>({ action: 'accept', token: t })
+        .then(r => { clearPending(deviceStore()); setRes(r); setOpen(true); })
+        .catch((e: any) => {
+          // A network problem keeps the invitation for next time; anything the server refused is final.
+          if (!e.status || e.status === 429 || e.status >= 500) { ran.current = false; return; }
+          clearPending(deviceStore()); setError(e.message); setOpen(true);
+        });
+    });
   }, [ready]);
+
+  const finishPage = async () => { clearPending(deviceStore()); setPage(null); try { await steps.refresh?.(); } catch { /* the page already told them what happened */ } };
 
   const close = () => setOpen(false);
   const run = async () => {
@@ -64,6 +81,20 @@ export const InviteResume: React.FC<{ ready: boolean; steps: InviteSteps }> = ({
     finally { setBusy(false); }
   };
 
+  if (page) {
+    return (
+      <div className="fixed inset-0 z-[100] overflow-y-auto" style={{ backgroundColor: '#f0ede6' }} role="dialog" aria-modal="true" aria-label="Your BeWatu invitation">
+        <Suspense fallback={null}>
+          <InvitePage token={page.token} embedded={{
+            autoAccept: page.autoAccept,
+            onExplore: finishPage,
+            onDismiss: finishPage,
+            onViewProfile: who => { finishPage().then(() => steps.open({ destination: { type: 'profile', id: null }, inviter: { numericId: who.numericId } })); },
+          }} />
+        </Suspense>
+      </div>
+    );
+  }
   if (!res && !error) return null;
   const inviter = res?.inviter?.name || 'Your inviter';
   const label = !res ? '' : res.action === 'connect' ? `Connect with ${inviter}` : res.action === 'request_to_join' ? `Request to join${res.target?.name ? ' ' + res.target.name : ''}` : res.action === 'view_challenge' ? 'View the challenge' : 'Take a look around';

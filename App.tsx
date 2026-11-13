@@ -1324,6 +1324,7 @@ const MainApp: React.FC = () => {
       const { requestToJoinCircle } = await import('./lib/firestoreService') as any;
       await requestToJoinCircle(podId, currentUser.id, fbUser.uid);
     },
+    refresh: async () => { if (currentUser) await loadAppData(currentUser); },
     open: (r: { destination: { type: string; id: string | null }; inviter: { numericId: number | null } | null }) => {
       const d = r.destination;
       if (d.type === 'profile' && r.inviter?.numericId != null) handleViewProfile(r.inviter.numericId);

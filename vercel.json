@@ -5,6 +5,7 @@
     { "source": "/w/:token", "destination": "/api/portfolio?t=:token" },
     { "source": "/talks/:id", "destination": "/api/talks?id=:id" },
     { "source": "/endorse/:token", "destination": "/index.html" },
+    { "source": "/invite/:token", "has": [{ "type": "header", "key": "user-agent", "value": "(?i).*(facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|slack-imgproxy|telegrambot|discordbot|whatsapp/|skypeuripreview|embedly|pinterestbot|redditbot|applebot|googlebot|bingbot|vkshare|iframely|mastodon|bluesky).*" }], "destination": "/api/invitations?og=1&t=:token" },
     { "source": "/invite/:token", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },
     { "source": "/register", "destination": "/index.html" },
@@ -68,7 +69,7 @@
     {
       "source": "/invite/(.*)",
       "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" },
         { "key": "Referrer-Policy", "value": "no-referrer" },
         { "key": "Cache-Control", "value": "no-store" }
       ]

@@ -7,6 +7,8 @@
  *
  * The remembered invitation is only a pointer (the opaque token from the link, nothing about anyone). It lives on this device for a
  * limited time and is checked again by the server when it is used, so an edited or stale pointer can open nothing it should not.
+ * It also remembers WHETHER the person pressed "Accept invitation" before signing up or in, and for a day only: a pointer left over
+ * from last week never accepts anything for them.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export type InvitePurpose = 'connect' | 'community' | 'pod' | 'arena';
@@ -63,6 +65,8 @@ export function parseEmails(text: string): { valid: string[]; invalid: string[];
 export interface KeyValueStore { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void }
 export const PENDING_KEY = 'bewatuPendingInvite';
 export const PENDING_TTL_MS = 30 * 86_400_000;
+/** How long "I pressed Accept" is honoured after sign-up or sign-in. After that the page asks again. */
+export const ACCEPT_INTENT_TTL_MS = 86_400_000;
 export const TOKEN_RE = /^[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22}$/;
 
 /** The token in an address like /invite/<token>, or null. */
@@ -70,9 +74,10 @@ export function tokenFromPath(pathname: string): string | null {
   const m = pathname.match(/^\/invite\/([^/?#]+)\/?$/);
   return m && TOKEN_RE.test(m[1]) ? m[1] : null;
 }
-export function savePending(store: KeyValueStore, token: string, now: number = Date.now()): boolean {
+/** Remember the invitation. `accepted` is true only when the person pressed "Accept invitation" (not merely opened the page). */
+export function savePending(store: KeyValueStore, token: string, now: number = Date.now(), accepted = false): boolean {
   if (!TOKEN_RE.test(token)) return false;
-  try { store.setItem(PENDING_KEY, JSON.stringify({ token, savedAt: now })); return true; } catch { return false; }
+  try { store.setItem(PENDING_KEY, JSON.stringify(accepted ? { token, savedAt: now, acceptedAt: now } : { token, savedAt: now })); return true; } catch { return false; }
 }
 export function loadPending(store: KeyValueStore, now: number = Date.now()): string | null {
   let raw: string | null = null;
@@ -83,6 +88,16 @@ export function loadPending(store: KeyValueStore, now: number = Date.now()): str
     if (!x || typeof x.token !== 'string' || !TOKEN_RE.test(x.token) || typeof x.savedAt !== 'number' || now - x.savedAt > PENDING_TTL_MS || x.savedAt > now + 60_000) throw new Error('bad');
     return x.token;
   } catch { try { store.removeItem(PENDING_KEY); } catch { /* ignore */ } return null; }
+}
+/** The remembered invitation and whether the person chose to accept it, recently enough to carry on without asking again. */
+export function loadPendingIntent(store: KeyValueStore, now: number = Date.now()): { token: string; accepted: boolean } | null {
+  const token = loadPending(store, now);
+  if (!token) return null;
+  try {
+    const x = JSON.parse(store.getItem(PENDING_KEY) ?? '{}');
+    const at = x?.acceptedAt;
+    return { token, accepted: typeof at === 'number' && at <= now + 60_000 && now - at <= ACCEPT_INTENT_TTL_MS };
+  } catch { return { token, accepted: false }; }
 }
 export function clearPending(store: KeyValueStore) { try { store.removeItem(PENDING_KEY); } catch { /* ignore */ } }
 
@@ -102,12 +117,19 @@ export interface InvitationView {
 export type EmailResult = 'sent' | 'duplicate' | 'invalid' | 'self' | 'not_delivered' | 'limited' | 'failed';
 export interface CreateEmailResponse { results: { email: string; result: EmailResult; reason?: string; invitation?: InvitationView }[] }
 export interface Preview {
-  state: 'ok' | 'expired' | 'used' | 'revoked' | 'invalid' | 'busy';
+  state: 'ok' | 'expired' | 'used' | 'revoked' | 'invalid' | 'busy' | 'unavailable';
   purpose?: InvitePurpose; inviter?: { name: string; avatarUrl: string | null; headline: string | null } | null; message?: string | null;
+  /** For a connect invitation: 'direct' (an emailed invitation: accepting connects you) or 'request' (a shared link: accepting asks them). */
+  mode?: 'direct' | 'request' | null;
   target?: { kind: 'pod' | 'challenge'; name: string | null; private: boolean } | null; action?: string; expiresAt?: number; error?: string;
 }
+/** Where THIS signed-in person stands with an invitation (from the server's read-only `check`). */
+export type CheckState = 'ok' | 'own' | 'unavailable' | 'already_connected' | 'already_accepted' | 'already_requested' | 'expired' | 'revoked' | 'used' | 'invalid';
+export type ConnectionOutcome = 'connected' | 'already_connected' | 'requested' | 'already_requested' | 'already_accepted' | 'not_accepting';
 export interface AcceptResult {
   ok: true; alreadyAccepted: boolean; existingMember: boolean; purpose: InvitePurpose;
+  /** Set only when the person pressed Accept on a connect invitation, and only once the server has written the records. */
+  connection?: ConnectionOutcome | null; mode?: 'direct' | 'request' | null;
   destination: { type: 'profile' | 'pod' | 'pods' | 'community' | 'challenge' | 'arenas'; id: string | null; action: 'connect' | 'request_to_join' | 'view_challenge' | 'explore' };
   action: 'connect' | 'request_to_join' | 'view_challenge' | 'explore';
   inviter: { uid: string; numericId: number | null; name: string; username: string | null } | null;
@@ -134,7 +156,7 @@ async function post(path: string, body: Record<string, unknown>, token?: string)
     res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
   } catch { throw new Error('Could not reach BeWatu. Check your connection and try again.'); }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) { const e: any = new Error(data?.error ?? 'Something went wrong. Please try again.'); e.status = res.status; throw e; }
+  if (!res.ok) { const e: any = new Error(data?.error ?? 'Something went wrong. Please try again.'); e.status = res.status; e.state = data?.state; throw e; }
   return data;
 }
 async function idToken(): Promise<string> {
@@ -147,12 +169,79 @@ async function idToken(): Promise<string> {
 export async function invite<T = any>(body: Record<string, unknown>): Promise<T> { return post('/api/invitations', body, await idToken()); }
 
 /** What an invitation link says. Works signed out. */
-export async function fetchPreview(token: string): Promise<Preview> {
+export async function fetchPreview(token: string, quiet = false): Promise<Preview> {
   try {
-    const res = await fetch('/api/invitations?token=' + encodeURIComponent(token), { headers: { Accept: 'application/json' } });
+    const res = await fetch('/api/invitations?token=' + encodeURIComponent(token) + (quiet ? '&resume=1' : ''), { headers: { Accept: 'application/json' } });
     const data = await res.json().catch(() => ({}));
     return res.ok ? data : { state: data?.state ?? 'invalid', error: data?.error };
   } catch { return { state: 'busy', error: 'Could not reach BeWatu. Check your connection and try again.' }; }
 }
-/** The person pressed Sign up / Sign in on the invitation page (for the funnel only; nothing depends on it). */
-export function reportStarted(token: string) { post('/api/invitations', { action: 'started', token }).catch(() => {}); }
+/** The person pressed a button on the invitation page (for the funnel only; nothing depends on it, and a press is not a connection). */
+export function reportStarted(token: string, step?: { intent?: 'accept'; path?: 'register' | 'login' | null }) { post('/api/invitations', { action: 'started', token, ...step }).catch(() => {}); }
+/** Where this signed-in person stands with the invitation. Read-only on the server. */
+export interface CheckResult { state: CheckState; /** Only when they are already connected: who, so the page can open their profile. */ inviter?: { numericId: number | null; username: string | null; name: string } }
+export async function checkInvitation(token: string): Promise<CheckResult> {
+  try { return await invite<CheckResult>({ action: 'check', token }); }
+  catch (e: any) { if (e?.state) return { state: e.state as CheckState }; throw e; }
+}
+/** The person chose to accept. The server writes the records first; only its answer says what happened. */
+export function acceptInvitation(token: string): Promise<AcceptResult> { return invite<AcceptResult>({ action: 'accept', token, confirm: true }); }
+
+// ── what the page says ───────────────────────────────────────────────────────
+// One place for the words, so they can be tested: an invitation someone already sent is ACCEPTED, never answered with a new request.
+export const firstName = (name?: string | null) => (name ?? '').trim().split(/\s+/)[0] || '';
+const PURPOSE_TO: Record<InvitePurpose, string> = { connect: 'to connect', community: 'to join a community', pod: 'to join a Pod', arena: 'to explore an Arena challenge' };
+export const headline = (purpose: InvitePurpose, first: string) => `${first ? first + ' invited you' : "You've been invited"} ${PURPOSE_TO[purpose]}.`;
+export function valueLine(purpose: InvitePurpose, first: string): string {
+  switch (purpose) {
+    case 'connect':   return first ? `Join ${first} on BeWatu to connect, exchange ideas, and discover opportunities together.` : 'Join BeWatu to connect, exchange ideas, and discover opportunities together.';
+    case 'community': return 'Join BeWatu to find people who share your interests.';
+    case 'pod':       return 'Join BeWatu to work on a goal with a small group.';
+    case 'arena':     return 'Join BeWatu to put your expertise to work on real problems.';
+  }
+}
+/** The one line that says what pressing Accept does, before it is pressed. */
+export function acceptNote(purpose: InvitePurpose, mode: 'direct' | 'request' | null | undefined, first: string, action?: string): string {
+  const who = first || 'them';
+  if (purpose === 'connect') return mode === 'request' ? `Accepting sends ${who} a request to connect. You're connected once they confirm.` : `Accepting connects you with ${who}.`;
+  if (action === 'request_to_join') return "You can ask to join. The Pod's admin decides, so nothing happens without their say.";
+  if (action === 'view_challenge') return 'You can read the challenge and decide whether to take part.';
+  return 'You can look around and decide what is for you.';
+}
+export const acceptLabel = (purpose: InvitePurpose, signedIn: boolean) => (purpose === 'connect' ? 'Accept invitation' : signedIn ? 'Continue on BeWatu' : 'Join BeWatu');
+export const signInLabel = (purpose: InvitePurpose) => (purpose === 'connect' ? 'Already on BeWatu? Sign in to accept' : 'Already on BeWatu? Sign in');
+export const fineprint = (purpose: InvitePurpose, first: string, expiresAt?: number) => {
+  const when = expiresAt ? new Date(expiresAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long' }) : 'soon';
+  return purpose === 'connect' ? `Expires ${when}. Nothing is shared with ${first || 'them'} until you accept.` : `Expires ${when}. Nothing happens until you choose to join.`;
+};
+
+export interface Screen { title: string; body: string; action?: { label: string; to: 'join' | 'home' | 'retry' | 'profile' }; secondary?: { label: string; to: 'home' } }
+/** A friendly screen for every state an invitation can be in. No error codes, no blame, always a way forward. */
+export function stateScreen(state: CheckState | 'busy', first: string, signedIn: boolean, error?: string): Screen {
+  const who = first || 'the person who invited you';
+  const onward: Screen['action'] = signedIn ? { label: 'Go to BeWatu', to: 'home' } : { label: 'Join BeWatu', to: 'join' };
+  switch (state) {
+    case 'expired':   return { title: 'This invitation has expired', body: `Ask ${who} to send you a new one. You can still join BeWatu in the meantime.`, action: onward };
+    case 'revoked':   return { title: 'This invitation was withdrawn', body: `${first ? first + ' has' : 'The person who sent it has'} taken it back. You are welcome to join BeWatu on your own.`, action: onward };
+    case 'used':      return { title: 'This invitation has already been used', body: `Someone has already accepted it. Ask ${who} to send you one of your own.`, action: onward };
+    case 'invalid':   return { title: "We couldn't find that invitation", body: 'The link may be incomplete. Open it again from your message or email, or ask for a new one.', action: onward };
+    case 'unavailable': return { title: "This invitation can't be completed", body: 'The person who invited you is no longer available on BeWatu. You can still join and build your own network.', action: onward };
+    case 'own':       return { title: 'This is your own invitation', body: "Share it with the people you'd like to invite. They'll see it as an invitation from you.", action: { label: 'Go to BeWatu', to: 'home' } };
+    case 'already_accepted':  return { title: `You've already accepted ${first ? first + "'s" : 'this'} invitation`, body: "You accepted it earlier, so it can't be used again.", action: { label: 'Go to BeWatu', to: 'home' } };
+    case 'already_connected': return { title: first ? `You're already connected with ${first}` : "You're already connected", body: 'Start a conversation or explore your professional network.', action: { label: 'View profile', to: 'profile' }, secondary: { label: 'Explore BeWatu', to: 'home' } };
+    case 'already_requested': return { title: first ? `Your request to ${first} is waiting` : 'Your request is waiting', body: `${first || 'They'} will see it and confirm. We'll let you know when you're connected.`, action: { label: 'Explore BeWatu', to: 'home' } };
+    case 'busy':      return { title: "We couldn't open this just now", body: error ?? 'Please try again in a moment.', action: { label: 'Try again', to: 'retry' } };
+    default:          return { title: "We couldn't open this just now", body: 'Please try again in a moment.', action: { label: 'Try again', to: 'retry' } };
+  }
+}
+/** What to show once the server has CONFIRMED what happened. Never before it. */
+export function successScreen(c: ConnectionOutcome, first: string): Screen {
+  switch (c) {
+    case 'connected':
+    case 'already_connected': return { title: first ? `You're connected with ${first}.` : "You're connected.", body: 'Your BeWatu connection is ready. Start a conversation or explore your professional network.', action: { label: 'View profile', to: 'profile' }, secondary: { label: 'Explore BeWatu', to: 'home' } };
+    case 'requested':
+    case 'already_requested': return { title: first ? `Request sent to ${first}.` : 'Request sent.', body: `${first || 'They'} will see it and confirm. We'll let you know when you're connected.`, action: { label: 'Explore BeWatu', to: 'home' } };
+    case 'not_accepting':     return { title: first ? `${first} isn't taking new connection requests right now.` : "They aren't taking new connection requests right now.", body: "You're all set up on BeWatu, though, so you can explore and find other people to connect with.", action: { label: 'Explore BeWatu', to: 'home' } };
+    default:                  return stateScreen('already_accepted', first, true);
+  }
+}

@@ -21,6 +21,34 @@
 
 import { init, ErrorBoundary, captureException } from '@sentry/react';
 
+/**
+ * An invitation link is a secret: whoever holds it can open the invitation. Error reports record page addresses and the requests the
+ * page made, so the token is removed from every address before anything leaves the browser.
+ */
+export function scrubInviteToken(text: string): string {
+  return text
+    .replace(/(\/invite\/)[^/?#\s"']+/g, '$1[token]')
+    .replace(/([?&](?:token|t)=)[^&#\s"']+/g, '$1[token]');
+}
+const scrubValue = (v: unknown) => (typeof v === 'string' ? scrubInviteToken(v) : v);
+/** Applied to every event and breadcrumb. Exported so a test can prove no token survives. */
+export function scrubEvent<T extends Record<string, any>>(event: T): T {
+  const e: any = event;
+  if (e.request?.url) e.request.url = scrubInviteToken(e.request.url);
+  if (e.request?.headers?.Referer) e.request.headers.Referer = scrubInviteToken(e.request.headers.Referer);
+  if (e.transaction) e.transaction = scrubInviteToken(e.transaction);
+  if (e.message) e.message = scrubInviteToken(e.message);
+  for (const b of e.breadcrumbs ?? []) { scrubBreadcrumb(b); }
+  for (const ex of e.exception?.values ?? []) if (ex.value) ex.value = scrubInviteToken(ex.value);
+  return event;
+}
+export function scrubBreadcrumb<T extends Record<string, any>>(crumb: T): T {
+  const c: any = crumb;
+  if (c.message) c.message = scrubInviteToken(c.message);
+  if (c.data) for (const k of ['url', 'from', 'to']) if (c.data[k]) c.data[k] = scrubValue(c.data[k]);
+  return crumb;
+}
+
 export function initSentry(): void {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
   if (!dsn) {
@@ -34,6 +62,8 @@ export function initSentry(): void {
     // full performance-monitoring rollout. Raise once there's a real usage
     // pattern to size it against, not guessed up front.
     tracesSampleRate: 0.1,
+    beforeSend: event => scrubEvent(event),
+    beforeBreadcrumb: crumb => scrubBreadcrumb(crumb),
   });
 }
 

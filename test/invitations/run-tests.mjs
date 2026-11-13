@@ -6,11 +6,11 @@
 //   - the inviter's identity is shown only if their profile is public; the inviter hears about a join only if they want to
 //   - statuses are true (expiry is derived), resend/revoke obey their rules, and "completed" is checked against real records
 import { initializeApp } from 'firebase-admin/app';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 import {
   runAction, previewInvitation, markStarted, suppress, runDaily, funnel, hit,
   tokenFor, idFromToken, normalizeEmail, maskEmail, cleanMessage, statusOf, usable, destinationFor, publicIdentity, isBot,
-  emailHash, LIMITS, HttpError,
+  emailHash, LIMITS, HttpError, shareCard, previewCard,
 } from '../../api/invitations.ts';
 import { createHmac } from 'node:crypto';
 
@@ -405,6 +405,226 @@ await check('rate limit window resets', async () => {
   for (let i = 0; i < 3; i++) assert(await hit(db, 'k', 3, 1000, NOW), 'in');
   assert(!(await hit(db, 'k', 3, 1000, NOW + 10)), 'out');
   assert(await hit(db, 'k', 3, 1000, NOW + 1001), 'reset');
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// The personal invitation page: accepting, connecting, states, analytics, link previews
+// ═════════════════════════════════════════════════════════════════════════════
+const refusesWith = async (p, status, state) => { try { await p; } catch (e) { if (e instanceof HttpError && e.status === status && e.state === state) return; throw new Error(`wrong error ${e.status} ${e.state} ${e.message}`); } throw new Error('should have been refused'); };
+const conns = async () => (await db.collection('connections').get()).docs.map(x => ({ id: x.id, ...x.data() }));
+const events = async () => (await db.collection('invitation_events').get()).docs.map(x => x.data().type);
+const count = (arr, t) => arr.filter(x => x === t).length;
+await db.doc('users/nonum').set({ displayName: 'No Number', isPublic: true, createdAt: ts(NOW + 1000) });
+const emailInvite = async (to = 'sam@work.test', uid = 'ann') => (await mail([to], 'connect', {}, uid)).results[0].invitation;
+
+console.log('== connecting ==');
+await check('arriving connects nobody: accepting without pressing Accept only records the arrival', async () => {
+  await wipe(); const e = await emailInvite();
+  const a = await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e) });
+  assert(a.connection === null && (await conns()).length === 0, 'no connection of any kind');
+});
+await check('Accept on an emailed invitation connects them: the INVITER is the sender, the invitee sends nothing', async () => {
+  await wipe(); const e = await emailInvite();
+  const a = await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true });
+  assert(a.connection === 'connected' && a.mode === 'direct' && a.inviter.name === 'Ann Okoro', JSON.stringify(a));
+  const c = await conns();
+  assert(c.length === 1 && c[0].senderUid === 'ann' && c[0].receiverUid === 'cy' && c[0].status === 'accepted' && c[0].via === 'invitation' && c[0].invitationId === e.id, JSON.stringify(c));
+  assert(c[0].senderNumericId === 1 && c[0].receiverNumericId === 3, 'numeric ids the app relies on');
+  assert(!c.some(x => x.senderUid === 'cy'), 'no second, outgoing request from the invitee');
+  const j = (await db.doc(`invitation_joins/${e.id}_cy`).get()).data();
+  assert(j.acceptedAt === NOW && j.completedAt === NOW, 'consent and completion recorded');
+});
+await check('pressing Accept again, or on another device, makes no second connection and counts nothing twice', async () => {
+  await wipe(); const e = await emailInvite();
+  await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true });
+  const again = await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true });
+  assert(again.alreadyAccepted === true && again.connection === 'already_connected', JSON.stringify(again));
+  const ev = await events(); assert((await conns()).length === 1 && count(ev, 'accepted') === 1 && count(ev, 'connected') === 1 && count(ev, 'completed') === 1, JSON.stringify(ev));
+  assert((await db.doc(`invitations/${e.id}`).get()).data().completedCount === 1, 'completed once');
+});
+await check('two taps at the same instant still make one connection', async () => {
+  await wipe(); const e = await emailInvite();
+  const r = await Promise.allSettled([1, 2].map(() => runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true })));
+  assert(r.some(x => x.status === 'fulfilled' && x.value.connection), 'one of them succeeded: ' + JSON.stringify(r.map(x => x.status === 'fulfilled' ? x.value.connection : x.reason.message)));
+  assert((await conns()).length === 1, 'one connection document');
+});
+await check('a request that already exists is accepted, not duplicated (theirs or the inviter\'s)', async () => {
+  for (const [sender, receiver, sNum, rNum] of [['ann', 'cy', 1, 3], ['cy', 'ann', 3, 1]]) {
+    await wipe(); const e = await emailInvite();
+    await db.collection('connections').add({ senderUid: sender, receiverUid: receiver, senderNumericId: sNum, receiverNumericId: rNum, status: 'pending' });
+    const a = await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true });
+    const c = await conns(); assert(a.connection === 'connected' && c.length === 1 && c[0].status === 'accepted' && c[0].acceptedVia === 'invitation', `${sender}->${receiver}: ${JSON.stringify(c)}`);
+  }
+});
+await check('already connected: nothing new is written, nothing is claimed as new', async () => {
+  await wipe(); const e = await emailInvite();
+  await db.collection('connections').add({ senderUid: 'cy', receiverUid: 'ann', senderNumericId: 3, receiverNumericId: 1, status: 'accepted' });
+  const a = await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true });
+  assert(a.connection === 'already_connected' && (await conns()).length === 1, JSON.stringify(a));
+  assert(count(await events(), 'connected') === 0, 'a connection that was already there is not "established"');
+});
+await check('a connection that has ended is not brought back by pressing Accept again', async () => {
+  await wipe(); const e = await emailInvite();
+  await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true });
+  const [c] = await conns(); await db.doc(`connections/${c.id}`).update({ status: 'cancelled' });
+  const again = await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true });
+  assert(again.connection === 'already_accepted' && (await conns())[0].status === 'cancelled', JSON.stringify(again));
+});
+await check('a personal LINK only asks: the visitor requests, the inviter approves, and nobody is told "connected"', async () => {
+  await wipe(); const l = (await link()).invitation;
+  const a = await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(l), confirm: true });
+  assert(a.connection === 'requested' && a.mode === 'request', JSON.stringify(a));
+  const c = await conns(); assert(c.length === 1 && c[0].senderUid === 'cy' && c[0].receiverUid === 'ann' && c[0].status === 'pending', JSON.stringify(c));
+  assert(count(await events(), 'connected') === 0, 'not established until the inviter approves');
+  const n = (await db.collection('users/ann/notifications').get()).docs.map(x => x.data().message);
+  assert(n.length === 1 && /asked to connect/.test(n[0]), JSON.stringify(n));
+  const second = await runAction(deps(), 'fay', { action: 'accept', token: tokenOf(l), confirm: true });
+  assert(second.connection === 'requested' && (await conns()).length === 2, 'each person who uses the link asks separately');
+});
+await check('a personal link: if the inviter had already asked them, accepting accepts it; if they had already asked, it says so', async () => {
+  await wipe(); const l = (await link()).invitation;
+  await db.collection('connections').add({ senderUid: 'ann', receiverUid: 'cy', senderNumericId: 1, receiverNumericId: 3, status: 'pending' });
+  assert((await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(l), confirm: true })).connection === 'connected', 'their request accepted');
+  await wipe(); const l2 = (await link()).invitation;
+  await db.collection('connections').add({ senderUid: 'fay', receiverUid: 'ann', senderNumericId: 6, receiverNumericId: 1, status: 'pending' });
+  assert((await runAction(deps(), 'fay', { action: 'accept', token: tokenOf(l2), confirm: true })).connection === 'already_requested', 'no duplicate request');
+  assert((await conns()).length === 1, 'still one');
+});
+await check('a personal link from someone who closed connection requests creates nothing and says so', async () => {
+  await wipe(); const l = (await link('connect', {}, 'closed')).invitation;
+  const a = await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(l), confirm: true });
+  assert(a.connection === 'not_accepting' && (await conns()).length === 0, JSON.stringify(a));
+});
+await check('only a connect invitation ever connects: a Pod or Arena invitation with confirm is just an arrival', async () => {
+  await wipe(); const l = (await link('pod', { targetId: 'p-open' })).invitation;
+  const a = await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(l), confirm: true });
+  assert(a.connection === null && (await conns()).length === 0, JSON.stringify(a));
+  assert(JSON.stringify((await db.doc('pods/p-open').get()).data().members) === JSON.stringify(['ann']), 'the Pod is untouched');
+});
+await check('the invitee hears nothing wrong: direct accept notifies the inviter "now connected"', async () => {
+  await wipe(); const e = await emailInvite();
+  await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true });
+  const n = (await db.collection('users/ann/notifications').get()).docs.map(x => x.data());
+  assert(n.length === 1 && n[0].message === 'Cy New accepted your invitation. You are now connected.', JSON.stringify(n));
+});
+
+console.log('== states ==');
+await check('an inviter who is gone: nothing is consumed or connected, and the page can say so', async () => {
+  await wipe(); const e = await emailInvite();
+  await db.doc('users/ann').update({ status: 'deleted' });
+  try {
+    await refusesWith(runAction(deps(), 'cy', { action: 'accept', token: tokenOf(e), confirm: true }), 409, 'unavailable');
+    assert((await db.doc(`invitations/${e.id}`).get()).data().joinedCount === 0 && (await conns()).length === 0, 'untouched');
+    assert((await previewInvitation(deps(), tokenOf(e), 'Mozilla/5.0 (iPhone)', '1.1.1.1')).body.state === 'unavailable', 'preview says unavailable');
+    assert((await runAction(deps(), 'cy', { action: 'check', token: tokenOf(e) })).state === 'unavailable', 'check says unavailable');
+  } finally { await db.doc('users/ann').update({ status: FieldValue.delete() }); }
+});
+await check('an account with no member number yet is asked to try again, and nothing is consumed', async () => {
+  await wipe(); const e = await emailInvite();
+  await refuses(runAction(deps(), 'nonum', { action: 'accept', token: tokenOf(e), confirm: true }), 409);
+  assert((await db.doc(`invitations/${e.id}`).get()).data().joinedCount === 0, 'still usable');
+});
+await check('each way an invitation can be unusable carries its own state for the page', async () => {
+  await wipe();
+  const w = await emailInvite('kim@work.test'); await runAction(deps(), 'ann', { action: 'revoke', id: w.id });
+  await refusesWith(runAction(deps(), 'cy', { action: 'accept', token: tokenOf(w), confirm: true }), 410, 'revoked');
+  const x = await emailInvite('lee@work.test');
+  await refusesWith(runAction(deps({ now: NOW + 400 * DAY }), 'cy', { action: 'accept', token: tokenOf(x), confirm: true }), 410, 'expired');
+  const u = await emailInvite('max@work.test'); await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(u), confirm: true });
+  await refusesWith(runAction(deps(), 'fay', { action: 'accept', token: tokenOf(u), confirm: true }), 410, 'used');
+  await refusesWith(runAction(deps(), 'cy', { action: 'accept', token: 'AAAAAAAAAAAAAAAA.' + 'B'.repeat(22), confirm: true }), 404, 'invalid');
+  const own = await emailInvite('ned@work.test'); await refusesWith(runAction(deps(), 'ann', { action: 'accept', token: tokenOf(own), confirm: true }), 400, 'own');
+});
+await check('check tells THIS member where they stand, and writes and counts nothing', async () => {
+  await wipe();
+  const st = async (t, uid = 'cy', now) => (await runAction(deps(now ? { now } : {}), uid, { action: 'check', token: t })).state;
+  const e = await emailInvite('sam@work.test'); const t = tokenOf(e);
+  const before = { ev: (await events()).length, joins: (await db.collection('invitation_joins').get()).size };
+  assert(await st(t) === 'ok' && await st(t, 'ann') === 'own', 'ok / own');
+  assert((await events()).length === before.ev && (await db.collection('invitation_joins').get()).size === before.joins, 'read-only');
+  assert(await st(t, 'cy', NOW + 400 * DAY) === 'expired', 'expired');
+  await runAction(deps(), 'cy', { action: 'accept', token: t, confirm: true });
+  assert(await st(t, 'cy') === 'already_connected', 'connected');
+  assert(await st(t, 'fay') === 'used', 'someone else on a used invitation');
+  const e2 = await emailInvite('kim@work.test'); await runAction(deps(), 'ann', { action: 'revoke', id: e2.id });
+  assert(await st(tokenOf(e2), 'fay') === 'revoked', 'revoked');
+  await refusesWith(runAction(deps(), 'cy', { action: 'check', token: 'AAAAAAAAAAAAAAAA.' + 'B'.repeat(22) }), 404, 'invalid');
+  // someone who accepted but whose connection ended is "already accepted", not offered it again
+  const [c] = await conns(); await db.doc(`connections/${c.id}`).update({ status: 'cancelled' });
+  assert(await st(t, 'cy') === 'already_accepted', 'already accepted');
+  // a personal link they already asked on
+  await wipe(); const l = (await link()).invitation; await runAction(deps(), 'fay', { action: 'accept', token: tokenOf(l), confirm: true });
+  await db.collection('invitation_joins').doc(`${l.id}_fay`).update({ completedAt: null });
+  assert(await st(tokenOf(l), 'fay') === 'already_requested', 'already requested');
+});
+await check('the preview says what accepting will do, never who the invitation was sent to, and a quiet look is not counted', async () => {
+  await wipe(); const e = await emailInvite(); const l = (await link()).invitation;
+  const pe = (await previewInvitation(deps(), tokenOf(e), 'Mozilla/5.0 (iPhone)', '1.1.1.1')).body;
+  const pl = (await previewInvitation(deps(), tokenOf(l), 'Mozilla/5.0 (iPhone)', '1.1.1.1')).body;
+  assert(pe.mode === 'direct' && pl.mode === 'request', 'mode');
+  assert(!JSON.stringify(pe).includes('sam@work.test') && !JSON.stringify(pe).includes(e.id), 'no address, no internal id');
+  const opens = async () => (await db.doc(`invitations/${e.id}`).get()).data().opens;
+  const o = await opens();
+  await previewInvitation(deps(), tokenOf(e), 'Mozilla/5.0 (iPhone)', '1.1.1.1', true);
+  assert(await opens() === o, 'the signed-in re-check is not a second view');
+});
+
+console.log('== analytics ==');
+await check('Accept clicked, sign-up started, accepted and connected are separate: a click is never a connection', async () => {
+  await wipe(); const e = await emailInvite(); const t = tokenOf(e); const ua = 'Mozilla/5.0 (iPhone)';
+  await markStarted(deps(), t, '1.1.1.1', ua, { intent: 'accept', path: 'register' });
+  await markStarted(deps(), t, '1.1.1.2', ua, { intent: 'accept', path: 'login' });
+  await markStarted(deps(), t, '1.1.1.3', ua);
+  let ev = await events();
+  assert(count(ev, 'accept_clicked') === 2 && count(ev, 'signup_started') === 2, JSON.stringify(ev));   // register + the older page; signing in is not signing up
+  assert(count(ev, 'connected') === 0 && count(ev, 'accepted') === 0, 'a click connects and accepts nothing');
+  await markStarted(deps(), t, '1.1.1.4', 'Googlebot/2.1', { intent: 'accept', path: 'register' });
+  assert((await events()).length === ev.length, 'a crawler is not a person');
+  await runAction(deps(), 'cy', { action: 'accept', token: t, confirm: true });
+  ev = await events(); assert(count(ev, 'accepted') === 1 && count(ev, 'connected') === 1, JSON.stringify(ev));
+  const f = funnel({ accept_clicked: 10, accepted: 5, connected: 4, expired: 2 });
+  assert(f.acceptedPerClicked === 50 && f.connectedPerAccepted === 80 && f.expired === 2, JSON.stringify(f));
+});
+await check('an invitation that ran out unused is counted once, as expired', async () => {
+  await wipe(); const e = await emailInvite();
+  const later = deps({ now: NOW + 400 * DAY });
+  await runDaily(later); await runDaily(later);
+  assert(count(await events(), 'expired') === 1, JSON.stringify(await events()));
+  const used = await emailInvite('kim@work.test'); await runAction(deps(), 'cy', { action: 'accept', token: tokenOf(used) });
+  await runDaily(later); assert(count(await events(), 'expired') === 1, 'a used one is not "expired"');
+});
+
+console.log('== link previews ==');
+await check('a preview shows the first name only when the profile is public, and never the note, the Pod, the address or the token', async () => {
+  await wipe();
+  const pub = (await link('connect', { message: 'Secret note about my salary' })).invitation;
+  const html = await shareCard(deps(), tokenOf(pub), 'WhatsApp/2.23', '1.1.1.1');
+  assert(html.includes('Ann invited you to connect on BeWatu') && html.includes('Join Ann on BeWatu to connect, exchange ideas, and discover opportunities together.'), html);
+  assert(!html.includes('Okoro') && !html.includes('Product lead') && !html.includes('img.test'), 'no surname, headline or photo');
+  assert(!html.includes('salary') && !html.includes(tokenOf(pub)) && !html.includes(pub.id), 'no note, no token');
+  assert(/noindex/.test(html) && !/og:url|canonical/.test(html), 'not indexed, and no address that carries the token');
+  const priv = (await link('pod', { targetId: 'p-priv' }, 'bo')).invitation;
+  const h2 = await shareCard(deps(), tokenOf(priv), 'WhatsApp/2.23', '1.1.1.1');
+  assert(h2.includes("You&#39;ve been invited to BeWatu") && !h2.includes('Bo') && !h2.includes('Secret Pod'), 'private profile and private Pod stay private: ' + h2);
+});
+await check('an expired, withdrawn or unknown link previews exactly like any other generic one', async () => {
+  await wipe(); const w = await emailInvite('kim@work.test'); await runAction(deps(), 'ann', { action: 'revoke', id: w.id });
+  const generic = await shareCard(deps(), 'AAAAAAAAAAAAAAAA.' + 'B'.repeat(22), 'Twitterbot/1.0', '1.1.1.1');
+  assert(await shareCard(deps(), tokenOf(w), 'Twitterbot/1.0', '1.1.1.1') === generic, 'withdrawn looks unknown');
+  const x = await emailInvite('lee@work.test');
+  assert(await shareCard(deps({ now: NOW + 400 * DAY }), tokenOf(x), 'Twitterbot/1.0', '1.1.1.1') === generic, 'expired looks unknown');
+});
+await check('a hostile display name cannot inject markup into a preview, and a crawler is counted apart from a person', async () => {
+  await wipe(); await db.doc('users/xss').set({ displayName: '"><script>alert(1)</script> Mallory', numericId: 9, isPublic: true });
+  const l = (await link('connect', {}, 'xss')).invitation;
+  const html = await shareCard(deps(), tokenOf(l), 'facebookexternalhit/1.1', '1.1.1.1');
+  assert(!html.includes('<script>') && html.includes('&lt;script&gt;'), html);
+  const ev = await events(); assert(count(ev, 'opened_bot') === 1 && count(ev, 'opened') === 0, JSON.stringify(ev));
+});
+await check('the preview wording is a pure function of what the page may show', async () => {
+  assert(previewCard({ state: 'ok', purpose: 'pod', inviter: { name: 'Ada Lovelace' } }).title === 'Ada invited you to join a Pod on BeWatu', 'pod');
+  assert(previewCard({ state: 'ok', purpose: 'connect', inviter: null }).title === "You've been invited to BeWatu", 'no public name');
+  assert(previewCard({ state: 'expired', purpose: 'connect', inviter: { name: 'Ada' } }).title === "You've been invited to BeWatu", 'a spent link says nothing');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

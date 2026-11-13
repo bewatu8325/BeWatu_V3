@@ -10,21 +10,30 @@
 //   resend   { id }                     email invitations only: once a day, three sends in all
 //   shared   { id, channel }            the member copied / shared the link (for the funnel)
 //   prefs    { joinedAlerts? }          read or set "tell me when someone I invited joins"
-//   accept   { token }                  the invited person is now signed in: record it, say where they go
+//   accept   { token, confirm? }       the invited person is now signed in. Without `confirm` it only records the arrival.
+//                                       With `confirm: true` (they pressed "Accept invitation") a CONNECT invitation does its
+//                                       job: see "Connecting" below.
+//   check    { token }                  read-only: can THIS member accept it? (ok, already accepted, already connected, own,
+//                                       expired, withdrawn, used, unavailable). Writes and counts nothing.
 //   complete { token }                  they took the invited step (verified here, from the real records)
 // Public
 //   GET  ?token=...                     what the invitation says (inviter identity only if their profile is public)
-//   POST { action: 'started', token }   the invited person pressed Sign up / Sign in on the invitation page
+//   POST { action: 'started', token, intent?, path? }   the invited person pressed Accept / Sign up / Sign in on the page
+//   GET  ?og=1&t=...                    link-preview HTML for crawlers only (vercel.json sends only bots here): first name only,
+//                                       only if their profile is public, never the note, never the token; noindex
 //   GET/POST ?optout=1&e=..&t=..        "don't invite me again" from the email (a scanner fetching it does nothing)
 //   GET  ?cron=1                        daily: one gentle reminder, activation check (Authorization: Bearer CRON_SECRET)
 //
 // What an invitation is, and is not
 //   - The link carries a signed random id and nothing else: no email, no name, no account detail. Everything is looked up
 //     here. Anyone can hold a link; it opens a page that explains the invitation and asks them to sign up or sign in.
-//   - An invitation NEVER grants anything. Accepting it records who arrived. A private Pod still gets a join REQUEST that
-//     its admin approves; a restricted Arena is still restricted; a connection is still a request. Those rules live in
-//     firestore.rules and the pages themselves; this route does not and cannot bypass them. A private Pod's name is not
-//     shown to the invited person before they are in.
+//   - An invitation never grants access to anything. Accepting it records who arrived. A private Pod still gets a join REQUEST
+//     that its admin approves; a restricted Arena is still restricted. Those rules live in firestore.rules and the pages
+//     themselves; this route does not bypass them. A private Pod's name is not shown to the invited person before they are in.
+//   - Connecting (purpose 'connect' only). The inviter has already asked, so the invited person ACCEPTS; they never send a second
+//     request. It happens only when the person presses Accept (`confirm: true`), never on arrival, and only after this route has
+//     written the records. An EMAILED invitation names one person, so accepting completes the connection. A personal LINK can be
+//     opened by up to 50 people, so accepting it only sends the inviter a request to approve. The page says which will happen.
 //   - Email goes only to addresses the member typed for this invitation. There is no contact import. One invitation per
 //     person per destination, a cap on how often anyone can be emailed, and an opt-out that is honoured everywhere.
 //   - Every number we keep is about people: opened, started signing up, joined, took the invited step, became active. Not
@@ -40,7 +49,8 @@ import { getFirestore, FieldValue, type Firestore, type DocumentReference } from
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export class HttpError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  /** `state` is a short code the invitation page turns into a friendly screen (expired, revoked, used, own, unavailable). */
+  constructor(public status: number, message: string, public state?: string) { super(message); }
 }
 
 // ── limits ───────────────────────────────────────────────────────────────────
@@ -64,7 +74,7 @@ export const LIMITS = {
 export type Purpose = 'connect' | 'community' | 'pod' | 'arena';
 export const PURPOSES: Purpose[] = ['connect', 'community', 'pod', 'arena'];
 export type Status = 'pending' | 'joined' | 'expired' | 'revoked';
-export type EventType = 'created' | 'shared' | 'opened' | 'opened_bot' | 'signup_started' | 'signup_completed' | 'accepted_existing' | 'completed' | 'activated' | 'reminded' | 'revoked';
+export type EventType = 'created' | 'shared' | 'opened' | 'opened_bot' | 'accept_clicked' | 'signup_started' | 'signup_completed' | 'accepted_existing' | 'accepted' | 'connected' | 'completed' | 'activated' | 'reminded' | 'revoked' | 'expired';
 
 // ── small helpers ────────────────────────────────────────────────────────────
 const safeId = (v: unknown) => (typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v) ? v : '');
@@ -175,12 +185,23 @@ export function funnel(c: Partial<Record<EventType, number>>) {
   const n = (k: EventType) => c[k] ?? 0;
   const rate = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 10 : null);
   return {
-    created: n('created'), opened: n('opened'), signupStarted: n('signup_started'), joined: n('signup_completed') + n('accepted_existing'),
+    created: n('created'), opened: n('opened'), acceptClicked: n('accept_clicked'), signupStarted: n('signup_started'), joined: n('signup_completed') + n('accepted_existing'),
+    accepted: n('accepted'), connected: n('connected'), expired: n('expired'),
     completed: n('completed'), activated: n('activated'),
+    acceptedPerClicked: rate(n('accepted'), n('accept_clicked')), connectedPerAccepted: rate(n('connected'), n('accepted')),
     openedPerCreated: rate(n('opened'), n('created')), joinedPerOpened: rate(n('signup_completed') + n('accepted_existing'), n('opened')),
     completedPerJoined: rate(n('completed'), n('signup_completed') + n('accepted_existing')), activatedPerJoined: rate(n('activated'), n('signup_completed') + n('accepted_existing')),
   };
 }
+
+// ── is the inviter still there? ──────────────────────────────────────────────
+const GONE_STATUSES = new Set(['pending_deletion', 'deleted', 'suspended', 'banned', 'disabled']);
+/** A closed, suspended or missing account cannot be connected with. */
+export const inviterAvailable = (u: Record<string, any> | undefined): boolean => !!u && !GONE_STATUSES.has(String(u.status ?? '')) && !u.deletedAt;
+/** An emailed invitation names one person, so accepting it completes the connection. A personal link is open to many, so it only asks. */
+export const connectsOnAccept = (inv: Pick<InvitationDoc, 'kind'>) => inv.kind === 'email';
+export type ConnectionOutcome = 'connected' | 'already_connected' | 'requested' | 'already_requested' | 'already_accepted' | 'not_accepting';
+const DEAD_CONNECTION = ['cancelled', 'declined'];
 
 // ── who is inviting, and where ───────────────────────────────────────────────
 export interface PublicIdentity { name: string; avatarUrl: string | null; headline: string | null }
@@ -448,17 +469,24 @@ export async function runAction(d: Deps, uid: string, body: any, auth: { email?:
 
     case 'accept': {
       const inv = await loadInvitation(d, body.token);
-      if (!inv) throw new HttpError(404, 'This invitation link is not valid.');
-      if (inv.inviterUid === uid) throw new HttpError(400, 'This is your own invitation link. Share it with someone else.');
+      if (!inv) throw new HttpError(404, 'This invitation link is not valid.', 'invalid');
+      if (inv.inviterUid === uid) throw new HttpError(400, 'This is your own invitation link. Share it with someone else.', 'own');
       const joinRef = d.db.collection('invitation_joins').doc(`${inv.id}_${uid}`);
       const me = (await users.doc(uid).get()).data();
       if (!me) throw new HttpError(404, 'Account not found.');
       const created = typeof me.createdAt?.toMillis === 'function' ? me.createdAt.toMillis() : 0;
       const existingMember = created > 0 && created < inv.createdAt;
+      const inviter = (await users.doc(inv.inviterUid).get()).data();
+      // Only the person's own "Accept invitation" counts, and only a connect invitation connects anyone.
+      const confirm = body.confirm === true && inv.purpose === 'connect';
+      if (confirm) {
+        if (!inviterAvailable(inviter)) throw new HttpError(409, 'The person who invited you is no longer on BeWatu, so this invitation can not be completed.', 'unavailable');
+        if (me.numericId == null || inviter!.numericId == null) throw new HttpError(409, 'Your account is still being set up. Please try again in a moment.');
+      }
 
       const already = (await joinRef.get()).exists;
       if (!already) {
-        if (!usable(inv, d.now)) throw new HttpError(410, statusOf(inv, d.now) === 'revoked' ? 'This invitation was withdrawn.' : statusOf(inv, d.now) === 'expired' ? 'This invitation has expired.' : 'This invitation has already been used.');
+        if (!usable(inv, d.now)) { const st = statusOf(inv, d.now); throw new HttpError(410, st === 'revoked' ? 'This invitation was withdrawn.' : st === 'expired' ? 'This invitation has expired.' : 'This invitation has already been used.', st === 'joined' ? 'used' : st); }
         const first = await d.db.runTransaction(async tx => {
           const fresh = await tx.get(d.db.collection('invitations').doc(inv.id));
           const cur = fresh.data() as InvitationDoc;
@@ -467,19 +495,63 @@ export async function runAction(d: Deps, uid: string, body: any, auth: { email?:
           tx.update(fresh.ref, { joinedCount: FieldValue.increment(1), status: 'joined' });
           return true;
         });
-        if (!first) throw new HttpError(410, 'This invitation has already been used.');
+        if (!first) throw new HttpError(410, 'This invitation has already been used.', 'used');
         await track(d, existingMember ? 'accepted_existing' : 'signup_completed', inv, { existingMember });
-        await notifyInviter(d, inv, me, existingMember);
       }
-      const inviter = (await users.doc(inv.inviterUid).get()).data();
+
+      let connection: ConnectionOutcome | null = null;
+      if (confirm) {
+        const join = (await joinRef.get()).data() ?? {};
+        if (!join.acceptedAt) { await joinRef.update({ acceptedAt: d.now }); await track(d, 'accepted', inv, { existingMember }); }
+        if (join.completedAt) {
+          // Done once already. Never recreate a connection that has since ended: report what is true now.
+          connection = (await liveConnections(d, uid, inv.inviterUid)).some(c => c.status === 'accepted') ? 'already_connected' : 'already_accepted';
+        } else {
+          connection = await connectOnAccept(d, inv, { uid, numericId: me.numericId }, { numericId: inviter!.numericId, privacySettings: inviter!.privacySettings });
+          if (connection === 'connected' || connection === 'already_connected' || connection === 'requested' || connection === 'already_requested') {
+            await joinRef.update({ completedAt: d.now });
+            await d.db.collection('invitations').doc(inv.id).update({ completedCount: FieldValue.increment(1) });
+            await track(d, 'completed', inv, { step: 'connect' });
+          }
+          if (connection === 'connected') await track(d, 'connected', inv, { mode: connectsOnAccept(inv) ? 'direct' : 'approved' });
+        }
+        if (!already) await notifyInviter(d, inv, me, existingMember, connection);
+      } else if (!already) {
+        await notifyInviter(d, inv, me, existingMember, null);
+      }
+
       const dest = destinationFor(inv);
       const canConnect = dest.action === 'connect' ? (inviter?.privacySettings?.allowConnectionRequests !== false) : false;
       return {
         ok: true, alreadyAccepted: already, existingMember, purpose: inv.purpose, destination: dest,
         action: dest.action === 'connect' && !canConnect ? 'explore' : dest.action,
+        connection, mode: inv.purpose === 'connect' ? (connectsOnAccept(inv) ? 'direct' : 'request') : null,
         inviter: inviter ? { uid: inv.inviterUid, numericId: inviter.numericId ?? null, name: oneLine(inviter.displayName, 80), username: inviter.username ?? null } : null,
         target: inv.targetId ? { id: inv.targetId, kind: inv.targetKind, name: inv.targetName } : null,
       };
+    }
+
+    // Can THIS member accept it? Read-only: nothing is written, counted or sent.
+    case 'check': {
+      if (!(await hit(d.db, `check:${uid}`, 120, 3_600_000, d.now))) throw new HttpError(429, 'Too many requests. Please try again in a little while.');
+      const inv = await loadInvitation(d, body.token);
+      if (!inv) throw new HttpError(404, 'This invitation link is not valid.', 'invalid');
+      if (inv.inviterUid === uid) return { state: 'own' };
+      const them = (await users.doc(inv.inviterUid).get()).data();
+      if (!inviterAvailable(them)) return { state: 'unavailable' };
+      const join = (await d.db.collection('invitation_joins').doc(`${inv.id}_${uid}`).get()).data();
+      if (inv.purpose === 'connect') {
+        const live = await liveConnections(d, uid, inv.inviterUid);
+        // Someone already connected may see who it is (so the page can open their profile); nobody else is told anything about them.
+        if (live.some(c => c.status === 'accepted')) return { state: 'already_connected', inviter: { numericId: them!.numericId ?? null, username: them!.username ?? null, name: oneLine(them!.displayName, 80) } };
+        if (join?.completedAt) return { state: 'already_accepted' };
+        if (!connectsOnAccept(inv) && live.some(c => c.mine && c.status === 'pending')) return { state: 'already_requested' };
+      } else if (join?.completedAt) return { state: 'already_accepted' };
+      if (!join) {
+        const st = statusOf(inv, d.now);
+        if (!usable(inv, d.now)) return { state: st === 'joined' ? 'used' : st };
+      }
+      return { state: 'ok' };
     }
 
     case 'complete': {
@@ -500,6 +572,56 @@ export async function runAction(d: Deps, uid: string, body: any, auth: { email?:
 
     default: throw new HttpError(400, 'Unknown action.');
   }
+}
+
+/** Every connection between two members that has not been cancelled or declined, with who started it. */
+async function liveConnections(d: Deps, me: string, other: string): Promise<{ ref: DocumentReference; status: string; mine: boolean }[]> {
+  const col = d.db.collection('connections');
+  const [a, b] = await Promise.all([col.where('senderUid', '==', me).where('receiverUid', '==', other).get(), col.where('senderUid', '==', other).where('receiverUid', '==', me).get()]);
+  return [...a.docs.map(s => ({ s, mine: true })), ...b.docs.map(s => ({ s, mine: false }))]
+    .filter(x => !DEAD_CONNECTION.includes(x.s.data().status))
+    .map(x => ({ ref: x.s.ref, status: String(x.s.data().status), mine: x.mine }));
+}
+
+/**
+ * The connection an accepted invitation stands for, written the way the rest of the app writes one: a `connections` document that
+ * starts pending and is then accepted (functions/src/index.ts counts connections on that pending-to-accepted change, so it is not
+ * created already accepted). Idempotent: pressing Accept twice, or on two devices, makes one connection.
+ */
+async function connectOnAccept(d: Deps, inv: InvitationDoc & { id: string }, me: { uid: string; numericId: number }, inviter: { numericId: number; privacySettings?: any }): Promise<ConnectionOutcome> {
+  const live = await liveConnections(d, me.uid, inv.inviterUid);
+  if (live.some(c => c.status === 'accepted')) return 'already_connected';
+  const accept = (ref: DocumentReference) => ref.update({ status: 'accepted', updatedAt: FieldValue.serverTimestamp(), acceptedVia: 'invitation', invitationId: inv.id });
+  const fromInviter = live.find(c => !c.mine);     // they already asked: accepting the invitation accepts that
+  const fromMe = live.find(c => c.mine);
+  const start = async (sender: { uid: string; numericId: number }, receiver: { uid: string; numericId: number }): Promise<DocumentReference | null> => {
+    const ref = d.db.collection('connections').doc(`inv_${inv.id}_${me.uid}`);   // per person: a personal link is used by several
+    try {
+      await ref.create({ senderUid: sender.uid, senderNumericId: sender.numericId, receiverUid: receiver.uid, receiverNumericId: receiver.numericId, status: 'pending', via: 'invitation', invitationId: inv.id, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      return ref;
+    } catch (e: any) {
+      if (e?.code !== 6 && !/already exists/i.test(String(e?.message))) throw e;
+      const cur = (await ref.get()).data();
+      return cur && !DEAD_CONNECTION.includes(cur.status) ? ref : null;   // one that has since ended is not revived
+    }
+  };
+  const them = { uid: inv.inviterUid, numericId: inviter.numericId };
+
+  if (connectsOnAccept(inv)) {
+    const open = fromInviter ?? fromMe;
+    if (open) { await accept(open.ref); return 'connected'; }
+    const ref = await start(them, me);
+    if (!ref) return 'already_accepted';
+    await accept(ref);
+    return 'connected';
+  }
+
+  // A personal link: the inviter approves.
+  if (fromInviter) { await accept(fromInviter.ref); return 'connected'; }
+  if (fromMe) return 'already_requested';
+  if (inviter.privacySettings?.allowConnectionRequests === false) return 'not_accepting';
+  const ref = await start(me, them);
+  return ref ? 'requested' : 'already_accepted';
 }
 
 /** The step the invitation offered, checked against the real records. Looking at a challenge is not joining anything. */
@@ -529,14 +651,16 @@ async function tookTheStep(d: Deps, inv: InvitationDoc & { id: string }, uid: st
 }
 
 /** Tell the inviter someone arrived: not at all if they turned it off, and by name only if the newcomer's profile is public. */
-async function notifyInviter(d: Deps, inv: InvitationDoc & { id: string }, invitee: Record<string, any>, existingMember: boolean) {
+async function notifyInviter(d: Deps, inv: InvitationDoc & { id: string }, invitee: Record<string, any>, existingMember: boolean, connection: ConnectionOutcome | null) {
   try {
     const inviter = (await d.db.collection('users').doc(inv.inviterUid).get()).data();
     if (!inviter || inviter.inviteJoinedAlerts === false) return;
     const who = publicIdentity(invitee)?.name;
-    const message = existingMember
-      ? `${who ?? 'Someone you invited'} accepted your invitation`
-      : `${who ?? 'Someone you invited'} joined BeWatu from your invitation`;
+    const name = who ?? 'Someone you invited';
+    const message = connection === 'connected' ? `${name} accepted your invitation. You are now connected.`
+      : connection === 'requested' ? `${name} accepted your invitation and asked to connect. Their request is waiting for you.`
+      : existingMember ? `${name} accepted your invitation`
+      : `${name} joined BeWatu from your invitation`;
     await d.db.collection('users').doc(inv.inviterUid).collection('notifications').add({
       type: 'invitation_joined', message, invitationId: inv.id, isRead: false, createdAt: FieldValue.serverTimestamp(),
     });
@@ -546,26 +670,31 @@ async function notifyInviter(d: Deps, inv: InvitationDoc & { id: string }, invit
 // ═════════════════════════════════════════════════════════════════════════════
 // public: what the invitation says
 // ═════════════════════════════════════════════════════════════════════════════
-export async function previewInvitation(d: Deps, token: unknown, ua: unknown, ip: string): Promise<{ status: number; body: Result }> {
+export async function previewInvitation(d: Deps, token: unknown, ua: unknown, ip: string, quiet = false): Promise<{ status: number; body: Result }> {
   const secret = need(d);
   if (!(await hit(d.db, `open:${clientKey(secret, ip)}`, LIMITS.OPEN_PER_HOUR_PER_IP, 3_600_000, d.now))) return { status: 429, body: { state: 'busy', error: 'Too many requests. Please try again in a little while.' } };
   const inv = await loadInvitation(d, token);
   if (!inv) return { status: 404, body: { state: 'invalid', error: 'This invitation link is not valid.' } };
   const st = statusOf(inv, d.now);
-  const inviter = publicIdentity((await d.db.collection('users').doc(inv.inviterUid).get()).data());
+  const inviterDoc = (await d.db.collection('users').doc(inv.inviterUid).get()).data();
+  const inviter = publicIdentity(inviterDoc);
   const bot = isBot(ua);
-  if (st !== 'revoked') {
+  // `quiet` is the signed-in app looking again after sign-up: the person already counted as having opened it.
+  if (st !== 'revoked' && !quiet) {
     // Link previews and scanners are counted apart, so "opened" means a person.
     await track(d, bot ? 'opened_bot' : 'opened', inv);
     if (!bot) await d.db.collection('invitations').doc(inv.id).update({ opens: FieldValue.increment(1) }).catch(() => {});
   }
   if (st === 'revoked') return { status: 410, body: { state: 'revoked', error: 'This invitation was withdrawn.' } };
   const dest = destinationFor(inv);
+  const gone = !inviterAvailable(inviterDoc);
   return {
     status: 200,
     body: {
-      state: usable(inv, d.now) ? 'ok' : st === 'expired' ? 'expired' : 'used',
+      state: gone ? 'unavailable' : usable(inv, d.now) ? 'ok' : st === 'expired' ? 'expired' : 'used',
       purpose: inv.purpose,
+      // What accepting will do, so the page can say so before the tap: a named invitation connects, a shared link asks.
+      mode: inv.purpose === 'connect' ? (connectsOnAccept(inv) ? 'direct' : 'request') : null,
       inviter,                                                                  // null unless their profile is public
       message: inv.message || null,
       // A private Pod is not named to someone who is not in it yet.
@@ -575,12 +704,42 @@ export async function previewInvitation(d: Deps, token: unknown, ua: unknown, ip
   };
 }
 
-export async function markStarted(d: Deps, token: unknown, ip: string, ua: unknown): Promise<void> {
+/** The person pressed a button on the invitation page. A press is only a press: `accept_clicked` is not a connection. */
+export async function markStarted(d: Deps, token: unknown, ip: string, ua: unknown, step: { intent?: unknown; path?: unknown } = {}): Promise<void> {
   const secret = need(d);
   if (isBot(ua)) return;
   if (!(await hit(d.db, `started:${clientKey(secret, ip)}`, LIMITS.STARTED_PER_HOUR_PER_IP, 3_600_000, d.now))) return;
   const inv = await loadInvitation(d, token);
-  if (inv && usable(inv, d.now)) await track(d, 'signup_started', inv);
+  if (!inv || !usable(inv, d.now)) return;
+  if (step.intent === 'accept') await track(d, 'accept_clicked', inv);
+  // Creating an account is "sign up started"; signing in is not. A press with no detail is the older page: sign up.
+  if (step.intent !== 'accept' || step.path === 'register') await track(d, 'signup_started', inv);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// link previews (WhatsApp, iMessage, LinkedIn, Slack...)
+// ═════════════════════════════════════════════════════════════════════════════
+const PREVIEW_WHAT: Record<Purpose, string> = { connect: 'to connect on BeWatu', community: 'to join a community on BeWatu', pod: 'to join a Pod on BeWatu', arena: 'to explore an Arena challenge on BeWatu' };
+/**
+ * The title and description a chat app shows for an invitation link. Privacy first: the inviter's FIRST name appears only when their
+ * profile is public (the same rule as the page); the personal note, the Pod or challenge name, the address the invitation was sent to
+ * and the token never appear; an expired, withdrawn or unknown link looks exactly like any other. Never indexed.
+ */
+export function previewCard(p: { state?: string; purpose?: Purpose; inviter?: { name: string } | null }): { title: string; description: string } {
+  const first = p.state === 'ok' ? (p.inviter?.name ?? '').trim().split(/\s+/)[0] : '';
+  if (!first || !p.purpose) return { title: "You've been invited to BeWatu", description: 'Accept your invitation to join a professional network built on good connections.' };
+  return {
+    title: `${first} invited you ${PREVIEW_WHAT[p.purpose]}`,
+    description: p.purpose === 'connect' ? `Join ${first} on BeWatu to connect, exchange ideas, and discover opportunities together.` : 'Good connections make great things possible.',
+  };
+}
+export async function shareCard(d: Deps, token: unknown, ua: unknown, ip: string): Promise<string> {
+  let card = previewCard({});
+  try { const r = await previewInvitation(d, token, ua, ip); if (r.status === 200) card = previewCard(r.body as any); } catch { /* a generic card is always safe */ }
+  const origin = originOf(d);
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex, nofollow, noarchive"><meta name="referrer" content="no-referrer"><title>${esc(card.title)}</title>`
+    + `<meta property="og:site_name" content="BeWatu"><meta property="og:type" content="website"><meta property="og:title" content="${esc(card.title)}"><meta property="og:description" content="${esc(card.description)}"><meta property="og:image" content="${origin}/android-chrome-512x512.png">`
+    + `<meta name="twitter:card" content="summary"><meta name="twitter:title" content="${esc(card.title)}"><meta name="twitter:description" content="${esc(card.description)}"></head><body><p>${esc(card.title)}</p></body></html>`;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -603,6 +762,7 @@ export async function runDaily(d: Deps): Promise<{ reminded: number; activated: 
   const pending = await d.db.collection('invitations').where('status', '==', 'pending').limit(500).get();
   for (const s of pending.docs) {
     const inv = { ...(s.data() as InvitationDoc), id: s.id };
+    if (inv.expiresAt <= d.now && inv.joinedCount === 0 && !(s.data() as any).expiryTracked) { await track(d, 'expired', inv); await s.ref.update({ expiryTracked: true }); continue; }
     if (inv.kind !== 'email' || !inv.reminder || inv.remindedAt || inv.sends !== 1 || inv.deliveryFailed) continue;
     if (d.now - inv.createdAt < LIMITS.REMINDER_AFTER_MS || inv.expiresAt <= d.now + DAY) continue;
     if (!inv.recipientEmail || !(await mayEmail(d, inv.recipientEmail))) continue;
@@ -707,14 +867,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(await runDaily(d));
     }
 
+    // Link previews: vercel.json sends only crawlers here (people get the app). Nothing private goes in a preview.
+    if (req.method === 'GET' && q('og')) {
+      const out = await shareCard(d, q('t'), req.headers['user-agent'], ipOf(req));
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(200).send(out);
+    }
     if (req.method === 'GET') {
-      const out = await previewInvitation(d, q('token'), req.headers['user-agent'], ipOf(req));
+      const out = await previewInvitation(d, q('token'), req.headers['user-agent'], ipOf(req), q('resume') === '1');
       return res.status(out.status).json(out.body);
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     if (req.body?.action === 'started') {
-      await markStarted(d, req.body.token, ipOf(req), req.headers['user-agent']);
+      await markStarted(d, req.body.token, ipOf(req), req.headers['user-agent'], { intent: req.body.intent, path: req.body.path });
       return res.status(200).json({ ok: true });
     }
 
@@ -723,7 +889,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const decoded = await getAuth(getAdminApp()).verifyIdToken(h.slice(7));
     return res.status(200).json(await runAction(d, decoded.uid, req.body ?? {}, { email: decoded.email }));
   } catch (e: any) {
-    if (e instanceof HttpError) return res.status(e.status).json({ error: e.message });
+    if (e instanceof HttpError) return res.status(e.status).json({ error: e.message, ...(e.state ? { state: e.state } : {}) });
     if (e?.code === 'auth/argument-error' || e?.code === 'auth/id-token-expired' || e?.code === 'auth/invalid-id-token') return res.status(401).json({ error: 'Please sign in again.' });
     console.error('invitations error:', e?.code ?? e?.message);
     return res.status(500).json({ error: 'Something went wrong. Please try again.' });

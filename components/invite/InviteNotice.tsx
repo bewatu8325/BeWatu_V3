@@ -5,19 +5,30 @@
  */
 import React, { useEffect, useState } from 'react';
 import { InviteIcon } from '../icons/NavIcons';
-import { deviceStore, fetchPreview, loadPending, purposeLabel, type Preview } from '../../lib/invitations';
+import { deviceStore, fetchPreview, firstName, loadPendingIntent, purposeLabel, type Preview } from '../../lib/invitations';
 
 export const InviteNotice: React.FC = () => {
   const [p, setP] = useState<Preview | null>(null);
+  const [accepted, setAccepted] = useState(false);
   useEffect(() => {
-    const t = loadPending(deviceStore());
-    if (!t) return;
+    const pending = loadPendingIntent(deviceStore());
+    if (!pending) return;
     let live = true;
-    fetchPreview(t).then(r => { if (live && r.state === 'ok') setP(r); });
+    setAccepted(pending.accepted);
+    fetchPreview(pending.token, true).then(r => { if (live && r.state === 'ok') setP(r); });   // quiet: opening the form is not a second view
     return () => { live = false; };
   }, []);
   if (!p) return null;
   const who = p.inviter?.name ?? 'A BeWatu member';
+  if (accepted && (p.purpose ?? 'connect') === 'connect') {
+    const first = firstName(p.inviter?.name);
+    return (
+      <div role="note" className="mb-5 flex items-start gap-3 rounded-xl p-3" style={{ backgroundColor: 'var(--bw-green-light)' }}>
+        <span className="mt-0.5 flex-shrink-0" style={{ color: 'var(--bw-green)' }}><InviteIcon className="h-5 w-5" /></span>
+        <p className="text-sm text-stone-800">{first ? `Finish here to accept ${first}'s invitation.` : 'Finish here to accept your invitation.'} {p.mode === 'request' ? "We'll send the request as soon as you're in." : "You'll be connected as soon as you're in."}</p>
+      </div>
+    );
+  }
   return (
     <div role="note" className="mb-5 flex items-start gap-3 rounded-xl p-3" style={{ backgroundColor: 'var(--bw-green-light)' }}>
       <span className="mt-0.5 flex-shrink-0" style={{ color: 'var(--bw-green)' }}><InviteIcon className="h-5 w-5" /></span>
