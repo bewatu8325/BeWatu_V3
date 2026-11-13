@@ -179,6 +179,7 @@ async function main() {
   await check("platform_feedback: a signed-in user CANNOT write one directly", atk.collection("platform_feedback").add({ uid: "atk", message: "spam", category: "idea" }), "DENY");
   await check("platform_feedback: ops staff CANNOT write one directly either", support1.collection("platform_feedback").add({ uid: "x", message: "y", category: "idea" }), "DENY");
   await check("feedback_rate_limits: no client can read or write the counters", atk.doc("feedback_rate_limits/atk").set({ sendCount: 0 }), "DENY");
+  await check("auth_email_rate_limits: no client can reset the email counters", atk.doc("auth_email_rate_limits/atk").set({ count: 0 }), "DENY");
 
   console.log("\n== posts: the article card (linkPreview) is validated, and its cache is server-only ==");
   const me = testEnv.authenticatedContext("me").firestore();

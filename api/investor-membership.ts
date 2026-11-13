@@ -31,6 +31,51 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, type Firestore } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
 
+// ── The BeWatu email layout ─────────────────────────────────────────────────
+// A copy of the block in api/auth-email.ts (each api/ route is deployed alone and cannot import another). test/auth-email/run-tests.mjs
+// fails if this differs from that one: change the look in api/auth-email.ts, then paste the block into every file that has the markers.
+// <email-shell>
+const MAIL = {
+  green: '#1a4a3a', site: 'https://www.bewatu.com', support: 'support@bewatu.com', legal: 'BeWatu LLC · United States',
+  logo: 'https://www.bewatu.com/email/logo-white.png', font: "Inter,'Helvetica Neue',Helvetica,Arial,sans-serif",
+};
+const escHtml = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+export interface EmailParts {
+  /** The grey line some inboxes show next to the subject. */ preheader: string;
+  heading: string;
+  /** Plain text, one per paragraph. Escaped for you. */ paragraphs: string[];
+  /** Trusted HTML shown between the paragraphs and the button (a code box, a summary). Give `extraText` for the plain version. */
+  extraHtml?: string; extraText?: string;
+  button?: { label: string; url: string };
+  /** Small print under the button. Plain text. */ fine?: string[];
+  /** Small print that contains a link (an unsubscribe line). `html` is trusted; give the same line as `text` for the plain version. */ fineRich?: { html: string; text: string }[];
+  /** The address this was sent to, shown in the footer. */ to?: string;
+}
+export function emailHtml(p: EmailParts): string {
+  const { green: G, font: F } = MAIL;
+  const para = (t: string) => `<p style="margin:0 0 14px;font-family:${F};font-size:15px;line-height:23px;color:#292524">${escHtml(t).replace(/\n/g, '<br>')}</p>`;
+  const button = p.button ? `<tr><td style="padding:10px 32px 4px"><a href="${escHtml(p.button.url)}" style="display:inline-block;background:${G};color:#ffffff;text-decoration:none;font-family:${F};font-weight:600;font-size:15px;line-height:20px;padding:13px 26px;border-radius:10px">${escHtml(p.button.label)}</a></td></tr>`
+    + `<tr><td style="padding:14px 32px 0;font-family:${F};font-size:12px;line-height:18px;color:#78716c">If the button does not work, copy this address into your browser:<br><a href="${escHtml(p.button.url)}" style="color:${G};word-break:break-all">${escHtml(p.button.url)}</a></td></tr>` : '';
+  const fineLine = (h: string) => `<p style="margin:0 0 8px;font-family:${F};font-size:13px;line-height:20px;color:#78716c">${h}</p>`;
+  const fine = [...(p.fine ?? []).map(t => fineLine(escHtml(t))), ...(p.fineRich ?? []).map(r => fineLine(r.html))].join('');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only"><title>${escHtml(p.heading)}</title></head>`
+    + `<body style="margin:0;padding:0;background:#f5f5f4"><div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:#f5f5f4">${escHtml(p.preheader)}</div>`
+    + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f5f4"><tr><td align="center" style="padding:24px 12px">`
+    + `<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #e7e5e4;border-radius:14px">`
+    + `<tr><td style="background:${G};padding:22px 32px;border-radius:13px 13px 0 0"><a href="${MAIL.site}" style="text-decoration:none"><img src="${MAIL.logo}" alt="BeWatu" width="112" height="34" style="display:block;border:0;width:112px;height:34px;color:#ffffff;font-family:${F};font-size:20px"></a></td></tr>`
+    + `<tr><td style="padding:30px 32px 6px;font-family:${F};font-size:15px;line-height:23px;color:#292524"><h1 style="margin:0 0 16px;font-family:${F};font-size:22px;line-height:28px;font-weight:700;color:#1c1917">${escHtml(p.heading)}</h1>${p.paragraphs.map(para).join('')}${p.extraHtml ?? ''}</td></tr>`
+    + button
+    + `<tr><td style="padding:22px 32px 26px">${fine}</td></tr>`
+    + `<tr><td style="background:#fafaf9;border-top:1px solid #e7e5e4;padding:20px 32px;border-radius:0 0 13px 13px;font-family:${F};font-size:12px;line-height:19px;color:#78716c">`
+    + `<strong style="color:${G}">BeWatu</strong><br>Questions? Write to <a href="mailto:${MAIL.support}" style="color:${G}">${MAIL.support}</a><br><a href="${MAIL.site}" style="color:${G}">www.bewatu.com</a> · ${escHtml(MAIL.legal)}`
+    + (p.to ? `<br><span style="color:#a8a29e">Sent to ${escHtml(p.to)}</span>` : '') + `</td></tr></table></td></tr></table></body></html>`;
+}
+export function emailText(p: EmailParts): string {
+  return [p.heading, '', ...p.paragraphs.flatMap(t => [t, '']), ...(p.extraText ? [p.extraText, ''] : []), ...(p.button ? [`${p.button.label}: ${p.button.url}`, ''] : []),
+    ...(p.fine ?? []).flatMap(t => [t, '']), ...(p.fineRich ?? []).flatMap(r => [r.text, '']), '--', `BeWatu · ${MAIL.site}`, `Questions? Write to ${MAIL.support}`, MAIL.legal, ...(p.to ? [`Sent to ${p.to}`] : [])].join('\n');
+}
+// </email-shell>
+
 export const config = { api: { bodyParser: false } };
 
 export class HttpError extends Error {
@@ -85,7 +130,7 @@ export function entitlement(approval: { status: 'approved' | 'revoked' | null },
 const LIVE: SubStatus[] = ['trialing', 'active', 'past_due'];
 
 // ── dependencies, injected so the whole thing is testable ────────────────────
-export interface Mail { to: string; subject: string; html: string }
+export interface Mail { to: string; subject: string; html: string; text?: string }
 export interface StripeOps {
   checkout(p: { uid: string; email: string; customerId: string | null; trialDays: number; applicationId: string; successUrl: string; cancelUrl: string; idempotencyKey: string }): Promise<{ url: string }>;
   portal(p: { customerId: string; returnUrl: string }): Promise<{ url: string }>;
@@ -136,9 +181,14 @@ async function notify(d: Deps, uid: string, n: { type: 'investor_application' | 
   try { if (dedupeId) await col.doc(dedupeId).create(data); else await col.add(data); }
   catch (e: any) { if (e?.code !== 6 && !/already exists/i.test(String(e?.message))) console.error('investor notify failed:', e?.code ?? e?.message); }
 }
-const wrapMail = (body: string) => `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#292524;font-size:14px;line-height:1.6">${body}<p style="margin-top:28px;color:#78716c;font-size:12px">BeWatu Investor membership</p></div>`;
+/** The plain-text version of a short HTML body: paragraphs and line breaks kept, tags dropped, entities undone. */
+const plainOf = (h: string) => h.replace(/<\/p>|<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\n{3,}/g, '\n\n').trim();
+const memberMail = (to: string, subject: string, body: string): Mail => {
+  const parts: EmailParts = { preheader: subject, heading: subject, paragraphs: [], extraHtml: body, extraText: plainOf(body), fine: ['This message is about your BeWatu Investor membership.'], to };
+  return { to, subject, html: emailHtml(parts), text: emailText(parts) };
+};
 const quote = (m: string | null | undefined) => (m ? `<blockquote style="border-left:3px solid #d6d3d1;margin:12px 0;padding:4px 12px;color:#44403c;white-space:pre-wrap">${esc(m)}</blockquote>` : '');
-async function emailMember(d: Deps, to: string | undefined, subject: string, body: string) { if (to) { try { await d.mail({ to, subject, html: wrapMail(body) }); } catch (e: any) { console.error('investor mail failed:', e?.message); } } }
+async function emailMember(d: Deps, to: string | undefined, subject: string, body: string) { if (to) { try { await d.mail(memberMail(to, subject, body)); } catch (e: any) { console.error('investor mail failed:', e?.message); } } }
 
 // ── who may review ───────────────────────────────────────────────────────────
 async function reviewerOf(db: Firestore, uid: string): Promise<{ role: string; email: string } | null> {
@@ -501,7 +551,7 @@ function getAdminApp() {
 async function rawBody(req: VercelRequest): Promise<string> { const chunks: Buffer[] = []; for await (const c of req as any) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)); return Buffer.concat(chunks).toString('utf8'); }
 async function resendMail(m: Mail): Promise<boolean> {
   const key = process.env.RESEND_API_KEY; if (!key) return false;
-  const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ from: 'BeWatu <noreply@bewatu.com>', to: [m.to], subject: m.subject, html: m.html }) });
+  const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ from: 'BeWatu <noreply@bewatu.com>', reply_to: MAIL.support, to: [m.to], subject: m.subject, html: m.html, text: m.text }) });
   if (!r.ok) console.error('Resend error:', await r.text());
   return r.ok;
 }

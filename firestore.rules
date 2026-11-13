@@ -280,6 +280,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // api/auth-email.ts's counters for verification and password-reset emails (keyed by a hash of the member or address).
+    match /auth_email_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
     match /content_reports/{reportId} {
       // P0 4 fix: was `if isAuth()` — any signed-in user could read every
       // abuse report and the identity of who filed it. Now: the reporter

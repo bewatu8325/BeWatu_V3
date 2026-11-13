@@ -16,7 +16,7 @@
  *
  * Views without an address (a profile, Pricing, the AI assistant...) are shown at "/" and are still restored by Back, because
  * the browser entry also remembers which view it was. Addresses that mean something else (/be/<name>, /terms, /privacy,
- * /community-guidelines, /login, /register, /endorse/...) are never read as destinations.
+ * /community-guidelines, /login, /register, /auth/action, /endorse/...) are never read as destinations.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { View } from '../types';
