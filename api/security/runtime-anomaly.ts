@@ -40,7 +40,7 @@ async function alertDirect(subject: string, text: string) {
   if (!key) { console.error('anomaly alert not sent: RESEND_API_KEY is not set'); return; }
   await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ from: 'BeWatu Security <noreply@bewatu.com>', to: [process.env.SECURITY_ALERT_EMAIL ?? process.env.UPTIME_ALERT_EMAIL ?? 'contact@abideus.com'], subject, text }),
+    body: JSON.stringify({ from: 'BeWatu Security <noreply@bewatu.com>', to: [process.env.SECURITY_ALERT_EMAIL ?? process.env.UPTIME_ALERT_EMAIL ?? 'support@bewatu.com'], subject, text }),
   }).catch((e: any) => console.error('anomaly alert failed:', e?.message));
 }
 

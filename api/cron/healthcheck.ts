@@ -143,7 +143,7 @@ async function sendViaResend(subject: string, html: string): Promise<boolean> {
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ from: 'BeWatu Uptime Monitor <noreply@bewatu.com>', to: [process.env.UPTIME_ALERT_EMAIL || process.env.SECURITY_ALERT_EMAIL || 'contact@abideus.com'], subject, html }),
+      body: JSON.stringify({ from: 'BeWatu Uptime Monitor <noreply@bewatu.com>', to: [process.env.UPTIME_ALERT_EMAIL || process.env.SECURITY_ALERT_EMAIL || 'support@bewatu.com'], subject, html }),
     });
     if (!r.ok) console.error('healthcheck: Resend refused the alert:', r.status, await r.text());
     return r.ok;

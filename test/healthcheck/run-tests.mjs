@@ -120,5 +120,14 @@ await t('the heartbeat written by a real run is what the endpoint reads', async 
   const h = evaluate(await state(), T0 + 6 * MIN); assert(!h.ok && h.failing.includes('/api/ai'), JSON.stringify(h));
 });
 
+console.log('== where alerts go when nothing is configured ==');
+await t('every alert path falls back to support@bewatu.com, never a personal or other-company address', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['api/cron/healthcheck.ts', 'api/security/approve.ts', 'api/security/finding.ts', 'api/security/runtime-anomaly.ts']) {
+    const src = readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+    assert(src.includes("'support@bewatu.com'") && !/abideus/i.test(src), f + ' must fall back to support@bewatu.com');
+  }
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -64,7 +64,7 @@ async function alertOps(subject: string, text: string): Promise<boolean> {
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ from: 'BeWatu Security <noreply@bewatu.com>', to: [process.env.SECURITY_ALERT_EMAIL ?? process.env.UPTIME_ALERT_EMAIL ?? 'contact@abideus.com'], subject, text }),
+      body: JSON.stringify({ from: 'BeWatu Security <noreply@bewatu.com>', to: [process.env.SECURITY_ALERT_EMAIL ?? process.env.UPTIME_ALERT_EMAIL ?? 'support@bewatu.com'], subject, text }),
     });
     if (!r.ok) console.error('security alert refused by Resend:', r.status, await r.text());
     return r.ok;
