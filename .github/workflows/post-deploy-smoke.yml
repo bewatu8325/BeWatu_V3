@@ -1,0 +1,61 @@
+# .github/workflows/post-deploy-smoke.yml
+#
+# After every PRODUCTION deploy, check from outside that what members rely on still works, and say so loudly if not.
+#
+# Why: CI proves the code builds and the tests pass; it does not prove the deployed site answers. A deploy that breaks login, or a
+# missing secret, used to be found by a member. Nothing here rolls anything back (that is a decision for a person, or a later,
+# separately proven automation). It turns a silent bad deploy into a red run and an issue within about two minutes.
+#
+# To roll back: Vercel dashboard -> Deployments -> the previous green deployment -> "Promote to Production". Firestore rules and
+# indexes are deployed separately (firebase deploy), so check whether the bad change also included a rules change.
+
+name: Post-deploy smoke test
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  smoke:
+    name: Production smoke test
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SITE: https://www.bewatu.com
+    steps:
+      - name: Probe production (3 tries, a new deploy can take a moment to take over the domain)
+        run: |
+          check() { # name, expected status, curl args...
+            name="$1"; want="$2"; shift 2
+            code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 15 "$@" || echo 000)
+            if [ "$code" = "$want" ]; then echo "ok    $name ($code)"; else echo "FAIL  $name: got $code, expected $want"; fail=1; fi
+          }
+          for attempt in 1 2 3; do
+            fail=0
+            echo "== attempt $attempt"
+            sleep 20
+            check "site root"                              200 "$SITE/"
+            check "sign-in / verify / reset route"         200 "$SITE/auth/action"
+            check "token-gated /api/ai refuses a stranger"     401 -X POST -H 'Content-Type: application/json' -d '{}' "$SITE/api/ai"
+            check "token-gated /api/factory-token refuses a stranger" 401 -X POST -H 'Content-Type: application/json' -d '{}' "$SITE/api/factory-token"
+            check "database + secret (invitation preview)" 404 "$SITE/api/invitations?token=AAAAAAAAAAAAAAAA.BBBBBBBBBBBBBBBBBBBBBB"
+            grep -q '"state":"invalid"' /tmp/body || { echo "FAIL  invitation preview did not answer 'invalid' (a missing secret or dead database answers differently)"; fail=1; }
+            [ "$fail" = 0 ] && break
+          done
+          exit $fail
+
+      - name: Open an issue so it cannot be missed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.deployment.sha }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create deploy-smoke-failed --color B60205 --description "A production deploy failed its smoke test" 2>/dev/null || true
+          gh issue create --title "Production smoke test failed after deploy ${SHA:0:7}" --label deploy-smoke-failed --body "The production deploy of \`${SHA}\` finished, but a check against https://www.bewatu.com failed. Details: ${RUN}
+
+          If members are affected, roll back first: Vercel dashboard, Deployments, the previous green deployment, Promote to Production. Then check whether this change also included a Firestore rules or index change, which is deployed separately."
