@@ -18,15 +18,16 @@
 #     The adapter itself. This is the one file allowed to know both
 #     providers' shapes.
 #
-#   - api/security/agent.ts, api/security/approve.ts, api/security/finding.ts,
+#   - api/security/approve.ts, api/security/finding.ts,
 #     api/skills-trajectory.ts, api/verify-reel.ts
-#     Five pre-existing, server-to-server integrations (Vercel function ->
+#     Four pre-existing, server-to-server integrations (Vercel function ->
 #     Anthropic API directly) that predate api/ai.ts and were never part of
 #     the client-facing consolidation this check protects. Their API key
 #     never reaches a browser either way -- they're each their own backend
 #     feature (the security agent, skills-trajectory analysis, reel
-#     verification, security-finding triage/approval), not a thin "show the
-#     user some AI text" UI call. All five hardcode Claude specifically
+#     verification, security-finding triage/approval; the old api/security/agent.ts was removed because approve.ts
+#     already does its job behind the approval gate), not a thin "show the
+#     user some AI text" UI call. All four hardcode Claude specifically
 #     (claude-sonnet-4-6 / claude-opus-4-6), so there's no live
 #     multi-provider drift risk today -- but they have NOT been assessed for
 #     whether they could/should move onto api/ai.ts, and this allowlist
@@ -39,7 +40,6 @@ set -euo pipefail
 
 ALLOWLIST=(
   "api/ai.ts"
-  "api/security/agent.ts"
   "api/security/approve.ts"
   "api/security/finding.ts"
   "api/skills-trajectory.ts"

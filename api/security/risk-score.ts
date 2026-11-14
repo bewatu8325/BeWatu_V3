@@ -2,9 +2,17 @@
 // POST /api/security/risk-score
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { timingSafeEqual } from 'node:crypto';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+
+/** Constant-time, and never true when either side is empty (an unset or blank secret must not authenticate "Bearer "). */
+export function safeEqual(a: string, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
 
 function initAdmin() {
   if (!getApps().length) {
@@ -76,7 +84,7 @@ async function calculateBlastRadius(assetId: string, db: ReturnType<typeof getFi
 function validateServiceToken(req: VercelRequest): boolean {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return false;
-  return auth.slice(7) === process.env.BEWATU_SECURITY_TOKEN;
+  return safeEqual(auth.slice(7), process.env.BEWATU_SECURITY_TOKEN);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

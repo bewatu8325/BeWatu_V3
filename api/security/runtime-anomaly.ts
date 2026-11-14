@@ -5,6 +5,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { timingSafeEqual } from 'node:crypto';
 
 const THRESHOLDS = {
   DELETION_RATE_PER_MINUTE: 50,
@@ -27,12 +28,38 @@ function initAdmin() {
   return { db: getFirestore() };
 }
 
+/** Constant-time, and never true when either side is empty. */
+export function safeEqual(a: string, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+async function alertDirect(subject: string, text: string) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) { console.error('anomaly alert not sent: RESEND_API_KEY is not set'); return; }
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ from: 'BeWatu Security <noreply@bewatu.com>', to: [process.env.SECURITY_ALERT_EMAIL ?? process.env.UPTIME_ALERT_EMAIL ?? 'contact@abideus.com'], subject, text }),
+  }).catch((e: any) => console.error('anomaly alert failed:', e?.message));
+}
+
+// The result used to be ignored, so a refused or failed post silently dropped a "critical" signal. Now: if the finding cannot be
+// recorded, email the operator directly with what was seen, and fail the request so the drain can retry it.
 async function postFinding(db: ReturnType<typeof getFirestore>, partial: Record<string, unknown>) {
-  await fetch('https://www.bewatu.com/api/security/finding', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.BEWATU_SECURITY_TOKEN}` },
-    body: JSON.stringify({ sensor: 'runtime-anomaly', ...partial }),
-  });
+  let ok = false, detail = '';
+  try {
+    const r = await fetch('https://www.bewatu.com/api/security/finding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.BEWATU_SECURITY_TOKEN}` },
+      body: JSON.stringify({ sensor: 'runtime-anomaly', repo: 'bewatu_v3', ...partial }),
+    });
+    ok = r.ok; if (!ok) detail = `HTTP ${r.status}`;
+  } catch (e: any) { detail = e?.message ?? 'network error'; }
+  if (!ok) {
+    await alertDirect(`🔴 Runtime anomaly (could not be recorded): ${String(partial.title)}`, `${String(partial.description)}\n\nThe finding pipeline refused it (${detail}), so this email is the only record. Check /api/security/finding and BEWATU_SECURITY_TOKEN.`);
+    throw new Error(`finding not recorded: ${detail}`);
+  }
 }
 
 async function analyzeLogBatch(logs: any[], db: ReturnType<typeof getFirestore>) {
@@ -112,8 +139,7 @@ async function analyzeLogBatch(logs: any[], db: ReturnType<typeof getFirestore>)
 function validateServiceToken(req: VercelRequest): boolean {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return false;
-  const token = auth.slice(7);
-  return !!process.env.BEWATU_SECURITY_TOKEN && token === process.env.BEWATU_SECURITY_TOKEN;
+  return safeEqual(auth.slice(7), process.env.BEWATU_SECURITY_TOKEN);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
