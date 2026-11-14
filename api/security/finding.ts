@@ -6,6 +6,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { timingSafeEqual } from 'node:crypto';
 
 const ALLOWED_ORIGINS = [
   'https://ops.bewatu.com',
@@ -34,9 +35,40 @@ function initAdmin() {
   return { db: getFirestore(), auth: getAuth() };
 }
 
+/** Constant-time, and never true when either side is empty (an unset or blank secret must not authenticate "Bearer "). */
+export function safeEqual(a: string, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
 function validateSensor(token: string): boolean {
-  const securityToken = process.env.BEWATU_SECURITY_TOKEN;
-  return !!securityToken && token === securityToken;
+  return safeEqual(token, process.env.BEWATU_SECURITY_TOKEN);
+}
+
+/** Is this the same open problem we already know about? Same title and sensor AND the same repository and file. */
+export function isSameFinding(existing: Record<string, any>, partial: { repo?: string; evidence?: { filePath?: string | null } }): boolean {
+  if (['verified', 'false_positive', 'accepted_risk'].includes(existing.status)) return false;
+  return (existing.repo ?? 'shared') === (partial.repo ?? 'shared') && (existing.evidence?.filePath ?? null) === (partial.evidence?.filePath ?? null);
+}
+
+// ── tell a person ────────────────────────────────────────────────────────────
+// Findings used to land in a console nobody was told to open. High and critical ones are emailed; a repeat of a known one is
+// re-sent at most every 6 hours, so an old unresolved finding can never silence a new incident forever.
+export const ALERT_MIN_SCORE = 65;
+export const ALERT_REPEAT_MS = 6 * 3_600_000;
+export const shouldAlert = (riskScore: number, lastAlertedAt: number | null | undefined, now: number) =>
+  riskScore >= ALERT_MIN_SCORE && (!lastAlertedAt || now - lastAlertedAt >= ALERT_REPEAT_MS);
+async function alertOps(subject: string, text: string): Promise<boolean> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) { console.error('security alert not sent: RESEND_API_KEY is not set'); return false; }
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ from: 'BeWatu Security <noreply@bewatu.com>', to: [process.env.SECURITY_ALERT_EMAIL ?? process.env.UPTIME_ALERT_EMAIL ?? 'contact@abideus.com'], subject, text }),
+    });
+    if (!r.ok) console.error('security alert refused by Resend:', r.status, await r.text());
+    return r.ok;
+  } catch (e: any) { console.error('security alert failed:', e?.message); return false; }
 }
 
 function normaliseIncomingFinding(body: any) {
@@ -259,7 +291,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const decoded = await auth.verifyIdToken(token);
         const opsDoc  = await db.collection('ops_staff').doc(decoded.uid).get();
-        if (!opsDoc.exists) return res.status(403).json({ error: 'Unauthorised' });
+        if (!opsDoc.exists || opsDoc.data()?.isActive !== true) return res.status(403).json({ error: 'Unauthorised' });
       } catch {
         return res.status(403).json({ error: 'Unauthorised' });
       }
@@ -271,15 +303,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const recent = await db.collection('security_findings')
       .where('title',  '==', partial.title)
       .where('sensor', '==', partial.sensor)
-      .limit(5)
+      .limit(25)
       .get();
 
-    const openDupe = recent.docs.find(d =>
-      !['verified', 'false_positive', 'accepted_risk'].includes(d.data().status)
-    );
+    // Same title is not enough: the same problem in two repositories, or two files, is two findings.
+    const openDupe = recent.docs.find(d => isSameFinding(d.data(), partial));
 
     if (openDupe) {
-      await openDupe.ref.update({ updatedAt: FieldValue.serverTimestamp() });
+      const known = openDupe.data();
+      const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
+      if (shouldAlert(known.riskScore ?? 0, known.lastAlertedAt, Date.now())
+        && await alertOps(`🔴 Security (still open, seen again): ${partial.title}`, `${known.findingId} is still unresolved and was reported again.\nSeverity: ${known.severity} (risk ${known.riskScore}/100)\nRepo: ${partial.repo}\n\n${partial.description}\n\nReview it in the ops console: https://ops.bewatu.com`)) {
+        update.lastAlertedAt = Date.now();
+      }
+      await openDupe.ref.update(update);
       return res.status(200).json({ id: openDupe.id, deduplicated: true });
     }
 
@@ -326,6 +363,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       approvalId = result.approvalId;
 
       await docRef.update({ remediationPlanId: planId });
+    }
+
+    // A person must hear about anything serious. Best effort: a mail failure must never lose the finding.
+    if (shouldAlert(riskScore, null, Date.now())
+      && await alertOps(`🔴 Security ${severity.toUpperCase()}: ${partial.title}`, `${findingId} (${severity}, risk ${riskScore}/100)\nSensor: ${partial.sensor}\nRepo: ${partial.repo}${partial.evidence?.filePath ? `\nFile: ${partial.evidence.filePath}` : ''}\n\n${partial.description}\n\n${approvalId ? 'A remediation is waiting for approval' : 'No automatic remediation was proposed'} in the ops console: https://ops.bewatu.com`)) {
+      await docRef.update({ lastAlertedAt: Date.now() }).catch(() => {});
     }
 
     return res.status(201).json({

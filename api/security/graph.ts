@@ -2,9 +2,17 @@
 // GET /api/security/graph
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { timingSafeEqual } from 'node:crypto';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+
+/** Constant-time, and never true when either side is empty (an unset or blank secret must not authenticate "Bearer "). */
+export function safeEqual(a: string, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
 
 function initAdmin() {
   if (!getApps().length) {
@@ -24,7 +32,7 @@ async function verifyOpsAgent(req: VercelRequest, db: ReturnType<typeof getFires
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) return false;
   const token = authHeader.slice(7);
-  if (token === process.env.BEWATU_SECURITY_TOKEN) return true;
+  if (safeEqual(token, process.env.BEWATU_SECURITY_TOKEN)) return true;
   try {
     const decoded = await auth.verifyIdToken(token);
     const opsDoc  = await db.collection('ops_staff').doc(decoded.uid).get();

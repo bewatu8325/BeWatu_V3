@@ -139,6 +139,8 @@ jobs:
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/auth-email/run-tests.mjs"
       - name: Uptime monitor - alerts even when Firestore is down, failed alerts are retried, heartbeat
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/healthcheck/run-tests.mjs"
+      - name: Security control plane - approvals, AI fix guardrails, failed means failed
+        run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/security-control-plane/run-tests.mjs"
       - name: Ops user-data route
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/ops-user-data/run-tests.mjs"
       - name: Legacy PII purge script (unit)
