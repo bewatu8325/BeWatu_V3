@@ -139,6 +139,8 @@ jobs:
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/auth-email/run-tests.mjs"
       - name: Uptime monitor - alerts even when Firestore is down, failed alerts are retried, heartbeat
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/healthcheck/run-tests.mjs"
+      - name: Monitor tripwires - deletions, privileged access, scheduled jobs, login journey, alert channels
+        run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/monitor-depth/run-tests.mjs"
       - name: Security control plane - approvals, AI fix guardrails, failed means failed
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/security-control-plane/run-tests.mjs"
       - name: Ops user-data route
