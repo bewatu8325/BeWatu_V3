@@ -22,8 +22,14 @@
  *   - Every run stamps a heartbeat. api/health.ts serves it, and a watcher OUTSIDE Vercel (GitHub Actions in bewatu-security)
  *     alarms if it goes quiet, so "the monitor stopped running" is itself detected.
  *
+ * ALERT DRILL: set UPTIME_DRILL_UNTIL to an ISO time (for example 2026-11-15T02:10:00Z) and redeploy. Until that moment the
+ * monitor reports one clearly labelled synthetic failure, so you can watch the alert email arrive, /api/health go 503 and the
+ * outside watchdog turn red. When the time passes it recovers by itself (recovery email, health 200). A time that is already
+ * past, unreadable, or more than 2 hours away is ignored, so a typo can never leave a drill running.
+ *
  * Env: CRON_SECRET, RESEND_API_KEY, UPTIME_ALERT_EMAIL (or SECURITY_ALERT_EMAIL), FIREBASE_SERVICE_ACCOUNT_APP_SERVER,
- *      VITE_FIREBASE_API_KEY (optional here: without it the Auth probe says it was skipped instead of passing).
+ *      VITE_FIREBASE_API_KEY (optional here: without it the Auth probe says it was skipped instead of passing),
+ *      UPTIME_DRILL_UNTIL (optional, only while running a drill).
  * ────────────────────────────────────────────────────────────
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -78,12 +84,23 @@ export async function runProbes(d: Deps): Promise<Probe[]> {
   return Promise.all(out);
 }
 
+export const DRILL_MAX_AHEAD_MS = 2 * 3600_000;
+export const DRILL_NAME = 'DRILL (planned test, not a real failure)';
+/** One synthetic failure while a drill is running; nothing otherwise. A past, unreadable or too-far-ahead time is ignored. */
+export function drillProbe(raw: string | undefined, now: number): Probe | null {
+  if (!raw) return null;
+  const until = Date.parse(raw);
+  if (!Number.isFinite(until) || until <= now || until > now + DRILL_MAX_AHEAD_MS) return null;
+  return { name: DRILL_NAME, url: 'planned alert drill', ok: false, detail: `A planned alert drill is running until ${new Date(until).toISOString()}. If you received this email, alert delivery works. It will resolve by itself.` };
+}
+
 const failingSubject = (n: string) => `🔴 BeWatu health check failing: ${n}`;
 export interface Outcome { status: 200 | 503; results: Probe[]; alertFailed: boolean; stateOk: boolean }
 
 /** One run: probe, alert (before anything needs Firestore), then record state and the heartbeat. */
 export async function runHealthcheck(d: Deps): Promise<Outcome> {
   const results = await runProbes(d);
+  const drill = drillProbe(d.env.UPTIME_DRILL_UNTIL, d.now); if (drill) results.push(drill);
   const ref = d.db ? d.db.collection(STATE.collection).doc(STATE.doc) : null;
 
   // Firestore is both a thing we check and where we keep our notes. If it is down we still alert, just without memory of the past.
@@ -112,6 +129,15 @@ export async function runHealthcheck(d: Deps): Promise<Outcome> {
       const sent = await d.send(`✅ BeWatu health check recovered: ${r.name}`, `<p><strong>${r.name}</strong> (${r.url}) is passing again.</p><p>Was failing since: ${new Date(prior.failingSince).toISOString()}</p>`);
       if (sent) updates[r.name] = FieldValue.delete(); else alertFailed = true;   // keep the note so the recovery notice is retried
     }
+  }
+  // A "failing" note whose check no longer reports at all (a drill that ended, a probe that was renamed or removed) used to stay
+  // red forever and keep /api/health at 503. It is treated as recovered.
+  const reported = new Set(results.map(r => r.name));
+  for (const [name, v] of Object.entries(state)) {
+    if (reported.has(name) || !v || typeof v !== 'object' || typeof (v as any).failingSince !== 'number') continue;
+    attempted = true;
+    const sent = await d.send(`✅ BeWatu health check recovered: ${name}`, `<p><strong>${name}</strong> is no longer being reported as failing (the check ended or was removed).</p><p>Was failing since: ${new Date((v as any).failingSince).toISOString()}</p>`);
+    if (sent) updates[name] = FieldValue.delete(); else alertFailed = true;
   }
   const allOk = results.every(r => r.ok);
   updates.lastRunAt = d.now; updates.lastRunOk = allOk;

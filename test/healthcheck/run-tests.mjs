@@ -7,7 +7,7 @@
 //   - the heartbeat says when the monitor has stopped, so a watcher outside Vercel can notice
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { runHealthcheck, runProbes, ALERT_COOLDOWN_MS, SITE_ORIGIN } from '../../api/cron/healthcheck.ts';
+import { runHealthcheck, runProbes, ALERT_COOLDOWN_MS, SITE_ORIGIN, drillProbe, DRILL_NAME, DRILL_MAX_AHEAD_MS } from '../../api/cron/healthcheck.ts';
 import { evaluate, HEARTBEAT_MAX_AGE_MS } from '../../api/health.ts';
 
 let pass = 0, fail = 0;
@@ -118,6 +118,35 @@ await t('the heartbeat written by a real run is what the endpoint reads', async 
   assert(evaluate(await state(), T0 + 2 * MIN).ok, 'green after a clean run');
   await runHealthcheck(deps({ now: T0 + 5 * MIN, fetch: world({ '/api/ai': json(500, {}) }) }));
   const h = evaluate(await state(), T0 + 6 * MIN); assert(!h.ok && h.failing.includes('/api/ai'), JSON.stringify(h));
+});
+
+console.log('== the alert drill ==');
+const iso = ms => new Date(ms).toISOString();
+await t('a drill reports one clearly labelled synthetic failure while it runs, and nothing before, after, or for a bad time', () => {
+  const live = drillProbe(iso(T0 + 30 * MIN), T0); assert(live && live.ok === false && live.name === DRILL_NAME && /alert delivery works/.test(live.detail), JSON.stringify(live));
+  assert(drillProbe(undefined, T0) === null && drillProbe('', T0) === null, 'not set');
+  assert(drillProbe(iso(T0 - MIN), T0) === null, 'already over');
+  assert(drillProbe('not a date', T0) === null, 'unreadable');
+  assert(drillProbe(iso(T0 + DRILL_MAX_AHEAD_MS + MIN), T0) === null, 'a typo years ahead must not leave a drill running');
+  assert(drillProbe(iso(T0 + DRILL_MAX_AHEAD_MS), T0) !== null, 'the limit itself is allowed');
+});
+await t('the whole drill: alert, 503 health, then a recovery email and green health when it ends, with nothing stuck', async () => {
+  await reset(); const env = { VITE_FIREBASE_API_KEY: 'k', UPTIME_DRILL_UNTIL: iso(T0 + 20 * MIN) };
+  const a = await runHealthcheck(deps({ env, now: T0 }));
+  assert(a.status === 503 && mails.length === 1 && /DRILL/.test(mails[0].subject) && /failing/.test(mails[0].subject), JSON.stringify(mails));
+  let h = evaluate(await state(), T0 + MIN); assert(!h.ok && h.failing.some(n => /DRILL/.test(n)) && (await state()).alertChannelOk === true, 'health is red, the channel is proven: ' + JSON.stringify(h));
+  await runHealthcheck(deps({ env, now: T0 + 5 * MIN })); assert(mails.length === 1, 'quiet inside the cooldown');
+  const done = await runHealthcheck(deps({ env, now: T0 + 25 * MIN }));   // the drill's time has passed: the probe is gone
+  assert(done.status === 200 && mails.length === 2 && /recovered/.test(mails[1].subject) && /DRILL/.test(mails[1].subject), 'recovery email: ' + JSON.stringify(mails.map(m => m.subject)));
+  h = evaluate(await state(), T0 + 26 * MIN); assert(h.ok && h.failing.length === 0, 'green again, nothing stuck: ' + JSON.stringify(h));
+});
+await t('a failing note for a check that no longer exists is recovered, not left red forever (the stuck-state bug the drill exposed)', async () => {
+  await reset(); await stateRef.set({ lastRunAt: T0 - MIN, 'a check that was removed': { failingSince: T0 - 60 * MIN, lastAlertedAt: T0 - 60 * MIN } });
+  const o = await runHealthcheck(deps({ now: T0 }));
+  assert(o.status === 200 && mails.some(m => /recovered: a check that was removed/.test(m.subject)), JSON.stringify(mails.map(m => m.subject)));
+  assert(evaluate(await state(), T0 + MIN).ok, 'health is green');
+  mailOk = false; await stateRef.set({ 'another removed check': { failingSince: T0 - MIN } }, { merge: true });
+  await runHealthcheck(deps({ now: T0 + 5 * MIN })); assert('another removed check' in (await state()), 'if the notice cannot be sent the note stays, so it is retried');
 });
 
 console.log('== where alerts go when nothing is configured ==');
