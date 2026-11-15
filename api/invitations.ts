@@ -755,7 +755,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (q('cron')) {
       const cs = process.env.CRON_SECRET;
       if (!cs || req.headers.authorization !== `Bearer ${cs}`) return res.status(401).json({ error: 'Unauthorized' });
-      return res.status(200).json(await runDaily(d));
+      // A heartbeat for the uptime monitor (api/cron/healthcheck.ts): it alarms if this daily job stops running or reports an error.
+      let result: Awaited<ReturnType<typeof runDaily>>; let ok = true;
+      try { result = await runDaily(d); } catch (e) { ok = false; await d.db.collection('_ops_internal').doc('cron_invitations').set({ lastRunAt: d.now, ok: false }, { merge: true }).catch(() => {}); throw e; }
+      await d.db.collection('_ops_internal').doc('cron_invitations').set({ lastRunAt: d.now, ok }, { merge: true }).catch((e: any) => console.error('cron heartbeat failed:', e?.message));
+      return res.status(200).json(result);
     }
 
     if (req.method === 'GET') {
