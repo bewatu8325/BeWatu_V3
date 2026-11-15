@@ -23,7 +23,7 @@ jobs:
     name: Typecheck & build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - name: Install dependencies
@@ -37,7 +37,7 @@ jobs:
     name: Typecheck functions/
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         # functions/package.json declares engines.node: "22" (the real
         # deploy runtime — Firebase's own deploy output confirms "Node.js 22
@@ -74,7 +74,7 @@ jobs:
     name: Server route and logic tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         # Node 22, like functions-typecheck above: firebase-admin >=14 needs it, and under Node 20 npm silently
         # skips its optional @google-cloud/firestore (the suites import firebase-admin directly).
@@ -162,7 +162,7 @@ jobs:
     name: Arenas, Prove and navigation tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         # Node 22: firebase-admin >=14 needs it (see functions-typecheck above).
         with: { node-version: '22' }
