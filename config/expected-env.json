@@ -1,0 +1,13 @@
+{
+  "_about": "What the BeWatu_V3 Vercel project is expected to have. scripts/check-vercel-env.mjs compares NAMES only (never values). A missing name is a warning in the daily posture job, not a failure. Edit this file when you add or retire a variable.",
+  "required": [
+    "CRON_SECRET", "RESEND_API_KEY", "BEWATU_SECURITY_TOKEN", "FIREBASE_SERVICE_ACCOUNT_APP_SERVER", "VITE_FIREBASE_API_KEY",
+    "GITHUB_TOKEN", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"
+  ],
+  "anyOf": [
+    ["INVITATION_SECRET", "COMMS_UNSUBSCRIBE_SECRET"],
+    ["SECURITY_ALERT_EMAIL", "UPTIME_ALERT_EMAIL"]
+  ],
+  "recommended": ["SECURITY_ALERT_EMAIL", "STRIPE_INVESTOR_WEBHOOK_SECRET", "STRIPE_INVESTOR_PRICE_ID", "ANTHROPIC_API_KEY"],
+  "publicByDesign": ["VITE_FIREBASE_API_KEY", "VITE_FIREBASE_PROJECT_ID", "VITE_FIREBASE_STORAGE_BUCKET", "VITE_FIREBASE_MESSAGING_SENDER_ID", "VITE_FIREBASE_APP_ID", "VITE_SENTRY_DSN", "VITE_ALGOLIA_SEARCH_KEY"]
+}
