@@ -237,6 +237,17 @@ Write a clear, jargon-free explanation with exactly these four sections. Keep ea
   }
 }
 
+/**
+ * An open finding that is reported again but has NO pending approval (the old one expired, or its fix attempt failed and was
+ * closed) is orphaned: dedupe would keep absorbing reports and nobody could ever act on it. It needs a fresh approval request.
+ */
+export async function needsFreshApproval(db: ReturnType<typeof getFirestore>, findingDocId: string, known: Record<string, any>): Promise<boolean> {
+  if ((known.riskScore ?? 0) < 40) return false;
+  if (!['approval_pending', 'triaged'].includes(String(known.status))) return false;      // executing / remediation_pending are being handled
+  const pending = await db.collection('approval_requests').where('findingId', '==', findingDocId).where('status', '==', 'pending').limit(1).get();
+  return pending.empty;
+}
+
 async function createRemediationPlan(
   db: ReturnType<typeof getFirestore>,
   findingId: string,
@@ -329,7 +340,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (openDupe) {
       const known = openDupe.data();
-      const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
+      // lastReportedAt is what the daily sweep uses to decide a merged fix really worked (no longer reported since the merge).
+      const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp(), lastReportedAt: FieldValue.serverTimestamp() };
+      if (await needsFreshApproval(db, openDupe.id, known)) {
+        const fresh = await createRemediationPlan(db, openDupe.id, partial, known.riskScore ?? 0, known.severity ?? 'medium');
+        update.remediationPlanId = fresh.planId; update.status = 'approval_pending';
+      }
       if (shouldAlert(known.riskScore ?? 0, known.lastAlertedAt, Date.now())
         && await alertOps(`🔴 Security (still open, seen again): ${partial.title}`, `${known.findingId} is still unresolved and was reported again.\nSeverity: ${known.severity} (risk ${known.riskScore}/100)\nRepo: ${partial.repo}\n\n${partial.description}\n\nReview it in the ops console: https://ops.bewatu.com`)) {
         update.lastAlertedAt = Date.now();
@@ -366,6 +382,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       assetCriticality: 0.5,
       status:           riskScore >= 40 ? 'approval_pending' : 'triaged',
       detectedAt:       FieldValue.serverTimestamp(),
+      lastReportedAt:   FieldValue.serverTimestamp(),
       updatedAt:        FieldValue.serverTimestamp(),
     };
 

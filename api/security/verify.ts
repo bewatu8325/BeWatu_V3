@@ -52,7 +52,7 @@ export async function check(d: Deps, body: any): Promise<Record<string, unknown>
   if (!merged) return { planId, merged: false, verified: false, message: `PR #${plan.prNumber} is not merged yet.` };
   if (!plan.prMerged) {
     await planRef.update({ prMerged: true, prMergedSeenAt: FieldValue.serverTimestamp() });
-    await findingRef.update({ prMerged: true, updatedAt: FieldValue.serverTimestamp() });
+    await findingRef.update({ prMerged: true });   // deliberately NOT updatedAt: the daily sweep reads that as "last touched"
     await d.db.collection('audit_log').add({ action: 'security_fix_merged', findingId: plan.findingId, planId, prNumber: plan.prNumber, timestamp: FieldValue.serverTimestamp() });
   }
   return { planId, merged: true, verified: false, message: 'The PR is merged. It is verified only once the next scan no longer reports the finding.' };

@@ -34,6 +34,10 @@
     {
       "path": "/api/invitations?cron=1",
       "schedule": "15 7 * * *"
+    },
+    {
+      "path": "/api/cron/security-sweep",
+      "schedule": "30 8 * * *"
     }
   ],
   "headers": [

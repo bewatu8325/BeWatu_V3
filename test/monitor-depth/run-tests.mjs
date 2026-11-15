@@ -170,7 +170,7 @@ await t('delivered if ANY channel worked; false only if all failed; a non-https 
 });
 await t('every route that raises alerts carries an identical copy of the sender, and none keeps its own email code', () => {
   const grab = f => { const m = readFileSync(ROOT + f, 'utf8').match(/\/\/ <alert-sender>\n([\s\S]*?)\/\/ <\/alert-sender>/); return m ? m[1] : null; };
-  const files = ['api/cron/healthcheck.ts', 'api/security/approve.ts', 'api/security/finding.ts', 'api/security/runtime-anomaly.ts'];
+  const files = ['api/cron/healthcheck.ts', 'api/cron/security-sweep.ts', 'api/security/approve.ts', 'api/security/finding.ts', 'api/security/runtime-anomaly.ts'];
   const canonical = grab(files[0]); assert(canonical && canonical.length > 500, 'canonical sender not found');
   for (const f of files) { assert(grab(f) === canonical, `${f} has a different alert sender from api/cron/healthcheck.ts`); assert((readFileSync(ROOT + f, 'utf8').match(/api\.resend\.com/g) || []).length === 1, `${f} still has its own email code`); }
 });
