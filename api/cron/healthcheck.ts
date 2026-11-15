@@ -206,6 +206,7 @@ async function watchPrivileged(d: Deps): Promise<void> {
 // ── scheduled jobs: each stamps `_ops_internal/cron_<name>` when it finishes ──
 export const WATCHED_CRONS: { name: string; label: string; maxAgeMs: number }[] = [
   { name: 'invitations', label: 'invitations daily job', maxAgeMs: 26 * HOUR },
+  { name: 'security_sweep', label: 'security sweep', maxAgeMs: 26 * HOUR },
 ];
 async function cronProbes(d: Deps, state: Record<string, any>, updates: Record<string, unknown>): Promise<Probe[]> {
   if (!d.db) return [];
