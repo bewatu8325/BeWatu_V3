@@ -1,0 +1,68 @@
+# .github/workflows/rollback.yml
+#
+# Supervised rollback of production on Vercel. A person starts it; it never runs by itself.
+#
+#   Actions -> "Roll back production" -> Run workflow
+#     - leave "execute" UNTICKED for a DRY RUN: it only reads from Vercel and prints what it would do. Always do this first.
+#     - to roll back for real: tick "execute" and type ROLLBACK in "confirm".
+#     - "deployment" is optional: a Vercel deployment id, url or commit sha. Empty means the newest build before the current one.
+#
+# After promoting, it probes the live site and FAILS if production is still unhealthy. Either way an issue is opened so the
+# rollback is on record. It does not touch Firestore rules/indexes or data.
+
+name: Roll back production
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment:
+        description: "Deployment id, url or commit sha to roll back TO (empty = the previous production build)"
+        required: false
+        default: ""
+      execute:
+        description: "Tick to ACTUALLY roll back. Unticked is a dry run."
+        type: boolean
+        default: false
+      confirm:
+        description: "Type ROLLBACK to confirm (only needed when executing)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: rollback
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Roll back production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Plan, and (only if confirmed) roll back
+        id: rollback
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          INPUT_DEPLOYMENT: ${{ inputs.deployment }}
+          INPUT_EXECUTE: ${{ inputs.execute }}
+          INPUT_CONFIRM: ${{ inputs.confirm }}
+        run: node scripts/rollback.mjs
+      - name: Put it on record (issue)
+        if: always() && inputs.execute == true && steps.rollback.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.rollback.outcome }}
+          ACTOR: ${{ github.actor }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create production-rollback --color D93F0B --description "Production was rolled back" 2>/dev/null || true
+          if [ "$OUTCOME" = "success" ]; then title="Production was rolled back"; else title="Production rollback did NOT complete or did not restore health"; fi
+          gh issue create --label production-rollback --title "$title" --body "Started by ${ACTOR}. Outcome: ${OUTCOME}. Details: ${RUN}
+
+          Next: revert or fix the bad commit on main, and check whether the bad change also included a Firestore rules or index change (those are deployed separately)."
