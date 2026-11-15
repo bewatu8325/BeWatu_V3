@@ -310,6 +310,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
+      - name: Vercel environment posture (names only; never prints values)
+        run: node scripts/check-vercel-env.mjs
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       - name: Check for NEXT_PUBLIC_ secrets
         run: |
           node -e "
