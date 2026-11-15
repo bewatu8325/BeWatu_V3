@@ -24,7 +24,7 @@
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp, type Firestore, type DocumentReference } from 'firebase-admin/firestore';
 import { Octokit } from '@octokit/rest';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
@@ -116,7 +116,7 @@ async function closeLoop(d: Deps, r: SweepResult) {
 // ── 2. approvals that wait too long ──────────────────────────────────────────
 async function approvals(d: Deps, r: SweepResult) {
   const pending = await d.db.collection('approval_requests').where('status', '==', 'pending').limit(200).get();
-  const due: { ref: FirebaseFirestore.DocumentReference; line: string }[] = [];
+  const due: { ref: DocumentReference; line: string }[] = [];
   for (const a of pending.docs) {
     const x = a.data(); const created = ms(x.createdAt); const expires = ms(x.expiresAt);
     if (expires !== null && expires < d.now) { await a.ref.update({ status: 'expired', expiredAt: FieldValue.serverTimestamp() }); r.expired++; continue; }
