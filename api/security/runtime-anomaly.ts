@@ -35,14 +35,36 @@ export function safeEqual(a: string, b: string | undefined): boolean {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
-async function alertDirect(subject: string, text: string) {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) { console.error('anomaly alert not sent: RESEND_API_KEY is not set'); return; }
-  await fetch('https://api.resend.com/emails', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ from: 'BeWatu Security <noreply@bewatu.com>', to: [process.env.SECURITY_ALERT_EMAIL ?? process.env.UPTIME_ALERT_EMAIL ?? 'support@bewatu.com'], subject, text }),
-  }).catch((e: any) => console.error('anomaly alert failed:', e?.message));
+// One copy per route that raises alerts (api/ routes cannot import each other); test/monitor-depth fails if a copy differs
+// from the one in api/cron/healthcheck.ts. Change it there, then paste the block into each file that has the markers.
+// <alert-sender>
+/** Email (Resend) and, if ALERT_WEBHOOK_URL is set, a second channel (slack | discord | ntfy). True if ANY channel delivered. */
+export async function sendAlert(env: Record<string, string | undefined>, subject: string, text: string): Promise<boolean> {
+  let delivered = false;
+  if (env.RESEND_API_KEY) {
+    try {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
+        body: JSON.stringify({ from: 'BeWatu Alerts <noreply@bewatu.com>', to: [env.SECURITY_ALERT_EMAIL || env.UPTIME_ALERT_EMAIL || 'support@bewatu.com'], subject, text }),
+      });
+      if (r.ok) delivered = true; else console.error('alert email refused by Resend:', r.status, await r.text());
+    } catch (e: any) { console.error('alert email failed:', e?.message); }
+  } else console.error('alert email not sent: RESEND_API_KEY is not set');
+  const hook = env.ALERT_WEBHOOK_URL;
+  if (hook && /^https:\/\//i.test(hook)) {
+    try {
+      const fmt = (env.ALERT_WEBHOOK_FORMAT || 'slack').toLowerCase();
+      const init: RequestInit = fmt === 'ntfy'
+        ? { method: 'POST', headers: { Title: subject.replace(/[^\x20-\x7E]/g, '').trim().slice(0, 120) || 'BeWatu alert', Priority: 'high' }, body: text.slice(0, 3500) }
+        : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fmt === 'discord' ? { content: `**${subject}**\n${text}`.slice(0, 1900) } : { text: `*${subject}*\n${text}`.slice(0, 3500) }) };
+      const r = await fetch(hook, { ...init, signal: AbortSignal.timeout(8000) });
+      if (r.ok) delivered = true; else console.error('alert webhook refused:', r.status);
+    } catch (e: any) { console.error('alert webhook failed:', e?.message); }
+  }
+  return delivered;
 }
+// </alert-sender>
+const alertDirect = (subject: string, text: string) => sendAlert(process.env, subject, text);
 
 // The result used to be ignored, so a refused or failed post silently dropped a "critical" signal. Now: if the finding cannot be
 // recorded, email the operator directly with what was seen, and fail the request so the drain can retry it.
