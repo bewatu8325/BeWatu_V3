@@ -91,7 +91,7 @@ jobs:
           (async () => {
             console.log('Findings:', results.length);
             for (const r of results.slice(0, 20)) {
-              const body = { sensor: 'code-analysis', category: 'vulnerability', severity: r.level === 'error' ? 'high' : 'medium', title: title(r), description: (r.message && r.message.text) || r.ruleId, repo,
+              const body = { sensor: 'code-analysis', category: 'vulnerability', severity: r.level === 'error' ? 'high' : r.level === 'warning' ? 'medium' : 'low', title: title(r), description: (r.message && r.message.text) || r.ruleId, repo,
                 evidence: { filePath: where(r)?.artifactLocation?.uri, lineNumber: where(r)?.region?.startLine, ruleId: r.ruleId } };
               try { const x = await fetch(process.env.BEWATU_SECURITY_URL, { method: 'POST', headers, body: JSON.stringify(body) }); if (!x.ok) console.log('finding refused:', x.status); } catch (e) { console.log('finding post failed:', e.message); }
             }

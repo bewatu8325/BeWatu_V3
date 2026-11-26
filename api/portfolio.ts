@@ -561,6 +561,14 @@ function contactForm(o: RenderOpts, m: Model): string {
 <button class="pf-btn" type="submit">Send message</button></form></section>`;
 }
 
+// Structured data for search engines. The member's own words (name, headline, intro, skills) go inside a <script> element, so
+// every character that could end the element or start markup is written as a JSON unicode escape: "</script>" in a headline
+// stays inert text. JSON parsers read the escapes back as the original characters.
+export function jsonLdScript(data: unknown): string {
+  const json = JSON.stringify(data).replace(/[<>&\u2028\u2029]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+  return `<script type="application/ld+json">${json}</script>`;
+}
+
 export function renderPortfolio(m: Model, o: RenderOpts): string {
   const pub = o.kind === 'public' && !o.preview;
   const name = m.owner.name;
@@ -580,7 +588,7 @@ export function renderPortfolio(m: Model, o: RenderOpts): string {
   ];
   if (pub) {
     const skills = (m.sections.find(s => s.key === 'skills')?.items ?? []).map((s: SkillItem) => s.name);
-    head.push(`<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'ProfilePage', mainEntity: { '@type': 'Person', name, ...(m.owner.headline ? { jobTitle: m.owner.headline } : {}), ...(m.intro ? { description: m.intro } : {}), ...(m.owner.photoUrl ? { image: m.owner.photoUrl } : {}), ...(skills.length ? { knowsAbout: skills } : {}), ...(canonical ? { url: canonical } : {}) } }).replace(/</g, '\\u003c')}</script>`);
+    head.push(jsonLdScript({ '@context': 'https://schema.org', '@type': 'ProfilePage', mainEntity: { '@type': 'Person', name, ...(m.owner.headline ? { jobTitle: m.owner.headline } : {}), ...(m.intro ? { description: m.intro } : {}), ...(m.owner.photoUrl ? { image: m.owner.photoUrl } : {}), ...(skills.length ? { knowsAbout: skills } : {}), ...(canonical ? { url: canonical } : {}) } }));
   }
   const body = m.sections.filter(s => s.key !== 'summary').map(s => sectionHtml(s, m)).join('');
   const nothing = m.sections.length === 0;
@@ -615,6 +623,12 @@ export function renderGone(title: string, text: string): string {
 // HTTP
 // ═════════════════════════════════════════════════════════════════════════════
 const ALLOWED_ORIGINS = ['https://www.bewatu.com', 'https://bewatu.com'];
+// <cors>
+// Browsers may call this route only from the sites in ALLOWED_ORIGINS (and local dev servers, outside production). The header
+// always carries one of those listed values, never the request's own Origin, so a forged origin is never echoed back.
+const CORS_DEV_ORIGINS: readonly string[] = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000'];
+export const corsPermitted = (allowed: readonly string[]): readonly string[] => (process.env.VERCEL_ENV === 'production' ? allowed : [...allowed, ...CORS_DEV_ORIGINS]);
+// </cors>
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0];
   const sa = process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER ?? process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -632,8 +646,7 @@ const ipOf = (req: VercelRequest) => { const f = req.headers['x-forwarded-for'];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const requested = String(req.headers.origin ?? '');
-  const localDev = process.env.VERCEL_ENV !== 'production' && /^http:\/\/localhost:\d+$/.test(requested);
-  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGINS.find(o => o === requested) ?? (localDev ? requested : ALLOWED_ORIGINS[0]));
+  res.setHeader('Access-Control-Allow-Origin', corsPermitted(ALLOWED_ORIGINS).find(o => o === requested) ?? ALLOWED_ORIGINS[0]);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Vary', 'Origin');

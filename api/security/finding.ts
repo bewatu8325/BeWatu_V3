@@ -12,11 +12,17 @@ const ALLOWED_ORIGINS = [
   'https://ops.bewatu.com',
   'https://www.bewatu.com',
 ];
+// <cors>
+// Browsers may call this route only from the sites in ALLOWED_ORIGINS (and local dev servers, outside production). The header
+// always carries one of those listed values, never the request's own Origin, so a forged origin is never echoed back.
+const CORS_DEV_ORIGINS: readonly string[] = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000'];
+export const corsPermitted = (allowed: readonly string[]): readonly string[] => (process.env.VERCEL_ENV === 'production' ? allowed : [...allowed, ...CORS_DEV_ORIGINS]);
+// </cors>
 
 function setCors(req: VercelRequest, res: VercelResponse) {
-  const origin = req.headers.origin as string | undefined;
-  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  res.setHeader('Access-Control-Allow-Origin', allowed);
+  const requested = req.headers.origin;
+  res.setHeader('Access-Control-Allow-Origin', corsPermitted(ALLOWED_ORIGINS).find(o => o === requested) ?? ALLOWED_ORIGINS[0]);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
@@ -259,6 +265,28 @@ export async function needsFreshApproval(db: ReturnType<typeof getFirestore>, fi
   return pending.empty;
 }
 
+/**
+ * Findings recorded before the severity cap existed kept the rating our own scoring gave them (a Semgrep "warning" stored as
+ * CRITICAL). When one is reported again, the scanner's severity now caps it. If that takes it below the approval threshold it is
+ * handled like a new low finding: triaged, its waiting approval withdrawn and its plan superseded, so nobody is asked to decide on
+ * it or nudged about it. Above the threshold, a waiting approval just takes the corrected rating.
+ */
+export async function recapReported(db: ReturnType<typeof getFirestore>, findingDocId: string, known: Record<string, any>, reported: unknown): Promise<Record<string, unknown>> {
+  const before = { riskScore: Number(known.riskScore ?? 0), severity: String(known.severity ?? 'medium') };
+  const after = capSeverity(before, reported);
+  if (after.riskScore === before.riskScore && after.severity === before.severity) return {};
+  const update: Record<string, unknown> = { riskScore: after.riskScore, severity: after.severity, severityCappedFrom: before.severity };
+  const waiting = await db.collection('approval_requests').where('findingId', '==', findingDocId).where('status', '==', 'pending').get();
+  if (after.riskScore < 40) {
+    if (known.status === 'approval_pending') update.status = 'triaged';
+    for (const a of waiting.docs) await a.ref.update({ status: 'superseded', supersededAt: FieldValue.serverTimestamp(), supersededReason: `its scanner rates it ${after.severity}: no approval is needed` });
+    if (known.remediationPlanId) await db.collection('remediation_plans').doc(String(known.remediationPlanId)).update({ status: 'superseded' }).catch(() => {});
+  } else {
+    for (const a of waiting.docs) await a.ref.update({ riskScore: after.riskScore, severity: after.severity });
+  }
+  return update;
+}
+
 async function createRemediationPlan(
   db: ReturnType<typeof getFirestore>,
   findingId: string,
@@ -350,9 +378,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const openDupe = recent.docs.find(d => isSameFinding(d.data(), partial));
 
     if (openDupe) {
-      const known = openDupe.data();
+      const recapped = await recapReported(db, openDupe.id, openDupe.data(), req.body?.severity);
+      const known = { ...openDupe.data(), ...recapped };
       // lastReportedAt is what the daily sweep uses to decide a merged fix really worked (no longer reported since the merge).
-      const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp(), lastReportedAt: FieldValue.serverTimestamp() };
+      const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp(), lastReportedAt: FieldValue.serverTimestamp(), ...recapped };
       if (await needsFreshApproval(db, openDupe.id, known)) {
         const fresh = await createRemediationPlan(db, openDupe.id, partial, known.riskScore ?? 0, known.severity ?? 'medium');
         update.remediationPlanId = fresh.planId; update.status = 'approval_pending';

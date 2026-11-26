@@ -56,6 +56,23 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
+// The team's copy of a member's feedback. Everything the member supplied is escaped before it goes into the HTML, and the
+// subject is kept to one line. Pure functions, so test/email-html checks them directly with hostile input.
+export const feedbackSubject = (category: Category, name: string) => `[Feedback · ${CATEGORY_LABEL[category]}] from ${name.replace(/\s+/g, ' ').trim().slice(0, 100)}`;
+export function renderFeedbackEmail(v: { category: Category; name: string; email: string | null; text: string; foundingMember: boolean }): string {
+  const label = escapeHtml(CATEGORY_LABEL[v.category]), name = escapeHtml(v.name), text = escapeHtml(v.text);
+  const sender = v.email ? ` &lt;${escapeHtml(v.email)}&gt;` : '';
+  return `
+            <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+              <p style="color:#78716c; font-size:12px; margin:0 0 4px;">
+                ${label}${v.foundingMember ? ' · Founding Member' : ''}
+              </p>
+              <h1 style="font-size:18px; color:#1c1917; margin:0 0 16px;">${name}${sender}</h1>
+              <p style="color:#1c1917; font-size:14px; line-height:1.6; white-space:pre-wrap; margin:0;">${text}</p>
+            </div>
+          `;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://www.bewatu.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -145,16 +162,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           from: 'BeWatu <noreply@bewatu.com>',
           to: [FEEDBACK_TO],
           ...(email ? { reply_to: email } : {}),
-          subject: `[Feedback · ${CATEGORY_LABEL[category as Category]}] from ${name}`,
-          html: `
-            <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
-              <p style="color:#78716c; font-size:12px; margin:0 0 4px;">
-                ${escapeHtml(CATEGORY_LABEL[category as Category])}${userData.foundingMember === true ? ' · Founding Member' : ''}
-              </p>
-              <h1 style="font-size:18px; color:#1c1917; margin:0 0 16px;">${escapeHtml(name)}${email ? ` &lt;${escapeHtml(email)}&gt;` : ''}</h1>
-              <p style="color:#1c1917; font-size:14px; line-height:1.6; white-space:pre-wrap; margin:0;">${escapeHtml(text)}</p>
-            </div>
-          `,
+          subject: feedbackSubject(category as Category, name),
+          html: renderFeedbackEmail({ category: category as Category, name, email, text, foundingMember: userData.foundingMember === true }),
         }),
       });
       if (!emailRes.ok) console.error('submit-feedback: Resend error:', await emailRes.text());

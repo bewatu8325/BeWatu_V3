@@ -26,6 +26,12 @@ import { getAuth } from 'firebase-admin/auth';
 import { Octokit } from '@octokit/rest';
 
 const ALLOWED_ORIGINS = ['https://ops.bewatu.com', 'https://www.bewatu.com'];
+// <cors>
+// Browsers may call this route only from the sites in ALLOWED_ORIGINS (and local dev servers, outside production). The header
+// always carries one of those listed values, never the request's own Origin, so a forged origin is never echoed back.
+const CORS_DEV_ORIGINS: readonly string[] = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000'];
+export const corsPermitted = (allowed: readonly string[]): readonly string[] => (process.env.VERCEL_ENV === 'production' ? allowed : [...allowed, ...CORS_DEV_ORIGINS]);
+// </cors>
 const OWNER = 'bewatu8325';
 /** What `repo` means in a finding. Anything else is refused: no silent fallback to some other repository. */
 export const REPOS: Record<string, string> = { bewatu_v3: 'BeWatu_V3', bewatu_ops: 'bewatu-ops', bewatu_factory: 'bewatu-factory', shared: 'BeWatu_V3' };
@@ -319,8 +325,8 @@ function initAdmin() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const origin = req.headers.origin as string | undefined;
-  res.setHeader('Access-Control-Allow-Origin', origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]);
+  const requested = req.headers.origin;
+  res.setHeader('Access-Control-Allow-Origin', corsPermitted(ALLOWED_ORIGINS).find(o => o === requested) ?? ALLOWED_ORIGINS[0]);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Vary', 'Origin'); res.setHeader('Cache-Control', 'no-store');

@@ -81,7 +81,9 @@ await t('one broken GitHub lookup is counted but never stops the others; running
 });
 
 console.log('== approvals nobody decides ==');
-const approval = async (id, o = {}) => db.doc(`approval_requests/${id}`).set({ status: 'pending', severity: o.severity ?? 'high', title: o.title ?? 'Unescaped value', createdAt: ts(o.createdAt ?? NOW - 30 * HOUR), expiresAt: ts(o.expiresAt ?? NOW + 5 * DAY), ...(o.lastNudgedAt ? { lastNudgedAt: o.lastNudgedAt } : {}) });
+// Every approval belongs to a finding that is still open, unless a test says otherwise (an approval with nothing to decide is retired).
+const approval = async (id, o = {}) => { if (o.findingId === undefined) await db.doc(`security_findings/open-${id}`).set({ status: 'approval_pending', repo: 'bewatu_v3', evidence: { filePath: `src/${id}.ts` } });
+  await db.doc(`approval_requests/${id}`).set({ findingId: o.findingId === undefined ? `open-${id}` : o.findingId, status: 'pending', severity: o.severity ?? 'high', title: o.title ?? 'Unescaped value', createdAt: ts(o.createdAt ?? NOW - 30 * HOUR), expiresAt: ts(o.expiresAt ?? NOW + 5 * DAY), ...(o.lastNudgedAt ? { lastNudgedAt: o.lastNudgedAt } : {}) }); };
 await t('a high approval waiting over a day is nudged once, in a digest; not again the same day; again the next day', async () => {
   await wipe(); await approval('a1'); await approval('a2', { severity: 'critical', title: 'Secret in repo' });
   const r = await sweep(deps()); assert(r.nudged === 2 && mails.length === 1 && /2 security fixes are waiting/.test(mails[0].subject) && /Secret in repo/.test(mails[0].body), JSON.stringify(mails));
@@ -93,6 +95,18 @@ await t('young, medium and low approvals are never nudged; a failed email is ret
   await sweep(deps()); assert(mails.length === 0, 'nothing to nudge');
   await approval('a1'); mailOk = false; await sweep(deps()); assert((await get('approval_requests/a1')).lastNudgedAt === undefined, 'not stamped');
   mailOk = true; await sweep(deps({ now: NOW + HOUR })); assert(mails.length === 1, 'retried at the next sweep');
+});
+await t('an approval whose finding is closed or gone is withdrawn (audited), never nudged; one for an open finding stays', async () => {
+  await wipe();
+  for (const [id, status] of [['fixed', 'verified'], ['fp', 'false_positive'], ['risk', 'accepted_risk']]) { await db.doc(`security_findings/${id}`).set({ status }); await approval(`a-${id}`, { findingId: id, severity: 'critical' }); }
+  await approval('a-gone', { findingId: 'deleted-long-ago', severity: 'critical' }); await approval('a-none', { findingId: null, severity: 'critical' }); await approval('a-open', { severity: 'critical' });
+  const r = await sweep(deps());
+  assert(r.retired === 5, JSON.stringify(r));
+  for (const id of ['a-fixed', 'a-fp', 'a-risk', 'a-gone', 'a-none']) { const a = await get(`approval_requests/${id}`); assert(a.status === 'superseded' && /closed|no longer exists/.test(a.supersededReason), `${id}: ${JSON.stringify(a)}`); }
+  assert((await get('approval_requests/a-open')).status === 'pending', 'the open one stays');
+  assert(mails.length === 1 && /1 security fix is waiting/.test(mails[0].subject) && !/fixed|deleted/.test(mails[0].body), JSON.stringify(mails));
+  assert((await auditActions()).filter(a => a === 'security_approval_retired').length === 5, 'audited');
+  assert((await sweep(deps({ now: NOW + 25 * HOUR }))).retired === 0, 'nothing twice');
 });
 await t('an approval past its expiry is marked expired so the queue clears, and is not nudged', async () => {
   await wipe(); await approval('old', { expiresAt: NOW - HOUR });
