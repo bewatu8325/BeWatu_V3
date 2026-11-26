@@ -150,6 +150,17 @@ function scoreRisk(finding: any): { riskScore: number; severity: string } {
   return { riskScore, severity };
 }
 
+// ── The sensor knows its own finding: never rate it HIGHER than the sensor did ──
+// The inline score above has no real exploitability or exposure data yet, so it rates almost every code finding about 86
+// ("critical"). Semgrep's own level said "warning" for the GitHub Actions hygiene rules that were then emailed as CRITICAL every day.
+const SEVERITY_RANK: Record<string, number> = { informational: 0, low: 1, medium: 2, high: 3, critical: 4 };
+const SEVERITY_CEILING: Record<string, number> = { informational: 19, low: 39, medium: 64, high: 84, critical: 100 };
+export function capSeverity(computed: { riskScore: number; severity: string }, reported: unknown): { riskScore: number; severity: string } {
+  const r = typeof reported === 'string' ? reported.toLowerCase() : '';
+  if (!(r in SEVERITY_RANK) || SEVERITY_RANK[computed.severity] <= SEVERITY_RANK[r]) return computed;
+  return { riskScore: Math.min(computed.riskScore, SEVERITY_CEILING[r]), severity: r };
+}
+
 // ── Inline remediation plan creation ─────────────────────────────────────────
 
 const APPROVAL_EXPIRY_DAYS = 7;
@@ -355,7 +366,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Score inline
-    const { riskScore, severity } = scoreRisk(partial);
+    const { riskScore, severity } = capSeverity(scoreRisk(partial), req.body?.severity);
 
     const seq  = await db.runTransaction(async t => {
       const counter = db.collection('security_config').doc('counters');

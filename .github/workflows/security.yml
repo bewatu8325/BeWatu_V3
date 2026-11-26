@@ -35,10 +35,10 @@ jobs:
     name: Secret detection
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { fetch-depth: 0 }
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v3
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
@@ -49,8 +49,8 @@ jobs:
     needs: secrets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with: { node-version: '20' }
       - name: Install Semgrep
         run: pip install semgrep
@@ -59,39 +59,52 @@ jobs:
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4
         if: always()
         with: { sarif_file: semgrep.sarif }
         continue-on-error: true
-      - name: Send findings to BeWatu
+      - name: Send findings to BeWatu (and close the ones main no longer reports)
         if: always()
-        run: |
-          node -e "
-            const fs = require('fs');
-            if (!process.env.BEWATU_SECURITY_TOKEN) { console.log('No token — skipping'); process.exit(0); }
-            const sarif = JSON.parse(fs.readFileSync('semgrep.sarif','utf-8'));
-            const results = sarif.runs?.flatMap(r=>r.results||[])||[];
-            console.log('Findings:', results.length);
-            if (!results.length) process.exit(0);
-            const repo = '${{ github.repository }}'.includes('factory') ? 'bewatu_factory' : '${{ github.repository }}'.includes('ops') ? 'bewatu_ops' : 'bewatu_v3';
-            Promise.all(results.slice(0,20).map(r=>
-              fetch(process.env.BEWATU_SECURITY_URL,{
-                method:'POST',
-                headers:{'Content-Type':'application/json','Authorization':'Bearer '+process.env.BEWATU_SECURITY_TOKEN},
-                body:JSON.stringify({
-                  sensor:'code-analysis',category:'vulnerability',
-                  severity: r.level==='error'?'high':'medium',
-                  title:'Semgrep: '+(r.ruleId||'unknown'),
-                  description:r.message?.text||r.ruleId,repo,
-                  evidence:{filePath:r.locations?.[0]?.physicalLocation?.artifactLocation?.uri,lineNumber:r.locations?.[0]?.physicalLocation?.region?.startLine,ruleId:r.ruleId},
-                })
-              })
-            )).then(()=>console.log('Posted.')).catch(e=>console.error(e.message));
-          "
         env:
           BEWATU_SECURITY_TOKEN: ${{ secrets.BEWATU_SECURITY_TOKEN }}
           BEWATU_SECURITY_URL: https://www.bewatu.com/api/security/finding
-
+          BEWATU_SCAN_COMPLETE_URL: https://www.bewatu.com/api/security/scan-complete
+          REPO_NAME: ${{ github.repository }}
+          IS_MAIN_SCAN: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        run: |
+          cat > "$RUNNER_TEMP/send-findings.cjs" <<'JS'
+          // Posts each Semgrep result as a finding (first 20). On a scan of MAIN that completed, it also tells BeWatu the FULL list of
+          // what it still sees, so findings that are gone get closed (api/security/scan-complete.ts, which has a safety brake).
+          const fs = require('fs');
+          const token = process.env.BEWATU_SECURITY_TOKEN;
+          if (!token) { console.log('No token: skipping'); process.exit(0); }
+          let sarif;
+          try { sarif = JSON.parse(fs.readFileSync('semgrep.sarif', 'utf-8')); } catch (e) { console.log('No readable SARIF: the scan did not complete, nothing sent or closed.'); process.exit(0); }
+          const runs = sarif.runs || [];
+          const completed = runs.length > 0 && runs.every(r => (r.invocations || []).every(i => i.executionSuccessful !== false));
+          const results = runs.flatMap(r => r.results || []);
+          const name = process.env.REPO_NAME || '';
+          const repo = name.includes('factory') ? 'bewatu_factory' : name.includes('ops') ? 'bewatu_ops' : 'bewatu_v3';
+          const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+          const where = r => r.locations?.[0]?.physicalLocation;
+          const title = r => 'Semgrep: ' + (r.ruleId || 'unknown');
+          (async () => {
+            console.log('Findings:', results.length);
+            for (const r of results.slice(0, 20)) {
+              const body = { sensor: 'code-analysis', category: 'vulnerability', severity: r.level === 'error' ? 'high' : 'medium', title: title(r), description: (r.message && r.message.text) || r.ruleId, repo,
+                evidence: { filePath: where(r)?.artifactLocation?.uri, lineNumber: where(r)?.region?.startLine, ruleId: r.ruleId } };
+              try { const x = await fetch(process.env.BEWATU_SECURITY_URL, { method: 'POST', headers, body: JSON.stringify(body) }); if (!x.ok) console.log('finding refused:', x.status); } catch (e) { console.log('finding post failed:', e.message); }
+            }
+            if (process.env.IS_MAIN_SCAN !== 'true') { console.log('Not a scan of main: nothing is closed.'); return; }
+            if (!completed) { console.log('Semgrep did not report a successful run: nothing is closed.'); return; }
+            const present = results.map(r => ({ title: title(r), filePath: where(r)?.artifactLocation?.uri ?? null }));
+            try {
+              const x = await fetch(process.env.BEWATU_SCAN_COMPLETE_URL, { method: 'POST', headers, body: JSON.stringify({ sensor: 'code-analysis', repo, ref: process.env.GITHUB_REF, present: present.slice(0, 2000), truncated: present.length > 2000 }) });
+              console.log('scan-complete:', x.status, await x.text());
+            } catch (e) { console.log('scan-complete failed:', e.message); }
+          })();
+          JS
+          node "$RUNNER_TEMP/send-findings.cjs"
   # ── 3. AI provider boundary ────────────────────────────────────────────────
   # Fails, doesn't just report, if any file outside api/ai.ts and the
   # documented allowlist references an AI provider's SDK/key/endpoint
@@ -103,7 +116,7 @@ jobs:
     name: AI provider boundary
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Check for AI provider leakage outside api/ai.ts
         run: bash scripts/check-ai-provider-boundary.sh
 
@@ -113,8 +126,8 @@ jobs:
     needs: secrets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with: { node-version: '20' }
       - name: Install
         run: npm install --legacy-peer-deps
@@ -165,10 +178,10 @@ jobs:
     name: Firestore rules test (emulator)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with: { node-version: '20' }
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with: { distribution: 'temurin', java-version: '21' }
       - name: Install firebase-tools
         run: npm install -g firebase-tools
@@ -307,8 +320,8 @@ jobs:
     needs: [code-analysis, dependencies]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with: { node-version: '20' }
       - name: Vercel environment posture (names only; never prints values)
         run: node scripts/check-vercel-env.mjs
