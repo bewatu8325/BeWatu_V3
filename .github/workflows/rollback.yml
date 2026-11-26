@@ -11,6 +11,8 @@
 # rollback is on record. It does not touch Firestore rules/indexes or data.
 
 name: Roll back production
+# The Security Center (api/security/center.ts) tells a rehearsal from a real rollback by this title.
+run-name: ${{ inputs.execute && 'Rollback (EXECUTE)' || 'Rollback (dry run)' }}
 
 on:
   workflow_dispatch:

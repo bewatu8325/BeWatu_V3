@@ -11,6 +11,8 @@
 name: Security scan
 
 on:
+  # Lets the Security Center start a scan on demand (it needs a token with Actions write).
+  workflow_dispatch:
   push:
     branches: [main, develop]
   pull_request:
@@ -89,10 +91,15 @@ jobs:
           const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
           const where = r => r.locations?.[0]?.physicalLocation;
           const title = r => 'Semgrep: ' + (r.ruleId || 'unknown');
+          // The rule's own CWE and OWASP tags, e.g. "CWE-346: ..." and "OWASP-A07:2021 - ...".
+          const rules = runs.flatMap(x => (x.tool && x.tool.driver && x.tool.driver.rules) || []);
+          const tagsOf = r => ((rules.find(x => x.id === r.ruleId) || {}).properties || {}).tags || [];
+          const cweOf = r => tagsOf(r).map(t => (String(t).match(/^CWE-\d+/) || [])[0]).filter(Boolean).slice(0, 5);
+          const owaspOf = r => tagsOf(r).map(t => { const m = String(t).match(/^OWASP-(A\d{2}:20\d{2})\s*-\s*(.*)$/); return m ? (m[1] + ' ' + m[2]).slice(0, 80) : null; }).filter(Boolean).slice(0, 3);
           (async () => {
             console.log('Findings:', results.length);
             for (const r of results.slice(0, 20)) {
-              const body = { sensor: 'code-analysis', category: 'vulnerability', severity: r.level === 'error' ? 'high' : r.level === 'warning' ? 'medium' : 'low', title: title(r), description: (r.message && r.message.text) || r.ruleId, repo,
+              const body = { sensor: 'code-analysis', category: 'vulnerability', severity: r.level === 'error' ? 'high' : r.level === 'warning' ? 'medium' : 'low', title: title(r), description: (r.message && r.message.text) || r.ruleId, repo, cweIds: cweOf(r), owasp: owaspOf(r),
                 evidence: { filePath: where(r)?.artifactLocation?.uri, lineNumber: where(r)?.region?.startLine, ruleId: r.ruleId } };
               try { const x = await fetch(process.env.BEWATU_SECURITY_URL, { method: 'POST', headers, body: JSON.stringify(body) }); if (!x.ok) console.log('finding refused:', x.status); } catch (e) { console.log('finding post failed:', e.message); }
             }
@@ -141,30 +148,52 @@ jobs:
           ")
           echo "Critical CVEs: $CRITICAL"
           if [ "$CRITICAL" -gt "0" ]; then echo "::error::$CRITICAL critical CVEs found."; exit 1; fi
-      - name: Send findings
+      - name: Send findings (and close the dependency findings main no longer has)
         if: always()
         run: |
-          node -e "
-            const fs=require('fs');
-            if (!process.env.BEWATU_SECURITY_TOKEN){console.log('No token');process.exit(0);}
-            try{
-              const audit=JSON.parse(fs.readFileSync('npm-audit.json','utf-8'));
-              const entries=Object.entries(audit.vulnerabilities||{}).filter(([,v])=>['critical','high','moderate'].includes(v.severity));
-              console.log('Vulnerable packages:',entries.length);
-              if(!entries.length)process.exit(0);
-              const repo='${{ github.repository }}'.includes('factory')?'bewatu_factory':'${{ github.repository }}'.includes('ops')?'bewatu_ops':'bewatu_v3';
-              Promise.all(entries.slice(0,10).map(([name,v])=>
-                fetch(process.env.BEWATU_SECURITY_URL,{
-                  method:'POST',
-                  headers:{'Content-Type':'application/json','Authorization':'Bearer '+process.env.BEWATU_SECURITY_TOKEN},
-                  body:JSON.stringify({sensor:'dependency-risk',category:'dependency_risk',severity:v.severity==='moderate'?'medium':v.severity,title:'Vulnerable dependency: '+name,description:(v.via?.[0]?.title)||('Vulnerability in '+name),repo,evidence:{snippet:name+'@'+(v.range||'unknown')}}),
-                })
-              )).then(()=>console.log('Posted.')).catch(e=>console.error(e.message));
-            }catch(e){console.log('No results:',e.message);}
-          "
+          cat > "$RUNNER_TEMP/send-deps.cjs" <<'JS'
+          // Posts the vulnerable packages to BeWatu with their advisory ids (GHSA, CVE) and CWE, then, for a completed audit of
+          // main only, reports the full list so fixed packages are closed (api/security/scan-complete.ts, which has a safety brake).
+          const fs = require('fs');
+          const token = process.env.BEWATU_SECURITY_TOKEN;
+          if (!token) { console.log('No token'); process.exit(0); }
+          let audit;
+          try { audit = JSON.parse(fs.readFileSync('npm-audit.json', 'utf-8')); } catch (e) { console.log('No readable audit: nothing sent or closed.'); process.exit(0); }
+          const completed = audit && typeof audit.vulnerabilities === 'object' && !audit.error;
+          const entries = Object.entries(audit.vulnerabilities || {}).filter(([, v]) => ['critical', 'high', 'moderate'].includes(v.severity));
+          const name = process.env.REPO_NAME || '';
+          const repo = name.includes('factory') ? 'bewatu_factory' : name.includes('ops') ? 'bewatu_ops' : 'bewatu_v3';
+          const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+          const ids = v => {
+            const via = (v.via || []).filter(x => x && typeof x === 'object');
+            const ghsa = via.map(x => x.github_advisory_id || (String(x.url || '').match(/GHSA(-[a-z0-9]{4}){3}/i) || [])[0]).filter(Boolean);
+            const cve = via.flatMap(x => x.cves || []).filter(Boolean);
+            const cwe = via.flatMap(x => x.cwe || []).map(String).filter(c => /^CWE-\d+$/.test(c));
+            return { cveIds: [...new Set([...cve, ...ghsa])].slice(0, 10), cweIds: [...new Set(cwe)].slice(0, 5) };
+          };
+          (async () => {
+            console.log('Vulnerable packages:', entries.length);
+            for (const [pkg, v] of entries.slice(0, 20)) {
+              const body = { sensor: 'dependency-risk', category: 'dependency_risk', severity: v.severity === 'moderate' ? 'medium' : v.severity, title: 'Vulnerable dependency: ' + pkg,
+                description: ((v.via || []).find(x => x && x.title) || {}).title || ('Vulnerability in ' + pkg), repo, ...ids(v), evidence: { snippet: pkg + '@' + (v.range || 'unknown') } };
+              try { const x = await fetch(process.env.BEWATU_SECURITY_URL, { method: 'POST', headers, body: JSON.stringify(body) }); if (!x.ok) console.log('finding refused:', x.status); } catch (e) { console.log('finding post failed:', e.message); }
+            }
+            if (process.env.IS_MAIN_SCAN !== 'true') { console.log('Not a scan of main: nothing is closed.'); return; }
+            if (!completed) { console.log('The audit did not complete: nothing is closed.'); return; }
+            const present = entries.map(([pkg]) => ({ title: 'Vulnerable dependency: ' + pkg, filePath: null }));
+            try {
+              const x = await fetch(process.env.BEWATU_SCAN_COMPLETE_URL, { method: 'POST', headers, body: JSON.stringify({ sensor: 'dependency-risk', repo, ref: process.env.GITHUB_REF, present: present.slice(0, 2000), truncated: present.length > 2000 }) });
+              console.log('scan-complete:', x.status, await x.text());
+            } catch (e) { console.log('scan-complete failed:', e.message); }
+          })();
+          JS
+          node "$RUNNER_TEMP/send-deps.cjs"
         env:
           BEWATU_SECURITY_TOKEN: ${{ secrets.BEWATU_SECURITY_TOKEN }}
           BEWATU_SECURITY_URL: https://www.bewatu.com/api/security/finding
+          BEWATU_SCAN_COMPLETE_URL: https://www.bewatu.com/api/security/scan-complete
+          REPO_NAME: ${{ github.repository }}
+          IS_MAIN_SCAN: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
 
   # ── 5. Firestore rules — real behavioral tests, not a text lint ───────────
   # Deliberately NOT gated on `needs: secrets` — that job has been failing

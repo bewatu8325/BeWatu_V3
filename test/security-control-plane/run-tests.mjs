@@ -36,7 +36,8 @@ const makeGithub = (o = {}) => {
   };
 };
 const deps = (o = {}) => { const github = o.github ?? makeGithub(); return { db, now: NOW, github, generateFix: o.generateFix ?? (async (_f, content) => fixFor(content === ORIGINAL ? GOOD : content)), alert: async (s, x) => { alerts.push([s, x]); return true; } }; };
-const admin = { uid: 'admin1', email: 'admin@bewatu.com' };
+// Signed in a minute ago: approving needs a sign-in from the last 10 minutes.
+const admin = { uid: 'admin1', email: 'admin@bewatu.com', authTime: Math.floor(NOW / 1000) - 60 };
 
 const wipe = async () => { for (const c of ['approval_requests', 'remediation_plans', 'security_findings', 'audit_log']) { const s = await db.collection(c).get(); await Promise.all(s.docs.map(x => x.ref.delete())); } alerts = []; };
 async function seed(o = {}) {
@@ -131,11 +132,12 @@ await t('an expired approval is refused and marked expired; unknown and already-
   await refuses(approve(deps(), { approvalId: '../x', decision: 'approved' }), 400);
   await refuses(approve(deps(), { approvalId: 'a1', decision: 'maybe' }), 400);
 });
-await t('rejecting does nothing on GitHub and closes the finding as accepted risk with the reason', async () => {
+await t('rejecting does nothing on GitHub, and declines the proposed fix WITHOUT accepting the risk: the finding stays open', async () => {
   await wipe(); await seed(); const gh = makeGithub();
   const out = await approve(deps({ github: gh }), { approvalId: 'a1', decision: 'rejected', note: 'Known and fine' });
   assert(out.decision === 'rejected' && gh.calls.length === 0, 'no calls');
-  const f = await get('security_findings/f1'); assert(f.status === 'accepted_risk' && f.falsePositiveReason === 'Known and fine', JSON.stringify(f));
+  const f = await get('security_findings/f1'); assert(f.status === 'triaged' && f.proposalRejectedNote === 'Known and fine' && typeof f.proposalRejectedAt === 'number', JSON.stringify(f));
+  assert((await get('remediation_plans/p1')).status === 'rejected', 'plan');
 });
 
 console.log('== failed means failed ==');

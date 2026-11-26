@@ -38,8 +38,16 @@
     {
       "path": "/api/cron/security-sweep",
       "schedule": "30 8 * * *"
+    },
+    {
+      "path": "/api/security/center?cron=posture",
+      "schedule": "45 8 * * *"
     }
   ],
+  "functions": {
+    "api/cron/security-sweep.ts": { "maxDuration": 300 },
+    "api/security/center.ts": { "maxDuration": 60 }
+  },
   "headers": [
     {
       "source": "/(.*)",

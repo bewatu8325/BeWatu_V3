@@ -24,6 +24,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { Octokit } from '@octokit/rest';
+import { timingSafeEqual } from 'node:crypto';
 
 const ALLOWED_ORIGINS = ['https://ops.bewatu.com', 'https://www.bewatu.com'];
 // <cors>
@@ -37,6 +38,48 @@ const OWNER = 'bewatu8325';
 export const REPOS: Record<string, string> = { bewatu_v3: 'BeWatu_V3', bewatu_ops: 'bewatu-ops', bewatu_factory: 'bewatu-factory', shared: 'BeWatu_V3' };
 
 export class HttpError extends Error { constructor(public status: number, message: string) { super(message); } }
+// <autonomy-policy>
+export type AutonomyMode = 'observe' | 'propose' | 'auto_low_risk';
+export interface AutonomyPolicy { mode: AutonomyMode; suspended: boolean; suspendedReason: string | null; maxAgentPrsPerDay: number; lowRiskRules: string[]; maxAutoSeverity: 'low' | 'medium' }
+/**
+ * What the agent may do without a person. "propose" is today's behaviour: it records findings and proposes fixes, and a
+ * platform admin approves every one. Only an admin can change this (with a fresh sign-in); the agent itself never writes it.
+ */
+export const DEFAULT_POLICY: AutonomyPolicy = { mode: 'propose', suspended: false, suspendedReason: null, maxAgentPrsPerDay: 2, lowRiskRules: ['unsafe-formatstring', 'missing-integrity'], maxAutoSeverity: 'medium' };
+/**
+ * The only rules an admin may mark as low-risk for the agent: small, local fixes that CI fully checks. A rule whose fix lands
+ * on a protected path (CI workflows, Dependabot) becomes an issue for a person instead: the agent never edits the pipeline.
+ */
+export const LOW_RISK_RULE_CATALOG = ['github-actions-mutable-action-tag', 'dependabot-missing-cooldown', 'missing-integrity', 'unsafe-formatstring'];
+export function readPolicy(raw: Record<string, any> | undefined, env: Record<string, string | undefined>): AutonomyPolicy & { envKill: boolean } {
+  const p: AutonomyPolicy = { ...DEFAULT_POLICY, ...(raw ?? {}) };
+  if (!['observe', 'propose', 'auto_low_risk'].includes(p.mode)) p.mode = DEFAULT_POLICY.mode;
+  p.lowRiskRules = (Array.isArray(p.lowRiskRules) ? p.lowRiskRules : []).filter(r => LOW_RISK_RULE_CATALOG.includes(r));
+  p.maxAgentPrsPerDay = Math.max(0, Math.min(5, Number(p.maxAgentPrsPerDay) || 0));
+  if (!['low', 'medium'].includes(p.maxAutoSeverity)) p.maxAutoSeverity = 'medium';
+  // The environment kill switch works even if Firestore is unreachable or tampered with: set it in Vercel and redeploy.
+  const envKill = env.SECURITY_AUTOMATION_DISABLED === '1' || env.SECURITY_AUTOMATION_DISABLED === 'true';
+  return { ...p, suspended: p.suspended === true || envKill, envKill };
+}
+const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, informational: 4 };
+/** null = the agent may open a pull request for this approval on its own; otherwise why not. */
+export function agentRefusal(p: AutonomyPolicy, approval: { severity?: string; title?: string }, ruleId: string): string | null {
+  if (p.suspended) return 'automated remediation is suspended';
+  if (p.mode !== 'auto_low_risk') return `the autonomy policy is "${p.mode}"`;
+  if (!p.lowRiskRules.includes(ruleId)) return `${ruleId || 'this rule'} is not on the admin's low-risk list`;
+  if ((SEVERITY_ORDER[String(approval.severity)] ?? 0) < SEVERITY_ORDER[p.maxAutoSeverity]) return `${approval.severity} is above the agent's limit (${p.maxAutoSeverity})`;
+  return null;
+}
+// </autonomy-policy>
+/** A person's approval needs a sign-in this recent (Firebase auth_time); the console asks for the password again. */
+export const STEP_UP_MAX_AGE_S = 10 * 60;
+export const AGENT = { uid: 'security-agent', email: 'security-agent (automated)' };
+/** Constant-time, and never true when either side is empty. */
+export function safeEqual(a: string, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
 
 // ── what the automatic fixer may do ──────────────────────────────────────────
 export const FIX_LIMITS = {
@@ -123,11 +166,11 @@ export interface GitHubPort {
   openIssue(a: { repo: string; title: string; body: string; labels: string[] }): Promise<{ issueUrl: string; issueNumber: number }>;
 }
 export interface Deps {
-  db: Firestore; now: number; github: GitHubPort;
+  db: Firestore; now: number; github: GitHubPort; env?: Record<string, string | undefined>;
   generateFix(finding: any, content: string, path: string): Promise<Fix | null>;
   alert(subject: string, text: string): Promise<boolean>;
 }
-export interface Actor { uid: string; email: string }
+export interface Actor { uid: string; email: string; authTime?: number | null; agent?: boolean }
 
 const oneLine = (v: unknown, max: number) => String(v ?? '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
@@ -137,6 +180,7 @@ export async function authorizeActor(db: Firestore, uid: string, email?: string)
   if (!s || s.isActive !== true || s.role !== 'platform_admin') return null;
   return { uid, email: email ?? s.email ?? '' };
 }
+const ruleIdOf = (title: unknown) => String(title ?? '').replace(/^Semgrep: /, '').split('.').pop() ?? '';
 
 // ── the decision ─────────────────────────────────────────────────────────────
 export async function decide(d: Deps, actor: Actor, body: any): Promise<Record<string, unknown>> {
@@ -144,6 +188,12 @@ export async function decide(d: Deps, actor: Actor, body: any): Promise<Record<s
   const decision = body?.decision;
   const note = oneLine(body?.note, 1000) || null;
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(approvalId) || !['approved', 'rejected'].includes(decision)) throw new HttpError(400, 'approvalId and a valid decision are required');
+  // A person approving must have signed in within the last 10 minutes; the agent can only approve, within the admin's policy.
+  if (!actor.agent && decision === 'approved' && (typeof actor.authTime !== 'number' || Math.floor(d.now / 1000) - actor.authTime > STEP_UP_MAX_AGE_S)) throw new HttpError(401, 'step_up_required');
+  if (actor.agent && decision !== 'approved') throw new HttpError(403, 'The agent cannot reject');
+  const policy = readPolicy((await d.db.collection('security_policy').doc('autonomy').get()).data(), d.env ?? {});
+  // The suspension switch stops every fix, whoever approves it. Rejecting stays possible.
+  if (decision === 'approved' && policy.suspended) throw new HttpError(423, `Automated remediation is suspended${policy.envKill ? ' (SECURITY_AUTOMATION_DISABLED is set)' : ''}${policy.suspendedReason ? `: ${policy.suspendedReason}` : ''}. Resume it in the Security Center first.`);
 
   const ref = d.db.collection('approval_requests').doc(approvalId);
   // One transaction: the first decision wins; a second click, or a second admin, is refused instead of running it twice.
@@ -154,20 +204,31 @@ export async function decide(d: Deps, actor: Actor, body: any): Promise<Record<s
     if (a.status !== 'pending') return { kind: 'decided' as const };
     const expires = a.expiresAt instanceof Timestamp ? a.expiresAt.toMillis() : typeof a.expiresAt === 'number' ? a.expiresAt : null;
     if (expires !== null && expires < d.now) { tx.update(ref, { status: 'expired', expiredAt: FieldValue.serverTimestamp() }); return { kind: 'expired' as const }; }
+    if (actor.agent) {
+      const why = agentRefusal(policy, a, ruleIdOf(a.title));
+      if (why) return { kind: 'refused' as const, why };
+      const day = new Date(d.now).toISOString().slice(0, 10), cRef = d.db.collection('_ops_internal').doc('agent_counters');
+      const used = Number((await tx.get(cRef)).data()?.[day] ?? 0);
+      if (used >= policy.maxAgentPrsPerDay) return { kind: 'refused' as const, why: `the agent's daily limit (${policy.maxAgentPrsPerDay}) is used up` };
+      tx.set(cRef, { [day]: used + 1 }, { merge: true });
+    }
     tx.update(ref, { status: decision, decisionBy: actor.uid, decisionAt: FieldValue.serverTimestamp(), decisionNote: note });
     return { kind: 'ok' as const, findingId: String(a.findingId), planId: String(a.remediationPlanId) };
   });
   if (taken.kind === 'missing') throw new HttpError(404, 'Approval not found');
   if (taken.kind === 'decided') throw new HttpError(409, 'Already decided');
   if (taken.kind === 'expired') throw new HttpError(409, 'This approval expired. The finding is still open: re-run the scan to raise a fresh request.');
+  if (taken.kind === 'refused') throw new HttpError(403, `The agent may not approve this: ${taken.why}`);
   const { findingId, planId } = taken;
 
   await d.db.collection('audit_log').add({ action: `security_remediation_${decision}`, actorUid: actor.uid, actorEmail: actor.email, approvalId, planId, findingId, note, timestamp: FieldValue.serverTimestamp() });
 
   const planRef = d.db.collection('remediation_plans').doc(planId), findingRef = d.db.collection('security_findings').doc(findingId);
   if (decision === 'rejected') {
-    await planRef.update({ status: 'failed' }).catch(() => {});
-    await findingRef.update({ status: 'accepted_risk', falsePositiveReason: note || 'Rejected by ops agent', updatedAt: FieldValue.serverTimestamp() }).catch(() => {});
+    // Declining a proposed fix does not accept the risk: the finding stays open (fix it by hand, accept it for a limited time in
+    // the Security Center, or mark it a false positive), and the agent does not propose it again for 30 days.
+    await planRef.update({ status: 'rejected' }).catch(() => {});
+    await findingRef.update({ status: 'triaged', proposalRejectedAt: d.now, proposalRejectedNote: note, updatedAt: FieldValue.serverTimestamp() }).catch(() => {});
     return { approvalId, decision, planId };
   }
 
@@ -337,12 +398,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { db, auth } = initAdmin();
     const h = req.headers.authorization;
     let actor: Actor | null = null;
-    if (h?.startsWith('Bearer ')) { try { const t = await auth.verifyIdToken(h.slice(7)); actor = await authorizeActor(db, t.uid, t.email); } catch { actor = null; } }
+    if (h?.startsWith('Bearer ') && req.body?.agent === true) actor = safeEqual(h.slice(7), process.env.BEWATU_SECURITY_TOKEN) ? { ...AGENT, agent: true } : null;
+    else if (h?.startsWith('Bearer ')) { try { const t = await auth.verifyIdToken(h.slice(7), true); const a = await authorizeActor(db, t.uid, t.email); actor = a && { ...a, authTime: typeof t.auth_time === 'number' ? t.auth_time : null }; } catch { actor = null; } }
     if (!actor) return res.status(403).json({ error: 'Platform admin access required' });
     const token = process.env.GITHUB_TOKEN;
     if (!token) return res.status(500).json({ error: 'GITHUB_TOKEN is not set, so no pull request or issue can be created' });
 
-    const out = await decide({ db, now: Date.now(), github: octokitPort(token), generateFix, alert: alertOps }, actor, req.body ?? {});
+    const out = await decide({ db, now: Date.now(), env: process.env, github: octokitPort(token), generateFix, alert: alertOps }, actor, req.body ?? {});
     return res.status(200).json(out);
   } catch (e: any) {
     if (e instanceof HttpError) return res.status(e.status).json({ error: e.message });

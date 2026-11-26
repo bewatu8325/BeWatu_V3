@@ -80,8 +80,45 @@ export interface Deps {
   github: { prState(repo: string, n: number): Promise<PrState> };
   rules: RulesPort;
   send(subject: string, body: string): Promise<boolean>;
+  /** Asks approve.ts to act as the agent on one approval (it re-checks the policy and the daily cap itself). */
+  agentApprove?(approvalId: string): Promise<{ ok: boolean; detail: string }>;
+  env?: Record<string, string | undefined>;
 }
-export interface SweepResult { merged: number; verified: number; githubErrors: number; nudged: number; expired: number; retired: number; rules: string }
+export interface SweepResult { merged: number; verified: number; githubErrors: number; nudged: number; expired: number; retired: number; reopenedExpired: number; closed: number; agentPrs: number; agentRefused: number; rules: string }
+// <autonomy-policy>
+export type AutonomyMode = 'observe' | 'propose' | 'auto_low_risk';
+export interface AutonomyPolicy { mode: AutonomyMode; suspended: boolean; suspendedReason: string | null; maxAgentPrsPerDay: number; lowRiskRules: string[]; maxAutoSeverity: 'low' | 'medium' }
+/**
+ * What the agent may do without a person. "propose" is today's behaviour: it records findings and proposes fixes, and a
+ * platform admin approves every one. Only an admin can change this (with a fresh sign-in); the agent itself never writes it.
+ */
+export const DEFAULT_POLICY: AutonomyPolicy = { mode: 'propose', suspended: false, suspendedReason: null, maxAgentPrsPerDay: 2, lowRiskRules: ['unsafe-formatstring', 'missing-integrity'], maxAutoSeverity: 'medium' };
+/**
+ * The only rules an admin may mark as low-risk for the agent: small, local fixes that CI fully checks. A rule whose fix lands
+ * on a protected path (CI workflows, Dependabot) becomes an issue for a person instead: the agent never edits the pipeline.
+ */
+export const LOW_RISK_RULE_CATALOG = ['github-actions-mutable-action-tag', 'dependabot-missing-cooldown', 'missing-integrity', 'unsafe-formatstring'];
+export function readPolicy(raw: Record<string, any> | undefined, env: Record<string, string | undefined>): AutonomyPolicy & { envKill: boolean } {
+  const p: AutonomyPolicy = { ...DEFAULT_POLICY, ...(raw ?? {}) };
+  if (!['observe', 'propose', 'auto_low_risk'].includes(p.mode)) p.mode = DEFAULT_POLICY.mode;
+  p.lowRiskRules = (Array.isArray(p.lowRiskRules) ? p.lowRiskRules : []).filter(r => LOW_RISK_RULE_CATALOG.includes(r));
+  p.maxAgentPrsPerDay = Math.max(0, Math.min(5, Number(p.maxAgentPrsPerDay) || 0));
+  if (!['low', 'medium'].includes(p.maxAutoSeverity)) p.maxAutoSeverity = 'medium';
+  // The environment kill switch works even if Firestore is unreachable or tampered with: set it in Vercel and redeploy.
+  const envKill = env.SECURITY_AUTOMATION_DISABLED === '1' || env.SECURITY_AUTOMATION_DISABLED === 'true';
+  return { ...p, suspended: p.suspended === true || envKill, envKill };
+}
+const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, informational: 4 };
+/** null = the agent may open a pull request for this approval on its own; otherwise why not. */
+export function agentRefusal(p: AutonomyPolicy, approval: { severity?: string; title?: string }, ruleId: string): string | null {
+  if (p.suspended) return 'automated remediation is suspended';
+  if (p.mode !== 'auto_low_risk') return `the autonomy policy is "${p.mode}"`;
+  if (!p.lowRiskRules.includes(ruleId)) return `${ruleId || 'this rule'} is not on the admin's low-risk list`;
+  if ((SEVERITY_ORDER[String(approval.severity)] ?? 0) < SEVERITY_ORDER[p.maxAutoSeverity]) return `${approval.severity} is above the agent's limit (${p.maxAutoSeverity})`;
+  return null;
+}
+// </autonomy-policy>
+export const CLOSE_AFTER_VERIFIED_MS = 7 * DAY;
 const CLOSED = ['verified', 'false_positive', 'accepted_risk'];
 
 const ms = (v: any): number | null => (v instanceof Timestamp ? v.toMillis() : typeof v === 'number' ? v : null);
@@ -106,7 +143,8 @@ async function closeLoop(d: Deps, r: SweepResult) {
       }
       const lastSeen = ms(finding.lastReportedAt) ?? ms(finding.updatedAt) ?? ms(finding.detectedAt) ?? 0;
       if (d.now - mergedAt >= VERIFY_AFTER_MS && lastSeen < mergedAt) {
-        await f.ref.update({ status: 'verified', resolvedAt: FieldValue.serverTimestamp(), verifiedBy: 'security-sweep' });
+        // The sweep's own clock, the same one the close-after-7-days step measures with.
+        await f.ref.update({ status: 'verified', resolvedAt: d.now, verifiedBy: 'security-sweep' });
         await d.db.collection('audit_log').add({ action: 'security_finding_auto_verified', findingId: f.id, planId: finding.remediationPlanId, prNumber: plan.prNumber, reason: 'fix merged, and not reported again across a full scan cycle', by: 'security-sweep', timestamp: FieldValue.serverTimestamp() });
         r.verified++;
       }
@@ -159,7 +197,40 @@ async function approvals(d: Deps, r: SweepResult) {
   if (sent) { await Promise.all(due.map(x => x.ref.update({ lastNudgedAt: d.now }))); r.nudged = due.length; }   // unsent: tried again tomorrow
 }
 
-// ── 3. rules drift ───────────────────────────────────────────────────────────
+// ── 3. the rest of the lifecycle: expired risk acceptance reopens; a verified fix that stays quiet closes ──
+async function lifecycle(d: Deps, r: SweepResult) {
+  const accepted = await d.db.collection('security_findings').where('status', '==', 'accepted_risk').limit(300).get();
+  for (const f of accepted.docs) {
+    const x = f.data(), until = ms(x.acceptedUntil);
+    if (until === null || until > d.now) continue;                   // an acceptance without an end date predates time limits
+    await f.ref.update({ status: (x.riskScore ?? 0) >= 40 ? 'approval_pending' : 'triaged', reopenCount: FieldValue.increment(1), reopenedAt: FieldValue.serverTimestamp(), reopenReason: 'the risk acceptance expired', acceptedUntil: FieldValue.delete(), resolvedAt: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+    await d.db.collection('audit_log').add({ action: 'security_finding_reopened', findingId: f.id, reason: 'the risk acceptance expired', by: 'security-sweep', timestamp: FieldValue.serverTimestamp() });
+    r.reopenedExpired++;
+  }
+  const verified = await d.db.collection('security_findings').where('status', '==', 'verified').limit(1000).get();
+  for (const f of verified.docs) {
+    const x = f.data(); if (x.closedAt) continue;
+    const res = ms(x.resolvedAt); if (res === null || d.now - res < CLOSE_AFTER_VERIFIED_MS) continue;
+    if ((ms(x.lastReportedAt) ?? 0) > res) continue;                // reported after it was verified: not closed (ingest reopens it)
+    await f.ref.update({ closedAt: d.now });
+    r.closed++;
+  }
+}
+
+// ── 4. the agent: opens pull requests for pre-approved low-risk fixes, if (and only if) an admin's policy allows it ──
+async function agentPass(d: Deps, r: SweepResult) {
+  if (!d.agentApprove) return;
+  const policy = readPolicy((await d.db.collection('security_policy').doc('autonomy').get()).data(), d.env ?? {});
+  if (policy.suspended || policy.mode !== 'auto_low_risk' || policy.maxAgentPrsPerDay < 1) return;
+  const pending = await d.db.collection('approval_requests').where('status', '==', 'pending').limit(200).get();
+  const eligible = pending.docs.filter(a => agentRefusal(policy, a.data(), String(a.data().title ?? '').replace(/^Semgrep: /, '').split('.').pop() ?? '') === null);
+  for (const a of eligible.slice(0, policy.maxAgentPrsPerDay)) {
+    const out = await d.agentApprove(a.id).catch((e: any) => ({ ok: false, detail: String(e?.message ?? e) }));
+    if (out.ok) r.agentPrs++; else { r.agentRefused++; console.error('security agent: not done for', a.id, out.detail); }
+  }
+}
+
+// ── 5. rules drift ───────────────────────────────────────────────────────────
 export const normalizeRules = (t: string) => t.replace(/\r\n/g, '\n').replace(/[ \t]+$/gm, '').trim();
 const fp = (t: string) => createHash('sha256').update(normalizeRules(t)).digest('hex').slice(0, 12);
 
@@ -176,12 +247,12 @@ async function rulesDrift(d: Deps, state: Record<string, any>, updates: Record<s
 }
 
 export async function sweep(d: Deps): Promise<SweepResult> {
-  const r: SweepResult = { merged: 0, verified: 0, githubErrors: 0, nudged: 0, expired: 0, retired: 0, rules: 'not run' };
+  const r: SweepResult = { merged: 0, verified: 0, githubErrors: 0, nudged: 0, expired: 0, retired: 0, reopenedExpired: 0, closed: 0, agentPrs: 0, agentRefused: 0, rules: 'not run' };
   const ref = d.db.collection('_ops_internal').doc('security_sweep');
   const state = (await ref.get()).data() ?? {};
   const updates: Record<string, unknown> = {};
   let ok = true;
-  for (const step of [() => closeLoop(d, r), () => approvals(d, r), () => rulesDrift(d, state, updates, r)]) {
+  for (const step of [() => closeLoop(d, r), () => approvals(d, r), () => lifecycle(d, r), () => agentPass(d, r), () => rulesDrift(d, state, updates, r)]) {
     try { await step(); } catch (e: any) { ok = false; console.error('security-sweep step failed:', e?.message); }
   }
   await ref.set({ ...updates, lastRunAt: d.now, lastRunOk: ok, lastSummary: r }, { merge: true });
@@ -238,6 +309,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       db: openDb(), now: Date.now(), rules: realRules(process.env),
       github: { async prState(repo, n) { const p = (await gh.pulls.get({ owner: OWNER, repo, pull_number: n })).data; return { merged: !!p.merged, mergedAt: p.merged_at ? Date.parse(p.merged_at) : null, closed: p.state === 'closed' }; } },
       send: (s, t) => sendAlert(process.env, s, t),
+      env: process.env,
+      async agentApprove(approvalId) {
+        const t = process.env.BEWATU_SECURITY_TOKEN; if (!t) return { ok: false, detail: 'BEWATU_SECURITY_TOKEN is not set' };
+        const x = await fetch('https://www.bewatu.com/api/security/approve', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ approvalId, decision: 'approved', agent: true, note: 'Opened by the security agent under the admin\'s low-risk policy.' }), signal: AbortSignal.timeout(120_000) });
+        return { ok: x.ok, detail: `HTTP ${x.status}: ${(await x.text()).slice(0, 300)}` };
+      },
     });
     return res.status(200).json(out);
   } catch (e: any) {
