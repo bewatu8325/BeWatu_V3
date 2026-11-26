@@ -351,6 +351,8 @@ await t('the copied blocks are identical everywhere (alert sender, CORS, redacti
   }
   const rules = readFileSync(ROOT + 'firestore.rules', 'utf8');
   for (const c of ['security_incidents', 'security_policy', 'security_audit', 'security_audit_meta', 'security_metrics', 'security_drills']) assert(new RegExp(`match /${c}/\\{\\w+\\} \\{\\s*allow read:\\s*if isSecurityStaff\\(\\);\\s*allow write: if false;`).test(rules), `${c} rules`);
+  // checkRevoked needs the Firebase Auth admin API; the routes run on a Firestore-only identity, so it rejected every sign-in.
+  for (const f of ['api/security/center.ts', 'api/security/approve.ts']) assert(!/verifyIdToken\([^)]*,\s*true\)/.test(readFileSync(ROOT + f, 'utf8')), `${f} must not use checkRevoked`);
   const vercel = JSON.parse(readFileSync(ROOT + 'vercel.json', 'utf8')); assert(vercel.crons.some(c => c.path === '/api/security/center?cron=posture'), 'posture cron');
 });
 
