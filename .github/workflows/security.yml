@@ -82,7 +82,8 @@ jobs:
           try { sarif = JSON.parse(fs.readFileSync('semgrep.sarif', 'utf-8')); } catch (e) { console.log('No readable SARIF: the scan did not complete, nothing sent or closed.'); process.exit(0); }
           const runs = sarif.runs || [];
           const completed = runs.length > 0 && runs.every(r => (r.invocations || []).every(i => i.executionSuccessful !== false));
-          const results = runs.flatMap(r => r.results || []);
+          // A result silenced in the code (nosemgrep, with its reason) is still in the SARIF, marked as suppressed: skip it.
+          const results = runs.flatMap(r => r.results || []).filter(r => !(r.suppressions && r.suppressions.length));
           const name = process.env.REPO_NAME || '';
           const repo = name.includes('factory') ? 'bewatu_factory' : name.includes('ops') ? 'bewatu_ops' : 'bewatu_v3';
           const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
