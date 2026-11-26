@@ -81,8 +81,8 @@ function setCors(req: VercelRequest, res: VercelResponse) {
   const allowedOrigins = process.env.VERCEL_ENV === 'production' ? PROD_ORIGINS : [...PROD_ORIGINS, ...DEV_ORIGINS];
   const requested = req.headers.origin as string | undefined;
   // Echo a literal from the allowlist (never the request's own header value).
-  const allowed = allowedOrigins.find(o => o === requested) ?? PROD_ORIGINS[0];
-  res.setHeader('Access-Control-Allow-Origin', allowed);
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigins.find(o => o === requested) ?? PROD_ORIGINS[0]);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }

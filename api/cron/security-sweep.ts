@@ -81,7 +81,8 @@ export interface Deps {
   rules: RulesPort;
   send(subject: string, body: string): Promise<boolean>;
 }
-export interface SweepResult { merged: number; verified: number; githubErrors: number; nudged: number; expired: number; rules: string }
+export interface SweepResult { merged: number; verified: number; githubErrors: number; nudged: number; expired: number; retired: number; rules: string }
+const CLOSED = ['verified', 'false_positive', 'accepted_risk'];
 
 const ms = (v: any): number | null => (v instanceof Timestamp ? v.toMillis() : typeof v === 'number' ? v : null);
 
@@ -138,10 +139,18 @@ async function approvals(d: Deps, r: SweepResult) {
   for (const a of pending.docs) {
     const x = a.data(); const created = ms(x.createdAt); const expires = ms(x.expiresAt);
     if (expires !== null && expires < d.now) { await a.ref.update({ status: 'expired', expiredAt: FieldValue.serverTimestamp() }); r.expired++; continue; }
+    const f = x.findingId ? (await d.db.collection('security_findings').doc(String(x.findingId)).get()).data() : undefined;
+    // Nothing left to decide: the finding was closed (fixed, false positive, accepted risk) or no longer exists. Withdraw it, so the
+    // Approvals tab and this nudge only ever show decisions about problems that are still open.
+    if (!f || CLOSED.includes(String(f.status))) {
+      const why = !f ? 'its finding no longer exists' : `its finding is closed (${f.status})`;
+      await a.ref.update({ status: 'superseded', supersededAt: FieldValue.serverTimestamp(), supersededReason: why });
+      await d.db.collection('audit_log').add({ action: 'security_approval_retired', approvalId: a.id, findingId: x.findingId ?? null, reason: why, by: 'security-sweep', timestamp: FieldValue.serverTimestamp() });
+      r.retired++; continue;
+    }
     if (!['high', 'critical'].includes(String(x.severity)) || created === null || d.now - created < NUDGE_AFTER_MS) continue;
     const last = ms(x.lastNudgedAt); if (last !== null && d.now - last < NUDGE_REPEAT_MS) continue;
     // Say WHERE: the approval only has a title, which is the same for every file a rule fires in.
-    const f = x.findingId ? (await d.db.collection('security_findings').doc(String(x.findingId)).get()).data() : undefined;
     const where = f ? `${REPOS[String(f.repo ?? 'shared')] ?? String(f.repo)}${f.evidence?.filePath ? ` ${f.evidence.filePath}` : ''}` : null;
     due.push({ ref: a.ref, title: String(x.title ?? 'untitled'), severity: String(x.severity), hours: Math.floor((d.now - created) / HOUR), where });
   }
@@ -167,7 +176,7 @@ async function rulesDrift(d: Deps, state: Record<string, any>, updates: Record<s
 }
 
 export async function sweep(d: Deps): Promise<SweepResult> {
-  const r: SweepResult = { merged: 0, verified: 0, githubErrors: 0, nudged: 0, expired: 0, rules: 'not run' };
+  const r: SweepResult = { merged: 0, verified: 0, githubErrors: 0, nudged: 0, expired: 0, retired: 0, rules: 'not run' };
   const ref = d.db.collection('_ops_internal').doc('security_sweep');
   const state = (await ref.get()).data() ?? {};
   const updates: Record<string, unknown> = {};

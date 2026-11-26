@@ -9,7 +9,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { reconcile, HttpError, BRAKE } from '../../api/security/scan-complete.ts';
-import { capSeverity } from '../../api/security/finding.ts';
+import { capSeverity, recapReported } from '../../api/security/finding.ts';
 import { nudgeLines, shortTitle } from '../../api/cron/security-sweep.ts';
 
 let pass = 0, fail = 0;
@@ -92,6 +92,24 @@ await t('a finding is never rated above what its scanner said; it is never raise
   assert(capSeverity({ riskScore: 30, severity: 'low' }, 'critical').severity === 'low', 'never raised');
   for (const r of [undefined, null, '', 'urgent', 7]) assert(capSeverity(crit, r).severity === 'critical', `unchanged for ${r}`);
   assert(capSeverity(crit, 'medium').riskScore < 65, 'a Semgrep warning no longer reaches the alert or nudge threshold (65)');
+});
+
+await t('an old finding stored above its scanner\'s rating is corrected when reported again; below the approval line its approval is withdrawn', async () => {
+  await wipe();
+  await finding('note'); await db.doc('security_findings/note').update({ riskScore: 86, severity: 'critical' });
+  const low = await recapReported(db, 'note', (await db.doc('security_findings/note').get()).data(), 'low');
+  assert(low.severity === 'low' && low.riskScore === 39 && low.status === 'triaged' && low.severityCappedFrom === 'critical', JSON.stringify(low));
+  const a = (await db.doc('approval_requests/a-note').get()).data(); assert(a.status === 'superseded' && /rates it low/.test(a.supersededReason), JSON.stringify(a));
+  assert((await db.doc('remediation_plans/p-note').get()).data().status === 'superseded', 'plan');
+  await finding('warn'); await db.doc('security_findings/warn').update({ riskScore: 86, severity: 'critical' });
+  const med = await recapReported(db, 'warn', (await db.doc('security_findings/warn').get()).data(), 'medium');
+  assert(med.severity === 'medium' && med.riskScore === 64 && med.status === undefined, JSON.stringify(med));
+  const b = (await db.doc('approval_requests/a-warn').get()).data(); assert(b.status === 'pending' && b.severity === 'medium' && b.riskScore === 64, JSON.stringify(b));
+  assert(Object.keys(await recapReported(db, 'warn', { riskScore: 64, severity: 'medium', status: 'approval_pending' }, 'medium')).length === 0, 'already right: nothing changes');
+  assert(Object.keys(await recapReported(db, 'warn', { riskScore: 86, severity: 'critical', status: 'approval_pending' }, undefined)).length === 0, 'no reported severity: nothing changes');
+});
+await t('the scan step rates a Semgrep note as low and a warning as medium', () => {
+  assert(readFileSync(ROOT + '.github/workflows/security.yml', 'utf8').includes("severity: r.level === 'error' ? 'high' : r.level === 'warning' ? 'medium' : 'low'"), 'mapping');
 });
 
 console.log('== the nudge says what and where ==');

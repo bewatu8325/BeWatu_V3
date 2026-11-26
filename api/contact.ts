@@ -63,6 +63,24 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
+// The team's copy of a "Connect with us" message. Everything the visitor typed is escaped before it goes into the HTML, and the
+// subject is kept to one line. Pure functions, so test/email-html checks them directly with hostile input.
+export const contactSubject = (name: string) => `New message from ${name.replace(/\s+/g, ' ').trim().slice(0, 100)} via bewatu.com`;
+export function renderContactEmail(v: { name: string; email: string; message: string }): string {
+  const name = escapeHtml(v.name), email = escapeHtml(v.email), message = escapeHtml(v.message);
+  return `
+        <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px;">
+          <h1 style="font-size: 18px; font-weight: 800; color: #1c1917; margin-bottom: 16px;">
+            New "Connect with us" submission
+          </h1>
+          <p style="color: #57534e; font-size: 14px; margin: 4px 0;"><strong>Name:</strong> ${name}</p>
+          <p style="color: #57534e; font-size: 14px; margin: 4px 0;"><strong>Email:</strong> ${email}</p>
+          <div style="margin-top: 16px; padding: 16px; background: #f5f5f4; border-radius: 8px; white-space: pre-wrap; color: #292524; font-size: 14px; line-height: 1.6;">${message}</div>
+          <p style="color: #a8a29e; font-size: 11px; margin-top: 24px;">Sent from the Connect with us form on bewatu.com. Reply-To is set to the sender's address.</p>
+        </div>
+      `;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://www.bewatu.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -119,18 +137,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       from:     'BeWatu Contact Form <noreply@bewatu.com>',
       to:       [CONTACT_INBOX],
       reply_to: email,
-      subject:  `New message from ${name} via bewatu.com`,
-      html: `
-        <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px;">
-          <h1 style="font-size: 18px; font-weight: 800; color: #1c1917; margin-bottom: 16px;">
-            New "Connect with us" submission
-          </h1>
-          <p style="color: #57534e; font-size: 14px; margin: 4px 0;"><strong>Name:</strong> ${escapeHtml(name)}</p>
-          <p style="color: #57534e; font-size: 14px; margin: 4px 0;"><strong>Email:</strong> ${escapeHtml(email)}</p>
-          <div style="margin-top: 16px; padding: 16px; background: #f5f5f4; border-radius: 8px; white-space: pre-wrap; color: #292524; font-size: 14px; line-height: 1.6;">${escapeHtml(message)}</div>
-          <p style="color: #a8a29e; font-size: 11px; margin-top: 24px;">Sent from the Connect with us form on bewatu.com. Reply-To is set to the sender's address.</p>
-        </div>
-      `,
+      subject:  contactSubject(name),
+      html:     renderContactEmail({ name, email, message }),
     }),
   });
 

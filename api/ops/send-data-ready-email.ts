@@ -75,12 +75,18 @@ export function emailText(p: EmailParts): string {
 // </email-shell>
 
 const ALLOWED_ORIGINS = ['https://ops.bewatu.com', 'https://www.bewatu.com'];
+// <cors>
+// Browsers may call this route only from the sites in ALLOWED_ORIGINS (and local dev servers, outside production). The header
+// always carries one of those listed values, never the request's own Origin, so a forged origin is never echoed back.
+const CORS_DEV_ORIGINS: readonly string[] = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000'];
+export const corsPermitted = (allowed: readonly string[]): readonly string[] => (process.env.VERCEL_ENV === 'production' ? allowed : [...allowed, ...CORS_DEV_ORIGINS]);
+// </cors>
 const RESEND_API_KEY = process.env.RESEND_API_KEY!;
 
 function setCors(req: VercelRequest, res: VercelResponse) {
-  const origin = req.headers.origin as string | undefined;
-  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  res.setHeader('Access-Control-Allow-Origin', allowed);
+  const requested = req.headers.origin;
+  res.setHeader('Access-Control-Allow-Origin', corsPermitted(ALLOWED_ORIGINS).find(o => o === requested) ?? ALLOWED_ORIGINS[0]);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }

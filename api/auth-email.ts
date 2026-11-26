@@ -181,6 +181,12 @@ export async function runAction(d: Deps, caller: Caller, body: any): Promise<{ o
 
 // ── HTTP ─────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = ['https://www.bewatu.com', 'https://bewatu.com'];
+// <cors>
+// Browsers may call this route only from the sites in ALLOWED_ORIGINS (and local dev servers, outside production). The header
+// always carries one of those listed values, never the request's own Origin, so a forged origin is never echoed back.
+const CORS_DEV_ORIGINS: readonly string[] = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000'];
+export const corsPermitted = (allowed: readonly string[]): readonly string[] => (process.env.VERCEL_ENV === 'production' ? allowed : [...allowed, ...CORS_DEV_ORIGINS]);
+// </cors>
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0];
   const sa = process.env.FIREBASE_SERVICE_ACCOUNT_APP_SERVER ?? process.env.FIREBASE_SERVICE_ACCOUNT!;
@@ -210,13 +216,12 @@ async function resendMail(m: Mail): Promise<boolean> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const requested = String(req.headers.origin ?? '');
-  const localDev = process.env.VERCEL_ENV !== 'production' && /^http:\/\/localhost:\d+$/.test(requested);
-  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGINS.find(o => o === requested) ?? (localDev ? requested : ALLOWED_ORIGINS[0]));
+  res.setHeader('Access-Control-Allow-Origin', corsPermitted(ALLOWED_ORIGINS).find(o => o === requested) ?? ALLOWED_ORIGINS[0]);
   res.setHeader('Vary', 'Origin'); res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS'); res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   res.setHeader('Cache-Control', 'no-store');
-  const origin = ALLOWED_ORIGINS.includes(requested) || localDev ? requested : ALLOWED_ORIGINS[0];
+  const origin = corsPermitted(ALLOWED_ORIGINS).find(o => o === requested) ?? ALLOWED_ORIGINS[0];   // the site the links in the email point back to
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
