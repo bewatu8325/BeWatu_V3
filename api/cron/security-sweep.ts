@@ -114,18 +114,39 @@ async function closeLoop(d: Deps, r: SweepResult) {
 }
 
 // ── 2. approvals that wait too long ──────────────────────────────────────────
+/** "Semgrep: yaml.github-actions.security.x.x" -> "Semgrep: x": the rule's last segment is the readable part. */
+export const shortTitle = (t: string) => t.replace(/^(Semgrep: )(?:[\w-]+\.)+([\w-]+)$/, '$1$2');
+/** One line per distinct problem, with how many are waiting and where (first 5 places), most severe and oldest first. */
+export function nudgeLines(due: { title: string; severity: string; hours: number; where: string | null }[]): string[] {
+  const rank: Record<string, number> = { critical: 0, high: 1 };
+  const groups = new Map<string, { title: string; severity: string; hours: number; where: string[] }>();
+  for (const x of due) {
+    const k = `${x.severity}\u0000${x.title}`;
+    const g = groups.get(k) ?? { title: x.title, severity: x.severity, hours: 0, where: [] };
+    g.hours = Math.max(g.hours, x.hours); if (x.where && !g.where.includes(x.where)) g.where.push(x.where);
+    groups.set(k, g);
+  }
+  return [...groups.values()].sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9) || b.hours - a.hours).slice(0, 10).map(g => {
+    const n = due.filter(x => x.title === g.title && x.severity === g.severity).length;
+    const places = g.where.length ? `: ${g.where.slice(0, 5).join('; ')}${g.where.length > 5 ? `; and ${g.where.length - 5} more` : ''}` : '';
+    return `- [${g.severity.toUpperCase()}] ${shortTitle(g.title)}${n > 1 ? ` (x${n})` : ''}, waiting ${g.hours}h${places}`;
+  });
+}
 async function approvals(d: Deps, r: SweepResult) {
   const pending = await d.db.collection('approval_requests').where('status', '==', 'pending').limit(200).get();
-  const due: { ref: DocumentReference; line: string }[] = [];
+  const due: { ref: DocumentReference; title: string; severity: string; hours: number; where: string | null }[] = [];
   for (const a of pending.docs) {
     const x = a.data(); const created = ms(x.createdAt); const expires = ms(x.expiresAt);
     if (expires !== null && expires < d.now) { await a.ref.update({ status: 'expired', expiredAt: FieldValue.serverTimestamp() }); r.expired++; continue; }
     if (!['high', 'critical'].includes(String(x.severity)) || created === null || d.now - created < NUDGE_AFTER_MS) continue;
     const last = ms(x.lastNudgedAt); if (last !== null && d.now - last < NUDGE_REPEAT_MS) continue;
-    due.push({ ref: a.ref, line: `- [${String(x.severity).toUpperCase()}] ${String(x.title ?? 'untitled').slice(0, 100)} (waiting ${Math.floor((d.now - created) / HOUR)}h)` });
+    // Say WHERE: the approval only has a title, which is the same for every file a rule fires in.
+    const f = x.findingId ? (await d.db.collection('security_findings').doc(String(x.findingId)).get()).data() : undefined;
+    const where = f ? `${REPOS[String(f.repo ?? 'shared')] ?? String(f.repo)}${f.evidence?.filePath ? ` ${f.evidence.filePath}` : ''}` : null;
+    due.push({ ref: a.ref, title: String(x.title ?? 'untitled'), severity: String(x.severity), hours: Math.floor((d.now - created) / HOUR), where });
   }
   if (!due.length) return;
-  const sent = await d.send(`🔔 ${due.length} security fix${due.length > 1 ? 'es are' : ' is'} waiting for your decision`, `${due.slice(0, 10).map(x => x.line).join('\n')}\n\nReview them in the ops console: https://ops.bewatu.com (Security, Approvals). An approval that nobody decides leaves a known problem open.`);
+  const sent = await d.send(`🔔 ${due.length} security fix${due.length > 1 ? 'es are' : ' is'} waiting for your decision`, `${nudgeLines(due).join('\n')}\n\nReview them in the ops console: https://ops.bewatu.com (Security, Approvals). An approval that nobody decides leaves a known problem open.`);
   if (sent) { await Promise.all(due.map(x => x.ref.update({ lastNudgedAt: d.now }))); r.nudged = due.length; }   // unsent: tried again tomorrow
 }
 

@@ -1,5 +1,6 @@
 # Keeps the GitHub Actions used by our workflows up to date (and flags ones with known vulnerabilities).
-# Each update arrives as a normal pull request that must pass CI before it can merge.
+# Each update arrives as a normal pull request that must pass CI before it can merge. Actions are pinned to commit SHAs
+# (with the version as a comment); Dependabot updates the SHA and the comment together.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -9,3 +10,6 @@ updates:
     commit-message:
       prefix: "ci"
     open-pull-requests-limit: 5
+    # Wait a week before proposing a brand-new release: a compromised release is usually caught and pulled within days.
+    cooldown:
+      default-days: 7
