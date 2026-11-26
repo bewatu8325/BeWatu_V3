@@ -622,6 +622,34 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Security Center (api/security/center.ts). Readable by security staff; written ONLY by the server, which checks the role
+    // (and a fresh sign-in for sensitive actions) itself. The agent's autonomy policy lives here too: nothing a browser or the
+    // agent can write.
+    match /security_incidents/{incidentId} {
+      allow read:  if isSecurityStaff();
+      allow write: if false;
+    }
+    match /security_policy/{policyId} {
+      allow read:  if isSecurityStaff();
+      allow write: if false;
+    }
+    match /security_audit/{entryId} {
+      allow read:  if isSecurityStaff();
+      allow write: if false;
+    }
+    match /security_audit_meta/{docId} {
+      allow read:  if isSecurityStaff();
+      allow write: if false;
+    }
+    match /security_metrics/{day} {
+      allow read:  if isSecurityStaff();
+      allow write: if false;
+    }
+    match /security_drills/{drillId} {
+      allow read:  if isSecurityStaff();
+      allow write: if false;
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // BEWATU.COM — CORE PLATFORM
     // ═══════════════════════════════════════════════════════════════════

@@ -40,7 +40,7 @@ await t('when everything is fine: silent, green, and it leaves a heartbeat', asy
   await reset(); const o = await runHealthcheck(deps());
   assert(o.status === 200 && mails.length === 0 && o.results.every(r => r.ok), JSON.stringify(o.results.filter(r => !r.ok)));
   const s = await state(); assert(s.lastRunAt === T0 && s.lastRunOk === true, JSON.stringify(s));
-  assert(o.results.length === 12, 'site, sign-in route, 3 gated routes, database+secret, Firebase Auth, login journey, Firestore read, deletions, invitations job, security sweep: ' + o.results.length);
+  assert(o.results.length === 13, 'site, sign-in route, 3 gated routes, database+secret, Firebase Auth, login journey, Firestore read, deletions, invitations job, security sweep, security posture job: ' + o.results.length);
 });
 await t('a broken function behind "/" is caught: a gated route that crashes (500) or answers 200 to a stranger is a failure', async () => {
   for (const bad of [json(500, {}), json(200, {}), json(404, {})]) { await reset(); const o = await runHealthcheck(deps({ fetch: world({ '/api/ai': bad }) })); assert(o.results.find(r => r.name === '/api/ai').ok === false && o.status === 503, 'status ' + bad.status); }

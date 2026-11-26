@@ -34,6 +34,12 @@
 #     entry is a known gap, not a decision that they're fine forever. Remove
 #     an entry here only after actually migrating that file, not to silence
 #     a new violation.
+#
+#   - api/security/center.ts
+#     Never calls a provider. It only reports whether ANTHROPIC_API_KEY is
+#     SET (a boolean, never the value) so the Security Center can show which
+#     credentials the security agent holds and whether fix drafting (done in
+#     approve.ts, above) is available.
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -42,6 +48,7 @@ ALLOWLIST=(
   "api/ai.ts"
   "api/security/approve.ts"
   "api/security/finding.ts"
+  "api/security/center.ts"
   "api/skills-trajectory.ts"
   "api/verify-reel.ts"
 )

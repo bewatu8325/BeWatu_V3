@@ -149,6 +149,8 @@ jobs:
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/security-sweep/run-tests.mjs"
       - name: Scan reconciliation - close what main no longer reports, safety brake, honest severity, pinned actions
         run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/scan-complete/run-tests.mjs"
+      - name: Security Center - honest posture and score, lifecycle, roles and step-up, tamper-evident audit, autonomy limits, end-to-end remediation
+        run: firebase emulators:exec --project demo-bewatu --only firestore "tsx test/security-center/run-tests.mjs"
       - name: CORS and email HTML - only listed sites are answered, visitor text is escaped, portfolio data cannot break out
         run: tsx test/cors-and-html/run-tests.mjs
       - name: Security control plane - approvals, AI fix guardrails, failed means failed

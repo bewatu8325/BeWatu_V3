@@ -95,20 +95,44 @@ export async function sendAlert(env: Record<string, string | undefined>, subject
 // </alert-sender>
 const alertOps = (subject: string, text: string) => sendAlert(process.env, subject, text);
 
+// <redact>
+const SECRET_PATTERNS: RegExp[] = [
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,                                  // AWS access key id
+  /\bgh[pousr]_[A-Za-z0-9]{30,}\b/g, /\bgithub_pat_[A-Za-z0-9_]{40,}\b/g,
+  /\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{16,}\b/g,                // Stripe
+  /\bre_[A-Za-z0-9_]{20,}\b/g,                                       // Resend
+  /\bsk-ant-[A-Za-z0-9_-]{20,}\b/g, /\bsk-[A-Za-z0-9]{32,}\b/g,      // Anthropic, OpenAI
+  /\bAIza[0-9A-Za-z_-]{35}\b/g,                                      // Google API key
+  /\bxox[abpr]-[A-Za-z0-9-]{10,}\b/g,                                // Slack
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, // JWT
+  /("?(?:password|passwd|secret|token|api[_-]?key|private[_-]?key)"?\s*[:=]\s*)("[^"]{6,}"|'[^']{6,}'|[^\s,;]{8,})/gi,
+];
+/** Removes anything that looks like a credential, keeping the first 4 characters so a person can still recognise which one. */
+export function redact(text: unknown, max = 2000): string {
+  let s = String(text ?? '').slice(0, max * 2);
+  for (const re of SECRET_PATTERNS) s = s.replace(re, (m: string, k?: string) => (k && typeof k === 'string' && /[:=]\s*$/.test(k) ? `${k}[REDACTED]` : `${m.slice(0, 4)}…[REDACTED]`));
+  return s.slice(0, max);
+}
+// </redact>
+
 function normaliseIncomingFinding(body: any) {
   return {
     sensor:         body.sensor || 'unknown',
     category:       body.category || 'vulnerability',
     severity:       body.severity || 'medium',
-    title:          String(body.title || 'Untitled finding').slice(0, 200),
-    description:    String(body.description || '').slice(0, 2000),
+    title:          redact(String(body.title || 'Untitled finding'), 200),
+    description:    redact(body.description || '', 2000),
     affectedAssets: Array.isArray(body.affectedAssets) ? body.affectedAssets : [],
     cveId:          body.cveId || null,
-    cweId:          body.cweId || null,
+    cweId:          typeof body.cweId === 'string' && /^CWE-\d{1,5}$/.test(body.cweId) ? body.cweId : null,
+    cweIds:         (Array.isArray(body.cweIds) ? body.cweIds : []).filter((x: unknown) => typeof x === 'string' && /^CWE-\d{1,5}$/.test(x)).slice(0, 5),
+    cveIds:         (Array.isArray(body.cveIds) ? body.cveIds : []).filter((x: unknown) => typeof x === 'string' && /^(CVE-\d{4}-\d{4,7}|GHSA(-[23456789cfghjmpqrvwx]{4}){3})$/i.test(x)).slice(0, 10),
+    owasp:          (Array.isArray(body.owasp) ? body.owasp : []).filter((x: unknown) => typeof x === 'string' && /^A\d{2}:20\d{2}/.test(x)).map((x: string) => x.slice(0, 80)).slice(0, 3),
     evidence: {
       filePath:   body.evidence?.filePath   || null,
       lineNumber: body.evidence?.lineNumber || null,
-      snippet:    body.evidence?.snippet?.slice(0, 500) || null,
+      snippet:    body.evidence?.snippet ? redact(body.evidence.snippet, 500) : null,
       ruleId:     body.evidence?.ruleId     || null,
       cvssScore:  body.evidence?.cvssScore  || null,
       commitSha:  body.evidence?.commitSha  || null,
@@ -227,8 +251,9 @@ Write a clear, jargon-free explanation with exactly these four sections. Keep ea
 **Should you approve?**
 [Give a clear recommendation — approve confidently, approve with caution, or investigate further first — and why]`;
 
+    if (!process.env.ANTHROPIC_API_KEY) return '';
     const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
+      method: 'POST', signal: AbortSignal.timeout(20_000),
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY || '',
@@ -261,6 +286,7 @@ Write a clear, jargon-free explanation with exactly these four sections. Keep ea
 export async function needsFreshApproval(db: ReturnType<typeof getFirestore>, findingDocId: string, known: Record<string, any>): Promise<boolean> {
   if ((known.riskScore ?? 0) < 40) return false;
   if (!['approval_pending', 'triaged'].includes(String(known.status))) return false;      // executing / remediation_pending are being handled
+  if (typeof known.proposalRejectedAt === 'number' && Date.now() - known.proposalRejectedAt < 30 * 24 * 3_600_000) return false;   // a person declined the last proposal
   const pending = await db.collection('approval_requests').where('findingId', '==', findingDocId).where('status', '==', 'pending').limit(1).get();
   return pending.empty;
 }
@@ -340,6 +366,121 @@ async function createRemediationPlan(
   return { planId: planRef.id, approvalId: approvalRef.id };
 }
 
+// ── Ingest (the handler's work, testable without HTTP) ────────────────────────
+export interface IngestDeps { db: ReturnType<typeof getFirestore>; now: number; env: Record<string, string | undefined>; alert(subject: string, text: string): Promise<boolean> }
+/**
+ * Records a finding from a sensor or a person. Deduplicates (same title, sensor, repository and file), caps the severity at the
+ * scanner's own rating, reopens a fixed finding that comes back, and proposes a fix (an approval request) for medium and above,
+ * unless the admin-set autonomy policy is "observe". Only an admin changes that policy; this route only reads it.
+ */
+export async function ingest(d: IngestDeps, body: any): Promise<{ status: number; body: Record<string, unknown> }> {
+  const db = d.db;
+  const policy = (await db.collection('security_policy').doc('autonomy').get()).data();
+  const proposes = (policy?.mode ?? 'propose') !== 'observe';
+  const partial = normaliseIncomingFinding(body);
+
+  // Deduplicate — skip the compound query, use simple title match instead
+  const recent = await db.collection('security_findings')
+    .where('title',  '==', partial.title)
+    .where('sensor', '==', partial.sensor)
+    .limit(25)
+    .get();
+
+  // Same title is not enough: the same problem in two repositories, or two files, is two findings.
+  const openDupe = recent.docs.find(d => isSameFinding(d.data(), partial));
+
+  if (openDupe) {
+    const recapped = await recapReported(db, openDupe.id, openDupe.data(), body?.severity);
+    const known = { ...openDupe.data(), ...recapped };
+    // lastReportedAt is what the daily sweep uses to decide a merged fix really worked (no longer reported since the merge).
+    const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp(), lastReportedAt: FieldValue.serverTimestamp(), ...recapped };
+    if (proposes && await needsFreshApproval(db, openDupe.id, known)) {
+      const fresh = await createRemediationPlan(db, openDupe.id, partial, known.riskScore ?? 0, known.severity ?? 'medium');
+      update.remediationPlanId = fresh.planId; update.status = 'approval_pending';
+    }
+    if (shouldAlert(known.riskScore ?? 0, known.lastAlertedAt, d.now)
+      && await d.alert(`🔴 Security (still open, seen again): ${partial.title}`, `${known.findingId} is still unresolved and was reported again.\nSeverity: ${known.severity} (risk ${known.riskScore}/100)\nRepo: ${partial.repo}\n\n${partial.description}\n\nReview it in the ops console: https://ops.bewatu.com`)) {
+      update.lastAlertedAt = d.now;
+    }
+    await openDupe.ref.update(update);
+    return { status: 200, body: { id: openDupe.id, deduplicated: true } };
+  }
+
+  // Already known and closed. A false positive or an accepted risk (until it expires) stays closed: noted, not re-created.
+  // A finding verified as fixed that comes back is REOPENED, so its history stays in one place.
+  const closedMatch = recent.docs.find(x => ['verified', 'false_positive', 'accepted_risk'].includes(x.data().status)
+    && (x.data().repo ?? 'shared') === (partial.repo ?? 'shared') && (x.data().evidence?.filePath ?? null) === (partial.evidence?.filePath ?? null));
+  if (closedMatch && closedMatch.data().status !== 'verified') {
+    await closedMatch.ref.update({ lastReportedAt: FieldValue.serverTimestamp(), reportedWhileClosed: FieldValue.increment(1) });
+    return { status: 200, body: { id: closedMatch.id, deduplicated: true, closedAs: closedMatch.data().status } };
+  }
+  if (closedMatch) {
+    const known = closedMatch.data();
+    const { riskScore: rs, severity: sev } = capSeverity(scoreRisk(partial), body?.severity);
+    const reopened: Record<string, unknown> = { status: rs >= 40 && proposes ? 'approval_pending' : 'triaged', riskScore: rs, severity: sev, reopenCount: FieldValue.increment(1), reopenedAt: FieldValue.serverTimestamp(),
+      reopenReason: 'reported again after it was verified fixed', closedAt: FieldValue.delete(), resolvedAt: FieldValue.delete(), prMerged: FieldValue.delete(), lastReportedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
+    if (rs >= 40 && proposes) reopened.remediationPlanId = (await createRemediationPlan(db, closedMatch.id, partial, rs, sev)).planId;
+    await closedMatch.ref.update(reopened);
+    await db.collection('audit_log').add({ action: 'security_finding_reopened', findingId: closedMatch.id, reason: 'reported again after it was verified fixed', by: 'finding-ingest', timestamp: FieldValue.serverTimestamp() });
+    await d.alert(`↩️ Security finding came back: ${partial.title}`, `${known.findingId} was verified as fixed, and the ${partial.sensor} sensor reported it again in ${partial.repo}${partial.evidence?.filePath ? ` (${partial.evidence.filePath})` : ''}. It has been reopened.\n\nOps console: https://ops.bewatu.com (Security)`);
+    return { status: 200, body: { id: closedMatch.id, reopened: true } };
+  }
+
+  // Score inline
+  const { riskScore, severity } = capSeverity(scoreRisk(partial), body?.severity);
+
+  const seq  = await db.runTransaction(async t => {
+    const counter = db.collection('security_config').doc('counters');
+    const doc = await t.get(counter);
+    const current = doc.data()?.findingSeq || 0;
+    t.set(counter, { findingSeq: current + 1 }, { merge: true });
+    return current + 1;
+  });
+
+  const year      = new Date().getFullYear();
+  const findingId = `BW-SEC-${year}-${String(seq).padStart(4, '0')}`;
+  const docRef    = db.collection('security_findings').doc();
+
+  const finding = {
+    id:               docRef.id,
+    findingId,
+    ...partial,
+    riskScore,
+    severity,
+    exploitability:   0,
+    exposure:         0.7,
+    blastRadius:      0.5,
+    dataSensitivity:  0.7,
+    assetCriticality: 0.5,
+    status:           riskScore >= 40 && proposes ? 'approval_pending' : 'triaged',
+    detectedAt:       FieldValue.serverTimestamp(),
+    lastReportedAt:   FieldValue.serverTimestamp(),
+    updatedAt:        FieldValue.serverTimestamp(),
+  };
+
+  await docRef.set(finding);
+
+  // Create remediation plan for medium and above
+  let planId: string | null = null;
+  let approvalId: string | null = null;
+
+  if (riskScore >= 40 && proposes) {
+    const result = await createRemediationPlan(db, docRef.id, partial, riskScore, severity);
+    planId     = result.planId;
+    approvalId = result.approvalId;
+
+    await docRef.update({ remediationPlanId: planId });
+  }
+
+  // A person must hear about anything serious. Best effort: a mail failure must never lose the finding.
+  if (shouldAlert(riskScore, null, d.now)
+    && await d.alert(`🔴 Security ${severity.toUpperCase()}: ${partial.title}`, `${findingId} (${severity}, risk ${riskScore}/100)\nSensor: ${partial.sensor}\nRepo: ${partial.repo}${partial.evidence?.filePath ? `\nFile: ${partial.evidence.filePath}` : ''}\n\n${partial.description}\n\n${approvalId ? 'A remediation is waiting for approval' : 'No automatic remediation was proposed'} in the ops console: https://ops.bewatu.com`)) {
+    await docRef.update({ lastAlertedAt: d.now }).catch(() => {});
+  }
+
+  return { status: 201, body: { id: docRef.id, findingId, riskScore, severity, planId, approvalId } };
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -365,90 +506,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const partial = normaliseIncomingFinding(req.body);
-
-    // Deduplicate — skip the compound query, use simple title match instead
-    const recent = await db.collection('security_findings')
-      .where('title',  '==', partial.title)
-      .where('sensor', '==', partial.sensor)
-      .limit(25)
-      .get();
-
-    // Same title is not enough: the same problem in two repositories, or two files, is two findings.
-    const openDupe = recent.docs.find(d => isSameFinding(d.data(), partial));
-
-    if (openDupe) {
-      const recapped = await recapReported(db, openDupe.id, openDupe.data(), req.body?.severity);
-      const known = { ...openDupe.data(), ...recapped };
-      // lastReportedAt is what the daily sweep uses to decide a merged fix really worked (no longer reported since the merge).
-      const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp(), lastReportedAt: FieldValue.serverTimestamp(), ...recapped };
-      if (await needsFreshApproval(db, openDupe.id, known)) {
-        const fresh = await createRemediationPlan(db, openDupe.id, partial, known.riskScore ?? 0, known.severity ?? 'medium');
-        update.remediationPlanId = fresh.planId; update.status = 'approval_pending';
-      }
-      if (shouldAlert(known.riskScore ?? 0, known.lastAlertedAt, Date.now())
-        && await alertOps(`🔴 Security (still open, seen again): ${partial.title}`, `${known.findingId} is still unresolved and was reported again.\nSeverity: ${known.severity} (risk ${known.riskScore}/100)\nRepo: ${partial.repo}\n\n${partial.description}\n\nReview it in the ops console: https://ops.bewatu.com`)) {
-        update.lastAlertedAt = Date.now();
-      }
-      await openDupe.ref.update(update);
-      return res.status(200).json({ id: openDupe.id, deduplicated: true });
-    }
-
-    // Score inline
-    const { riskScore, severity } = capSeverity(scoreRisk(partial), req.body?.severity);
-
-    const seq  = await db.runTransaction(async t => {
-      const counter = db.collection('security_config').doc('counters');
-      const doc = await t.get(counter);
-      const current = doc.data()?.findingSeq || 0;
-      t.set(counter, { findingSeq: current + 1 }, { merge: true });
-      return current + 1;
-    });
-
-    const year      = new Date().getFullYear();
-    const findingId = `BW-SEC-${year}-${String(seq).padStart(4, '0')}`;
-    const docRef    = db.collection('security_findings').doc();
-
-    const finding = {
-      id:               docRef.id,
-      findingId,
-      ...partial,
-      riskScore,
-      severity,
-      exploitability:   0,
-      exposure:         0.7,
-      blastRadius:      0.5,
-      dataSensitivity:  0.7,
-      assetCriticality: 0.5,
-      status:           riskScore >= 40 ? 'approval_pending' : 'triaged',
-      detectedAt:       FieldValue.serverTimestamp(),
-      lastReportedAt:   FieldValue.serverTimestamp(),
-      updatedAt:        FieldValue.serverTimestamp(),
-    };
-
-    await docRef.set(finding);
-
-    // Create remediation plan for medium and above
-    let planId: string | null = null;
-    let approvalId: string | null = null;
-
-    if (riskScore >= 40) {
-      const result = await createRemediationPlan(db, docRef.id, partial, riskScore, severity);
-      planId     = result.planId;
-      approvalId = result.approvalId;
-
-      await docRef.update({ remediationPlanId: planId });
-    }
-
-    // A person must hear about anything serious. Best effort: a mail failure must never lose the finding.
-    if (shouldAlert(riskScore, null, Date.now())
-      && await alertOps(`🔴 Security ${severity.toUpperCase()}: ${partial.title}`, `${findingId} (${severity}, risk ${riskScore}/100)\nSensor: ${partial.sensor}\nRepo: ${partial.repo}${partial.evidence?.filePath ? `\nFile: ${partial.evidence.filePath}` : ''}\n\n${partial.description}\n\n${approvalId ? 'A remediation is waiting for approval' : 'No automatic remediation was proposed'} in the ops console: https://ops.bewatu.com`)) {
-      await docRef.update({ lastAlertedAt: Date.now() }).catch(() => {});
-    }
-
-    return res.status(201).json({
-      id: docRef.id, findingId, riskScore, severity, planId, approvalId,
-    });
+    const out = await ingest({ db, now: Date.now(), env: process.env, alert: alertOps }, req.body);
+    return res.status(out.status).json(out.body);
 
   } catch (err: any) {
     console.error('finding.ts error:', err);

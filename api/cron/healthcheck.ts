@@ -168,7 +168,32 @@ async function watchDeletions(d: Deps): Promise<Probe | null> {
   if (!samples.length) return { name, url: 'firestore.googleapis.com', ok: true, detail: `baseline recorded for ${Object.keys(current).length} collections` };
   if (!drops.length) return { name, url: 'firestore.googleapis.com', ok: true, detail: `no unusual drop in ${Object.keys(current).length} collections${unreadable.length ? ` (${unreadable.length} not readable)` : ''}` };
   const top = drops.slice(0, 5).map(x => `${x.collection}: ${x.from} -> ${x.to} (-${x.drop}) within ${x.window}`).join('; ');
+  await recordDeletionEvent(d, drops, top);
   return { name, url: 'firestore.googleapis.com', ok: false, detail: `Documents disappeared: ${top}. If someone did this on purpose (a purge, an account clean-up) it clears by itself once the window passes. If not, treat it as an incident: see the mass-deletion playbook.` };
+}
+
+/**
+ * The drop also becomes a threat event in the Security Center (once per 30 minutes, not every 5), and a large one (a fifth of a
+ * collection or more) opens an incident straight away.
+ */
+async function recordDeletionEvent(d: Deps, drops: Drop[], top: string) {
+  try {
+    const ref = d.db!.collection(STATE.collection).doc('collection_counts');
+    const last = (await ref.get()).data()?.eventAt;
+    if (typeof last === 'number' && d.now - last < 30 * MIN) return;
+    const critical = drops.some(x => x.from > 0 && x.drop / x.from >= 0.2);
+    const ev = d.db!.collection('security_events').doc();
+    await ev.set({ type: 'MASS_DELETION', severity: critical ? 'critical' : 'high', summary: `Documents disappeared: ${top}`, source: 'uptime monitor (collection counts)', payload: { drops: drops.slice(0, 10) }, blocked: false, processed: false, timestamp: FieldValue.serverTimestamp() });
+    await ref.set({ eventAt: d.now }, { merge: true });
+    if (!critical) return;
+    const key = `monitor:MASS_DELETION:${new Date(d.now).toISOString().slice(0, 10)}`;
+    const open = await d.db!.collection('security_incidents').where('key', '==', key).limit(1).get();
+    const entry = { at: d.now, by: 'uptime monitor', kind: 'signal', note: `Documents disappeared: ${top}` };
+    if (!open.empty && open.docs[0].data().status !== 'resolved') { await open.docs[0].ref.update({ eventIds: FieldValue.arrayUnion(ev.id), timeline: FieldValue.arrayUnion(entry) }); await ev.update({ incidentId: open.docs[0].id }); return; }
+    const inc = d.db!.collection('security_incidents').doc();
+    await inc.set({ key, title: 'Mass deletion detected', summary: `Documents disappeared: ${top}`, severity: 'critical', status: 'open', affected: drops.map(x => x.collection), eventIds: [ev.id], openedAt: d.now, openedBy: 'uptime monitor', firstSignalAt: d.now, containment: [], timeline: [{ ...entry, kind: 'opened' }] });
+    await ev.update({ incidentId: inc.id });
+  } catch (e) { console.error('healthcheck: cannot record the deletion event:', (e as Error)?.message); }
 }
 
 // ── event: who has privileged access changed ─────────────────────────────────
@@ -199,7 +224,10 @@ async function watchPrivileged(d: Deps): Promise<void> {
     const lines = diffStaff(prev, cur);
     if (!lines.length) return;
     const sent = await d.send(`🔐 BeWatu privileged access changed (${lines.length})`, `Ops staff access changed in the last few minutes:\n\n${lines.map(l => `- ${l}`).join('\n')}\n\nIf you did not do this, treat it as an incident: remove the access and rotate credentials. See the secret-leak playbook.`);
-    if (sent) await ref.set({ staff: cur, at: d.now });                                      // an unsent notice is retried at the next run
+    if (sent) {
+      await ref.set({ staff: cur, at: d.now });                                              // an unsent notice is retried at the next run
+      await d.db.collection('security_events').add({ type: 'PRIVILEGED_ACCESS_CHANGE', severity: lines.some(l => /platform_admin/.test(l)) ? 'high' : 'medium', summary: lines.slice(0, 5).join('; '), source: 'uptime monitor (ops staff)', payload: { changes: lines.slice(0, 20) }, blocked: false, processed: false, timestamp: FieldValue.serverTimestamp() });
+    }
   } catch (e) { console.error('healthcheck: privileged-access watch failed:', (e as Error)?.message); }
 }
 
@@ -207,6 +235,7 @@ async function watchPrivileged(d: Deps): Promise<void> {
 export const WATCHED_CRONS: { name: string; label: string; maxAgeMs: number }[] = [
   { name: 'invitations', label: 'invitations daily job', maxAgeMs: 26 * HOUR },
   { name: 'security_sweep', label: 'security sweep', maxAgeMs: 26 * HOUR },
+  { name: 'security_posture', label: 'security posture job', maxAgeMs: 26 * HOUR },
 ];
 async function cronProbes(d: Deps, state: Record<string, any>, updates: Record<string, unknown>): Promise<Probe[]> {
   if (!d.db) return [];

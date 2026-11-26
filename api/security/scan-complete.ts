@@ -76,9 +76,13 @@ export async function reconcile(d: Deps, body: any): Promise<{ open: number; clo
   const executing = open.filter(s => s.data().status === 'executing');
   const gone = open.filter(s => s.data().status !== 'executing' && !present.has(key(s.data().title, s.data().evidence?.filePath ?? null)));
 
+  // What the Security Center shows as this scanner's freshness for this repository (and what an admin confirms after a brake).
+  const stateRef = d.db.collection('_ops_internal').doc('scan_state'), stateKey = `${sensor}:${repo}`;
   if (gone.length >= BRAKE.minCount && gone.length > open.length * BRAKE.maxShare) {
+    await stateRef.set({ [stateKey]: { lastCompleteAt: d.now, present: body.present.length, refused: { gone: gone.length, open: open.length, at: d.now },
+      pendingClose: { ids: gone.map(s => s.id), open: open.length, at: d.now } } }, { merge: true });
     await d.alert(`⚠️ Security scan wanted to close ${gone.length} of ${open.length} open findings: refused`,
-      `A ${sensor} scan of ${repo} (main) reported that ${gone.length} of ${open.length} open findings are gone. That is more than the safety brake allows in one go, so nothing was closed.\n\nIf you really did fix them all, close them in the ops console. If not, the scanner may have failed and reported nothing: check the latest "Security scan" run of ${repo}.`);
+      `A ${sensor} scan of ${repo} (main) reported that ${gone.length} of ${open.length} open findings are gone. That is more than the safety brake allows in one go, so nothing was closed.\n\nIf you really did fix them all, confirm it in the ops console (Security, Remediation: "Confirm closure"); that re-checks each one. If not, the scanner may have failed and reported nothing: check the latest "Security scan" run of ${repo}.`);
     throw new HttpError(409, `Refused: ${gone.length} of ${open.length} open findings would be closed at once (safety brake)`);
   }
 
@@ -90,6 +94,7 @@ export async function reconcile(d: Deps, body: any): Promise<{ open: number; clo
     if (x.remediationPlanId) await d.db.collection('remediation_plans').doc(String(x.remediationPlanId)).update({ status: 'superseded' }).catch(() => {});
     await d.db.collection('audit_log').add({ action: 'security_finding_resolved_by_scan', findingId: f.id, sensor, repo, title: x.title ?? null, timestamp: FieldValue.serverTimestamp() });
   }
+  await stateRef.set({ [stateKey]: { lastCompleteAt: d.now, present: body.present.length, closed: gone.length, refused: FieldValue.delete(), pendingClose: FieldValue.delete() } }, { merge: true });
   return { open: open.length, closed: gone.length, kept: open.length - gone.length - executing.length, skippedExecuting: executing.length };
 }
 
