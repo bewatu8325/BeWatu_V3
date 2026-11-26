@@ -1067,7 +1067,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (!h.startsWith('Bearer ')) return res.status(401).json({ error: 'Sign in again' });
     let decoded: { uid: string; email?: string; auth_time?: number };
-    try { decoded = await getAuth().verifyIdToken(h.slice(7), true); } catch { return res.status(401).json({ error: 'Sign in again' }); }
+    // No revocation lookup (checkRevoked): it needs the Firebase Auth admin API, and this route's identity is Firestore-only by
+    // design. Same as every other route; access is still checked against the live ops_staff record below on every request.
+    try { decoded = await getAuth().verifyIdToken(h.slice(7)); } catch (e: any) { console.error('security center: token rejected:', e?.code ?? e?.message); return res.status(401).json({ error: 'Sign in again' }); }
     const actor = await actorFrom(db, decoded);
     if (!actor) return res.status(403).json({ error: 'The Security Center is for platform admins, cyber agents and auditors' });
     const now = Date.now();

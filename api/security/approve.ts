@@ -399,7 +399,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const h = req.headers.authorization;
     let actor: Actor | null = null;
     if (h?.startsWith('Bearer ') && req.body?.agent === true) actor = safeEqual(h.slice(7), process.env.BEWATU_SECURITY_TOKEN) ? { ...AGENT, agent: true } : null;
-    else if (h?.startsWith('Bearer ')) { try { const t = await auth.verifyIdToken(h.slice(7), true); const a = await authorizeActor(db, t.uid, t.email); actor = a && { ...a, authTime: typeof t.auth_time === 'number' ? t.auth_time : null }; } catch { actor = null; } }
+    else if (h?.startsWith('Bearer ')) { try { const t = await auth.verifyIdToken(h.slice(7)); const a = await authorizeActor(db, t.uid, t.email); actor = a && { ...a, authTime: typeof t.auth_time === 'number' ? t.auth_time : null }; } catch (e: any) { console.error('approve: token rejected:', e?.code ?? e?.message); actor = null; } }
     if (!actor) return res.status(403).json({ error: 'Platform admin access required' });
     const token = process.env.GITHUB_TOKEN;
     if (!token) return res.status(500).json({ error: 'GITHUB_TOKEN is not set, so no pull request or issue can be created' });
