@@ -132,9 +132,9 @@ await t('every GitHub Action in every workflow is pinned to a full commit SHA (w
   assert(!bad.length, 'unpinned: ' + bad.join(', '));
 });
 await t('Dependabot waits a week before proposing a new release', () => { assert(/cooldown:\s*\n\s*default-days:\s*7/.test(readFileSync(ROOT + '.github/dependabot.yml', 'utf8')), 'no cooldown'); });
-await t('the scan step closes findings only for a completed scan of main, through the endpoint with the brake', () => {
+await t('the scan step closes findings only for a completed scan of main, through the endpoint with the brake; a nosemgrep result counts as gone', () => {
   const wf = readFileSync(ROOT + '.github/workflows/security.yml', 'utf8');
-  assert(wf.includes("IS_MAIN_SCAN: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}") && wf.includes('executionSuccessful') && wf.includes('/api/security/scan-complete') && wf.includes('truncated: present.length > 2000'), 'scan step');
+  assert(wf.includes("IS_MAIN_SCAN: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}") && wf.includes('executionSuccessful') && wf.includes('/api/security/scan-complete') && wf.includes('truncated: present.length > 2000') && wf.includes('.filter(r => !(r.suppressions && r.suppressions.length))'), 'scan step');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);
